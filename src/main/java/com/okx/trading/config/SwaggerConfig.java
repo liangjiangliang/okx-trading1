@@ -2,6 +2,7 @@ package com.okx.trading.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.PathSelectors;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -9,9 +10,13 @@ import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger.web.SwaggerResource;
+import springfox.documentation.swagger.web.SwaggerResourcesProvider;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Swagger配置类
@@ -52,16 +57,30 @@ public class SwaggerConfig {
                 .version("1.0.0")
                 .build();
     }
-    
-    /**
-     * 配置Swagger UI的资源处理器
-     * 确保中文正常显示
-     */
+
+//    /**
+//     * 配置Swagger UI的资源处理器
+//     * 确保中文正常显示
+//     */
+//    @Bean
+//    public SwaggerResourcesProcessor swaggerResourcesProcessor() {
+//        return new SwaggerResourcesProcessor();
+//    }
+
     @Bean
-    public SwaggerResourcesProcessor swaggerResourcesProcessor() {
-        return new SwaggerResourcesProcessor();
+    @Primary  // 让 Spring 选择这个 Bean
+    public SwaggerResourcesProvider swaggerResourcesProcessor() {
+        return () -> {
+            List<SwaggerResource> resources = new ArrayList<>();
+            SwaggerResource swaggerResource = new SwaggerResource();
+            swaggerResource.setName("API Docs");
+            swaggerResource.setLocation("/v2/api-docs");
+            swaggerResource.setSwaggerVersion("2.0");
+            resources.add(swaggerResource);
+            return resources;
+        };
     }
-    
+
     /**
      * Swagger资源处理器内部类
      * 用于处理Swagger UI中的中文显示问题
@@ -74,9 +93,9 @@ public class SwaggerConfig {
             resource.setName("default");
             resource.setUrl("/v2/api-docs");
             resource.setSwaggerVersion("2.0");
-            
+
             // 返回资源列表
             return java.util.Collections.singletonList(resource);
         }
     }
-} 
+}

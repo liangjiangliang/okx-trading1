@@ -35,7 +35,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleOkxApiException(OkxApiException e) {
         // 确保异常信息使用UTF-8编码
-        String message = new String(e.getMessage().getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        String message = new String(e.getMessage().getBytes(StandardCharsets.UTF_8));
         log.error("OKX API调用异常: {}", message, e);
         return ApiResponse.error(e.getCode(), message);
     }
@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
         String errorMessage = fieldErrors.stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        
+
         log.error("参数校验失败: {}", errorMessage);
         return ApiResponse.error(400, errorMessage);
     }
@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
         String errorMessage = fieldErrors.stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        
+
         log.error("参数绑定失败: {}", errorMessage);
         return ApiResponse.error(400, errorMessage);
     }
@@ -122,4 +122,4 @@ public class GlobalExceptionHandler {
         log.error("系统异常: {}", message, e);
         return ApiResponse.error(500, "服务器内部错误: " + message);
     }
-} 
+}

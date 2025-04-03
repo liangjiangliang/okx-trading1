@@ -52,7 +52,7 @@ okx:
     api-key: ${OKX_API_KEY:}
     secret-key: ${OKX_SECRET_KEY:}
     passphrase: ${OKX_PASSPHRASE:}
-    use-mock-data: true # 是否使用模拟数据，true:使用模拟数据，false:调用真实API
+    use-mock-data: false # 是否使用模拟数据，true:使用模拟数据，false:调用真实API
     timeout: 30 # 请求超时时间(秒)
     ws:
       public-channel: wss://ws.okx.com:8443/ws/v5/public

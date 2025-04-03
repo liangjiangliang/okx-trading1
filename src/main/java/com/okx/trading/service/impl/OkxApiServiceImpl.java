@@ -404,6 +404,7 @@ public class OkxApiServiceImpl implements OkxApiService {
     private Order createOrder(OrderRequest orderRequest, String instType, boolean isSimulated) {
         try {
             String url = okxApiConfig.getBaseUrl() + TRADE_PATH + "/order";
+            // 按金额下单,按数量下单,限价单,市价单
 
             JSONObject requestBody = new JSONObject();
             requestBody.put("instId", orderRequest.getSymbol());
@@ -426,9 +427,9 @@ public class OkxApiServiceImpl implements OkxApiService {
             }
 
             // 设置订单有效期
-            if (orderRequest.getTimeInForce() != null) {
-                requestBody.put("tgtCcy", mapToOkxTimeInForce(orderRequest.getTimeInForce()));
-            }
+//            if (orderRequest.getTimeInForce() != null) {
+//                requestBody.put("tgtCcy", mapToOkxTimeInForce(orderRequest.getTimeInForce()));
+//            }
 
             // 设置被动委托
             if (orderRequest.getPostOnly() != null && orderRequest.getPostOnly()) {
@@ -446,7 +447,12 @@ public class OkxApiServiceImpl implements OkxApiService {
             JSONObject jsonResponse = JSON.parseObject(response);
 
             if (!"0".equals(jsonResponse.getString("code"))) {
-                throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
+                JSONArray data = jsonResponse.getJSONArray("data");
+                if(data.size()>0){
+                    JSONObject msg = data.getJSONObject(0);
+                    throw new OkxApiException(msg.getIntValue("sCode"), String.format("创建订单失败: %s", msg.getString("sMsg")));
+                }
+
             }
 
             JSONObject data = jsonResponse.getJSONArray("data").getJSONObject(0);
