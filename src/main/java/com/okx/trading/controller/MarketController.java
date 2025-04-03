@@ -1,1 +1,84 @@
- 
+package com.okx.trading.controller;
+
+import com.okx.trading.model.common.ApiResponse;
+import com.okx.trading.model.market.Candlestick;
+import com.okx.trading.model.market.Ticker;
+import com.okx.trading.service.OkxApiService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
+import java.util.List;
+
+/**
+ * 行情数据控制器
+ * 提供获取K线数据、行情等接口
+ */
+@Api(tags = "行情数据")
+@Slf4j
+@Validated
+@RestController
+@RequestMapping("/market")
+@RequiredArgsConstructor
+public class MarketController {
+
+    private final OkxApiService okxApiService;
+
+    /**
+     * 获取K线数据
+     *
+     * @param symbol   交易对，如BTC-USDT
+     * @param interval K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param limit    获取数据条数，最大为1000
+     * @return K线数据列表
+     */
+    @ApiOperation("获取K线数据")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对，如BTC-USDT", required = true, dataType = "String"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M", required = true, dataType = "String"),
+            @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为1000", dataType = "Integer")
+    })
+    @GetMapping("/klines")
+    public ApiResponse<List<Candlestick>> getKlineData(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+            @RequestParam(required = false) @Min(value = 1, message = "数据条数必须大于0") Integer limit) {
+        
+        log.info("获取K线数据, symbol: {}, interval: {}, limit: {}", symbol, interval, limit);
+        
+        List<Candlestick> candlesticks = okxApiService.getKlineData(symbol, interval, limit);
+        
+        return ApiResponse.success(candlesticks);
+    }
+
+    /**
+     * 获取最新行情数据
+     *
+     * @param symbol 交易对，如BTC-USDT
+     * @return 行情数据
+     */
+    @ApiOperation("获取最新行情")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对，如BTC-USDT", required = true, dataType = "String")
+    })
+    @GetMapping("/ticker")
+    public ApiResponse<Ticker> getTicker(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol) {
+        
+        log.info("获取最新行情, symbol: {}", symbol);
+        
+        Ticker ticker = okxApiService.getTicker(symbol);
+        
+        return ApiResponse.success(ticker);
+    }
+} 

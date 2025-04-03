@@ -9,9 +9,8 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.okx</groupId>
-    <artifactId>trading</artifactId>
+    <artifactId>okx-trading</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>okx-trading</name>
     <description>OKX Trading API Integration</description>
 
     <properties>
@@ -100,6 +99,11 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.15</version> <!-- 请根据需要选择版本 -->
+        </dependency>
 
     </dependencies>
 
@@ -120,4 +124,4 @@
         </plugins>
     </build>
 
-</project> 
+</project>
