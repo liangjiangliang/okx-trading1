@@ -1,9 +1,6 @@
 package com.okx.trading.config;
 
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.filter.CharacterEncodingFilter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -12,23 +9,5 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    
-    /**
-     * 配置字符编码过滤器
-     * 确保所有请求和响应都使用UTF-8编码
-     */
-    @Bean
-    public FilterRegistrationBean<CharacterEncodingFilter> characterEncodingFilter() {
-        FilterRegistrationBean<CharacterEncodingFilter> registrationBean = new FilterRegistrationBean<>();
-        CharacterEncodingFilter characterEncodingFilter = new CharacterEncodingFilter();
-        // 设置编码为UTF-8
-        characterEncodingFilter.setEncoding("UTF-8");
-        // 强制设置请求和响应编码
-        characterEncodingFilter.setForceEncoding(true);
-        registrationBean.setFilter(characterEncodingFilter);
-        // 过滤所有请求
-        registrationBean.addUrlPatterns("/*");
-        registrationBean.setOrder(1);
-        return registrationBean;
-    }
+    // 移除characterEncodingFilter方法，使用Spring Boot的自动配置
 } 

@@ -41,6 +41,9 @@ spring:
       force: true
   messages:
     encoding: UTF-8
+  # 允许Bean定义覆盖
+  main:
+    allow-bean-definition-overriding: true
 
 # OKX API配置
 okx:
