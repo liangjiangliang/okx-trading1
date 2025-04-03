@@ -51,4 +51,4 @@ application-prod.yml
 ### Maven ###
 mvnw
 mvnw.cmd
-.mvn/ 
+.mvn/ !/netstat_output.txt
