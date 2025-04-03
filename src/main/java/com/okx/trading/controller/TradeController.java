@@ -8,6 +8,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -42,9 +43,10 @@ public class TradeController {
      */
     @ApiOperation("获取订单列表")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对，如BTC-USDT", required = true, dataType = "String"),
-            @ApiImplicitParam(name = "status", value = "订单状态", dataType = "String"),
-            @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为100", dataType = "Integer")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "status", value = "订单状态", required = false, dataType = "String", example = "NEW", paramType = "query", 
+                    allowableValues = "NEW,PARTIALLY_FILLED,FILLED,CANCELED,CANCELING", allowMultiple = false),
+            @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为100", required = false, dataType = "Integer", example = "10", paramType = "query")
     })
     @GetMapping("/orders")
     public ApiResponse<List<Order>> getOrders(
@@ -72,7 +74,7 @@ public class TradeController {
             "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @PostMapping("/spot-orders")
-    public ApiResponse<Order> createSpotOrder(@Valid @RequestBody OrderRequest orderRequest) {
+    public ApiResponse<Order> createSpotOrder(@ApiParam(value = "订单请求参数", required = true) @Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建现货订单, request: {}", orderRequest);
         
         Order order = okxApiService.createSpotOrder(orderRequest);
@@ -93,7 +95,7 @@ public class TradeController {
             "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @PostMapping("/futures-orders")
-    public ApiResponse<Order> createFuturesOrder(@Valid @RequestBody OrderRequest orderRequest) {
+    public ApiResponse<Order> createFuturesOrder(@ApiParam(value = "订单请求参数", required = true) @Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建合约订单, request: {}", orderRequest);
         
         Order order = okxApiService.createFuturesOrder(orderRequest);
@@ -110,8 +112,8 @@ public class TradeController {
      */
     @ApiOperation("取消订单")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对，如BTC-USDT", required = true, dataType = "String"),
-            @ApiImplicitParam(name = "orderId", value = "订单ID", required = true, dataType = "String")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "orderId", value = "订单ID", required = true, dataType = "String", example = "123456789", paramType = "query")
     })
     @DeleteMapping("/orders")
     public ApiResponse<Boolean> cancelOrder(

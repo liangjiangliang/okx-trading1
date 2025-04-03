@@ -31,7 +31,7 @@ public class AccountController {
      *
      * @return 账户余额信息
      */
-    @ApiOperation("获取账户余额")
+    @ApiOperation(value = "获取账户余额", notes = "获取用户在交易所的所有资产余额信息，包括可用余额和冻结余额")
     @GetMapping("/balance")
     public ApiResponse<AccountBalance> getAccountBalance() {
         log.info("获取账户余额");
@@ -46,7 +46,7 @@ public class AccountController {
      *
      * @return 模拟账户余额信息
      */
-    @ApiOperation("获取模拟账户余额")
+    @ApiOperation(value = "获取模拟账户余额", notes = "获取用户在模拟环境中的所有资产余额信息，用于测试交易策略")
     @GetMapping("/simulated-balance")
     public ApiResponse<AccountBalance> getSimulatedAccountBalance() {
         log.info("获取模拟账户余额");
