@@ -272,11 +272,44 @@ POST /api/trade/spot-orders
 }
 ```
 
+**请求体示例 (按账户可用余额比例买入):**
+```json
+{
+  "symbol": "BTC-USDT",
+  "type": "LIMIT",
+  "side": "BUY",
+  "price": "26000.00",
+  "buyRatio": "0.5", // 使用账户50%的USDT可用余额购买BTC
+  "timeInForce": "GTC",
+  "postOnly": false,
+  "simulated": false
+}
+```
+
+**请求体示例 (按持仓比例卖出):**
+```json
+{
+  "symbol": "BTC-USDT",
+  "type": "LIMIT",
+  "side": "SELL",
+  "price": "26000.00",
+  "sellRatio": "0.5", // 卖出50%的BTC持仓
+  "timeInForce": "GTC",
+  "postOnly": false,
+  "simulated": false
+}
+```
+
 **请求体说明:**
-- 可以通过指定`quantity`(数量)或`amount`(金额)下单
+- 下单时有四种方式指定交易数量:
+  1. 使用`quantity`参数直接指定数量
+  2. 使用`amount`参数指定金额
+  3. 使用`buyRatio`参数指定购买时使用账户可用余额的比例(0.01-1)
+  4. 使用`sellRatio`参数指定卖出时卖出持仓的比例(0.01-1)
+- 如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio
 - 买入订单时，`amount`表示用于购买的计价货币金额（如USDT）
 - 卖出订单时，`amount`表示要卖出的标的资产数量（如BTC）
-- 如果同时提供`quantity`和`amount`，优先使用`quantity`
+- `buyRatio`仅在买入(BUY)时有效，`sellRatio`仅在卖出(SELL)时有效
 
 **响应示例:**
 ```json
@@ -338,7 +371,70 @@ POST /api/trade/futures-orders
 }
 ```
 
-(响应格式同上)
+**请求体示例 (按账户可用余额比例买入):**
+```json
+{
+  "symbol": "BTC-USDT-SWAP",
+  "type": "LIMIT",
+  "side": "BUY",
+  "price": "26000.00",
+  "buyRatio": "0.3", // 使用账户30%的USDT可用余额购买BTC合约
+  "timeInForce": "GTC",
+  "leverage": 5,
+  "postOnly": false,
+  "simulated": false
+}
+```
+
+**请求体示例 (按持仓比例卖出):**
+```json
+{
+  "symbol": "BTC-USDT-SWAP",
+  "type": "LIMIT",
+  "side": "SELL",
+  "price": "26000.00",
+  "sellRatio": "0.8", // 卖出80%的BTC合约持仓
+  "timeInForce": "GTC",
+  "leverage": 5,
+  "postOnly": false,
+  "simulated": false
+}
+```
+
+**请求体说明:**
+- 下单时有四种方式指定交易数量:
+  1. 使用`quantity`参数直接指定数量
+  2. 使用`amount`参数指定金额
+  3. 使用`buyRatio`参数指定购买时使用账户可用余额的比例(0.01-1)
+  4. 使用`sellRatio`参数指定卖出时卖出持仓的比例(0.01-1)
+- 如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio
+- 买入订单时，`amount`表示用于购买的计价货币金额（如USDT）
+- 卖出订单时，`amount`表示要卖出的标的资产数量（如BTC）
+- `buyRatio`仅在买入(BUY)时有效，`sellRatio`仅在卖出(SELL)时有效
+
+**响应示例:**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "orderId": "123456789",
+    "clientOrderId": "client12345",
+    "symbol": "BTC-USDT-SWAP",
+    "price": "26000.00",
+    "origQty": "0.5000",
+    "executedQty": "0.0000",
+    "cummulativeQuoteQty": "0.0000",
+    "status": "NEW",
+    "type": "LIMIT",
+    "side": "BUY",
+    "timeInForce": "GTC",
+    "createTime": "2023-06-10 09:00:00",
+    "updateTime": "2023-06-10 09:00:00",
+    "simulated": false
+  }
+}
+```
 
 #### 4. 取消订单
 
@@ -389,4 +485,4 @@ okx:
 
 ## 许可证
 
-此项目基于MIT许可证开源。 
+此项目基于MIT许可证开源。

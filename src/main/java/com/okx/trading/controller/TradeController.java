@@ -65,7 +65,12 @@ public class TradeController {
      * @param orderRequest 订单请求参数
      * @return 创建的订单
      */
-    @ApiOperation(value = "创建现货订单", notes = "可通过指定quantity(数量)或amount(金额)下单，如果同时提供两者，优先使用quantity")
+    @ApiOperation(value = "创建现货订单", notes = "有四种下单方式：\n" +
+            "1. 指定quantity(数量)下单\n" +
+            "2. 指定amount(金额)下单\n" +
+            "3. 指定buyRatio(账户可用余额比例)买入，取值范围0.01-1\n" +
+            "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
+            "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @PostMapping("/spot-orders")
     public ApiResponse<Order> createSpotOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建现货订单, request: {}", orderRequest);
@@ -81,7 +86,12 @@ public class TradeController {
      * @param orderRequest 订单请求参数
      * @return 创建的订单
      */
-    @ApiOperation(value = "创建合约订单", notes = "可通过指定quantity(数量)或amount(金额)下单，如果同时提供两者，优先使用quantity")
+    @ApiOperation(value = "创建合约订单", notes = "有四种下单方式：\n" +
+            "1. 指定quantity(数量)下单\n" +
+            "2. 指定amount(金额)下单\n" +
+            "3. 指定buyRatio(账户可用余额比例)买入，取值范围0.01-1\n" +
+            "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
+            "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @PostMapping("/futures-orders")
     public ApiResponse<Order> createFuturesOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建合约订单, request: {}", orderRequest);

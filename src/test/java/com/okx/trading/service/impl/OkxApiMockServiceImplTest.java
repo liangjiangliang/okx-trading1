@@ -185,13 +185,13 @@ class OkxApiMockServiceImplTest {
         orderRequest.setType("LIMIT");
         orderRequest.setSide("BUY");
         orderRequest.setPrice(new BigDecimal("50000"));
-        // 不设置数量和金额
+        // 不设置任何数量相关参数
         
         Exception exception = assertThrows(IllegalArgumentException.class, () -> {
             okxApiService.createSpotOrder(orderRequest);
         });
         
-        assertTrue(exception.getMessage().contains("必须指定数量或金额"));
+        assertTrue(exception.getMessage().contains("必须指定数量、金额或比例"));
     }
 
     @Test
@@ -246,5 +246,119 @@ class OkxApiMockServiceImplTest {
         for (Order order : orders) {
             assertEquals("BTC-USDT", order.getSymbol());
         }
+    }
+
+    @Test
+    void createSpotOrderWithBuyRatio() {
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setSymbol("BTC-USDT");
+        orderRequest.setType("LIMIT");
+        orderRequest.setSide("BUY");
+        orderRequest.setPrice(new BigDecimal("50000"));
+        orderRequest.setBuyRatio(new BigDecimal("0.5")); // 使用50%的USDT余额购买BTC
+        
+        Order order = okxApiService.createSpotOrder(orderRequest);
+        
+        assertNotNull(order);
+        assertEquals(orderRequest.getSymbol(), order.getSymbol());
+        assertEquals(orderRequest.getType(), order.getType());
+        assertEquals(orderRequest.getSide(), order.getSide());
+        assertEquals(orderRequest.getPrice(), order.getPrice());
+        
+        // 验证数量不为零
+        assertTrue(order.getOrigQty().compareTo(BigDecimal.ZERO) > 0);
+        assertEquals("NEW", order.getStatus());
+        
+        // 验证手续费
+        assertNotNull(order.getFee());
+        assertEquals("USDT", order.getFeeCurrency());
+    }
+    
+    @Test
+    void createSpotOrderWithSellRatio() {
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setSymbol("BTC-USDT");
+        orderRequest.setType("LIMIT");
+        orderRequest.setSide("SELL");
+        orderRequest.setPrice(new BigDecimal("50000"));
+        orderRequest.setSellRatio(new BigDecimal("0.5")); // 卖出50%的BTC持仓
+        
+        Order order = okxApiService.createSpotOrder(orderRequest);
+        
+        assertNotNull(order);
+        assertEquals(orderRequest.getSymbol(), order.getSymbol());
+        assertEquals(orderRequest.getType(), order.getType());
+        assertEquals(orderRequest.getSide(), order.getSide());
+        assertEquals(orderRequest.getPrice(), order.getPrice());
+        
+        // 验证数量不为零
+        assertTrue(order.getOrigQty().compareTo(BigDecimal.ZERO) > 0);
+        assertEquals("NEW", order.getStatus());
+        
+        // 验证手续费
+        assertNotNull(order.getFee());
+        assertEquals("USDT", order.getFeeCurrency());
+    }
+    
+    @Test
+    void createFuturesOrderWithBuyRatio() {
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setSymbol("BTC-USDT-SWAP");
+        orderRequest.setType("LIMIT");
+        orderRequest.setSide("BUY");
+        orderRequest.setPrice(new BigDecimal("50000"));
+        orderRequest.setBuyRatio(new BigDecimal("0.3")); // 使用30%的USDT余额购买BTC合约
+        orderRequest.setLeverage(5); // 5倍杠杆
+        
+        Order order = okxApiService.createFuturesOrder(orderRequest);
+        
+        assertNotNull(order);
+        assertEquals(orderRequest.getSymbol(), order.getSymbol());
+        assertEquals(orderRequest.getType(), order.getType());
+        assertEquals(orderRequest.getSide(), order.getSide());
+        assertEquals(orderRequest.getPrice(), order.getPrice());
+        
+        // 验证数量不为零
+        assertTrue(order.getOrigQty().compareTo(BigDecimal.ZERO) > 0);
+        assertEquals("NEW", order.getStatus());
+    }
+    
+    @Test
+    void createFuturesOrderWithSellRatio() {
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setSymbol("BTC-USDT-SWAP");
+        orderRequest.setType("LIMIT");
+        orderRequest.setSide("SELL");
+        orderRequest.setPrice(new BigDecimal("50000"));
+        orderRequest.setSellRatio(new BigDecimal("0.8")); // 卖出80%的BTC合约持仓
+        orderRequest.setLeverage(5); // 5倍杠杆
+        
+        Order order = okxApiService.createFuturesOrder(orderRequest);
+        
+        assertNotNull(order);
+        assertEquals(orderRequest.getSymbol(), order.getSymbol());
+        assertEquals(orderRequest.getType(), order.getType());
+        assertEquals(orderRequest.getSide(), order.getSide());
+        assertEquals(orderRequest.getPrice(), order.getPrice());
+        
+        // 验证数量不为零
+        assertTrue(order.getOrigQty().compareTo(BigDecimal.ZERO) > 0);
+        assertEquals("NEW", order.getStatus());
+    }
+    
+    @Test
+    void createOrderFailsWithInvalidParameters() {
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setSymbol("BTC-USDT");
+        orderRequest.setType("LIMIT");
+        orderRequest.setSide("BUY");
+        orderRequest.setPrice(new BigDecimal("50000"));
+        // 不设置任何数量相关参数
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            okxApiService.createSpotOrder(orderRequest);
+        });
+        
+        assertTrue(exception.getMessage().contains("必须指定数量、金额或比例"));
     }
 } 
