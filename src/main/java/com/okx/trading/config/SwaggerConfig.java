@@ -2,7 +2,6 @@ package com.okx.trading.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.MediaType;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.PathSelectors;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -10,76 +9,74 @@ import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.view.InternalResourceViewResolver;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 
 /**
  * Swagger配置类
- * 用于配置API文档
+ * 提供API文档自动生成功能
  */
 @Configuration
-@EnableWebMvc
-public class SwaggerConfig implements WebMvcConfigurer {
+@EnableSwagger2
+public class SwaggerConfig {
 
     /**
      * 创建API文档配置
      *
-     * @return Docket实例
+     * @return Docket对象
      */
     @Bean
-    public Docket api() {
+    public Docket createRestApi() {
         return new Docket(DocumentationType.SWAGGER_2)
+                .apiInfo(apiInfo())
                 .select()
+                // 指定要扫描的包
                 .apis(RequestHandlerSelectors.basePackage("com.okx.trading.controller"))
                 .paths(PathSelectors.any())
                 .build()
-                .apiInfo(apiInfo())
-                .produces(Collections.singleton(MediaType.APPLICATION_JSON_VALUE))
-                .consumes(Collections.singleton(MediaType.APPLICATION_JSON_VALUE))
-                .useDefaultResponseMessages(false);
+                // 设置字符集为UTF-8，确保中文正常显示
+                .pathMapping("/");
     }
 
     /**
-     * 创建API信息
+     * API文档基本信息
      *
-     * @return ApiInfo实例
+     * @return API信息对象
      */
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
                 .title("OKX Trading API")
-                .description("OKX交易所API接口调用服务")
+                .description("OKX交易平台API接口文档")
+                .contact(new Contact("开发团队", "https://github.com/ralph-wren", "ralph_jungle@163.com"))
                 .version("1.0.0")
-                .contact(new Contact("Dev Team", "https://github.com/ralph-wren", "ralph_jungle@163.com"))
                 .build();
     }
     
     /**
-     * 配置视图解析器
-     * 解决SpringFox与Spring Boot 2.7.x的兼容性问题
-     *
-     * @return InternalResourceViewResolver实例
+     * 配置Swagger UI的资源处理器
+     * 确保中文正常显示
      */
     @Bean
-    public InternalResourceViewResolver defaultViewResolver() {
-        InternalResourceViewResolver viewResolver = new InternalResourceViewResolver();
-        viewResolver.setContentType("text/html;charset=UTF-8");
-        return viewResolver;
+    public SwaggerResourcesProcessor swaggerResourcesProcessor() {
+        return new SwaggerResourcesProcessor();
     }
     
     /**
-     * 配置静态资源处理
-     * 确保Swagger UI静态资源能够被正确加载
+     * Swagger资源处理器内部类
+     * 用于处理Swagger UI中的中文显示问题
      */
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("swagger-ui.html")
-                .addResourceLocations("classpath:/META-INF/resources/");
-        registry.addResourceHandler("/webjars/**")
-                .addResourceLocations("classpath:/META-INF/resources/webjars/");
+    public static class SwaggerResourcesProcessor implements springfox.documentation.swagger.web.SwaggerResourcesProvider {
+        @Override
+        public java.util.List<springfox.documentation.swagger.web.SwaggerResource> get() {
+            // 创建一个默认的资源列表
+            springfox.documentation.swagger.web.SwaggerResource resource = new springfox.documentation.swagger.web.SwaggerResource();
+            resource.setName("default");
+            resource.setUrl("/v2/api-docs");
+            resource.setSwaggerVersion("2.0");
+            
+            // 返回资源列表
+            return java.util.Collections.singletonList(resource);
+        }
     }
 } 

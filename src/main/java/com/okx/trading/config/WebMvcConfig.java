@@ -3,9 +3,11 @@ package com.okx.trading.config;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.support.config.FastJsonConfig;
 import com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.charset.StandardCharsets;
@@ -53,9 +55,23 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 MediaType.APPLICATION_JSON.getSubtype(),
                 StandardCharsets.UTF_8));
         mediaTypeList.add(MediaType.TEXT_HTML);
+        mediaTypeList.add(MediaType.TEXT_PLAIN);
         converter.setSupportedMediaTypes(mediaTypeList);
         
         // 添加到转换器列表
         converters.add(0, converter);
+        
+        // 添加字符串消息转换器，解决响应String类型乱码问题
+        StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
+        converters.add(0, stringConverter);
+    }
+    
+    /**
+     * 配置字符串消息转换器
+     * 解决String类型返回值的中文乱码问题
+     */
+    @Bean
+    public StringHttpMessageConverter stringHttpMessageConverter() {
+        return new StringHttpMessageConverter(StandardCharsets.UTF_8);
     }
 } 
