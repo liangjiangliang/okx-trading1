@@ -9,12 +9,15 @@ import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
 /**
- * Swagger配置类
+ *  
  * 用于配置API文档
  */
 @Configuration
+@EnableWebMvc
 public class SwaggerConfig {
 
     /**
@@ -44,5 +47,16 @@ public class SwaggerConfig {
                 .version("1.0.0")
                 .contact(new Contact("Dev Team", "https://github.com/ralph-wren", "ralph_jungle@163.com"))
                 .build();
+    }
+    
+    /**
+     * 配置视图解析器
+     * 解决SpringFox与Spring Boot 2.7.x的兼容性问题
+     *
+     * @return InternalResourceViewResolver实例
+     */
+    @Bean
+    public InternalResourceViewResolver defaultViewResolver() {
+        return new InternalResourceViewResolver();
     }
 } 

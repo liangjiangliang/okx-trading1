@@ -7,8 +7,8 @@ spring:
   # 数据库配置
   datasource:
     url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: ${MYSQL_USERNAME}
-    password: ${MYSQL_PASSWORD}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:Password123?}
     driver-class-name: com.mysql.cj.jdbc.Driver
   # JPA配置
   jpa:
@@ -25,6 +25,10 @@ spring:
     port: 6379
     database: 0
     timeout: 10000
+  # SpringFox兼容配置 - 解决与Spring Boot 2.7.x的兼容性问题
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
 
 # OKX API配置
 okx:
@@ -33,7 +37,7 @@ okx:
     api-key: ${OKX_API_KEY:}
     secret-key: ${OKX_SECRET_KEY:}
     passphrase: ${OKX_PASSPHRASE:}
-    use-mock-data: false # 是否使用模拟数据，true:使用模拟数据，false:调用真实API
+    use-mock-data: true # 是否使用模拟数据，true:使用模拟数据，false:调用真实API
     timeout: 30 # 请求超时时间(秒)
     ws:
       public-channel: wss://ws.okx.com:8443/ws/v5/public
