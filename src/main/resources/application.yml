@@ -1,0 +1,58 @@
+server:
+  port: 8088
+  servlet:
+    context-path: /api
+
+spring:
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: Password123?
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  # Redis配置
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 10000
+    
+# OKX API配置
+okx:
+  api:
+    base-url: https://www.okx.com
+    api-key: ${OKX_API_KEY:}
+    secret-key: ${OKX_SECRET_KEY:}
+    passphrase: ${OKX_PASSPHRASE:}
+    use-mock-data: false # 是否使用模拟数据，true:使用模拟数据，false:调用真实API
+    timeout: 30 # 请求超时时间(秒)
+    ws:
+      public-channel: wss://ws.okx.com:8443/ws/v5/public
+      private-channel: wss://ws.okx.com:8443/ws/v5/private
+  proxy:
+    enabled: true # 是否启用代理
+    host: localhost
+    port: 10809
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.okx.trading: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Swagger配置
+springfox:
+  documentation:
+    swagger-ui:
+      enabled: true 
