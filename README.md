@@ -244,7 +244,7 @@ GET /api/trade/orders?symbol={symbol}&status={status}&limit={limit}
 POST /api/trade/spot-orders
 ```
 
-**请求体示例:**
+**请求体示例 (按数量下单):**
 ```json
 {
   "symbol": "BTC-USDT",
@@ -257,6 +257,26 @@ POST /api/trade/spot-orders
   "simulated": false
 }
 ```
+
+**请求体示例 (按金额下单):**
+```json
+{
+  "symbol": "BTC-USDT",
+  "type": "LIMIT",
+  "side": "BUY",
+  "price": "26000.00",
+  "amount": "13000.00", // 使用13000USDT购买BTC
+  "timeInForce": "GTC",
+  "postOnly": false,
+  "simulated": false
+}
+```
+
+**请求体说明:**
+- 可以通过指定`quantity`(数量)或`amount`(金额)下单
+- 买入订单时，`amount`表示用于购买的计价货币金额（如USDT）
+- 卖出订单时，`amount`表示要卖出的标的资产数量（如BTC）
+- 如果同时提供`quantity`和`amount`，优先使用`quantity`
 
 **响应示例:**
 ```json
@@ -288,7 +308,7 @@ POST /api/trade/spot-orders
 POST /api/trade/futures-orders
 ```
 
-**请求体示例:**
+**请求体示例 (按数量下单):**
 ```json
 {
   "symbol": "BTC-USDT-SWAP",
@@ -296,6 +316,21 @@ POST /api/trade/futures-orders
   "side": "BUY",
   "price": "26000.00",
   "quantity": "0.5000",
+  "timeInForce": "GTC",
+  "leverage": 5,
+  "postOnly": false,
+  "simulated": false
+}
+```
+
+**请求体示例 (按金额下单):**
+```json
+{
+  "symbol": "BTC-USDT-SWAP",
+  "type": "LIMIT",
+  "side": "BUY",
+  "price": "26000.00",
+  "amount": "13000.00", // 使用13000USDT购买BTC合约
   "timeInForce": "GTC",
   "leverage": 5,
   "postOnly": false,

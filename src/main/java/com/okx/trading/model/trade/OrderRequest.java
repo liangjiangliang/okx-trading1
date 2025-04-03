@@ -48,11 +48,19 @@ public class OrderRequest {
     private BigDecimal price;
     
     /**
-     * 数量
+     * 数量，与金额二选一
+     * 如果同时提供数量和金额，则优先使用数量
      */
-    @NotNull(message = "数量不能为空")
     @DecimalMin(value = "0.00000001", message = "数量必须大于0")
     private BigDecimal quantity;
+    
+    /**
+     * 金额，与数量二选一
+     * 买入时表示使用多少计价货币（如USDT）
+     * 卖出时表示卖出多少交易货币的等值金额
+     */
+    @DecimalMin(value = "0.00000001", message = "金额必须大于0")
+    private BigDecimal amount;
     
     /**
      * 客户端订单ID，用于客户端跟踪订单

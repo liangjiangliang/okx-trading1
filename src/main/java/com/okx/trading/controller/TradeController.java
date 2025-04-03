@@ -65,7 +65,7 @@ public class TradeController {
      * @param orderRequest 订单请求参数
      * @return 创建的订单
      */
-    @ApiOperation("创建现货订单")
+    @ApiOperation(value = "创建现货订单", notes = "可通过指定quantity(数量)或amount(金额)下单，如果同时提供两者，优先使用quantity")
     @PostMapping("/spot-orders")
     public ApiResponse<Order> createSpotOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建现货订单, request: {}", orderRequest);
@@ -81,7 +81,7 @@ public class TradeController {
      * @param orderRequest 订单请求参数
      * @return 创建的订单
      */
-    @ApiOperation("创建合约订单")
+    @ApiOperation(value = "创建合约订单", notes = "可通过指定quantity(数量)或amount(金额)下单，如果同时提供两者，优先使用quantity")
     @PostMapping("/futures-orders")
     public ApiResponse<Order> createFuturesOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("创建合约订单, request: {}", orderRequest);

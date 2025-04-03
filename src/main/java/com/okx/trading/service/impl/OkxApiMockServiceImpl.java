@@ -333,46 +333,77 @@ public class OkxApiMockServiceImpl implements OkxApiService {
     }
 
     /**
-     * 创建订单
+     * 创建订单（内部方法）
      *
-     * @param orderRequest 订单请求
+     * @param orderRequest 订单请求参数
      * @param isFutures    是否为合约订单
      * @return 创建的订单
      */
     private Order createOrder(OrderRequest orderRequest, boolean isFutures) {
+        // 生成唯一订单ID
         String orderId = String.valueOf(orderIdGenerator.getAndIncrement());
+        String clientOrderId = orderRequest.getClientOrderId() != null ? 
+                orderRequest.getClientOrderId() : 
+                "mock_" + orderId;
         
+        // 获取当前市场价格
+        Ticker ticker = getTicker(orderRequest.getSymbol());
+        BigDecimal marketPrice = ticker.getLastPrice();
+        
+        // 计算实际价格和数量
+        BigDecimal price;
+        BigDecimal quantity;
+        
+        // 根据订单类型设置价格
+        if ("LIMIT".equalsIgnoreCase(orderRequest.getType())) {
+            price = orderRequest.getPrice();
+        } else {
+            // 市价单使用当前市场价格
+            price = marketPrice;
+        }
+        
+        // 如果提供了数量，直接使用；否则根据金额计算数量
+        if (orderRequest.getQuantity() != null && orderRequest.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
+            quantity = orderRequest.getQuantity();
+        } else if (orderRequest.getAmount() != null && orderRequest.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+            // 根据金额和价格计算数量
+            // 对于买入：数量 = 金额 / 价格
+            // 对于卖出：数量 = 金额（这里认为卖出金额直接指定的是数量）
+            if ("BUY".equalsIgnoreCase(orderRequest.getSide())) {
+                quantity = orderRequest.getAmount().divide(price, 8, BigDecimal.ROUND_DOWN);
+            } else {
+                // 卖出时，如果指定金额，则认为是希望卖出的标的资产数量
+                quantity = orderRequest.getAmount();
+            }
+        } else {
+            // 如果既没有指定数量也没有指定金额，抛出异常
+            throw new IllegalArgumentException("下单失败：必须指定数量或金额");
+        }
+        
+        // 生成手续费，通常是订单金额的0.1%
+        BigDecimal fee = price.multiply(quantity).multiply(new BigDecimal("0.001"));
+        String feeCurrency = orderRequest.getSymbol().split("-")[1]; // 使用计价货币作为手续费
+        
+        // 创建订单对象
         Order order = new Order();
         order.setOrderId(orderId);
-        order.setClientOrderId(orderRequest.getClientOrderId() != null ? 
-                orderRequest.getClientOrderId() : "mock_" + orderId);
+        order.setClientOrderId(clientOrderId);
         order.setSymbol(orderRequest.getSymbol());
-        order.setPrice(orderRequest.getPrice());
-        order.setOrigQty(orderRequest.getQuantity());
-        
-        // 新订单默认未成交
-        order.setExecutedQty(BigDecimal.ZERO);
-        order.setCummulativeQuoteQty(BigDecimal.ZERO);
-        
+        order.setPrice(price);
+        order.setOrigQty(quantity);
+        order.setExecutedQty(BigDecimal.ZERO); // 新订单未成交
+        order.setCummulativeQuoteQty(BigDecimal.ZERO); // 新订单未成交
         order.setStatus("NEW");
         order.setType(orderRequest.getType());
         order.setSide(orderRequest.getSide());
-        order.setTimeInForce(orderRequest.getTimeInForce());
+        order.setTimeInForce(orderRequest.getTimeInForce() != null ? orderRequest.getTimeInForce() : "GTC");
         order.setCreateTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
+        order.setSimulated(orderRequest.getSimulated() != null ? orderRequest.getSimulated() : false);
+        order.setFee(fee);
+        order.setFeeCurrency(feeCurrency);
         
-        // 模拟标志
-        order.setSimulated(orderRequest.getSimulated() != null && orderRequest.getSimulated());
-        
-        // 模拟手续费（假设是订单金额的0.1%）
-        BigDecimal orderValue = orderRequest.getPrice() != null ? 
-                orderRequest.getPrice().multiply(orderRequest.getQuantity()) : 
-                BigDecimal.ZERO;
-        
-        order.setFee(orderValue.multiply(new BigDecimal("0.001")));
-        order.setFeeCurrency(isFutures ? "USDT" : orderRequest.getSymbol().split("-")[1]);
-        
-        // 保存到缓存
+        // 保存到订单缓存
         ordersCache.put(orderId, order);
         
         return order;
