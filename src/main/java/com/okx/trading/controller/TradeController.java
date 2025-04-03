@@ -8,15 +8,17 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -64,7 +66,18 @@ public class TradeController {
     /**
      * 创建现货订单
      *
-     * @param orderRequest 订单请求参数
+     * @param symbol 交易对，如BTC-USDT
+     * @param type 订单类型：LIMIT - 限价单, MARKET - 市价单
+     * @param side 交易方向：BUY - 买入, SELL - 卖出
+     * @param price 价格，对于限价单，该字段必须
+     * @param quantity 数量
+     * @param amount 金额
+     * @param buyRatio 买入比例
+     * @param sellRatio 卖出比例
+     * @param clientOrderId 客户端订单ID
+     * @param timeInForce 订单有效期类型
+     * @param postOnly 是否被动委托
+     * @param simulated 是否为模拟交易
      * @return 创建的订单
      */
     @ApiOperation(value = "创建现货订单", notes = "有四种下单方式：\n" +
@@ -72,13 +85,54 @@ public class TradeController {
             "2. 指定amount(金额)下单\n" +
             "3. 指定buyRatio(账户可用余额比例)买入，取值范围0.01-1\n" +
             "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
-            "5. type有LIMIT限价单,MARKET市价单\n" +
-            "6. 交易方向side有buy和sell\n " +
-            "7. 订单有效期timeInForce GTC-成交为止, IOC-立即成交并取消剩余, FOK-全部成交或立即取消\n " +
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT"),
+            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "LIMIT", allowableValues = "LIMIT,MARKET"),
+            @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
+            @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "50000"),
+            @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
+            @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5000"),
+            @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
+            @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
+            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = "client_order_12345"),
+            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
+            @ApiImplicitParam(name = "postOnly", value = "是否被动委托", required = false, dataType = "Boolean", example = "false"),
+            @ApiImplicitParam(name = "simulated", value = "是否为模拟交易", required = false, dataType = "Boolean", example = "false")
+    })
     @PostMapping("/spot-orders")
-    public ApiResponse<Order> createSpotOrder(@ApiParam(value = "订单请求参数", required = true) @Valid @RequestBody OrderRequest orderRequest) {
-        log.info("创建现货订单, request: {}", orderRequest);
+    public ApiResponse<Order> createSpotOrder(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "订单类型不能为空") @RequestParam String type,
+            @NotBlank(message = "交易方向不能为空") @RequestParam String side,
+            @RequestParam(required = false) BigDecimal price,
+            @RequestParam(required = false) @DecimalMin(value = "0.00000001", message = "数量必须大于0") BigDecimal quantity,
+            @RequestParam(required = false) @DecimalMin(value = "0.00000001", message = "金额必须大于0") BigDecimal amount,
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "买入比例必须大于等于0.01") @DecimalMax(value = "1", message = "买入比例必须小于等于1") BigDecimal buyRatio,
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "卖出比例必须大于等于0.01") @DecimalMax(value = "1", message = "卖出比例必须小于等于1") BigDecimal sellRatio,
+            @RequestParam(required = false) String clientOrderId,
+            @RequestParam(required = false) String timeInForce,
+            @RequestParam(required = false) Boolean postOnly,
+            @RequestParam(required = false) Boolean simulated) {
+        
+        log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, timeInForce: {}, postOnly: {}, simulated: {}", 
+                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, timeInForce, postOnly, simulated);
+        
+        // 构建订单请求对象
+        OrderRequest orderRequest = OrderRequest.builder()
+                .symbol(symbol)
+                .type(type)
+                .side(side)
+                .price(price)
+                .quantity(quantity)
+                .amount(amount)
+                .buyRatio(buyRatio)
+                .sellRatio(sellRatio)
+                .clientOrderId(clientOrderId)
+                .timeInForce(timeInForce)
+                .postOnly(postOnly)
+                .simulated(simulated)
+                .build();
 
         Order order = okxApiService.createSpotOrder(orderRequest);
 
@@ -88,7 +142,19 @@ public class TradeController {
     /**
      * 创建合约订单
      *
-     * @param orderRequest 订单请求参数
+     * @param symbol 交易对，如BTC-USDT
+     * @param type 订单类型：LIMIT - 限价单, MARKET - 市价单
+     * @param side 交易方向：BUY - 买入, SELL - 卖出
+     * @param price 价格，对于限价单，该字段必须
+     * @param quantity 数量
+     * @param amount 金额
+     * @param buyRatio 买入比例
+     * @param sellRatio 卖出比例
+     * @param clientOrderId 客户端订单ID
+     * @param leverage 杠杆倍数
+     * @param timeInForce 订单有效期类型
+     * @param postOnly 是否被动委托
+     * @param simulated 是否为模拟交易
      * @return 创建的订单
      */
     @ApiOperation(value = "创建合约订单", notes = "有四种下单方式：\n" +
@@ -96,13 +162,57 @@ public class TradeController {
             "2. 指定amount(金额)下单\n" +
             "3. 指定buyRatio(账户可用余额比例)买入，取值范围0.01-1\n" +
             "4. 指定sellRatio(持仓比例)卖出，取值范围0.01-1\n" +
-            "5. type有LIMIT限价单,MARKET市价单\n" +
-            "6. 交易方向side有buy和sell\n " +
-            "7. 订单有效期timeInForce GTC-成交为止, IOC-立即成交并取消剩余, FOK-全部成交或立即取消\n " +
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT-SWAP"),
+            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "LIMIT", allowableValues = "LIMIT,MARKET"),
+            @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
+            @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "50000"),
+            @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
+            @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5000"),
+            @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
+            @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
+            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = "client_order_12345"),
+            @ApiImplicitParam(name = "leverage", value = "杠杆倍数", required = false, dataType = "Integer", example = "5"),
+            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
+            @ApiImplicitParam(name = "postOnly", value = "是否被动委托", required = false, dataType = "Boolean", example = "false"),
+            @ApiImplicitParam(name = "simulated", value = "是否为模拟交易", required = false, dataType = "Boolean", example = "false")
+    })
     @PostMapping("/futures-orders")
-    public ApiResponse<Order> createFuturesOrder(@ApiParam(value = "订单请求参数", required = true) @Valid @RequestBody OrderRequest orderRequest) {
-        log.info("创建合约订单, request: {}", orderRequest);
+    public ApiResponse<Order> createFuturesOrder(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "订单类型不能为空") @RequestParam String type,
+            @NotBlank(message = "交易方向不能为空") @RequestParam String side,
+            @RequestParam(required = false) BigDecimal price,
+            @RequestParam(required = false) @DecimalMin(value = "0.00000001", message = "数量必须大于0") BigDecimal quantity,
+            @RequestParam(required = false) @DecimalMin(value = "0.00000001", message = "金额必须大于0") BigDecimal amount,
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "买入比例必须大于等于0.01") @DecimalMax(value = "1", message = "买入比例必须小于等于1") BigDecimal buyRatio,
+            @RequestParam(required = false) @DecimalMin(value = "0.01", message = "卖出比例必须大于等于0.01") @DecimalMax(value = "1", message = "卖出比例必须小于等于1") BigDecimal sellRatio,
+            @RequestParam(required = false) String clientOrderId,
+            @RequestParam(required = false) Integer leverage,
+            @RequestParam(required = false) String timeInForce,
+            @RequestParam(required = false) Boolean postOnly,
+            @RequestParam(required = false) Boolean simulated) {
+        
+        log.info("创建合约订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, leverage: {}, timeInForce: {}, postOnly: {}, simulated: {}", 
+                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, leverage, timeInForce, postOnly, simulated);
+        
+        // 构建订单请求对象
+        OrderRequest orderRequest = OrderRequest.builder()
+                .symbol(symbol)
+                .type(type)
+                .side(side)
+                .price(price)
+                .quantity(quantity)
+                .amount(amount)
+                .buyRatio(buyRatio)
+                .sellRatio(sellRatio)
+                .clientOrderId(clientOrderId)
+                .leverage(leverage)
+                .timeInForce(timeInForce)
+                .postOnly(postOnly)
+                .simulated(simulated)
+                .build();
 
         Order order = okxApiService.createFuturesOrder(orderRequest);
 
