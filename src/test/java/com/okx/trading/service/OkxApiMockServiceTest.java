@@ -8,7 +8,6 @@ import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.impl.OkxApiMockServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -38,7 +37,7 @@ public class OkxApiMockServiceTest {
         // 验证
         assertNotNull(candlesticks);
         assertEquals(10, candlesticks.size());
-        
+
         for (Candlestick candlestick : candlesticks) {
             assertEquals("BTC-USDT", candlestick.getSymbol());
             assertEquals("1m", candlestick.getInterval());
@@ -48,7 +47,7 @@ public class OkxApiMockServiceTest {
             assertNotNull(candlestick.getLow());
             assertNotNull(candlestick.getClose());
             assertNotNull(candlestick.getVolume());
-            
+
             // 价格验证：高价应该大于等于开盘价和收盘价，低价应该小于等于开盘价和收盘价
             assertTrue(candlestick.getHigh().compareTo(candlestick.getOpen()) >= 0);
             assertTrue(candlestick.getHigh().compareTo(candlestick.getClose()) >= 0);
@@ -73,7 +72,7 @@ public class OkxApiMockServiceTest {
         assertNotNull(ticker.getLowPrice());
         assertNotNull(ticker.getVolume());
         assertNotNull(ticker.getTimestamp());
-        
+
         // 验证价格关系
         assertTrue(ticker.getHighPrice().compareTo(ticker.getLowPrice()) >= 0);
     }
@@ -94,22 +93,22 @@ public class OkxApiMockServiceTest {
         assertNotNull(balance.getFrozenBalance());
         assertNotNull(balance.getAssetBalances());
         assertFalse(balance.getAssetBalances().isEmpty());
-        
+
         // 验证余额计算是否正确
         BigDecimal totalAvailable = BigDecimal.ZERO;
         BigDecimal totalFrozen = BigDecimal.ZERO;
-        
+
         for (AccountBalance.AssetBalance assetBalance : balance.getAssetBalances()) {
             assertNotNull(assetBalance.getAsset());
             assertNotNull(assetBalance.getAvailable());
             assertNotNull(assetBalance.getFrozen());
             assertNotNull(assetBalance.getTotal());
             assertNotNull(assetBalance.getUsdValue());
-            
+
             // 验证总余额计算
             assertEquals(assetBalance.getAvailable().add(assetBalance.getFrozen()),
                     assetBalance.getTotal());
-            
+
             // 累加USD价值
             totalAvailable = totalAvailable.add(assetBalance.getAvailable());
             totalFrozen = totalFrozen.add(assetBalance.getFrozen());
@@ -143,14 +142,14 @@ public class OkxApiMockServiceTest {
         assertEquals(new BigDecimal("0.1"), order.getOrigQty());
         assertEquals("NEW", order.getStatus());
         assertNotNull(order.getOrderId());
-        
+
         // 获取订单列表
         List<Order> orders = okxApiService.getOrders("BTC-USDT", null, 10);
-        
+
         // 验证订单列表
         assertNotNull(orders);
         assertFalse(orders.isEmpty());
-        
+
         // 验证是否可以找到刚创建的订单
         boolean found = false;
         for (Order listedOrder : orders) {
@@ -160,15 +159,15 @@ public class OkxApiMockServiceTest {
             }
         }
         assertTrue(found);
-        
+
         // 测试取消订单
         boolean cancelResult = okxApiService.cancelOrder("BTC-USDT", order.getOrderId());
         assertTrue(cancelResult);
-        
+
         // 获取订单并验证状态
         List<Order> canceledOrders = okxApiService.getOrders("BTC-USDT", "CANCELED", 10);
         assertNotNull(canceledOrders);
-        
+
         // 验证是否可以找到刚取消的订单
         found = false;
         for (Order canceledOrder : canceledOrders) {
@@ -180,4 +179,4 @@ public class OkxApiMockServiceTest {
         }
         assertTrue(found);
     }
-} 
+}

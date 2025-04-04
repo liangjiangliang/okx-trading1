@@ -33,7 +33,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-    name = "okx.api.connection-mode", 
+    name = "okx.api.connection-mode",
     havingValue = "REST",
     matchIfMissing = false
 )

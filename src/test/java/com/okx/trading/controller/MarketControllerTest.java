@@ -49,11 +49,11 @@ public class MarketControllerTest {
     public void testGetKlineData() throws Exception {
         // 模拟数据
         List<Candlestick> candlesticks = Arrays.asList(
-                createCandlestick("BTC-USDT", "1m", LocalDateTime.now(), 
-                        new BigDecimal("50000"), new BigDecimal("50100"), 
+                createCandlestick("BTC-USDT", "1m", LocalDateTime.now(),
+                        new BigDecimal("50000"), new BigDecimal("50100"),
                         new BigDecimal("49900"), new BigDecimal("50050")),
-                createCandlestick("BTC-USDT", "1m", LocalDateTime.now().minusMinutes(1), 
-                        new BigDecimal("49900"), new BigDecimal("50000"), 
+                createCandlestick("BTC-USDT", "1m", LocalDateTime.now().minusMinutes(1),
+                        new BigDecimal("49900"), new BigDecimal("50000"),
                         new BigDecimal("49800"), new BigDecimal("50000"))
         );
 
@@ -82,8 +82,8 @@ public class MarketControllerTest {
     @Test
     public void testGetTicker() throws Exception {
         // 模拟数据
-        Ticker ticker = createTicker("BTC-USDT", new BigDecimal("50000"), 
-                new BigDecimal("1000"), new BigDecimal("2"), 
+        Ticker ticker = createTicker("BTC-USDT", new BigDecimal("50000"),
+                new BigDecimal("1000"), new BigDecimal("2"),
                 new BigDecimal("50500"), new BigDecimal("49500"));
 
         // 配置Mock行为
@@ -107,8 +107,8 @@ public class MarketControllerTest {
     /**
      * 创建K线数据
      */
-    private Candlestick createCandlestick(String symbol, String interval, LocalDateTime time, 
-                                        BigDecimal open, BigDecimal high, 
+    private Candlestick createCandlestick(String symbol, String interval, LocalDateTime time,
+                                        BigDecimal open, BigDecimal high,
                                         BigDecimal low, BigDecimal close) {
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol(symbol);
@@ -128,9 +128,9 @@ public class MarketControllerTest {
     /**
      * 创建行情数据
      */
-    private Ticker createTicker(String symbol, BigDecimal lastPrice, 
-                              BigDecimal priceChange, BigDecimal priceChangePercent, 
-                              BigDecimal highPrice, BigDecimal lowPrice) {
+    private Ticker createTicker(String symbol, BigDecimal lastPrice,
+                                BigDecimal priceChange, BigDecimal priceChangePercent,
+                                BigDecimal highPrice, BigDecimal lowPrice) {
         Ticker ticker = new Ticker();
         ticker.setSymbol(symbol);
         ticker.setLastPrice(lastPrice);
@@ -147,4 +147,4 @@ public class MarketControllerTest {
         ticker.setTimestamp(LocalDateTime.now());
         return ticker;
     }
-} 
+}

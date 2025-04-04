@@ -57,6 +57,7 @@ okx:
     connection-mode: WEBSOCKET # 连接模式: REST或WEBSOCKET，默认WEBSOCKET
     ws:
       public-channel: wss://ws.okx.com:8443/ws/v5/public
+      bussiness-channel: wss://ws.okx.com:8443/ws/v5/business
       private-channel: wss://ws.okx.com:8443/ws/v5/private
   proxy:
     enabled: true # 是否启用代理

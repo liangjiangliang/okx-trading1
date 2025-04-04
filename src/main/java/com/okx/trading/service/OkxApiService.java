@@ -13,7 +13,7 @@ import java.util.List;
  * 定义与OKX交易所API交互的方法
  */
 public interface OkxApiService {
-    
+
     /**
      * 获取K线数据
      *
@@ -23,7 +23,7 @@ public interface OkxApiService {
      * @return K线数据列表
      */
     List<Candlestick> getKlineData(String symbol, String interval, Integer limit);
-    
+
     /**
      * 获取最新行情数据
      *
@@ -31,21 +31,21 @@ public interface OkxApiService {
      * @return 行情数据
      */
     Ticker getTicker(String symbol);
-    
+
     /**
      * 获取账户余额
      *
      * @return 账户余额信息
      */
     AccountBalance getAccountBalance();
-    
+
     /**
      * 获取模拟账户余额
      *
      * @return 模拟账户余额信息
      */
     AccountBalance getSimulatedAccountBalance();
-    
+
     /**
      * 获取订单列表
      *
@@ -55,7 +55,7 @@ public interface OkxApiService {
      * @return 订单列表
      */
     List<Order> getOrders(String symbol, String status, Integer limit);
-    
+
     /**
      * 创建现货订单
      *
@@ -63,7 +63,7 @@ public interface OkxApiService {
      * @return 创建的订单
      */
     Order createSpotOrder(OrderRequest orderRequest);
-    
+
     /**
      * 创建合约订单
      *
@@ -71,7 +71,7 @@ public interface OkxApiService {
      * @return 创建的订单
      */
     Order createFuturesOrder(OrderRequest orderRequest);
-    
+
     /**
      * 取消订单
      *
