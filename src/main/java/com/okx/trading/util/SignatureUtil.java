@@ -23,7 +23,10 @@ public class SignatureUtil {
      * @return ISO 8601格式的时间戳
      */
     public static String getIsoTimestamp() {
-        return Instant.now().toString();
+        // OKX API要求的时间戳格式为：yyyy-MM-dd'T'HH:mm:ss.SSSZ
+        // 例如：2023-01-09T08:15:39.924Z
+        // 直接使用Instant.now().toString()可能导致时间戳格式错误
+        return Instant.now().toString().replace("Z", ".000Z");
     }
 
     /**

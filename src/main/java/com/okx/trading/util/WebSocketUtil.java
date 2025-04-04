@@ -248,6 +248,20 @@ public class WebSocketUtil {
         try {
             JSONObject jsonMessage = JSON.parseObject(message);
             
+            // 处理错误消息
+            if (jsonMessage.containsKey("event") && "error".equals(jsonMessage.getString("event"))) {
+                log.error("收到WebSocket错误: code={}, msg={}", 
+                    jsonMessage.getString("code"), 
+                    jsonMessage.getString("msg"));
+                
+                // 如果是时间戳错误，尝试重新连接
+                if ("60004".equals(jsonMessage.getString("code"))) {
+                    log.info("时间戳错误，尝试重新连接私有频道");
+                    schedulePrivateReconnect();
+                }
+                return;
+            }
+            
             // 处理pong响应
             if (jsonMessage.containsKey("op") && "pong".equals(jsonMessage.getString("op"))) {
                 log.debug("收到pong响应: {}", message);
