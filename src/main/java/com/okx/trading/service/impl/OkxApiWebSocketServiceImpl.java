@@ -12,9 +12,11 @@ import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
+import com.okx.trading.util.HttpUtil;
 import com.okx.trading.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +47,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final OkxApiConfig okxApiConfig;
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
+    private final OkHttpClient okHttpClient;
 
     // 缓存和回调
     private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -966,53 +969,54 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     }
 
     @Override
-    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit) {
-        try {
+    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit){
+        try{
             // WebSocket模式下，历史K线通过REST API获取
-            log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}", 
+            log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}",
                 symbol, interval, startTime, endTime, limit);
-            
+
             // 使用现有的已经注入的依赖，向REST API发起请求
             String url = okxApiConfig.getBaseUrl() + "/api/v5/market/history-candles";
             url = url + "?instId=" + symbol + "&bar=" + interval;
-            
-            if (startTime != null) {
-                url = url + "&after=" + startTime;
+
+            if(startTime != null){
+                url = url + "&before=" + startTime;
+
             }
-            
-            if (endTime != null) {
-                url = url + "&before=" + endTime;
+
+            if(endTime != null){
+                url = url + "&after=" + endTime;
             }
-            
-            if (limit != null && limit > 0) {
+
+            if(limit != null && limit > 0){
                 url = url + "&limit=" + limit;
             }
-            
+
             // 这里不需要认证，直接发送GET请求
-            String response = HttpUtil.get(url, null);
+            String response = HttpUtil.get(okHttpClient, url, null);
             JSONObject jsonResponse = JSONObject.parseObject(response);
-            
-            if (!"0".equals(jsonResponse.getString("code"))) {
+
+            if(! "0".equals(jsonResponse.getString("code"))){
                 throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
             }
-            
+
             JSONArray dataArray = jsonResponse.getJSONArray("data");
             List<Candlestick> result = new ArrayList<>();
-            
-            for (int i = 0; i < dataArray.size(); i++) {
+
+            for(int i = 0;i < dataArray.size();i++){
                 JSONArray item = dataArray.getJSONArray(i);
-                
+
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
                 Candlestick candlestick = new Candlestick();
                 candlestick.setSymbol(symbol);
                 candlestick.setInterval(interval);
-                
+
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(timestamp),
                     ZoneId.systemDefault());
-                
+
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));
                 candlestick.setHigh(new BigDecimal(item.getString(2)));
@@ -1020,38 +1024,38 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 candlestick.setClose(new BigDecimal(item.getString(4)));
                 candlestick.setVolume(new BigDecimal(item.getString(5)));
                 candlestick.setQuoteVolume(new BigDecimal(item.getString(6)));
-                
+
                 // 收盘时间根据interval计算
                 candlestick.setCloseTime(calculateCloseTimeFromInterval(dateTime, interval));
-                
+
                 // 成交笔数，OKX API可能没提供，设为0
                 candlestick.setTrades(0L);
-                
+
                 result.add(candlestick);
             }
-            
+
             return result;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("获取历史K线数据异常", e);
             throw new OkxApiException("获取历史K线数据失败: " + e.getMessage(), e);
         }
     }
-    
+
     /**
      * 根据开盘时间和K线间隔计算收盘时间
      */
-    private LocalDateTime calculateCloseTimeFromInterval(LocalDateTime openTime, String interval) {
+    private LocalDateTime calculateCloseTimeFromInterval(LocalDateTime openTime, String interval){
         // 解析时间单位和数量
         String unit = interval.substring(interval.length() - 1);
         int amount;
-        try {
+        try{
             amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
-        } catch (NumberFormatException e) {
+        }catch(NumberFormatException e){
             // 如果解析失败，使用默认值1
             amount = 1;
         }
-        
-        switch (unit) {
+
+        switch(unit){
             case "m":
                 return openTime.plusMinutes(amount);
             case "H":

@@ -39,7 +39,7 @@ import java.util.*;
     havingValue = "REST",
     matchIfMissing = false
 )
-public class OkxApiServiceImpl implements OkxApiService{
+public class OkxApiRestServiceImpl implements OkxApiService{
 
     private final OkHttpClient okHttpClient;
     private final OkxApiConfig okxApiConfig;
@@ -686,15 +686,16 @@ public class OkxApiServiceImpl implements OkxApiService{
         try {
             String url = okxApiConfig.getBaseUrl() + MARKET_PATH + "/history-candles";
             url = url + "?instId=" + symbol + "&bar=" + interval;
-            
+
             if (startTime != null) {
-                url = url + "&after=" + startTime;
+                url = url + "&before=" + startTime;
+
             }
-            
+
             if (endTime != null) {
-                url = url + "&before=" + endTime;
+                url = url + "&after=" + endTime;
             }
-            
+
             if (limit != null && limit > 0) {
                 url = url + "&limit=" + limit;
             }
@@ -734,7 +735,7 @@ public class OkxApiServiceImpl implements OkxApiService{
 
                 // 收盘时间根据interval计算
                 candlestick.setCloseTime(calculateCloseTime(dateTime, interval));
-                
+
                 // 成交笔数，OKX API可能没提供，设为0
                 candlestick.setTrades(0L);
 
@@ -749,7 +750,7 @@ public class OkxApiServiceImpl implements OkxApiService{
             throw new OkxApiException("获取历史K线数据失败: " + e.getMessage(), e);
         }
     }
-    
+
     /**
      * 根据开盘时间和K线间隔计算收盘时间
      */
@@ -757,7 +758,7 @@ public class OkxApiServiceImpl implements OkxApiService{
         // 解析时间单位和数量
         String unit = interval.substring(interval.length() - 1);
         int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
-        
+
         switch (unit) {
             case "m":
                 return openTime.plusMinutes(amount);

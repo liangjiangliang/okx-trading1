@@ -1,3 +1,4 @@
+
 server:
   port: 8088
   servlet:
@@ -8,12 +9,18 @@ server:
       force: true
 
 spring:
+  application:
+    name: okx-trading
   # 数据库配置
   datasource:
     url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: resources/schema.sql
   # JPA配置
   jpa:
     database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
@@ -23,6 +30,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+    defer-datasource-initialization: true
   # Redis配置
   redis:
     host: localhost
@@ -63,6 +71,10 @@ okx:
     enabled: true # 是否启用代理
     host: localhost
     port: 10809
+  historical-data:
+    batch-size: 100
+    max-threads: 10
+
 
 # 日志配置
 logging:
@@ -77,3 +89,9 @@ springfox:
   documentation:
     swagger-ui:
       enabled: true
+
+
+# Swagger文档配置
+springdoc:
+  api-docs.path: /api-docs
+  swagger-ui.path: /swagger-ui
