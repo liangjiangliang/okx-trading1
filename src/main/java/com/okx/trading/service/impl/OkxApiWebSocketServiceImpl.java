@@ -287,12 +287,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             if(data != null && ! data.isEmpty()){
                 JSONObject orderData = data.getJSONObject(0);
                 Order order = parseOrder(orderData);
-                
+
                 // 使用clOrdId查找对应的future，而不是ordId
                 String clientOrderId = orderData.getString("clOrdId");
-                log.info("收到订单消息: orderId={}, clientOrderId={}, status={}", 
+                log.info("收到订单消息: orderId={}, clientOrderId={}, status={}",
                     orderData.getString("ordId"), clientOrderId, orderData.getString("state"));
-                
+
                 CompletableFuture<Order> future = orderFutures.get(clientOrderId);
                 if(future != null && ! future.isDone()){
                     future.complete(order);
@@ -494,15 +494,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         try{
             // 生成唯一订单ID，保证每次请求的ID都是不同的
             String orderId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-            String clientOrderId = orderRequest.getClientOrderId() != null ? 
-                orderRequest.getClientOrderId() : "okx_" + System.currentTimeMillis() + "_" + orderId.substring(0, 8);
-            
+            String clientOrderId = orderRequest.getClientOrderId() != null?
+                orderRequest.getClientOrderId():"okx_" + System.currentTimeMillis() + "_" + orderId.substring(0, 8);
+
             CompletableFuture<Order> future = new CompletableFuture<>();
-            
+
             // 将future与clientOrderId关联，而不是orderId
             orderFutures.put(clientOrderId, future);
-            
-            log.info("准备创建订单, symbol: {}, type: {}, side: {}, clientOrderId: {}", 
+
+            log.info("准备创建订单, symbol: {}, type: {}, side: {}, clientOrderId: {}",
                 orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), clientOrderId);
 
             // 构建订单请求
@@ -515,7 +515,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             arg.put("tdMode", "cash"); // 资金模式，cash为现钞
             arg.put("side", orderRequest.getSide().toLowerCase());
             arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
-            
+
             // 处理市价单和限价单逻辑
             if("market".equals(mapToOkxOrderType(orderRequest.getType()))){
                 // 市价单
@@ -526,38 +526,65 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         log.error("无法获取币种价格: {}", orderRequest.getSymbol());
                         throw new OkxApiException("无法获取币种价格，请稍后重试");
                     }
-                    
+
+                    // 验证金额是否满足最小订单要求 (对于USDT计价，通常最小为5-10 USDT)
+                    if(orderRequest.getAmount().compareTo(new BigDecimal("10")) < 0){
+                        log.error("订单金额不足: {}, 最小订单金额为10USDT", orderRequest.getAmount());
+                        throw new OkxApiException("订单金额不足，OKX要求最小订单金额为10USDT");
+                    }
+
                     // 为市价单计算数量，金额除以价格
                     BigDecimal quantity = orderRequest.getAmount().divide(coinPrice, 8, RoundingMode.HALF_UP);
-                    log.info("市价单按金额下单计算: 金额={}, 价格={}, 数量={}", 
+                    log.info("市价单按金额下单计算: 金额={}, 价格={}, 数量={}",
                         orderRequest.getAmount(), coinPrice, quantity);
                     arg.put("sz", quantity.toString());
-                    
-                    // 市价单买入时使用tgtCcy=base标记按数量购买，卖出时不需要标记
-                    if("buy".equalsIgnoreCase(orderRequest.getSide().toLowerCase())){
-                        arg.put("tgtCcy", "base");
-                    }
-                } else if(orderRequest.getQuantity() != null){
-                    // 按数量下单
-                    arg.put("sz", orderRequest.getQuantity().toString());
-                    
+
                     // 买入市价单总是按数量购买基础货币
-                    if("buy".equalsIgnoreCase(orderRequest.getSide().toLowerCase())){
+                    if("buy".equalsIgnoreCase(orderRequest.getSide())){
                         arg.put("tgtCcy", "base");
                     }
-                } else {
+                }else if(orderRequest.getQuantity() != null){
+                    // 按数量下单
+                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
+                    if(coinPrice == null || coinPrice.compareTo(BigDecimal.ZERO) <= 0){
+                        log.error("无法获取币种价格: {}", orderRequest.getSymbol());
+                        throw new OkxApiException("无法获取币种价格，请稍后重试");
+                    }
+                    
+                    // 计算订单金额并验证是否满足最小订单要求
+                    BigDecimal orderValue = orderRequest.getQuantity().multiply(coinPrice);
+                    if(orderValue.compareTo(new BigDecimal("10")) < 0){
+                        log.error("订单价值不足: {}USDT, 最小订单金额为10USDT", orderValue);
+                        throw new OkxApiException("订单数量过小，订单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
+                    }
+                    
+                    arg.put("sz", orderRequest.getQuantity().toString());
+
+                    // 买入市价单总是按数量购买基础货币
+                    if("buy".equalsIgnoreCase(orderRequest.getSide())){
+                        arg.put("tgtCcy", "base");
+                    }
+                }else{
                     throw new OkxApiException("市价单必须指定金额或数量");
                 }
-            } else {
+            }else{
                 // 限价单
                 if(orderRequest.getPrice() == null){
                     throw new OkxApiException("限价单必须指定价格");
                 }
                 arg.put("px", orderRequest.getPrice().toString());
-                
+
                 if(orderRequest.getQuantity() == null){
                     throw new OkxApiException("限价单必须指定数量");
                 }
+                
+                // 计算订单金额并验证是否满足最小订单要求
+                BigDecimal orderValue = orderRequest.getQuantity().multiply(orderRequest.getPrice());
+                if(orderValue.compareTo(new BigDecimal("10")) < 0){
+                    log.error("限价单价值不足: {}USDT, 最小订单金额为10USDT", orderValue);
+                    throw new OkxApiException("限价单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
+                }
+                
                 arg.put("sz", orderRequest.getQuantity().toString());
             }
 
@@ -568,12 +595,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             if("SWAP".equals(instType) && orderRequest.getLeverage() != null){
                 arg.put("lever", orderRequest.getLeverage().toString());
             }
-            
+
             // 设置被动委托
             if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
                 arg.put("postOnly", "1");
             }
-            
+
             // 设置模拟交易
             if(isSimulated){
                 arg.put("simulated", "1");
@@ -584,41 +611,41 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             // 记录发送的订单请求
             log.info("发送订单请求: {}", requestMessage.toJSONString());
-            
+
             // 检查WebSocket连接状态
-            if (!webSocketUtil.isPrivateSocketConnected()) {
+            if(! webSocketUtil.isPrivateSocketConnected()){
                 log.error("私有WebSocket未连接，无法发送订单请求");
                 throw new OkxApiException("WebSocket连接已断开，请重新连接后再尝试");
             }
-            
+
             // 发送请求
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
             // 增加订单超时时间到45秒
             Order order;
-            try {
+            try{
                 order = future.get(45, TimeUnit.SECONDS);
-                log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}", 
+                log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
                     clientOrderId, order.getOrderId(), order.getStatus());
-            } catch (TimeoutException e) {
-                log.error("订单请求超时(45秒), symbol: {}, type: {}, side: {}, clientOrderId: {}, 请求内容: {}", 
-                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), 
+            }catch(TimeoutException e){
+                log.error("订单请求超时(45秒), symbol: {}, type: {}, side: {}, clientOrderId: {}, 请求内容: {}",
+                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
                     clientOrderId, requestMessage.toJSONString());
                 throw new OkxApiException("订单请求超时(45秒)，请检查网络连接或OKX服务器状态，可能订单已发送但未收到响应，请使用查询订单接口确认订单状态");
-            } catch (Exception e) {
-                log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}", 
-                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), 
+            }catch(Exception e){
+                log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}",
+                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
                     clientOrderId, e.getMessage(), e);
                 throw new OkxApiException("订单请求异常: " + e.getMessage(), e);
-            } finally {
+            }finally{
                 // 清理资源
                 orderFutures.remove(clientOrderId);
             }
 
             return order;
-        } catch(OkxApiException e) {
+        }catch(OkxApiException e){
             throw e;
-        } catch(Exception e){
+        }catch(Exception e){
             log.error("创建订单失败: {}", e.getMessage(), e);
             throw new OkxApiException("创建订单失败: " + e.getMessage(), e);
         }
