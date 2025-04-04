@@ -2,11 +2,15 @@ package com.okx.trading.util;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 /**
  * OKX API签名工具类
@@ -16,6 +20,7 @@ import java.time.Instant;
 public class SignatureUtil {
 
     private static final String HMAC_SHA256 = "HmacSHA256";
+    private static final Logger logger = LoggerFactory.getLogger(SignatureUtil.class);
 
     /**
      * 获取当前ISO时间戳
@@ -25,8 +30,15 @@ public class SignatureUtil {
     public static String getIsoTimestamp() {
         // OKX API要求的时间戳格式为：yyyy-MM-dd'T'HH:mm:ss.SSSZ
         // 例如：2023-01-09T08:15:39.924Z
-        // 直接使用Instant.now().toString()可能导致时间戳格式错误
-        return Instant.now().toString().replace("Z", ".000Z");
+        
+        // 获取当前UTC时间的毫秒时间戳
+        Instant now = Instant.now();
+        
+        // 使用DateTimeFormatter确保生成精确的毫秒格式
+        return DateTimeFormatter
+                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                .withZone(ZoneOffset.UTC)
+                .format(now);
     }
 
     /**
@@ -49,7 +61,7 @@ public class SignatureUtil {
             byte[] signatureBytes = mac.doFinal(preHash.getBytes(StandardCharsets.UTF_8));
             return Base64.encodeBase64String(signatureBytes);
         } catch (Exception e) {
-            log.error("签名计算出错", e);
+            logger.error("签名计算出错", e);
             throw new RuntimeException("签名计算异常", e);
         }
     }

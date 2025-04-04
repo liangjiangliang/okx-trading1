@@ -1,6 +1,8 @@
 package com.okx.trading.config;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -69,6 +71,22 @@ public class OkxApiConfig {
          * 私有频道WebSocket地址
          */
         private String privateChannel;
+        
+        public String getPublicChannel() {
+            return publicChannel;
+        }
+        
+        public void setPublicChannel(String publicChannel) {
+            this.publicChannel = publicChannel;
+        }
+        
+        public String getPrivateChannel() {
+            return privateChannel;
+        }
+        
+        public void setPrivateChannel(String privateChannel) {
+            this.privateChannel = privateChannel;
+        }
     }
     
     /**
@@ -87,5 +105,70 @@ public class OkxApiConfig {
      */
     public boolean isRestMode() {
         return "REST".equalsIgnoreCase(connectionMode);
+    }
+    
+    // 明确添加getter和setter方法以确保编译时可以正确解析
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+    
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+    
+    public String getApiKey() {
+        return apiKey;
+    }
+    
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+    
+    public String getSecretKey() {
+        return secretKey;
+    }
+    
+    public void setSecretKey(String secretKey) {
+        this.secretKey = secretKey;
+    }
+    
+    public String getPassphrase() {
+        return passphrase;
+    }
+    
+    public void setPassphrase(String passphrase) {
+        this.passphrase = passphrase;
+    }
+    
+    public boolean isUseMockData() {
+        return useMockData;
+    }
+    
+    public void setUseMockData(boolean useMockData) {
+        this.useMockData = useMockData;
+    }
+    
+    public int getTimeout() {
+        return timeout;
+    }
+    
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
+    
+    public String getConnectionMode() {
+        return connectionMode;
+    }
+    
+    public void setConnectionMode(String connectionMode) {
+        this.connectionMode = connectionMode;
+    }
+    
+    public WebSocketConfig getWs() {
+        return ws;
+    }
+    
+    public void setWs(WebSocketConfig ws) {
+        this.ws = ws;
     }
 } 
