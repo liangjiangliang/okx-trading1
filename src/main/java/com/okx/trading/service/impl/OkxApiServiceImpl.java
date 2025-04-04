@@ -26,13 +26,15 @@ import java.time.ZoneId;
 import java.util.*;
 
 /**
- * OKX API服务实现类
- * 实现与OKX交易所API的实际交互
+ * OKX API REST服务实现类
+ * 实现与OKX交易所REST API的实际交互
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "okx.api.use-mock-data", havingValue = "false")
+@ConditionalOnProperty(name = {"okx.api.use-mock-data", "okx.api.connection-mode"}, 
+                       havingValue = "false,REST", 
+                       matchIfMissing = false)
 public class OkxApiServiceImpl implements OkxApiService {
 
     private final OkHttpClient okHttpClient;
