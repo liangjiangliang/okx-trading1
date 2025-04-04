@@ -32,9 +32,11 @@ import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = {"okx.api.use-mock-data", "okx.api.connection-mode"}, 
-                       havingValue = "false,REST", 
-                       matchIfMissing = false)
+@ConditionalOnProperty(
+    name = "okx.api.connection-mode", 
+    havingValue = "REST",
+    matchIfMissing = false
+)
 public class OkxApiServiceImpl implements OkxApiService {
 
     private final OkHttpClient okHttpClient;

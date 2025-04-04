@@ -9,6 +9,7 @@ import com.okx.trading.service.OkxApiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Primary;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@Primary
 @ConditionalOnProperty(name = "okx.api.use-mock-data", havingValue = "true")
 public class OkxApiMockServiceImpl implements OkxApiService {
 

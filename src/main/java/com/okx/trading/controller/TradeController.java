@@ -88,14 +88,14 @@ public class TradeController {
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT"),
-            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "LIMIT", allowableValues = "LIMIT,MARKET"),
+            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "MARKET", allowableValues = "LIMIT,MARKET"),
             @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
-            @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "50000"),
+            @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "100"),
             @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
             @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5000"),
             @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
-            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = "client_order_12345"),
+            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = ""),
             @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
             @ApiImplicitParam(name = "postOnly", value = "是否被动委托", required = false, dataType = "Boolean", example = "false"),
             @ApiImplicitParam(name = "simulated", value = "是否为模拟交易", required = false, dataType = "Boolean", example = "false")
@@ -114,10 +114,10 @@ public class TradeController {
             @RequestParam(required = false) String timeInForce,
             @RequestParam(required = false) Boolean postOnly,
             @RequestParam(required = false) Boolean simulated) {
-        
-        log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, timeInForce: {}, postOnly: {}, simulated: {}", 
+
+        log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, timeInForce: {}, postOnly: {}, simulated: {}",
                 symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, timeInForce, postOnly, simulated);
-        
+
         // 构建订单请求对象
         OrderRequest orderRequest = OrderRequest.builder()
                 .symbol(symbol)
@@ -193,10 +193,10 @@ public class TradeController {
             @RequestParam(required = false) String timeInForce,
             @RequestParam(required = false) Boolean postOnly,
             @RequestParam(required = false) Boolean simulated) {
-        
-        log.info("创建合约订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, leverage: {}, timeInForce: {}, postOnly: {}, simulated: {}", 
+
+        log.info("创建合约订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, leverage: {}, timeInForce: {}, postOnly: {}, simulated: {}",
                 symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, leverage, timeInForce, postOnly, simulated);
-        
+
         // 构建订单请求对象
         OrderRequest orderRequest = OrderRequest.builder()
                 .symbol(symbol)
