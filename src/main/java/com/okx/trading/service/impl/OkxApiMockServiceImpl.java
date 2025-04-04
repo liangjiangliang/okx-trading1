@@ -513,7 +513,46 @@ public class OkxApiMockServiceImpl implements OkxApiService {
 
     @Override
     public boolean unsubscribeKlineData(String symbol, String interval) {
-        log.info("模拟取消订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
+        // 模拟模式下不需要实际订阅，直接返回成功
         return true;
+    }
+
+    /**
+     * 获取历史K线数据
+     * 模拟模式下与普通K线数据相同，只是根据时间范围过滤
+     *
+     * @param symbol    交易对，如BTC-USDT
+     * @param interval  K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param startTime 开始时间戳（毫秒）
+     * @param endTime   结束时间戳（毫秒）
+     * @param limit     获取数据条数，最大为1000
+     * @return K线数据列表
+     */
+    @Override
+    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit) {
+        String cacheKey = symbol + "_" + interval;
+
+        if (!candlestickCache.containsKey(cacheKey)) {
+            candlestickCache.put(cacheKey, generateMockCandlesticks(symbol, interval, 1000));
+        }
+
+        List<Candlestick> allData = candlestickCache.get(cacheKey);
+        
+        // 根据时间范围过滤数据
+        List<Candlestick> filteredData = allData.stream()
+                .filter(candlestick -> {
+                    long candleTime = candlestick.getOpenTime().toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
+                    boolean afterStart = startTime == null || candleTime >= startTime;
+                    boolean beforeEnd = endTime == null || candleTime <= endTime;
+                    return afterStart && beforeEnd;
+                })
+                .collect(Collectors.toList());
+        
+        // 按时间排序（从新到旧）
+        filteredData.sort((c1, c2) -> c2.getOpenTime().compareTo(c1.getOpenTime()));
+        
+        // 限制返回数量
+        int size = limit != null && limit > 0 ? Math.min(limit, filteredData.size()) : filteredData.size();
+        return filteredData.subList(0, size);
     }
 }

@@ -528,7 +528,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     }
 
                     // 验证金额是否满足最小订单要求 (对于USDT计价，通常最小为5-10 USDT)
-                    if(orderRequest.getAmount().compareTo(new BigDecimal("10")) < 0){
+                    if(orderRequest.getAmount().compareTo(new BigDecimal("5")) < 0){
                         log.error("订单金额不足: {}, 最小订单金额为10USDT", orderRequest.getAmount());
                         throw new OkxApiException("订单金额不足，OKX要求最小订单金额为10USDT");
                     }
@@ -550,20 +550,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         log.error("无法获取币种价格: {}", orderRequest.getSymbol());
                         throw new OkxApiException("无法获取币种价格，请稍后重试");
                     }
-                    
+
                     // 计算订单金额并验证是否满足最小订单要求
                     BigDecimal orderValue = orderRequest.getQuantity().multiply(coinPrice);
-                    if(orderValue.compareTo(new BigDecimal("10")) < 0){
-                        log.error("订单价值不足: {}USDT, 最小订单金额为10USDT", orderValue);
+                    if(orderValue.compareTo(new BigDecimal("5")) < 0){
+                        log.error("订单价值不足: {}USDT, 最小订单金额为5USDT", orderValue);
                         throw new OkxApiException("订单数量过小，订单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
                     }
-                    
                     arg.put("sz", orderRequest.getQuantity().toString());
 
-                    // 买入市价单总是按数量购买基础货币
-                    if("buy".equalsIgnoreCase(orderRequest.getSide())){
-                        arg.put("tgtCcy", "base");
-                    }
                 }else{
                     throw new OkxApiException("市价单必须指定金额或数量");
                 }
@@ -577,14 +572,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 if(orderRequest.getQuantity() == null){
                     throw new OkxApiException("限价单必须指定数量");
                 }
-                
+
                 // 计算订单金额并验证是否满足最小订单要求
                 BigDecimal orderValue = orderRequest.getQuantity().multiply(orderRequest.getPrice());
                 if(orderValue.compareTo(new BigDecimal("10")) < 0){
                     log.error("限价单价值不足: {}USDT, 最小订单金额为10USDT", orderValue);
                     throw new OkxApiException("限价单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
                 }
-                
+
                 arg.put("sz", orderRequest.getQuantity().toString());
             }
 
@@ -920,10 +915,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     @Override
     public boolean unsubscribeKlineData(String symbol, String interval){
         try{
-            // 构建标记价格K线的正确频道名
+            // 取消订阅标记价格K线数据
             String channel = "mark-price-candle" + interval;
-            // 使用与getKlineData方法相同的键格式
             String key = channel + "_" + symbol + "_" + interval;
+
+            // 检查是否已订阅
+            if(! subscribedSymbols.contains(symbol)){
+                log.debug("币种 {} 未订阅，无需取消", symbol);
+                return true;
+            }
 
             log.info("取消订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
 
@@ -932,10 +932,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             arg.put("channel", channel);
             arg.put("instId", symbol);
 
+            // 发送取消订阅请求
             webSocketUtil.unsubscribePublicTopicWithArgs(arg, symbol);
 
-            // 清理相关Future - 使用正确的键格式
+            // 移除已订阅标记
+            subscribedSymbols.remove(symbol);
             klineFutures.remove(key);
+
             return true;
         }catch(Exception e){
             log.error("取消订阅K线数据失败: {}", e.getMessage(), e);
@@ -960,5 +963,107 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      */
     public Set<String> getSubscribedSymbols(){
         return new HashSet<>(subscribedSymbols);
+    }
+
+    @Override
+    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit) {
+        try {
+            // WebSocket模式下，历史K线通过REST API获取
+            log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}", 
+                symbol, interval, startTime, endTime, limit);
+            
+            // 使用现有的已经注入的依赖，向REST API发起请求
+            String url = okxApiConfig.getBaseUrl() + "/api/v5/market/history-candles";
+            url = url + "?instId=" + symbol + "&bar=" + interval;
+            
+            if (startTime != null) {
+                url = url + "&after=" + startTime;
+            }
+            
+            if (endTime != null) {
+                url = url + "&before=" + endTime;
+            }
+            
+            if (limit != null && limit > 0) {
+                url = url + "&limit=" + limit;
+            }
+            
+            // 这里不需要认证，直接发送GET请求
+            String response = HttpUtil.get(url, null);
+            JSONObject jsonResponse = JSONObject.parseObject(response);
+            
+            if (!"0".equals(jsonResponse.getString("code"))) {
+                throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
+            }
+            
+            JSONArray dataArray = jsonResponse.getJSONArray("data");
+            List<Candlestick> result = new ArrayList<>();
+            
+            for (int i = 0; i < dataArray.size(); i++) {
+                JSONArray item = dataArray.getJSONArray(i);
+                
+                // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
+                Candlestick candlestick = new Candlestick();
+                candlestick.setSymbol(symbol);
+                candlestick.setInterval(interval);
+                
+                // 转换时间戳为LocalDateTime
+                long timestamp = item.getLongValue(0);
+                LocalDateTime dateTime = LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(timestamp),
+                    ZoneId.systemDefault());
+                
+                candlestick.setOpenTime(dateTime);
+                candlestick.setOpen(new BigDecimal(item.getString(1)));
+                candlestick.setHigh(new BigDecimal(item.getString(2)));
+                candlestick.setLow(new BigDecimal(item.getString(3)));
+                candlestick.setClose(new BigDecimal(item.getString(4)));
+                candlestick.setVolume(new BigDecimal(item.getString(5)));
+                candlestick.setQuoteVolume(new BigDecimal(item.getString(6)));
+                
+                // 收盘时间根据interval计算
+                candlestick.setCloseTime(calculateCloseTimeFromInterval(dateTime, interval));
+                
+                // 成交笔数，OKX API可能没提供，设为0
+                candlestick.setTrades(0L);
+                
+                result.add(candlestick);
+            }
+            
+            return result;
+        } catch (Exception e) {
+            log.error("获取历史K线数据异常", e);
+            throw new OkxApiException("获取历史K线数据失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 根据开盘时间和K线间隔计算收盘时间
+     */
+    private LocalDateTime calculateCloseTimeFromInterval(LocalDateTime openTime, String interval) {
+        // 解析时间单位和数量
+        String unit = interval.substring(interval.length() - 1);
+        int amount;
+        try {
+            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+        } catch (NumberFormatException e) {
+            // 如果解析失败，使用默认值1
+            amount = 1;
+        }
+        
+        switch (unit) {
+            case "m":
+                return openTime.plusMinutes(amount);
+            case "H":
+                return openTime.plusHours(amount);
+            case "D":
+                return openTime.plusDays(amount);
+            case "W":
+                return openTime.plusWeeks(amount);
+            case "M":
+                return openTime.plusMonths(amount);
+            default:
+                return openTime.plusMinutes(1); // 默认1分钟
+        }
     }
 }
