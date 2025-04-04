@@ -11,6 +11,7 @@ import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.OkxApiService;
+import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
     private final OkxApiConfig okxApiConfig;
     private final WebSocketUtil webSocketUtil;
+    private final RedisCacheService redisCacheService;
 
     // 缓存和回调
     private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -51,6 +53,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final Map<String,CompletableFuture<List<Order>>> ordersFutures = new ConcurrentHashMap<>();
     private final Map<String,CompletableFuture<Order>> orderFutures = new ConcurrentHashMap<>();
     private final Map<String,CompletableFuture<Boolean>> cancelOrderFutures = new ConcurrentHashMap<>();
+    
+    // 跟踪当前已订阅的币种
+    private final Set<String> subscribedSymbols = Collections.synchronizedSet(new HashSet<>());
 
     // 消息ID生成
     private final AtomicLong messageIdGenerator = new AtomicLong(1);
@@ -94,10 +99,17 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             if(data != null && ! data.isEmpty()){
                 JSONObject tickerData = data.getJSONObject(0);
                 Ticker ticker = parseTicker(tickerData, symbol, channel);
-                log.info("获取实时指数行情信息: {}", ticker);
+
+                log.debug("获取实时指数行情信息: {}", ticker);
+
+                // 将最新价格写入Redis缓存
+                BigDecimal lastPrice = ticker.getLastPrice();
+                if (lastPrice != null) {
+                    redisCacheService.updateCoinPrice(symbol, lastPrice);
+                }
+
                 CompletableFuture<Ticker> future = tickerFutures.get(channel + "_" + symbol);
                 if(future != null && ! future.isDone()){
-
                     future.complete(ticker);
                 }
             }
@@ -336,13 +348,32 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     @Override
     public Ticker getTicker(String symbol){
         try{
+            // 检查是否已订阅，避免重复订阅
+            if(subscribedSymbols.contains(symbol)) {
+                log.debug("币种 {} 已经订阅，跳过重复订阅", symbol);
+                // 从Redis获取最新价格
+                BigDecimal price = redisCacheService.getCoinPrice(symbol);
+                if(price != null) {
+                    Ticker ticker = new Ticker();
+                    ticker.setSymbol(symbol);
+                    ticker.setLastPrice(price);
+                    ticker.setTimestamp(LocalDateTime.now());
+                    return ticker;
+                }
+                // 如果Redis中没有价格，继续订阅以获取最新数据
+            }
+            
             String channel = "tickers";
             String key = channel + "_" + symbol;
 
             CompletableFuture<Ticker> future = new CompletableFuture<>();
             tickerFutures.put(key, future);
 
+            log.info("订阅币种 {} 行情数据", symbol);
             webSocketUtil.subscribePublicTopic(channel, symbol);
+            
+            // 标记为已订阅
+            subscribedSymbols.add(symbol);
 
             Ticker ticker = future.get(10, TimeUnit.SECONDS);
             tickerFutures.remove(key);
@@ -464,6 +495,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             JSONObject requestMessage = new JSONObject();
             requestMessage.put("id", messageIdGenerator.getAndIncrement());
             requestMessage.put("op", "order");
+
 
             JSONObject arg = new JSONObject();
             arg.put("instId", orderRequest.getSymbol());
@@ -755,12 +787,21 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     @Override
     public boolean unsubscribeTicker(String symbol){
         try{
+            // 检查是否已订阅
+            if(!subscribedSymbols.contains(symbol)) {
+                log.debug("币种 {} 未订阅，无需取消", symbol);
+                return true;
+            }
+            
             String channel = "tickers";
             String key = channel + "_" + symbol;
 
             log.info("取消订阅行情数据，交易对: {}", symbol);
             webSocketUtil.unsubscribePublicTopic(channel, symbol);
 
+            // 移除订阅标记
+            subscribedSymbols.remove(symbol);
+            
             // 清理相关Future
             tickerFutures.remove(key);
             return true;
@@ -794,5 +835,24 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             log.error("取消订阅K线数据失败: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * 检查币种是否已订阅
+     *
+     * @param symbol 交易对符号
+     * @return 是否已订阅
+     */
+    public boolean isSymbolSubscribed(String symbol) {
+        return subscribedSymbols.contains(symbol);
+    }
+    
+    /**
+     * 获取所有已订阅的币种
+     *
+     * @return 已订阅币种集合
+     */
+    public Set<String> getSubscribedSymbols() {
+        return new HashSet<>(subscribedSymbols);
     }
 }

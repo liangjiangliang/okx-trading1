@@ -385,6 +385,7 @@ public class WebSocketUtil{
                         break;
                     case "60012": // 非法请求
                     case "60018": // 非法请求
+                    case "60013":
                         logger.warn("非法请求错误: {}", errorMsg);
                         break;
                     default:

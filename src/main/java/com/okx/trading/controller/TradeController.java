@@ -96,7 +96,7 @@ public class TradeController {
             @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = ""),
-            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
+//            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
             @ApiImplicitParam(name = "postOnly", value = "是否被动委托", required = false, dataType = "Boolean", example = "false"),
             @ApiImplicitParam(name = "simulated", value = "是否为模拟交易", required = false, dataType = "Boolean", example = "false")
     })
@@ -111,12 +111,12 @@ public class TradeController {
             @RequestParam(required = false) @DecimalMin(value = "0.01", message = "买入比例必须大于等于0.01") @DecimalMax(value = "1", message = "买入比例必须小于等于1") BigDecimal buyRatio,
             @RequestParam(required = false) @DecimalMin(value = "0.01", message = "卖出比例必须大于等于0.01") @DecimalMax(value = "1", message = "卖出比例必须小于等于1") BigDecimal sellRatio,
             @RequestParam(required = false) String clientOrderId,
-            @RequestParam(required = false) String timeInForce,
+//            @RequestParam(required = false) String timeInForce,
             @RequestParam(required = false) Boolean postOnly,
             @RequestParam(required = false) Boolean simulated) {
 
-        log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, timeInForce: {}, postOnly: {}, simulated: {}",
-                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, timeInForce, postOnly, simulated);
+        log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {},  postOnly: {}, simulated: {}",
+                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, postOnly, simulated);
 
         // 构建订单请求对象
         OrderRequest orderRequest = OrderRequest.builder()
@@ -129,7 +129,7 @@ public class TradeController {
                 .buyRatio(buyRatio)
                 .sellRatio(sellRatio)
                 .clientOrderId(clientOrderId)
-                .timeInForce(timeInForce)
+                .timeInForce("")
                 .postOnly(postOnly)
                 .simulated(simulated)
                 .build();
@@ -165,16 +165,16 @@ public class TradeController {
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT-SWAP"),
-            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "LIMIT", allowableValues = "LIMIT,MARKET"),
+            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "MARKET", allowableValues = "LIMIT,MARKET"),
             @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
             @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "50000"),
             @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
             @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5000"),
             @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
-            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = "client_order_12345"),
+            @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = ""),
             @ApiImplicitParam(name = "leverage", value = "杠杆倍数", required = false, dataType = "Integer", example = "5"),
-            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
+//            @ApiImplicitParam(name = "timeInForce", value = "订单有效期类型", required = false, dataType = "String", example = "GTC", allowableValues = "GTC,IOC,FOK"),
             @ApiImplicitParam(name = "postOnly", value = "是否被动委托", required = false, dataType = "Boolean", example = "false"),
             @ApiImplicitParam(name = "simulated", value = "是否为模拟交易", required = false, dataType = "Boolean", example = "false")
     })
@@ -190,12 +190,12 @@ public class TradeController {
             @RequestParam(required = false) @DecimalMin(value = "0.01", message = "卖出比例必须大于等于0.01") @DecimalMax(value = "1", message = "卖出比例必须小于等于1") BigDecimal sellRatio,
             @RequestParam(required = false) String clientOrderId,
             @RequestParam(required = false) Integer leverage,
-            @RequestParam(required = false) String timeInForce,
+//            @RequestParam(required = false) String timeInForce,
             @RequestParam(required = false) Boolean postOnly,
             @RequestParam(required = false) Boolean simulated) {
 
-        log.info("创建合约订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, leverage: {}, timeInForce: {}, postOnly: {}, simulated: {}",
-                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, leverage, timeInForce, postOnly, simulated);
+        log.info("创建合约订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {}, leverage: {}, postOnly: {}, simulated: {}",
+                symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, leverage, postOnly, simulated);
 
         // 构建订单请求对象
         OrderRequest orderRequest = OrderRequest.builder()
@@ -209,7 +209,7 @@ public class TradeController {
                 .sellRatio(sellRatio)
                 .clientOrderId(clientOrderId)
                 .leverage(leverage)
-                .timeInForce(timeInForce)
+                .timeInForce("")
                 .postOnly(postOnly)
                 .simulated(simulated)
                 .build();

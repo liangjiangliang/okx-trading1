@@ -68,7 +68,7 @@ okx:
 logging:
   level:
     root: INFO
-    com.okx.trading: DEBUG
+    com.okx.trading: INFO
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
