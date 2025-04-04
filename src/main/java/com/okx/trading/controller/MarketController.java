@@ -85,4 +85,52 @@ public class MarketController {
 
         return ApiResponse.success(ticker);
     }
+
+    /**
+     * 取消订阅K线数据
+     *
+     * @param symbol   交易对，如BTC-USDT
+     * @param interval K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @return 操作结果
+     */
+    @ApiOperation(value = "取消订阅K线数据", notes = "取消订阅指定交易对的K线数据")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M")
+    })
+    @GetMapping("/unsubscribe_klines")
+    public ApiResponse<Boolean> unsubscribeKlineData(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval) {
+
+        log.info("取消订阅K线数据, symbol: {}, interval: {}", symbol, interval);
+
+        boolean result = okxApiService.unsubscribeKlineData(symbol, interval);
+
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 取消订阅行情数据
+     *
+     * @param symbol 交易对，如BTC-USDT
+     * @return 操作结果
+     */
+    @ApiOperation(value = "取消订阅行情数据", notes = "取消订阅指定交易对的实时行情数据")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
+                    required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
+    })
+    @GetMapping("/unsubscribe_ticker")
+    public ApiResponse<Boolean> unsubscribeTicker(
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol) {
+
+        log.info("取消订阅行情数据, symbol: {}", symbol);
+
+        boolean result = okxApiService.unsubscribeTicker(symbol);
+
+        return ApiResponse.success(result);
+    }
 }

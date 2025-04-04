@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Candlestick {
 
+    private String channel;
     /**
      * 交易对，如BTC-USDT
      */

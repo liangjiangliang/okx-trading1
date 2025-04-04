@@ -88,13 +88,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      */
     private void handleTickerMessage(JSONObject message){
         try{
+            String channel = message.getJSONObject("arg").getString("channel");
             String symbol = message.getJSONObject("arg").getString("instId");
             JSONArray data = message.getJSONArray("data");
             if(data != null && ! data.isEmpty()){
                 JSONObject tickerData = data.getJSONObject(0);
-                Ticker ticker = parseTicker(tickerData, symbol);
+                Ticker ticker = parseTicker(tickerData, symbol, channel);
 
-                CompletableFuture<Ticker> future = tickerFutures.get(symbol);
+                CompletableFuture<Ticker> future = tickerFutures.get(channel + "_" + symbol);
                 if(future != null && ! future.isDone()){
                     log.info("获取实时行情信息: {}", ticker);
                     future.complete(ticker);
@@ -143,11 +144,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     if(item instanceof JSONArray){
                         // 标准K线格式：数组的数组
                         JSONArray candleData = (JSONArray)item;
-                        candlestick = parseCandlestick(candleData, symbol);
+                        candlestick = parseCandlestick(candleData, symbol,channel);
                     }else if(item instanceof JSONObject){
                         // 某些API返回对象数组
                         JSONObject candleObj = (JSONObject)item;
-                        candlestick = parseCandlestickFromObject(candleObj, symbol);
+                        candlestick = parseCandlestickFromObject(candleObj, symbol,channel);
                     }
 
                     if(candlestick != null){
@@ -181,10 +182,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * 从JSONObject解析K线数据
      * 用于处理非标准格式的K线数据
      */
-    private Candlestick parseCandlestickFromObject(JSONObject candleObj, String symbol){
+    private Candlestick parseCandlestickFromObject(JSONObject candleObj, String symbol,String channel){
         try{
             Candlestick candlestick = new Candlestick();
             candlestick.setSymbol(symbol);
+            candlestick.setChannel(channel);
 
             // 解析时间戳
             if(candleObj.containsKey("ts")){
@@ -322,7 +324,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 //
 
             log.debug("订阅标记价格K线数据，符号: {}, 间隔: {}", symbol, interval);
-            webSocketUtil.subscribePublicTopicWithArgs(arg,symbol);
+            webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 设置超时时间更长一些
             List<Candlestick> candlesticks = future.get(15, TimeUnit.SECONDS);
@@ -347,11 +349,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     public Ticker getTicker(String symbol){
         try{
             CompletableFuture<Ticker> future = new CompletableFuture<>();
-            tickerFutures.put(symbol, future);
+            String channnel = "tickers";
+            tickerFutures.put(channnel + "_" + symbol, future);
 
-            webSocketUtil.subscribePublicTopic("tickers", symbol);
+            webSocketUtil.subscribePublicTopic(channnel, symbol);
 
-            Ticker ticker = future.get(10, TimeUnit.SECONDS);
+            Ticker ticker = future.get(15, TimeUnit.SECONDS);
             tickerFutures.remove(symbol);
 
             return ticker;
@@ -554,9 +557,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析Ticker数据
      */
-    private Ticker parseTicker(JSONObject tickerData, String symbol){
+    private Ticker parseTicker(JSONObject tickerData, String symbol, String channel){
         Ticker ticker = new Ticker();
         ticker.setSymbol(symbol);
+        ticker.setChannel(channel);
         ticker.setLastPrice(new BigDecimal(tickerData.getString("last")));
         ticker.setBidPrice(new BigDecimal(tickerData.getString("bidPx")));
         ticker.setAskPrice(new BigDecimal(tickerData.getString("askPx")));
@@ -586,9 +590,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析K线数据
      */
-    private Candlestick parseCandlestick(JSONArray candleData, String symbol){
+    private Candlestick parseCandlestick(JSONArray candleData, String symbol,String channel){
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol(symbol);
+        candlestick.setChannel(channel);
 
         // 解析时间戳
         long timestamp = Long.parseLong(candleData.getString(0));
@@ -754,6 +759,46 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 return "market";
             default:
                 return standardType.toLowerCase();
+        }
+    }
+
+    @Override
+    public boolean unsubscribeTicker(String symbol){
+        try{
+            log.info("取消订阅行情数据，交易对: {}", symbol);
+            webSocketUtil.unsubscribePublicTopic("tickers", symbol);
+            // 清理相关Future
+            tickerFutures.remove(symbol);
+            return true;
+        }catch(Exception e){
+            log.error("取消订阅行情数据失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean unsubscribeKlineData(String symbol, String interval){
+        try{
+            log.info("取消订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
+
+            // 对于标记价格K线，需要使用不同的取消订阅方式
+            String channel = "mark-price";
+            String key = symbol + "_" + interval;
+
+            // 创建取消订阅参数
+            JSONObject arg = new JSONObject();
+            arg.put("channel", channel);
+            arg.put("instId", symbol);
+            arg.put("bar", interval);
+
+            webSocketUtil.unsubscribePublicTopicWithArgs(arg, symbol);
+
+            // 清理相关Future
+            klineFutures.remove(key);
+            return true;
+        }catch(Exception e){
+            log.error("取消订阅K线数据失败: {}", e.getMessage(), e);
+            return false;
         }
     }
 }

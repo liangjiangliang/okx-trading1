@@ -635,4 +635,18 @@ public class OkxApiServiceImpl implements OkxApiService {
                 return standardTif.toLowerCase();
         }
     }
+
+    @Override
+    public boolean unsubscribeTicker(String symbol) {
+        // REST API模式下，没有实时订阅，只是单次请求，所以不需要取消订阅
+        log.info("REST API模式下不需要取消订阅行情数据，交易对: {}", symbol);
+        return true;
+    }
+
+    @Override
+    public boolean unsubscribeKlineData(String symbol, String interval) {
+        // REST API模式下，没有实时订阅，只是单次请求，所以不需要取消订阅
+        log.info("REST API模式下不需要取消订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
+        return true;
+    }
 }

@@ -608,4 +608,28 @@ public class WebSocketUtil{
 
         logger.info("订阅公共频道主题，参数: {}", arg);
     }
+
+    /**
+     * 取消订阅公共频道主题（带自定义参数）
+     *
+     * @param arg 取消订阅参数对象
+     */
+    public void unsubscribePublicTopicWithArgs(JSONObject arg, String... symbols){
+        if(publicWebSocket == null || bussinessWebSocket == null){
+            logger.warn("公共频道WebSocket未连接，无法取消订阅");
+            return;
+        }
+
+        JSONObject unsubscribeMessage = new JSONObject();
+        unsubscribeMessage.put("op", "unsubscribe");
+
+        JSONObject[] args = new JSONObject[]{arg};
+        unsubscribeMessage.put("args", args);
+        if(symbols != null && symbols.length > 0){
+            bussinessWebSocket.send(unsubscribeMessage.toJSONString());
+        }else{
+            publicWebSocket.send(unsubscribeMessage.toJSONString());
+        }
+        logger.info("取消订阅公共频道主题，参数: {}", arg);
+    }
 }

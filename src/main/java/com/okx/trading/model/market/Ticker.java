@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Ticker{
 
+    private String channel;
+
     /**
      * 交易对，如BTC-USDT
      */

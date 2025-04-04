@@ -504,4 +504,16 @@ public class OkxApiMockServiceImpl implements OkxApiService {
             return 1; // 默认1分钟
         }
     }
+
+    @Override
+    public boolean unsubscribeTicker(String symbol) {
+        log.info("模拟取消订阅行情数据，交易对: {}", symbol);
+        return true;
+    }
+
+    @Override
+    public boolean unsubscribeKlineData(String symbol, String interval) {
+        log.info("模拟取消订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
+        return true;
+    }
 }
