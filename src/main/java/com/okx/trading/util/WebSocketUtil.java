@@ -633,4 +633,22 @@ public class WebSocketUtil{
         }
         logger.info("取消订阅公共频道主题，参数: {}", arg);
     }
+
+    /**
+     * 检查私有WebSocket是否已连接
+     * 
+     * @return 如果私有WebSocket已连接则返回true，否则返回false
+     */
+    public boolean isPrivateSocketConnected() {
+        return privateWebSocket != null;
+    }
+    
+    /**
+     * 检查公共WebSocket是否已连接
+     * 
+     * @return 如果公共WebSocket已连接则返回true，否则返回false
+     */
+    public boolean isPublicSocketConnected() {
+        return publicWebSocket != null;
+    }
 }

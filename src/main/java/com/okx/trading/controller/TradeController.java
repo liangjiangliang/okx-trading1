@@ -92,7 +92,7 @@ public class TradeController {
             @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
             @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "100"),
             @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
-            @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5000"),
+            @ApiImplicitParam(name = "amount", value = "金额", required = false, dataType = "BigDecimal", example = "5"),
             @ApiImplicitParam(name = "buyRatio", value = "买入比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "sellRatio", value = "卖出比例", required = false, dataType = "BigDecimal", example = "0.5"),
             @ApiImplicitParam(name = "clientOrderId", value = "客户端订单ID", required = false, dataType = "String", example = ""),

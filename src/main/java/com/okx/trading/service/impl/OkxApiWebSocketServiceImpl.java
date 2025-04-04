@@ -53,7 +53,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final Map<String,CompletableFuture<List<Order>>> ordersFutures = new ConcurrentHashMap<>();
     private final Map<String,CompletableFuture<Order>> orderFutures = new ConcurrentHashMap<>();
     private final Map<String,CompletableFuture<Boolean>> cancelOrderFutures = new ConcurrentHashMap<>();
-    
+
     // 跟踪当前已订阅的币种
     private final Set<String> subscribedSymbols = Collections.synchronizedSet(new HashSet<>());
 
@@ -104,7 +104,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                 // 将最新价格写入Redis缓存
                 BigDecimal lastPrice = ticker.getLastPrice();
-                if (lastPrice != null) {
+                if(lastPrice != null){
                     redisCacheService.updateCoinPrice(symbol, lastPrice);
                 }
 
@@ -287,15 +287,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             if(data != null && ! data.isEmpty()){
                 JSONObject orderData = data.getJSONObject(0);
                 Order order = parseOrder(orderData);
-
-                String orderId = orderData.getString("ordId");
-                CompletableFuture<Order> future = orderFutures.get(orderId);
+                
+                // 使用clOrdId查找对应的future，而不是ordId
+                String clientOrderId = orderData.getString("clOrdId");
+                log.info("收到订单消息: orderId={}, clientOrderId={}, status={}", 
+                    orderData.getString("ordId"), clientOrderId, orderData.getString("state"));
+                
+                CompletableFuture<Order> future = orderFutures.get(clientOrderId);
                 if(future != null && ! future.isDone()){
                     future.complete(order);
                 }
 
                 // 处理取消订单的响应
                 if("canceled".equals(orderData.getString("state"))){
+                    String orderId = orderData.getString("ordId");
                     CompletableFuture<Boolean> cancelFuture = cancelOrderFutures.get(orderId);
                     if(cancelFuture != null && ! cancelFuture.isDone()){
                         cancelFuture.complete(true);
@@ -349,11 +354,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     public Ticker getTicker(String symbol){
         try{
             // 检查是否已订阅，避免重复订阅
-            if(subscribedSymbols.contains(symbol)) {
+            if(subscribedSymbols.contains(symbol)){
                 log.debug("币种 {} 已经订阅，跳过重复订阅", symbol);
                 // 从Redis获取最新价格
                 BigDecimal price = redisCacheService.getCoinPrice(symbol);
-                if(price != null) {
+                if(price != null){
                     Ticker ticker = new Ticker();
                     ticker.setSymbol(symbol);
                     ticker.setLastPrice(price);
@@ -362,7 +367,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 }
                 // 如果Redis中没有价格，继续订阅以获取最新数据
             }
-            
+
             String channel = "tickers";
             String key = channel + "_" + symbol;
 
@@ -371,7 +376,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             log.info("订阅币种 {} 行情数据", symbol);
             webSocketUtil.subscribePublicTopic(channel, symbol);
-            
+
             // 标记为已订阅
             subscribedSymbols.add(symbol);
 
@@ -487,43 +492,88 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      */
     private Order createOrder(OrderRequest orderRequest, String instType, boolean isSimulated){
         try{
-            String orderId = UUID.randomUUID().toString().replace("-", "");
+            // 生成唯一订单ID，保证每次请求的ID都是不同的
+            String orderId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+            String clientOrderId = orderRequest.getClientOrderId() != null ? 
+                orderRequest.getClientOrderId() : "okx_" + System.currentTimeMillis() + "_" + orderId.substring(0, 8);
+            
             CompletableFuture<Order> future = new CompletableFuture<>();
-            orderFutures.put(orderId, future);
+            
+            // 将future与clientOrderId关联，而不是orderId
+            orderFutures.put(clientOrderId, future);
+            
+            log.info("准备创建订单, symbol: {}, type: {}, side: {}, clientOrderId: {}", 
+                orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), clientOrderId);
 
             // 构建订单请求
             JSONObject requestMessage = new JSONObject();
             requestMessage.put("id", messageIdGenerator.getAndIncrement());
             requestMessage.put("op", "order");
 
-
             JSONObject arg = new JSONObject();
             arg.put("instId", orderRequest.getSymbol());
             arg.put("tdMode", "cash"); // 资金模式，cash为现钞
             arg.put("side", orderRequest.getSide().toLowerCase());
-            arg.put("ordType", mapToOkxOrderType(orderRequest.getType()));
-            arg.put("sz", orderRequest.getQuantity().toString());
-
-            if("limit".equals(mapToOkxOrderType(orderRequest.getType()))){
+            arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
+            
+            // 处理市价单和限价单逻辑
+            if("market".equals(mapToOkxOrderType(orderRequest.getType()))){
+                // 市价单
+                if(orderRequest.getAmount() != null){
+                    // 按金额下单
+                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
+                    if(coinPrice == null || coinPrice.compareTo(BigDecimal.ZERO) <= 0){
+                        log.error("无法获取币种价格: {}", orderRequest.getSymbol());
+                        throw new OkxApiException("无法获取币种价格，请稍后重试");
+                    }
+                    
+                    // 为市价单计算数量，金额除以价格
+                    BigDecimal quantity = orderRequest.getAmount().divide(coinPrice, 8, RoundingMode.HALF_UP);
+                    log.info("市价单按金额下单计算: 金额={}, 价格={}, 数量={}", 
+                        orderRequest.getAmount(), coinPrice, quantity);
+                    arg.put("sz", quantity.toString());
+                    
+                    // 市价单买入时使用tgtCcy=base标记按数量购买，卖出时不需要标记
+                    if("buy".equalsIgnoreCase(orderRequest.getSide().toLowerCase())){
+                        arg.put("tgtCcy", "base");
+                    }
+                } else if(orderRequest.getQuantity() != null){
+                    // 按数量下单
+                    arg.put("sz", orderRequest.getQuantity().toString());
+                    
+                    // 买入市价单总是按数量购买基础货币
+                    if("buy".equalsIgnoreCase(orderRequest.getSide().toLowerCase())){
+                        arg.put("tgtCcy", "base");
+                    }
+                } else {
+                    throw new OkxApiException("市价单必须指定金额或数量");
+                }
+            } else {
+                // 限价单
+                if(orderRequest.getPrice() == null){
+                    throw new OkxApiException("限价单必须指定价格");
+                }
                 arg.put("px", orderRequest.getPrice().toString());
+                
+                if(orderRequest.getQuantity() == null){
+                    throw new OkxApiException("限价单必须指定数量");
+                }
+                arg.put("sz", orderRequest.getQuantity().toString());
             }
 
-            if(orderRequest.getClientOrderId() != null){
-                arg.put("clOrdId", orderRequest.getClientOrderId());
-            }else{
-                arg.put("clOrdId", orderId);
-            }
+            // 设置客户端订单ID
+            arg.put("clOrdId", clientOrderId);
 
             // 设置杠杆倍数（合约交易）
             if("SWAP".equals(instType) && orderRequest.getLeverage() != null){
                 arg.put("lever", orderRequest.getLeverage().toString());
             }
-
+            
             // 设置被动委托
             if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
                 arg.put("postOnly", "1");
             }
-
+            
             // 设置模拟交易
             if(isSimulated){
                 arg.put("simulated", "1");
@@ -532,15 +582,44 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             JSONObject[] args = new JSONObject[]{arg};
             requestMessage.put("args", args);
 
+            // 记录发送的订单请求
+            log.info("发送订单请求: {}", requestMessage.toJSONString());
+            
+            // 检查WebSocket连接状态
+            if (!webSocketUtil.isPrivateSocketConnected()) {
+                log.error("私有WebSocket未连接，无法发送订单请求");
+                throw new OkxApiException("WebSocket连接已断开，请重新连接后再尝试");
+            }
+            
             // 发送请求
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
-            Order order = future.get(10, TimeUnit.SECONDS);
-            orderFutures.remove(orderId);
+            // 增加订单超时时间到45秒
+            Order order;
+            try {
+                order = future.get(45, TimeUnit.SECONDS);
+                log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}", 
+                    clientOrderId, order.getOrderId(), order.getStatus());
+            } catch (TimeoutException e) {
+                log.error("订单请求超时(45秒), symbol: {}, type: {}, side: {}, clientOrderId: {}, 请求内容: {}", 
+                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), 
+                    clientOrderId, requestMessage.toJSONString());
+                throw new OkxApiException("订单请求超时(45秒)，请检查网络连接或OKX服务器状态，可能订单已发送但未收到响应，请使用查询订单接口确认订单状态");
+            } catch (Exception e) {
+                log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}", 
+                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), 
+                    clientOrderId, e.getMessage(), e);
+                throw new OkxApiException("订单请求异常: " + e.getMessage(), e);
+            } finally {
+                // 清理资源
+                orderFutures.remove(clientOrderId);
+            }
 
             return order;
-        }catch(Exception e){
-            log.error("创建订单失败", e);
+        } catch(OkxApiException e) {
+            throw e;
+        } catch(Exception e){
+            log.error("创建订单失败: {}", e.getMessage(), e);
             throw new OkxApiException("创建订单失败: " + e.getMessage(), e);
         }
     }
@@ -788,11 +867,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     public boolean unsubscribeTicker(String symbol){
         try{
             // 检查是否已订阅
-            if(!subscribedSymbols.contains(symbol)) {
+            if(! subscribedSymbols.contains(symbol)){
                 log.debug("币种 {} 未订阅，无需取消", symbol);
                 return true;
             }
-            
+
             String channel = "tickers";
             String key = channel + "_" + symbol;
 
@@ -801,7 +880,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             // 移除订阅标记
             subscribedSymbols.remove(symbol);
-            
+
             // 清理相关Future
             tickerFutures.remove(key);
             return true;
@@ -843,16 +922,16 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * @param symbol 交易对符号
      * @return 是否已订阅
      */
-    public boolean isSymbolSubscribed(String symbol) {
+    public boolean isSymbolSubscribed(String symbol){
         return subscribedSymbols.contains(symbol);
     }
-    
+
     /**
      * 获取所有已订阅的币种
      *
      * @return 已订阅币种集合
      */
-    public Set<String> getSubscribedSymbols() {
+    public Set<String> getSubscribedSymbols(){
         return new HashSet<>(subscribedSymbols);
     }
 }

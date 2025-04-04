@@ -61,7 +61,7 @@ public class MarketControllerTest {
         when(okxApiService.getKlineData(eq("BTC-USDT"), eq("1m"), any())).thenReturn(candlesticks);
 
         // 执行请求并验证结果
-        mockMvc.perform(get("/market/klines")
+        mockMvc.perform(get("/market/subscribe_klines")
                 .param("symbol", "BTC-USDT")
                 .param("interval", "1m")
                 .contentType(MediaType.APPLICATION_JSON))
