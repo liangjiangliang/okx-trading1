@@ -588,11 +588,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     // 睡眠1秒确保订单有时间处理
                     Thread.sleep(1000);
                     
-                    // 根据OKX API文档，订单查询应该使用正确的路径(orders-history是复数形式)
+                    // 使用正确的API接口：直接使用order接口按clientOrderId查询单个订单
                     // 构建API请求路径
                     StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
-                        .append("/api/v5/trade/orders-history?instType=SPOT&instId=")
-                        .append(orderRequest.getSymbol());
+                        .append("/api/v5/trade/order?instId=")
+                        .append(orderRequest.getSymbol())
+                        .append("&clOrdId=")
+                        .append(clientOrderId);
                     
                     // 记录API请求路径
                     log.info("查询订单API URL: {}", apiUrlBuilder.toString());
@@ -601,12 +603,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     
                     // 构建请求路径（不含baseUrl，用于签名）
-                    String requestPath = "/api/v5/trade/orders-history?instType=SPOT&instId=" 
-                        + orderRequest.getSymbol();
+                    String requestPath = "/api/v5/trade/order?instId=" 
+                        + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
                     
                     // 生成签名
                     String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
-
+                    
                     Request.Builder requestBuilder = new Request.Builder()
                         .url(apiUrlBuilder.toString())
                         .addHeader("Content-Type", "application/json")
@@ -614,50 +616,42 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         .addHeader("OK-ACCESS-SIGN", sign)
                         .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
                         .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
-
+                    
                     // 如果是模拟交易需要额外添加标志
                     if (isSimulated) {
                         requestBuilder.addHeader("x-simulated-trading", "1");
                     }
-
+                    
                     Request request = requestBuilder.get().build();
-
+                    
                     try (Response response = okHttpClient.newCall(request).execute()) {
                         if (response.isSuccessful() && response.body() != null) {
                             String responseBody = response.body().string();
                             log.info("REST API查询订单响应: {}", responseBody);
-
+                            
                             JSONObject responseJson = JSONObject.parseObject(responseBody);
-
+                            
                             if ("0".equals(responseJson.getString("code"))) {
                                 JSONArray data = responseJson.getJSONArray("data");
                                 if (data != null && !data.isEmpty()) {
-                                    boolean foundOrder = false;
-
-                                    // 遍历所有订单，根据clientOrderId匹配
-                                    for (int i = 0; i < data.size(); i++) {
-                                        JSONObject orderData = data.getJSONObject(i);
-                                        String respClientOrderId = orderData.getString("clOrdId");
-
-                                        if (clientOrderId.equals(respClientOrderId)) {
-                                            order = parseOrder(orderData);
-                                            log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
-                                                clientOrderId, order.getOrderId(), order.getStatus());
-                                            foundOrder = true;
-                                            break;
-                                        }
-                                    }
-
-                                    if (!foundOrder) {
-                                        log.warn("REST API返回订单列表中未找到匹配订单, clientOrderId: {}", clientOrderId);
-                                        throw new OkxApiException("未找到对应订单，请稍后通过查询接口确认订单状态");
-                                    }
+                                    // 直接解析第一个订单，因为是按clientOrderId精确查询的
+                                    JSONObject orderData = data.getJSONObject(0);
+                                    order = parseOrder(orderData);
+                                    log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
+                                        clientOrderId, order.getOrderId(), order.getStatus());
                                 } else {
-                                    log.error("REST API未返回订单数据, clientOrderId: {}", clientOrderId);
-                                    throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
+                                    // 尝试查询活跃订单
+                                    log.info("通过clientOrderId未查询到订单，尝试查询活跃订单列表");
+                                    Order pendingOrder = findOrderInPendingList(clientOrderId, orderRequest.getSymbol(), isSimulated);
+                                    if (pendingOrder != null) {
+                                        order = pendingOrder;
+                                    } else {
+                                        log.error("REST API未查询到订单, clientOrderId: {}", clientOrderId);
+                                        throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
+                                    }
                                 }
                             } else {
-                                log.error("REST API查询订单失败, code: {}, msg: {}",
+                                log.error("REST API查询订单失败, code: {}, msg: {}", 
                                     responseJson.getString("code"), responseJson.getString("msg"));
                                 throw new OkxApiException("查询订单失败: " + responseJson.getString("msg"));
                             }
@@ -1109,6 +1103,85 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 return openTime.plusMonths(amount);
             default:
                 return openTime.plusMinutes(1); // 默认1分钟
+        }
+    }
+
+    /**
+     * 在活跃订单列表中查找指定订单
+     * 
+     * @param clientOrderId 客户端订单ID
+     * @param symbol 交易对
+     * @param isSimulated 是否是模拟交易
+     * @return 找到的订单，未找到则返回null
+     */
+    private Order findOrderInPendingList(String clientOrderId, String symbol, boolean isSimulated) {
+        try {
+            // 构建API请求路径，查询活跃订单
+            StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
+                .append("/api/v5/trade/orders-pending?instType=SPOT&instId=")
+                .append(symbol);
+            
+            log.info("查询活跃订单API URL: {}", apiUrlBuilder.toString());
+            
+            // 时间戳
+            String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
+            
+            // 构建请求路径（用于签名）
+            String requestPath = "/api/v5/trade/orders-pending?instType=SPOT&instId=" + symbol;
+            
+            // 生成签名
+            String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
+            
+            Request.Builder requestBuilder = new Request.Builder()
+                .url(apiUrlBuilder.toString())
+                .addHeader("Content-Type", "application/json")
+                .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
+                .addHeader("OK-ACCESS-SIGN", sign)
+                .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
+                .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
+            
+            // 如果是模拟交易
+            if (isSimulated) {
+                requestBuilder.addHeader("x-simulated-trading", "1");
+            }
+            
+            Request request = requestBuilder.get().build();
+            
+            try (Response response = okHttpClient.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String responseBody = response.body().string();
+                    log.info("活跃订单查询响应: {}", responseBody);
+                    
+                    JSONObject responseJson = JSONObject.parseObject(responseBody);
+                    
+                    if ("0".equals(responseJson.getString("code"))) {
+                        JSONArray data = responseJson.getJSONArray("data");
+                        if (data != null && !data.isEmpty()) {
+                            // 遍历所有活跃订单，查找匹配的clientOrderId
+                            for (int i = 0; i < data.size(); i++) {
+                                JSONObject orderData = data.getJSONObject(i);
+                                String respClientOrderId = orderData.getString("clOrdId");
+                                
+                                if (clientOrderId.equals(respClientOrderId)) {
+                                    Order order = parseOrder(orderData);
+                                    log.info("在活跃订单中找到匹配订单: clientOrderId={}, orderId={}, status={}",
+                                        clientOrderId, order.getOrderId(), order.getStatus());
+                                    return order;
+                                }
+                            }
+                        }
+                    } else {
+                        log.warn("活跃订单查询失败: code={}, msg={}", 
+                            responseJson.getString("code"), responseJson.getString("msg"));
+                    }
+                }
+            }
+            
+            // 如果没找到，返回null
+            return null;
+        } catch (Exception e) {
+            log.warn("查询活跃订单列表异常", e);
+            return null;
         }
     }
 }
