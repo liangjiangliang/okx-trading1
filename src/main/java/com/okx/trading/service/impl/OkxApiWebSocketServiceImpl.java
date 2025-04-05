@@ -517,73 +517,28 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             arg.put("instId", orderRequest.getSymbol());
             arg.put("tdMode", "cash"); // 资金模式，cash为现钞
             arg.put("side", orderRequest.getSide().toLowerCase());
-            arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
-
-            // 处理市价单和限价单逻辑
-            if("market".equals(mapToOkxOrderType(orderRequest.getType()))){
-                // 市价单
-                if(orderRequest.getAmount() != null){
-                    // 按金额下单
-                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
-                    if(coinPrice == null || coinPrice.compareTo(BigDecimal.ZERO) <= 0){
-                        log.error("无法获取币种价格: {}", orderRequest.getSymbol());
-                        throw new OkxApiException("无法获取币种价格，请稍后重试");
-                    }
-
-                    // 验证金额是否满足最小订单要求 (对于USDT计价，通常最小为5-10 USDT)
-                    if(orderRequest.getAmount().compareTo(new BigDecimal("5")) < 0){
-                        log.error("订单金额不足: {}, 最小订单金额为10USDT", orderRequest.getAmount());
-                        throw new OkxApiException("订单金额不足，OKX要求最小订单金额为10USDT");
-                    }
-
-                    // 为市价单计算数量，金额除以价格
-                    BigDecimal quantity = orderRequest.getAmount().divide(coinPrice, 8, RoundingMode.HALF_UP);
-                    log.info("市价单按金额下单计算: 金额={}, 价格={}, 数量={}",
-                        orderRequest.getAmount(), coinPrice, quantity);
-                    arg.put("sz", quantity.toString());
-
-                    // 买入市价单总是按数量购买基础货币
-                    if("buy".equalsIgnoreCase(orderRequest.getSide())){
-                        arg.put("tgtCcy", "base");
-                    }
-                }else if(orderRequest.getQuantity() != null){
-                    // 按数量下单
-                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
-                    if(coinPrice == null || coinPrice.compareTo(BigDecimal.ZERO) <= 0){
-                        log.error("无法获取币种价格: {}", orderRequest.getSymbol());
-                        throw new OkxApiException("无法获取币种价格，请稍后重试");
-                    }
-
-                    // 计算订单金额并验证是否满足最小订单要求
-                    BigDecimal orderValue = orderRequest.getQuantity().multiply(coinPrice);
-                    if(orderValue.compareTo(new BigDecimal("5")) < 0){
-                        log.error("订单价值不足: {}USDT, 最小订单金额为5USDT", orderValue);
-                        throw new OkxApiException("订单数量过小，订单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
-                    }
-                    arg.put("sz", orderRequest.getQuantity().toString());
-
-                }else{
-                    throw new OkxApiException("市价单必须指定金额或数量");
-                }
+            if(orderRequest.getType() != null){
+                arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
             }else{
-                // 限价单
-                if(orderRequest.getPrice() == null){
-                    throw new OkxApiException("限价单必须指定价格");
-                }
-                arg.put("px", orderRequest.getPrice().toString());
+                arg.put("ordType", "MARKET");
+            }
 
-                if(orderRequest.getQuantity() == null){
-                    throw new OkxApiException("限价单必须指定数量");
-                }
 
-                // 计算订单金额并验证是否满足最小订单要求
-                BigDecimal orderValue = orderRequest.getQuantity().multiply(orderRequest.getPrice());
-                if(orderValue.compareTo(new BigDecimal("10")) < 0){
-                    log.error("限价单价值不足: {}USDT, 最小订单金额为10USDT", orderValue);
-                    throw new OkxApiException("限价单价值(" + orderValue.setScale(2, RoundingMode.HALF_UP) + "USDT)低于OKX最小订单金额要求(10USDT)");
-                }
-
+            //币币市价单委托数量sz的单位,base_ccy: 交易货币 ；quote_ccy：计价货币,仅适用于币币市价订单,默认买单为quote_ccy，卖单为base_ccy
+            if(orderRequest.getAmount() != null){
+                // 市价\限价,指定金额
+                arg.put("sz", orderRequest.getAmount().toString());
+                arg.put("tgtCcy", "quote_ccy");
+            }else if(orderRequest.getQuantity() != null){
+                //指定数量,市价单不指定价格,限价单指定价格
                 arg.put("sz", orderRequest.getQuantity().toString());
+                arg.put("tgtCcy", "base_ccy");
+                if(orderRequest.getPrice() != null){
+                    arg.put("px", orderRequest.getPrice().toString());
+                }else{
+                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
+                    arg.put("px", coinPrice.toString());
+                }
             }
 
             // 设置客户端订单ID
@@ -594,10 +549,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 arg.put("lever", orderRequest.getLeverage().toString());
             }
 
-            // 设置被动委托
-            if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
-                arg.put("postOnly", "1");
-            }
+//            // 设置被动委托
+//            if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
+//                arg.put("postOnly", "1");
+//            }
 
             // 设置模拟交易
             if(isSimulated){

@@ -88,7 +88,7 @@ public class TradeController {
             "如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT"),
-            @ApiImplicitParam(name = "type", value = "订单类型", required = true, dataType = "String", example = "MARKET", allowableValues = "LIMIT,MARKET"),
+            @ApiImplicitParam(name = "type", value = "订单类型,默认MARKET", required = true, dataType = "String", example = "MARKET", allowableValues = "LIMIT,MARKET"),
             @ApiImplicitParam(name = "side", value = "交易方向", required = true, dataType = "String", example = "BUY", allowableValues = "BUY,SELL"),
             @ApiImplicitParam(name = "price", value = "价格(对限价单必填)", required = false, dataType = "BigDecimal", example = "100"),
             @ApiImplicitParam(name = "quantity", value = "数量", required = false, dataType = "BigDecimal", example = "0.1"),
@@ -103,7 +103,7 @@ public class TradeController {
     @PostMapping("/spot-orders")
     public ApiResponse<Order> createSpotOrder(
             @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-            @NotBlank(message = "订单类型不能为空") @RequestParam String type,
+           @RequestParam String type,
             @NotBlank(message = "交易方向不能为空") @RequestParam String side,
             @RequestParam(required = false) BigDecimal price,
             @RequestParam(required = false) @DecimalMin(value = "0.00000001", message = "数量必须大于0") BigDecimal quantity,
@@ -130,7 +130,7 @@ public class TradeController {
                 .sellRatio(sellRatio)
                 .clientOrderId(clientOrderId)
                 .timeInForce("")
-                .postOnly(postOnly)
+//                .postOnly(postOnly)
                 .simulated(simulated)
                 .build();
 
@@ -210,7 +210,7 @@ public class TradeController {
                 .clientOrderId(clientOrderId)
                 .leverage(leverage)
                 .timeInForce("")
-                .postOnly(postOnly)
+//                .postOnly(postOnly)
                 .simulated(simulated)
                 .build();
 

@@ -140,12 +140,15 @@ public class OkxApiRestServiceImpl implements OkxApiService{
             Ticker ticker = new Ticker();
             ticker.setSymbol(symbol);
             ticker.setLastPrice(new BigDecimal(data.getString("last")));
-
             // 计算24小时价格变动
             BigDecimal open24h = new BigDecimal(data.getString("open24h"));
             BigDecimal priceChange = ticker.getLastPrice().subtract(open24h);
             ticker.setPriceChange(priceChange);
-
+            // 将最新价格写入Redis缓存
+            BigDecimal lastPrice = ticker.getLastPrice();
+            if(lastPrice != null){
+                redisCacheService.updateCoinPrice(symbol, lastPrice);
+            }
             // 计算24小时价格变动百分比
             if(open24h.compareTo(BigDecimal.ZERO) > 0){
                 BigDecimal changePercent = priceChange.multiply(new BigDecimal("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
@@ -415,44 +418,28 @@ public class OkxApiRestServiceImpl implements OkxApiService{
             requestBody.put("instId", orderRequest.getSymbol());
             requestBody.put("tdMode", "cash"); // 资金模式，cash为现钞
             requestBody.put("side", orderRequest.getSide().toLowerCase());
-            requestBody.put("ordType", mapToOkxOrderType(orderRequest.getType()));
-            // 处理市价单和限价单逻辑
-            if("market".equals(mapToOkxOrderType(orderRequest.getType()))){
-                // 市价单
-                if(orderRequest.getAmount() != null){
-                    // 按金额下单
-                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
-                    if(coinPrice == null || coinPrice.compareTo(BigDecimal.ZERO) <= 0){
-                        log.error("无法获取币种价格: {}", orderRequest.getSymbol());
-                        throw new OkxApiException("无法获取币种价格，请稍后重试");
-                    }
-
-                    // 为市价单计算数量，金额除以价格
-                    BigDecimal quantity = orderRequest.getAmount().divide(coinPrice, 8, RoundingMode.HALF_UP);
-                    log.info("市价单按金额下单计算: 金额={}, 价格={}, 数量={}",
-                        orderRequest.getAmount(), coinPrice, quantity);
-                    requestBody.put("sz", quantity.toString());
-
-                }else if(orderRequest.getQuantity() != null){
-                    // 按数量下单
-                    requestBody.put("sz", orderRequest.getQuantity().toString());
-
-                }else{
-                    throw new OkxApiException("市价单必须指定金额或数量");
-                }
+            if(orderRequest.getType() != null){
+                requestBody.put("ordType", mapToOkxOrderType(orderRequest.getType()));
             }else{
-                // 限价单
-                if(orderRequest.getPrice() == null){
-                    throw new OkxApiException("限价单必须指定价格");
-                }
-                requestBody.put("px", orderRequest.getPrice().toString());
-
-                if(orderRequest.getQuantity() == null){
-                    throw new OkxApiException("限价单必须指定数量");
-                }
-                requestBody.put("sz", orderRequest.getQuantity().toString());
+                requestBody.put("ordType", "market");
             }
-
+            // 处理市价单和限价单逻辑
+            //币币市价单委托数量sz的单位,base_ccy: 交易货币 ；quote_ccy：计价货币,仅适用于币币市价订单,默认买单为quote_ccy，卖单为base_ccy
+            if(orderRequest.getAmount() != null){
+                // 市价\限价,指定金额
+                requestBody.put("sz", orderRequest.getAmount().toString());
+                requestBody.put("tgtCcy", "quote_ccy");
+            }else if(orderRequest.getQuantity() != null){
+                //指定数量,市价单不指定价格,限价单指定价格
+                requestBody.put("sz", orderRequest.getQuantity().toString());
+                requestBody.put("tgtCcy", "base_ccy");
+                if(orderRequest.getPrice() != null){
+                    requestBody.put("px", orderRequest.getPrice().toString());
+                }else{
+                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
+                    requestBody.put("px", coinPrice.toString());
+                }
+            }
             if(orderRequest.getClientOrderId() != null){
                 requestBody.put("clOrdId", orderRequest.getClientOrderId());
             }
@@ -467,10 +454,10 @@ public class OkxApiRestServiceImpl implements OkxApiService{
 //                requestBody.put("tgtCcy", mapToOkxTimeInForce(orderRequest.getTimeInForce()));
 //            }
 
-            // 设置被动委托
-            if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
-                requestBody.put("postOnly", "1");
-            }
+//            // 设置被动委托
+//            if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
+//                requestBody.put("postOnly", "1");
+//            }
 
             String requestBodyStr = requestBody.toJSONString();
             String timestamp = SignatureUtil.getIsoTimestamp();
@@ -676,27 +663,27 @@ public class OkxApiRestServiceImpl implements OkxApiService{
     }
 
     @Override
-    public boolean unsubscribeKlineData(String symbol, String interval) {
+    public boolean unsubscribeKlineData(String symbol, String interval){
         log.info("不支持取消订阅K线数据，因为REST API不需要订阅");
         return true;
     }
 
     @Override
-    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit) {
-        try {
+    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit){
+        try{
             String url = okxApiConfig.getBaseUrl() + MARKET_PATH + "/history-candles";
             url = url + "?instId=" + symbol + "&bar=" + interval;
 
-            if (startTime != null) {
+            if(startTime != null){
                 url = url + "&before=" + startTime;
 
             }
 
-            if (endTime != null) {
+            if(endTime != null){
                 url = url + "&after=" + endTime;
             }
 
-            if (limit != null && limit > 0) {
+            if(limit != null && limit > 0){
                 url = url + "&limit=" + limit;
             }
 
@@ -704,14 +691,14 @@ public class OkxApiRestServiceImpl implements OkxApiService{
             String response = HttpUtil.get(okHttpClient, url, null);
             JSONObject jsonResponse = JSON.parseObject(response);
 
-            if (!"0".equals(jsonResponse.getString("code"))) {
+            if(! "0".equals(jsonResponse.getString("code"))){
                 throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
             }
 
             JSONArray dataArray = jsonResponse.getJSONArray("data");
             List<Candlestick> result = new ArrayList<>();
 
-            for (int i = 0; i < dataArray.size(); i++) {
+            for(int i = 0;i < dataArray.size();i++){
                 JSONArray item = dataArray.getJSONArray(i);
 
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
@@ -722,8 +709,8 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
-                        Instant.ofEpochMilli(timestamp),
-                        ZoneId.systemDefault());
+                    Instant.ofEpochMilli(timestamp),
+                    ZoneId.systemDefault());
 
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));
@@ -743,9 +730,9 @@ public class OkxApiRestServiceImpl implements OkxApiService{
             }
 
             return result;
-        } catch (OkxApiException e) {
+        }catch(OkxApiException e){
             throw e;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("获取历史K线数据异常", e);
             throw new OkxApiException("获取历史K线数据失败: " + e.getMessage(), e);
         }
@@ -754,12 +741,12 @@ public class OkxApiRestServiceImpl implements OkxApiService{
     /**
      * 根据开盘时间和K线间隔计算收盘时间
      */
-    private LocalDateTime calculateCloseTime(LocalDateTime openTime, String interval) {
+    private LocalDateTime calculateCloseTime(LocalDateTime openTime, String interval){
         // 解析时间单位和数量
         String unit = interval.substring(interval.length() - 1);
         int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
 
-        switch (unit) {
+        switch(unit){
             case "m":
                 return openTime.plusMinutes(amount);
             case "H":
