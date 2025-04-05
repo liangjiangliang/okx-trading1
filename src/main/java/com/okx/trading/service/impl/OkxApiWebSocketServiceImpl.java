@@ -13,6 +13,7 @@ import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.util.HttpUtil;
+import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,9 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * OKX API WebSocket服务实现类
@@ -569,58 +573,70 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 发送请求
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
-            // 增加订单超时时间到30秒，并实现重试机制
+            // 增加订单超时处理
             Order order = null;
             try {
-                log.info("等待订单响应, 超时30秒, clientOrderId: {}", clientOrderId);
-                order = future.get(30, TimeUnit.SECONDS);
+                log.info("等待订单响应, 超时20秒, clientOrderId: {}", clientOrderId);
+                order = future.get(20, TimeUnit.SECONDS);
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
                     clientOrderId, order.getOrderId(), order.getStatus());
             } catch(TimeoutException e) {
-                log.warn("订单请求首次超时(30秒), 尝试查询订单状态, clientOrderId: {}", clientOrderId);
+                log.warn("订单请求首次超时(20秒), 尝试通过REST API查询订单状态, clientOrderId: {}", clientOrderId);
                 
-                // 尝试查询订单状态（可能订单已经提交但响应未收到）
+                // 通过REST API查询订单信息
                 try {
                     // 睡眠1秒确保订单有时间处理
                     Thread.sleep(1000);
                     
-                    // 查询订单状态
-                    List<Order> orders = getOrders(orderRequest.getSymbol(), "ACTIVE", 10);
-                    if (orders != null && !orders.isEmpty()) {
-                        for (Order existingOrder : orders) {
-                            // 通过clientOrderId匹配
-                            if (clientOrderId.equals(existingOrder.getClientOrderId())) {
-                                log.info("查询到对应订单，订单已成功提交: clientOrderId={}, orderId={}, status={}",
-                                    clientOrderId, existingOrder.getOrderId(), existingOrder.getStatus());
-                                order = existingOrder;
-                                break;
-                            }
-                        }
-                    }
+                    // 通过REST API查询订单状态
+                    String apiUrl = okxApiConfig.getBaseUrl() + "/api/v5/trade/order?instId=" 
+                        + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
                     
-                    // 如果还没找到，尝试查询历史订单
-                    if (order == null) {
-                        orders = getOrders(orderRequest.getSymbol(), "FILLED", 10);
-                        if (orders != null && !orders.isEmpty()) {
-                            for (Order existingOrder : orders) {
-                                if (clientOrderId.equals(existingOrder.getClientOrderId())) {
-                                    log.info("查询到已完成订单: clientOrderId={}, orderId={}, status={}",
-                                        clientOrderId, existingOrder.getOrderId(), existingOrder.getStatus());
-                                    order = existingOrder;
-                                    break;
+                    Request request = new Request.Builder()
+                        .url(apiUrl)
+                        .header("OK-ACCESS-KEY", okxApiConfig.getApiKey())
+                        .header("OK-ACCESS-TIMESTAMP", String.valueOf(System.currentTimeMillis() / 1000))
+                        .header("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase())
+                        .header("OK-ACCESS-SIGN", SignatureUtil.sign(
+                            String.valueOf(System.currentTimeMillis() / 1000),
+                            "GET",
+                            "/api/v5/trade/order?instId=" + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId,
+                            "",
+                            okxApiConfig.getSecretKey()
+                        ))
+                        .get()
+                        .build();
+                    
+                    try (Response response = okHttpClient.newCall(request).execute()) {
+                        if (response.isSuccessful()) {
+                            String responseBody = response.body().string();
+                            JSONObject responseJson = JSONObject.parseObject(responseBody);
+                            
+                            if ("0".equals(responseJson.getString("code"))) {
+                                JSONArray data = responseJson.getJSONArray("data");
+                                if (data != null && !data.isEmpty()) {
+                                    JSONObject orderData = data.getJSONObject(0);
+                                    order = parseOrder(orderData);
+                                    log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
+                                        clientOrderId, order.getOrderId(), order.getStatus());
+                                } else {
+                                    log.error("REST API未查询到订单, clientOrderId: {}", clientOrderId);
+                                    throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
                                 }
+                            } else {
+                                log.error("REST API查询订单失败, code: {}, msg: {}", 
+                                    responseJson.getString("code"), responseJson.getString("msg"));
+                                throw new OkxApiException("查询订单失败: " + responseJson.getString("msg"));
                             }
+                        } else {
+                            log.error("REST API请求失败, 状态码: {}", response.code());
+                            throw new OkxApiException("REST API请求失败，状态码: " + response.code());
                         }
-                    }
-                    
-                    // 如果仍然未找到订单
-                    if (order == null) {
-                        log.error("订单请求超时且未找到对应订单, clientOrderId: {}", clientOrderId);
-                        throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
                     }
                 } catch (Exception ex) {
                     log.error("查询订单状态失败: {}", ex.getMessage(), ex);
-                    throw new OkxApiException("订单请求超时且查询订单状态失败，请通过查询接口确认订单状态");
+                    // 提示用户主动查询订单状态
+                    throw new OkxApiException("订单提交后未收到确认，但请求可能已成功处理。请通过订单查询接口确认订单状态，clientOrderId: " + clientOrderId);
                 }
             } catch(Exception e){
                 log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}",
