@@ -576,8 +576,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 增加订单超时处理
             Order order = null;
             try {
-                log.info("等待订单响应, 超时5秒, clientOrderId: {}", clientOrderId);
-                order = future.get(5, TimeUnit.SECONDS);
+                log.info("等待订单响应, 超时20秒, clientOrderId: {}", clientOrderId);
+                order = future.get(20, TimeUnit.SECONDS);
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
                     clientOrderId, order.getOrderId(), order.getStatus());
             } catch(TimeoutException e) {
@@ -588,10 +588,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     // 睡眠1秒确保订单有时间处理
                     Thread.sleep(1000);
                     
-                    // 根据OKX API文档，订单查询应该使用ordId或clOrdId参数，但不能同时使用
+                    // 根据OKX API文档，订单查询应该使用正确的路径(orders-history是复数形式)
                     // 构建API请求路径
                     StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
-                        .append("/api/v5/trade/order-history?instType=SPOT&instId=")
+                        .append("/api/v5/trade/orders-history?instType=SPOT&instId=")
                         .append(orderRequest.getSymbol());
                     
                     // 记录API请求路径
@@ -601,12 +601,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     
                     // 构建请求路径（不含baseUrl，用于签名）
-                    String requestPath = "/api/v5/trade/order-history?instType=SPOT&instId=" 
+                    String requestPath = "/api/v5/trade/orders-history?instType=SPOT&instId=" 
                         + orderRequest.getSymbol();
                     
                     // 生成签名
                     String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
-                    
+
                     Request.Builder requestBuilder = new Request.Builder()
                         .url(apiUrlBuilder.toString())
                         .addHeader("Content-Type", "application/json")
@@ -614,31 +614,31 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         .addHeader("OK-ACCESS-SIGN", sign)
                         .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
                         .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
-                    
+
                     // 如果是模拟交易需要额外添加标志
                     if (isSimulated) {
                         requestBuilder.addHeader("x-simulated-trading", "1");
                     }
-                    
+
                     Request request = requestBuilder.get().build();
-                    
+
                     try (Response response = okHttpClient.newCall(request).execute()) {
                         if (response.isSuccessful() && response.body() != null) {
                             String responseBody = response.body().string();
                             log.info("REST API查询订单响应: {}", responseBody);
-                            
+
                             JSONObject responseJson = JSONObject.parseObject(responseBody);
-                            
+
                             if ("0".equals(responseJson.getString("code"))) {
                                 JSONArray data = responseJson.getJSONArray("data");
                                 if (data != null && !data.isEmpty()) {
                                     boolean foundOrder = false;
-                                    
+
                                     // 遍历所有订单，根据clientOrderId匹配
                                     for (int i = 0; i < data.size(); i++) {
                                         JSONObject orderData = data.getJSONObject(i);
                                         String respClientOrderId = orderData.getString("clOrdId");
-                                        
+
                                         if (clientOrderId.equals(respClientOrderId)) {
                                             order = parseOrder(orderData);
                                             log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
@@ -647,7 +647,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                                             break;
                                         }
                                     }
-                                    
+
                                     if (!foundOrder) {
                                         log.warn("REST API返回订单列表中未找到匹配订单, clientOrderId: {}", clientOrderId);
                                         throw new OkxApiException("未找到对应订单，请稍后通过查询接口确认订单状态");
@@ -657,7 +657,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                                     throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
                                 }
                             } else {
-                                log.error("REST API查询订单失败, code: {}, msg: {}", 
+                                log.error("REST API查询订单失败, code: {}, msg: {}",
                                     responseJson.getString("code"), responseJson.getString("msg"));
                                 throw new OkxApiException("查询订单失败: " + responseJson.getString("msg"));
                             }
