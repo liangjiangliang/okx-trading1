@@ -592,7 +592,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     String apiUrl = okxApiConfig.getBaseUrl() + "/api/v5/trade/order?instId=" 
                         + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
                     
-                    // 确保时间戳一致，避免签名失效
+                    // 确保时间戳精确
                     String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
                     
                     // 构建请求路径（不含baseUrl）
@@ -604,10 +604,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     
                     Request request = new Request.Builder()
                         .url(apiUrl)
-                        .header("OK-ACCESS-KEY", okxApiConfig.getApiKey())
-                        .header("OK-ACCESS-TIMESTAMP", timestamp)
-                        .header("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase())
-                        .header("OK-ACCESS-SIGN", sign)
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
+                        .addHeader("OK-ACCESS-SIGN", sign)
+                        .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
+                        .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase())
+                        // 如果是模拟交易需要额外添加标志
+                        .addHeader("x-simulated-trading", isSimulated ? "1" : "0")
                         .get()
                         .build();
                     
