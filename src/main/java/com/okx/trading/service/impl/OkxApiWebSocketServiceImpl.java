@@ -602,21 +602,26 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     // 生成签名
                     String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
                     
-                    Request request = new Request.Builder()
+                    Request.Builder requestBuilder = new Request.Builder()
                         .url(apiUrl)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
                         .addHeader("OK-ACCESS-SIGN", sign)
                         .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
-                        .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase())
-                        // 如果是模拟交易需要额外添加标志
-                        .addHeader("x-simulated-trading", isSimulated ? "1" : "0")
-                        .get()
-                        .build();
+                        .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
+                    
+                    // 如果是模拟交易需要额外添加标志
+                    if (isSimulated) {
+                        requestBuilder.addHeader("x-simulated-trading", "1");
+                    }
+                    
+                    Request request = requestBuilder.get().build();
                     
                     try (Response response = okHttpClient.newCall(request).execute()) {
-                        if (response.isSuccessful()) {
+                        if (response.isSuccessful() && response.body() != null) {
                             String responseBody = response.body().string();
+                            log.info("REST API查询订单响应: {}", responseBody);
+                            
                             JSONObject responseJson = JSONObject.parseObject(responseBody);
                             
                             if ("0".equals(responseJson.getString("code"))) {
