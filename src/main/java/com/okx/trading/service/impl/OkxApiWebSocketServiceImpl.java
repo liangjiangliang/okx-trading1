@@ -495,8 +495,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      */
     private Order createOrder(OrderRequest orderRequest, String instType, boolean isSimulated){
         try{
-            // 生成唯一订单ID，保证每次请求的ID都是不同的
-            String orderId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+            // 生成订单ID
+            String orderId = UUID.randomUUID().toString();
             String clientOrderId = orderRequest.getClientOrderId() != null?
                 orderRequest.getClientOrderId():"okx_" + System.currentTimeMillis() + "_" + orderId.substring(0, 8);
 
@@ -520,7 +520,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             if(orderRequest.getType() != null){
                 arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
             }else{
-                arg.put("ordType", "MARKET");
+                arg.put("ordType", "market");
             }
 
 
@@ -549,11 +549,6 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 arg.put("lever", orderRequest.getLeverage().toString());
             }
 
-//            // 设置被动委托
-//            if(orderRequest.getPostOnly() != null && orderRequest.getPostOnly()){
-//                arg.put("postOnly", "1");
-//            }
-
             // 设置模拟交易
             if(isSimulated){
                 arg.put("simulated", "1");
@@ -574,23 +569,65 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 发送请求
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
-            // 增加订单超时时间到45秒
-            Order order;
-            try{
-                order = future.get(45, TimeUnit.SECONDS);
+            // 增加订单超时时间到30秒，并实现重试机制
+            Order order = null;
+            try {
+                log.info("等待订单响应, 超时30秒, clientOrderId: {}", clientOrderId);
+                order = future.get(30, TimeUnit.SECONDS);
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
                     clientOrderId, order.getOrderId(), order.getStatus());
-            }catch(TimeoutException e){
-                log.error("订单请求超时(45秒), symbol: {}, type: {}, side: {}, clientOrderId: {}, 请求内容: {}",
-                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
-                    clientOrderId, requestMessage.toJSONString());
-                throw new OkxApiException("订单请求超时(45秒)，请检查网络连接或OKX服务器状态，可能订单已发送但未收到响应，请使用查询订单接口确认订单状态");
-            }catch(Exception e){
+            } catch(TimeoutException e) {
+                log.warn("订单请求首次超时(30秒), 尝试查询订单状态, clientOrderId: {}", clientOrderId);
+                
+                // 尝试查询订单状态（可能订单已经提交但响应未收到）
+                try {
+                    // 睡眠1秒确保订单有时间处理
+                    Thread.sleep(1000);
+                    
+                    // 查询订单状态
+                    List<Order> orders = getOrders(orderRequest.getSymbol(), "ACTIVE", 10);
+                    if (orders != null && !orders.isEmpty()) {
+                        for (Order existingOrder : orders) {
+                            // 通过clientOrderId匹配
+                            if (clientOrderId.equals(existingOrder.getClientOrderId())) {
+                                log.info("查询到对应订单，订单已成功提交: clientOrderId={}, orderId={}, status={}",
+                                    clientOrderId, existingOrder.getOrderId(), existingOrder.getStatus());
+                                order = existingOrder;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果还没找到，尝试查询历史订单
+                    if (order == null) {
+                        orders = getOrders(orderRequest.getSymbol(), "FILLED", 10);
+                        if (orders != null && !orders.isEmpty()) {
+                            for (Order existingOrder : orders) {
+                                if (clientOrderId.equals(existingOrder.getClientOrderId())) {
+                                    log.info("查询到已完成订单: clientOrderId={}, orderId={}, status={}",
+                                        clientOrderId, existingOrder.getOrderId(), existingOrder.getStatus());
+                                    order = existingOrder;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果仍然未找到订单
+                    if (order == null) {
+                        log.error("订单请求超时且未找到对应订单, clientOrderId: {}", clientOrderId);
+                        throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
+                    }
+                } catch (Exception ex) {
+                    log.error("查询订单状态失败: {}", ex.getMessage(), ex);
+                    throw new OkxApiException("订单请求超时且查询订单状态失败，请通过查询接口确认订单状态");
+                }
+            } catch(Exception e){
                 log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}",
                     orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
                     clientOrderId, e.getMessage(), e);
                 throw new OkxApiException("订单请求异常: " + e.getMessage(), e);
-            }finally{
+            } finally{
                 // 清理资源
                 orderFutures.remove(clientOrderId);
             }
