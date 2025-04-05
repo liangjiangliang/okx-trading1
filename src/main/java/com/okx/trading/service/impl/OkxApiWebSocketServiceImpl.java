@@ -592,18 +592,22 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     String apiUrl = okxApiConfig.getBaseUrl() + "/api/v5/trade/order?instId=" 
                         + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
                     
+                    // 确保时间戳一致，避免签名失效
+                    String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
+                    
+                    // 构建请求路径（不含baseUrl）
+                    String requestPath = "/api/v5/trade/order?instId=" 
+                        + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
+                    
+                    // 生成签名
+                    String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
+                    
                     Request request = new Request.Builder()
                         .url(apiUrl)
                         .header("OK-ACCESS-KEY", okxApiConfig.getApiKey())
-                        .header("OK-ACCESS-TIMESTAMP", String.valueOf(System.currentTimeMillis() / 1000))
+                        .header("OK-ACCESS-TIMESTAMP", timestamp)
                         .header("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase())
-                        .header("OK-ACCESS-SIGN", SignatureUtil.sign(
-                            String.valueOf(System.currentTimeMillis() / 1000),
-                            "GET",
-                            "/api/v5/trade/order?instId=" + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId,
-                            "",
-                            okxApiConfig.getSecretKey()
-                        ))
+                        .header("OK-ACCESS-SIGN", sign)
                         .get()
                         .build();
                     
