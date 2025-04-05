@@ -18,42 +18,42 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Order {
-    
+
     /**
      * 订单ID
      */
     private String orderId;
-    
+
     /**
      * 客户端订单ID
      */
     private String clientOrderId;
-    
+
     /**
      * 交易对，如BTC-USDT
      */
     private String symbol;
-    
+
     /**
      * 价格
      */
     private BigDecimal price;
-    
+
     /**
      * 原始数量
      */
     private BigDecimal origQty;
-    
+
     /**
      * 已执行数量
      */
     private BigDecimal executedQty;
-    
+
     /**
      * 成交金额
      */
     private BigDecimal cummulativeQuoteQty;
-    
+
     /**
      * 订单状态：
      * NEW - 新建
@@ -64,60 +64,64 @@ public class Order {
      * EXPIRED - 已过期
      */
     private String status;
-    
+
     /**
      * 订单类型：
      * LIMIT - 限价单
      * MARKET - 市价单
      */
     private String type;
-    
+
     /**
      * 交易方向：
      * BUY - 买入
      * SELL - 卖出
      */
     private String side;
-    
+
     /**
      * 止盈价格
      */
     private BigDecimal stopPrice;
-    
+
     /**
      * 触发价格
      */
     private BigDecimal triggerPrice;
-    
+
     /**
      * 订单有效期类型
      */
     private String timeInForce;
-    
+
     /**
      * 创建时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
-    
+
     /**
      * 更新时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updateTime;
-    
+
     /**
      * 是否为模拟交易
      */
     private Boolean simulated;
-    
+
     /**
      * 手续费
      */
     private BigDecimal fee;
-    
+
     /**
      * 手续费币种
      */
     private String feeCurrency;
-} 
+
+    private String sMsg;
+
+    private int sCode;
+}

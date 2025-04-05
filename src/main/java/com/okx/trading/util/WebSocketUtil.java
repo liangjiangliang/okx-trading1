@@ -455,6 +455,10 @@ public class WebSocketUtil{
                 topic = jsonMessage.getJSONObject("arg").getString("channel");
             }
 
+            if(jsonMessage.containsKey("op")){
+                topic=jsonMessage.getString("op");
+            }
+
             if(topic != null && messageHandlers.containsKey(topic)){
                 messageHandlers.get(topic).accept(jsonMessage);
             }else{
@@ -636,16 +640,16 @@ public class WebSocketUtil{
 
     /**
      * 检查私有WebSocket是否已连接
-     * 
+     *
      * @return 如果私有WebSocket已连接则返回true，否则返回false
      */
     public boolean isPrivateSocketConnected() {
         return privateWebSocket != null;
     }
-    
+
     /**
      * 检查公共WebSocket是否已连接
-     * 
+     *
      * @return 如果公共WebSocket已连接则返回true，否则返回false
      */
     public boolean isPublicSocketConnected() {

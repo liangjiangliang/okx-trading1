@@ -3,6 +3,7 @@ package com.okx.trading.service.impl;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.config.OkxApiConfig;
+import com.okx.trading.exception.BusinessException;
 import com.okx.trading.exception.OkxApiException;
 import com.okx.trading.model.account.AccountBalance;
 import com.okx.trading.model.account.AccountBalance.AssetBalance;
@@ -299,6 +300,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 String clientOrderId = orderData.getString("clOrdId");
                 log.info("收到订单消息: orderId={}, clientOrderId={}, status={}",
                     orderData.getString("ordId"), clientOrderId, orderData.getString("state"));
+                if(order.getSCode() != 0){
+                    throw new BusinessException(order.getSCode(), order.getClientOrderId()+": "+order.getSMsg());
+                }
 
                 CompletableFuture<Order> future = orderFutures.get(clientOrderId);
                 if(future != null && ! future.isDone()){
@@ -502,7 +506,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 生成订单ID
             String orderId = UUID.randomUUID().toString();
             String clientOrderId = orderRequest.getClientOrderId() != null?
-                orderRequest.getClientOrderId():"okx_" + System.currentTimeMillis() + "_" + orderId.substring(0, 8);
+                orderRequest.getClientOrderId():"okx" + System.currentTimeMillis() + orderId.substring(0, 8);
 
             CompletableFuture<Order> future = new CompletableFuture<>();
 
@@ -575,19 +579,19 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             // 增加订单超时处理
             Order order = null;
-            try {
+            try{
                 log.info("等待订单响应, 超时20秒, clientOrderId: {}", clientOrderId);
                 order = future.get(20, TimeUnit.SECONDS);
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
                     clientOrderId, order.getOrderId(), order.getStatus());
-            } catch(TimeoutException e) {
+            }catch(TimeoutException e){
                 log.warn("订单请求首次超时(20秒), 尝试通过REST API查询订单状态, clientOrderId: {}", clientOrderId);
 
                 // 通过REST API查询订单信息
-                try {
+                try{
                     // 睡眠1秒确保订单有时间处理
                     Thread.sleep(1000);
-                    
+
                     // 使用正确的API接口：直接使用order接口按clientOrderId查询单个订单
                     // 构建API请求路径
                     StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
@@ -595,20 +599,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         .append(orderRequest.getSymbol())
                         .append("&clOrdId=")
                         .append(clientOrderId);
-                    
+
                     // 记录API请求路径
                     log.info("查询订单API URL: {}", apiUrlBuilder.toString());
-                    
+
                     // 确保时间戳精确
-                    String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-                    
+                    String timestamp = SignatureUtil.getIsoTimestamp();
+
                     // 构建请求路径（不含baseUrl，用于签名）
-                    String requestPath = "/api/v5/trade/order?instId=" 
+                    String requestPath = "/api/v5/trade/order?instId="
                         + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
-                    
+
                     // 生成签名
                     String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
-                    
+
                     Request.Builder requestBuilder = new Request.Builder()
                         .url(apiUrlBuilder.toString())
                         .addHeader("Content-Type", "application/json")
@@ -616,61 +620,61 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                         .addHeader("OK-ACCESS-SIGN", sign)
                         .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
                         .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
-                    
+
                     // 如果是模拟交易需要额外添加标志
-                    if (isSimulated) {
+                    if(isSimulated){
                         requestBuilder.addHeader("x-simulated-trading", "1");
                     }
-                    
+
                     Request request = requestBuilder.get().build();
-                    
-                    try (Response response = okHttpClient.newCall(request).execute()) {
-                        if (response.isSuccessful() && response.body() != null) {
+
+                    try(Response response = okHttpClient.newCall(request).execute()){
+                        if(response.isSuccessful() && response.body() != null){
                             String responseBody = response.body().string();
                             log.info("REST API查询订单响应: {}", responseBody);
-                            
+
                             JSONObject responseJson = JSONObject.parseObject(responseBody);
-                            
-                            if ("0".equals(responseJson.getString("code"))) {
+
+                            if("0".equals(responseJson.getString("code"))){
                                 JSONArray data = responseJson.getJSONArray("data");
-                                if (data != null && !data.isEmpty()) {
+                                if(data != null && ! data.isEmpty()){
                                     // 直接解析第一个订单，因为是按clientOrderId精确查询的
                                     JSONObject orderData = data.getJSONObject(0);
                                     order = parseOrder(orderData);
                                     log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
                                         clientOrderId, order.getOrderId(), order.getStatus());
-                                } else {
+                                }else{
                                     // 尝试查询活跃订单
                                     log.info("通过clientOrderId未查询到订单，尝试查询活跃订单列表");
                                     Order pendingOrder = findOrderInPendingList(clientOrderId, orderRequest.getSymbol(), isSimulated);
-                                    if (pendingOrder != null) {
+                                    if(pendingOrder != null){
                                         order = pendingOrder;
-                                    } else {
+                                    }else{
                                         log.error("REST API未查询到订单, clientOrderId: {}", clientOrderId);
                                         throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
                                     }
                                 }
-                            } else {
-                                log.error("REST API查询订单失败, code: {}, msg: {}", 
+                            }else{
+                                log.error("REST API查询订单失败, code: {}, msg: {}",
                                     responseJson.getString("code"), responseJson.getString("msg"));
                                 throw new OkxApiException("查询订单失败: " + responseJson.getString("msg"));
                             }
-                        } else {
+                        }else{
                             log.error("REST API请求失败, 状态码: {}", response.code());
                             throw new OkxApiException("REST API请求失败，状态码: " + response.code());
                         }
                     }
-                } catch (Exception ex) {
+                }catch(Exception ex){
                     log.error("查询订单状态失败: {}", ex.getMessage(), ex);
                     // 提示用户主动查询订单状态
                     throw new OkxApiException("订单提交后未收到确认，但请求可能已成功处理。请通过订单查询接口确认订单状态，clientOrderId: " + clientOrderId);
                 }
-            } catch(Exception e){
+            }catch(Exception e){
                 log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}",
                     orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
                     clientOrderId, e.getMessage(), e);
                 throw new OkxApiException("订单请求异常: " + e.getMessage(), e);
-            } finally{
+            }finally{
                 // 清理资源
                 orderFutures.remove(clientOrderId);
             }
@@ -804,13 +808,24 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         Order order = new Order();
         order.setOrderId(orderData.getString("ordId"));
         order.setClientOrderId(orderData.getString("clOrdId"));
-        order.setSymbol(orderData.getString("instId"));
+        if(orderData.containsKey("instId")){
+            order.setSymbol(orderData.getString("instId"));
+        }
+
+        if(orderData.containsKey("sMsg")){
+            order.setSMsg(orderData.getString("sMsg"));
+        }
+
+        if(orderData.containsKey("sCode")){
+            order.setSCode(Integer.parseInt(orderData.getString("sCode")));
+        }
 
         if(orderData.containsKey("px") && ! orderData.getString("px").isEmpty()){
             order.setPrice(new BigDecimal(orderData.getString("px")));
         }
-
-        order.setOrigQty(new BigDecimal(orderData.getString("sz")));
+        if(orderData.containsKey("sz") && ! orderData.getString("sz").isEmpty()){
+            order.setOrigQty(new BigDecimal(orderData.getString("sz")));
+        }
 
         if(orderData.containsKey("accFillSz")){
             order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")));
@@ -822,9 +837,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             order.setCummulativeQuoteQty(fillPrice.multiply(fillSize));
         }
 
-        order.setStatus(mapOrderStatus(orderData.getString("state")));
-        order.setType(mapOrderType(orderData.getString("ordType")));
-        order.setSide(orderData.getString("side").toUpperCase());
+        if(orderData.containsKey("state")){
+            order.setStatus(mapOrderStatus(orderData.getString("state")));
+        }
+        if(orderData.containsKey("ordType")){
+            order.setType(mapOrderType(orderData.getString("ordType")));
+        }
+        if(orderData.containsKey("side")){
+            order.setSide(orderData.getString("side").toUpperCase());
+        }
 
         if(orderData.containsKey("fee") && ! orderData.getString("fee").isEmpty()){
             order.setFee(new BigDecimal(orderData.getString("fee")));
@@ -844,7 +865,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             long updateTime = Long.parseLong(orderData.getString("uTime"));
             order.setUpdateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(updateTime), ZoneId.systemDefault()));
         }
-
+        log.info("返回订单信息:{}", order);
         return order;
     }
 
@@ -1108,30 +1129,30 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
     /**
      * 在活跃订单列表中查找指定订单
-     * 
+     *
      * @param clientOrderId 客户端订单ID
-     * @param symbol 交易对
-     * @param isSimulated 是否是模拟交易
+     * @param symbol        交易对
+     * @param isSimulated   是否是模拟交易
      * @return 找到的订单，未找到则返回null
      */
-    private Order findOrderInPendingList(String clientOrderId, String symbol, boolean isSimulated) {
-        try {
+    private Order findOrderInPendingList(String clientOrderId, String symbol, boolean isSimulated){
+        try{
             // 构建API请求路径，查询活跃订单
             StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
                 .append("/api/v5/trade/orders-pending?instType=SPOT&instId=")
                 .append(symbol);
-            
+
             log.info("查询活跃订单API URL: {}", apiUrlBuilder.toString());
-            
+
             // 时间戳
             String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-            
+
             // 构建请求路径（用于签名）
             String requestPath = "/api/v5/trade/orders-pending?instType=SPOT&instId=" + symbol;
-            
+
             // 生成签名
             String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
-            
+
             Request.Builder requestBuilder = new Request.Builder()
                 .url(apiUrlBuilder.toString())
                 .addHeader("Content-Type", "application/json")
@@ -1139,30 +1160,30 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 .addHeader("OK-ACCESS-SIGN", sign)
                 .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
                 .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
-            
+
             // 如果是模拟交易
-            if (isSimulated) {
+            if(isSimulated){
                 requestBuilder.addHeader("x-simulated-trading", "1");
             }
-            
+
             Request request = requestBuilder.get().build();
-            
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                if (response.isSuccessful() && response.body() != null) {
+
+            try(Response response = okHttpClient.newCall(request).execute()){
+                if(response.isSuccessful() && response.body() != null){
                     String responseBody = response.body().string();
                     log.info("活跃订单查询响应: {}", responseBody);
-                    
+
                     JSONObject responseJson = JSONObject.parseObject(responseBody);
-                    
-                    if ("0".equals(responseJson.getString("code"))) {
+
+                    if("0".equals(responseJson.getString("code"))){
                         JSONArray data = responseJson.getJSONArray("data");
-                        if (data != null && !data.isEmpty()) {
+                        if(data != null && ! data.isEmpty()){
                             // 遍历所有活跃订单，查找匹配的clientOrderId
-                            for (int i = 0; i < data.size(); i++) {
+                            for(int i = 0;i < data.size();i++){
                                 JSONObject orderData = data.getJSONObject(i);
                                 String respClientOrderId = orderData.getString("clOrdId");
-                                
-                                if (clientOrderId.equals(respClientOrderId)) {
+
+                                if(clientOrderId.equals(respClientOrderId)){
                                     Order order = parseOrder(orderData);
                                     log.info("在活跃订单中找到匹配订单: clientOrderId={}, orderId={}, status={}",
                                         clientOrderId, order.getOrderId(), order.getStatus());
@@ -1170,16 +1191,16 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                                 }
                             }
                         }
-                    } else {
-                        log.warn("活跃订单查询失败: code={}, msg={}", 
+                    }else{
+                        log.warn("活跃订单查询失败: code={}, msg={}",
                             responseJson.getString("code"), responseJson.getString("msg"));
                     }
                 }
             }
-            
+
             // 如果没找到，返回null
             return null;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.warn("查询活跃订单列表异常", e);
             return null;
         }
