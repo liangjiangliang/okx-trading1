@@ -180,50 +180,6 @@ public class MarketController{
     }
 
     /**
-     * 获取历史K线数据
-     *
-     * @param symbol       交易对，如BTC-USDT
-     * @param interval     K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
-     * @param startTimeStr 开始时间 (yyyy-MM-dd HH:mm:ss)
-     * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
-     * @return K线数据列表
-     */
-    @ApiOperation(value = "获取历史K线数据并保存", notes = "获取并保存指定交易对的历史K线数据，支持时间范围查询，并自动分片多线程获取")
-    @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
-    })
-    @GetMapping("/fetch_and_save_history")
-    public ApiResponse<String> fetchAndSaveHistoricalData(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
-        @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
-        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr){
-
-        log.info("开始获取并保存历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",
-            symbol, interval, startTimeStr, endTimeStr);
-
-        try{
-            // 将字符串时间转换为LocalDateTime
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
-            LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
-
-            // 异步执行数据获取任务
-            historicalDataService.fetchAndSaveHistoricalData(symbol, interval, startTime, endTime);
-
-            return ApiResponse.success("历史数据获取任务已启动，请稍后查询数据");
-        }catch(Exception e){
-            log.error("获取历史K线数据失败: {}", e.getMessage(), e);
-            return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 查询数据库中已保存的历史K线数据
      *
      * @param symbol       交易对，如BTC-USDT
