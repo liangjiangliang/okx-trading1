@@ -506,7 +506,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 生成订单ID
             String orderId = UUID.randomUUID().toString();
             String clientOrderId = orderRequest.getClientOrderId() != null?
-                orderRequest.getClientOrderId():"okx" + System.currentTimeMillis() + orderId.substring(0, 8);
+                orderRequest.getClientOrderId(): System.currentTimeMillis() + orderId.substring(0, 8);
 
             CompletableFuture<Order> future = new CompletableFuture<>();
 
