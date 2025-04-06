@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 历史K线数据服务实现类
@@ -118,17 +119,46 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                     List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, startTime, endTime);
 
                     if (!missingTimes.isEmpty()) {
-                        log.info("发现{}个缺失的数据点, 开始补充获取", missingTimes.size());
+                        log.info("发现{}个缺失的数据点, 按天分组递归获取", missingTimes.size());
 
-                        // 补充获取缺失的数据
-                        try {
-                            int filledCount = fillMissingData(symbol, interval, missingTimes).get();
-                            log.info("成功补充{}个缺失的数据点", filledCount);
-                            return totalSaved + filledCount;
-                        } catch (Exception e) {
-                            log.error("补充缺失数据失败: {}", e.getMessage(), e);
-                            return totalSaved;
-                        }
+                        // 将缺失的数据点按天分组
+                        Map<LocalDateTime, List<LocalDateTime>> missingTimesByDay = groupMissingTimesByDay(missingTimes);
+                        log.info("缺失数据分为{}天", missingTimesByDay.size());
+
+                        // 递归获取每天的缺失数据
+                        AtomicInteger filledTotal = new AtomicInteger(0);
+
+                        missingTimesByDay.forEach((dayStart, dayMissingTimes) -> {
+                            // 计算当天结束时间（次日0点）
+                            LocalDateTime dayEnd = dayStart.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                            if (dayEnd.isAfter(endTime)) {
+                                dayEnd = endTime;
+                            }
+
+                            log.info("开始递归获取{}的缺失数据, 缺失点数量: {}", dayStart.toLocalDate(), dayMissingTimes.size());
+
+                            try {
+                                // 递归调用自身获取当天缺失数据
+                                CompletableFuture<Integer> dayFuture = fetchAndSaveHistoricalData(symbol, interval, dayStart, dayEnd);
+                                int filled = dayFuture.get(10, TimeUnit.MINUTES); // 设置超时时间
+                                filledTotal.addAndGet(filled);
+
+                                log.info("成功获取{}的缺失数据, 获取数量: {}", dayStart.toLocalDate(), filled);
+                            } catch (Exception e) {
+                                log.error("递归获取{}的缺失数据失败: {}", dayStart.toLocalDate(), e.getMessage(), e);
+
+                                // 如果递归失败，尝试直接填充缺失数据
+                                try {
+                                    int fallbackFilled = fillMissingData(symbol, interval, dayMissingTimes).get();
+                                    filledTotal.addAndGet(fallbackFilled);
+                                    log.info("fallback方式成功补充{}的{}个缺失数据点", dayStart.toLocalDate(), fallbackFilled);
+                                } catch (Exception ex) {
+                                    log.error("fallback补充{}的缺失数据失败: {}", dayStart.toLocalDate(), ex.getMessage(), ex);
+                                }
+                            }
+                        });
+
+                        return totalSaved + filledTotal.get();
                     }
 
                     return totalSaved;
@@ -334,7 +364,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
      * 批量保存实体，避免重复
      */
     @Transactional
-    protected List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities) {
+    public List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities) {
         if (entities.isEmpty()) {
             return Collections.emptyList();
         }
@@ -380,5 +410,28 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     public List<CandlestickEntity> getLatestHistoricalData(String symbol, String interval, int limit) {
         return candlestickRepository.findLatestBySymbolAndInterval(
                 symbol, interval, PageRequest.of(0, limit));
+    }
+
+    /**
+     * 将缺失的时间点按天分组
+     *
+     * @param missingTimes 缺失的时间点列表
+     * @return 按天分组的缺失时间点Map，key为每天的0点时间
+     */
+    private Map<LocalDateTime, List<LocalDateTime>> groupMissingTimesByDay(List<LocalDateTime> missingTimes) {
+        Map<LocalDateTime, List<LocalDateTime>> result = new HashMap<>();
+
+        for (LocalDateTime time : missingTimes) {
+            // 获取当天的0点时间作为key
+            LocalDateTime dayStart = time.toLocalDate().atStartOfDay();
+
+            if (!result.containsKey(dayStart)) {
+                result.put(dayStart, new ArrayList<>());
+            }
+
+            result.get(dayStart).add(time);
+        }
+
+        return result;
     }
 }

@@ -369,7 +369,7 @@ public class WebSocketUtil{
                 String errorCode = jsonMessage.getString("code");
                 String errorMsg = jsonMessage.getString("msg");
 
-                logger.error("收到WebSocket错误: code={}, msg={}", errorCode, errorMsg);
+//                logger.error("收到WebSocket错误: code={}, msg={}", errorCode, errorMsg);
 
                 // 处理特定错误
                 switch(errorCode){
@@ -386,13 +386,14 @@ public class WebSocketUtil{
                     case "60012": // 非法请求
                     case "60018": // 非法请求
                     case "60013":
-                        logger.warn("非法请求错误: {}", errorMsg);
-                        break;
+//                        logger.warn("非法请求错误: {}", errorMsg);
+//                        break;
                     default:
-                        logger.warn("未处理的WebSocket错误: code={}, msg={}", errorCode, errorMsg);
+//                        logger.warn("未处理的WebSocket错误: code={}, msg={}", errorCode, errorMsg);
                         break;
                 }
-                return;
+
+                throw new OkxApiException(Integer.parseInt(errorCode), "WebSocket错误: " + errorMsg);
             }
 
             // 处理JSON格式的pong响应
@@ -456,7 +457,7 @@ public class WebSocketUtil{
             }
 
             if(jsonMessage.containsKey("op")){
-                topic=jsonMessage.getString("op");
+                topic = jsonMessage.getString("op");
             }
 
             if(topic != null && messageHandlers.containsKey(topic)){
@@ -464,6 +465,7 @@ public class WebSocketUtil{
             }else{
                 logger.debug("收到未处理的WebSocket消息: {}", message);
             }
+
         }catch(Exception e){
             logger.error("解析WebSocket消息失败: {}", message, e);
         }
@@ -643,7 +645,7 @@ public class WebSocketUtil{
      *
      * @return 如果私有WebSocket已连接则返回true，否则返回false
      */
-    public boolean isPrivateSocketConnected() {
+    public boolean isPrivateSocketConnected(){
         return privateWebSocket != null;
     }
 
@@ -652,7 +654,7 @@ public class WebSocketUtil{
      *
      * @return 如果公共WebSocket已连接则返回true，否则返回false
      */
-    public boolean isPublicSocketConnected() {
+    public boolean isPublicSocketConnected(){
         return publicWebSocket != null;
     }
 }

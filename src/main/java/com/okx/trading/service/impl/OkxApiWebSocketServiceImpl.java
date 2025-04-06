@@ -460,7 +460,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 向服务器发送请求获取订单列表
             JSONObject requestMessage = new JSONObject();
             requestMessage.put("id", messageIdGenerator.getAndIncrement());
-            requestMessage.put("op", "request");
+            requestMessage.put("op", "subscribe");
 
             JSONObject arg = new JSONObject();
             arg.put("channel", "orders");
