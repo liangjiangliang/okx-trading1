@@ -54,7 +54,7 @@ public interface CandlestickRepository extends JpaRepository<CandlestickEntity, 
      * @param endTime 结束时间
      * @return 已存在的K线开盘时间列表
      */
-    @Query("SELECT c.openTime FROM CandlestickEntity c WHERE c.symbol = :symbol AND c.intervalVal = :interval_val AND c.openTime BETWEEN :startTime AND :endTime ORDER BY c.openTime ASC")
+    @Query("SELECT c.openTime FROM CandlestickEntity c WHERE c.symbol = :symbol AND c.intervalVal = :interval_val AND c.openTime >= :startTime AND c.openTime < :endTime ORDER BY c.openTime ASC")
     List<LocalDateTime> findExistingOpenTimesBySymbolAndIntervalBetween(
             @Param("symbol") String symbol, @Param("interval_val") String intervalVal,
             @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);

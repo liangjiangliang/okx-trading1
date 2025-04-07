@@ -1,5 +1,6 @@
 package com.okx.trading.service.impl;
 
+import com.okx.trading.model.TimeSlice;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.repository.CandlestickRepository;
@@ -30,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HistoricalDataServiceImpl implements HistoricalDataService {
+public class HistoricalDataServiceImpl implements HistoricalDataService{
 
     private final OkxApiService okxApiService;
     private final CandlestickRepository candlestickRepository;
@@ -49,28 +50,38 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
      */
     @Data
     @AllArgsConstructor
-    private static class TimeSlice {
+    private static class TimeSlice{
         private LocalDateTime start;
         private LocalDateTime end;
 
         @Override
-        public String toString() {
+        public String toString(){
             return String.format("[%s - %s]", start, end);
         }
     }
 
     @Override
     public CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval,
-                                                         LocalDateTime startTime, LocalDateTime endTime) {
+                                                                 LocalDateTime startTime, LocalDateTime endTime){
         log.info("开始获取历史K线数据: symbol={}, interval={}, startTime={}, endTime={}",
-                symbol, interval, startTime, endTime);
+            symbol, interval, startTime, endTime);
+
+        // 按天检查数据完整性，找出需要获取的天数
+        List<TimeSlice> daysToFetch = getIncompleteDays(symbol, interval, startTime, endTime);
+
+        if(daysToFetch.isEmpty()){
+            log.info("指定时间范围内的所有天数数据都已完整，无需获取");
+            return CompletableFuture.completedFuture(0);
+        }
+
+        log.info("需要获取的天数: {}", daysToFetch.size());
 
         // 计算预期的数据点总数（根据时间间隔）
         int expectedTotal = calculateExpectedDataPoints(interval, startTime, endTime);
         log.info("预计需要获取的数据点数量: {}", expectedTotal);
 
         // 计算需要分成的批次数
-        int requiredBatches = (int) Math.ceil((double) expectedTotal / batchSize);
+        int requiredBatches = (int)Math.ceil((double)expectedTotal / batchSize);
         log.info("将分为{}个批次获取, 每批次{}条数据", requiredBatches, batchSize);
 
         // 创建时间分片
@@ -83,12 +94,12 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         // 创建多线程任务列表
         List<CompletableFuture<List<CandlestickEntity>>> futures = new ArrayList<>();
 
-        for (TimeSlice slice : timeSlices) {
+        for(TimeSlice slice: timeSlices){
             CompletableFuture<List<CandlestickEntity>> future = CompletableFuture.supplyAsync(() -> {
-                try {
+                try{
                     log.debug("获取时间片段数据: {}", slice);
                     List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
-                            symbol, interval, toEpochMilli(slice.getStart()), toEpochMilli(slice.getEnd()), batchSize);
+                        symbol, interval, toEpochMilli(slice.getStart()), toEpochMilli(slice.getEnd()), batchSize);
 
                     // 转换为实体类
                     List<CandlestickEntity> entities = convertToEntities(candlesticks, symbol, interval);
@@ -96,7 +107,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
                     // 保存数据
                     return saveBatch(entities);
-                } catch (Exception e) {
+                }catch(Exception e){
                     log.error("获取时间片段{}数据失败: {}", slice, e.getMessage(), e);
                     return Collections.emptyList();
                 }
@@ -107,76 +118,150 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 合并所有异步任务的结果
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApplyAsync(v -> {
-                    int totalSaved = futures.stream()
-                            .map(CompletableFuture::join)
-                            .mapToInt(List::size)
-                            .sum();
+            .thenApplyAsync(v -> {
+                int totalSaved = futures.stream()
+                    .map(CompletableFuture :: join)
+                    .mapToInt(List :: size)
+                    .sum();
 
-                    log.info("完成历史数据获取, 共保存{}条数据", totalSaved);
+                log.info("完成历史数据获取, 共保存{}条数据", totalSaved);
 
-                    // 检查数据完整性
-                    List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, startTime, endTime);
+                // 检查数据完整性
+                List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, startTime, endTime);
 
-                    if (!missingTimes.isEmpty()) {
-                        log.info("发现{}个缺失的数据点, 按天分组递归获取", missingTimes.size());
+                if(! missingTimes.isEmpty()){
+                    log.info("发现{}个缺失的数据点, 按天分组递归获取", missingTimes.size());
 
-                        // 将缺失的数据点按天分组
-                        Map<LocalDateTime, List<LocalDateTime>> missingTimesByDay = groupMissingTimesByDay(missingTimes);
-                        log.info("缺失数据分为{}天", missingTimesByDay.size());
+                    // 将缺失的数据点按天分组
+                    Map<LocalDateTime,List<LocalDateTime>> missingTimesByDay = groupMissingTimesByDay(missingTimes);
+                    log.info("缺失数据分为{}天", missingTimesByDay.size());
 
-                        // 递归获取每天的缺失数据
-                        AtomicInteger filledTotal = new AtomicInteger(0);
+                    // 递归获取每天的缺失数据
+                    AtomicInteger filledTotal = new AtomicInteger(0);
 
-                        missingTimesByDay.forEach((dayStart, dayMissingTimes) -> {
-                            // 计算当天结束时间（次日0点）
-                            LocalDateTime dayEnd = dayStart.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-                            if (dayEnd.isAfter(endTime)) {
-                                dayEnd = endTime;
+                    missingTimesByDay.forEach((dayStart, dayMissingTimes) -> {
+                        // 计算当天结束时间（次日0点）
+                        LocalDateTime dayEnd = dayStart.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                        if(dayEnd.isAfter(endTime)){
+                            dayEnd = endTime;
+                        }
+
+                        log.info("开始递归获取{}的缺失数据, 缺失点数量: {}", dayStart.toLocalDate(), dayMissingTimes.size());
+
+                        try{
+                            // 递归调用自身获取当天缺失数据
+                            CompletableFuture<Integer> dayFuture = fetchAndSaveHistoricalData(symbol, interval, dayStart, dayEnd);
+                            int filled = dayFuture.get(10, TimeUnit.MINUTES); // 设置超时时间
+                            filledTotal.addAndGet(filled);
+
+                            log.info("成功获取{}的缺失数据, 获取数量: {}", dayStart.toLocalDate(), filled);
+                        }catch(Exception e){
+                            log.error("递归获取{}的缺失数据失败: {}", dayStart.toLocalDate(), e.getMessage(), e);
+
+                            // 如果递归失败，尝试直接填充缺失数据
+                            try{
+                                int fallbackFilled = fillMissingData(symbol, interval, dayMissingTimes).get();
+                                filledTotal.addAndGet(fallbackFilled);
+                                log.info("fallback方式成功补充{}的{}个缺失数据点", dayStart.toLocalDate(), fallbackFilled);
+                            }catch(Exception ex){
+                                log.error("fallback补充{}的缺失数据失败: {}", dayStart.toLocalDate(), ex.getMessage(), ex);
                             }
+                        }
+                    });
 
-                            log.info("开始递归获取{}的缺失数据, 缺失点数量: {}", dayStart.toLocalDate(), dayMissingTimes.size());
+                    return totalSaved + filledTotal.get();
+                }
 
-                            try {
-                                // 递归调用自身获取当天缺失数据
-                                CompletableFuture<Integer> dayFuture = fetchAndSaveHistoricalData(symbol, interval, dayStart, dayEnd);
-                                int filled = dayFuture.get(10, TimeUnit.MINUTES); // 设置超时时间
-                                filledTotal.addAndGet(filled);
+                return totalSaved;
+            });
+    }
 
-                                log.info("成功获取{}的缺失数据, 获取数量: {}", dayStart.toLocalDate(), filled);
-                            } catch (Exception e) {
-                                log.error("递归获取{}的缺失数据失败: {}", dayStart.toLocalDate(), e.getMessage(), e);
+    /**
+     * 获取不完整的天数列表
+     *
+     * @param symbol    交易对
+     * @param interval  时间间隔
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return 不完整的天数列表
+     */
+    private List<TimeSlice> getIncompleteDays(String symbol, String interval, LocalDateTime startTime, LocalDateTime endTime){
+        List<TimeSlice> incompleteDays = new ArrayList<>();
 
-                                // 如果递归失败，尝试直接填充缺失数据
-                                try {
-                                    int fallbackFilled = fillMissingData(symbol, interval, dayMissingTimes).get();
-                                    filledTotal.addAndGet(fallbackFilled);
-                                    log.info("fallback方式成功补充{}的{}个缺失数据点", dayStart.toLocalDate(), fallbackFilled);
-                                } catch (Exception ex) {
-                                    log.error("fallback补充{}的缺失数据失败: {}", dayStart.toLocalDate(), ex.getMessage(), ex);
-                                }
-                            }
-                        });
+        // 获取时间范围内的所有天数
+        LocalDateTime currentDay = startTime.toLocalDate().atStartOfDay();
+        LocalDateTime lastDay = endTime.toLocalDate().atStartOfDay();
 
-                        return totalSaved + filledTotal.get();
-                    }
+        while(! currentDay.isAfter(lastDay)){
+            // 计算当天结束时间（次日0点）-1 秒
+            LocalDateTime nextDay = currentDay.plusDays(1);
+            if(nextDay.isAfter(endTime)){
+                nextDay = endTime;
+            }
 
-                    return totalSaved;
-                });
+            // 检查当天数据是否完整
+            if(! isDayDataComplete(symbol, interval, currentDay, nextDay)){
+                incompleteDays.add(new TimeSlice(currentDay, nextDay));
+            }else{
+                log.info("{} 的数据已完整，跳过获取", currentDay.toLocalDate());
+            }
+
+            currentDay = nextDay;
+        }
+
+        return incompleteDays;
+    }
+
+    /**
+     * 检查某一天的数据是否完整
+     *
+     * @param symbol   交易对
+     * @param interval 时间间隔
+     * @param dayStart 当天开始时间
+     * @param dayEnd   当天结束时间
+     * @return 数据是否完整
+     */
+    private boolean isDayDataComplete(String symbol, String interval, LocalDateTime dayStart, LocalDateTime dayEnd){
+        // 获取预期的所有时间点
+        List<LocalDateTime> expectedTimes = generateExpectedTimePoints(interval, dayStart, dayEnd);
+
+        // 获取数据库中已存在的时间点
+        List<LocalDateTime> existingTimes = candlestickRepository
+            .findExistingOpenTimesBySymbolAndIntervalBetween(symbol, interval, dayStart, dayEnd);
+
+        // 如果预期时间点数量与已存在时间点数量相同，则认为数据完整
+        Set<String> expectedStr = expectedTimes.stream().map(LocalDateTime :: toString).collect(Collectors.toSet());
+        Set<String> existingStr = existingTimes.stream().map(LocalDateTime :: toString).collect(Collectors.toSet());
+        expectedStr.removeAll(existingStr);
+
+        if(expectedStr.isEmpty()){
+            // 进一步检查是否所有预期时间点都存在
+            Set<LocalDateTime> existingTimeSet = new HashSet<>(existingTimes);
+            boolean isComplete = expectedTimes.stream().allMatch(existingTimeSet :: contains);
+
+            if(isComplete){
+                log.debug("{} 的数据已完整，共{}个数据点", dayStart.toLocalDate(), expectedTimes.size());
+                return true;
+            }
+        }
+
+        log.info("{} 的数据不完整，预期{}个数据点，实际{}个数据点",
+            dayStart.toLocalDate(), expectedTimes.size(), existingTimes.size());
+        return false;
     }
 
     @Override
     public List<CandlestickEntity> getHistoricalData(String symbol, String interval,
-                                                  LocalDateTime startTime, LocalDateTime endTime) {
+                                                     LocalDateTime startTime, LocalDateTime endTime){
         return candlestickRepository.findBySymbolAndIntervalAndOpenTimeBetweenOrderByOpenTimeAsc(
-                symbol, interval, startTime, endTime);
+            symbol, interval, startTime, endTime);
     }
 
     @Override
     public List<LocalDateTime> checkDataIntegrity(String symbol, String interval,
-                                                LocalDateTime startTime, LocalDateTime endTime) {
+                                                  LocalDateTime startTime, LocalDateTime endTime){
         log.info("检查数据完整性: symbol={}, interval={}, startTime={}, endTime={}",
-                symbol, interval, startTime, endTime);
+            symbol, interval, startTime, endTime);
 
         // 获取预期的所有时间点
         List<LocalDateTime> expectedTimes = generateExpectedTimePoints(interval, startTime, endTime);
@@ -184,31 +269,31 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 获取数据库中已存在的时间点
         List<LocalDateTime> existingTimes = candlestickRepository
-                .findExistingOpenTimesBySymbolAndIntervalBetween(symbol, interval, startTime, endTime);
+            .findExistingOpenTimesBySymbolAndIntervalBetween(symbol, interval, startTime, endTime);
         log.info("数据库中已有数据点数量: {}", existingTimes.size());
 
         // 计算缺失的时间点
         Set<LocalDateTime> existingTimeSet = new HashSet<>(existingTimes);
         List<LocalDateTime> missingTimes = expectedTimes.stream()
-                .filter(time -> !existingTimeSet.contains(time))
-                .collect(Collectors.toList());
+            .filter(time -> ! existingTimeSet.contains(time))
+            .collect(Collectors.toList());
 
         log.info("缺失的数据点数量: {}", missingTimes.size());
         return missingTimes;
     }
 
     @Override
-    public CompletableFuture<Integer> fillMissingData(String symbol, String interval, List<LocalDateTime> missingTimes) {
-        if (missingTimes.isEmpty()) {
+    public CompletableFuture<Integer> fillMissingData(String symbol, String interval, List<LocalDateTime> missingTimes){
+        if(missingTimes.isEmpty()){
             return CompletableFuture.completedFuture(0);
         }
 
         log.info("开始补充缺失数据: symbol={}, interval={}, 缺失点数量={}",
-                symbol, interval, missingTimes.size());
+            symbol, interval, missingTimes.size());
 
         // 将缺失的时间点按批次分组
         List<List<LocalDateTime>> batches = new ArrayList<>();
-        for (int i = 0; i < missingTimes.size(); i += batchSize) {
+        for(int i = 0;i < missingTimes.size();i += batchSize){
             batches.add(missingTimes.subList(i, Math.min(i + batchSize, missingTimes.size())));
         }
 
@@ -217,31 +302,31 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         // 为每个批次创建一个异步任务
         List<CompletableFuture<List<CandlestickEntity>>> futures = new ArrayList<>();
 
-        for (List<LocalDateTime> batch : batches) {
+        for(List<LocalDateTime> batch: batches){
             // 为每个批次找到时间范围
-            LocalDateTime batchStart = batch.stream().min(LocalDateTime::compareTo).orElse(null);
-            LocalDateTime batchEnd = batch.stream().max(LocalDateTime::compareTo).orElse(null);
+            LocalDateTime batchStart = batch.stream().min(LocalDateTime :: compareTo).orElse(null);
+            LocalDateTime batchEnd = batch.stream().max(LocalDateTime :: compareTo).orElse(null);
 
-            if (batchStart == null || batchEnd == null) {
+            if(batchStart == null || batchEnd == null){
                 continue;
             }
 
             // 获取时间范围内的所有数据
             CompletableFuture<List<CandlestickEntity>> future = CompletableFuture.supplyAsync(() -> {
-                try {
+                try{
                     List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
-                            symbol, interval, toEpochMilli(batchStart), toEpochMilli(batchEnd), batchSize);
+                        symbol, interval, toEpochMilli(batchStart), toEpochMilli(batchEnd), batchSize);
 
                     // 过滤出缺失的时间点对应的数据
                     Set<LocalDateTime> batchTimeSet = new HashSet<>(batch);
                     List<Candlestick> filteredCandlesticks = candlesticks.stream()
-                            .filter(c -> batchTimeSet.contains(c.getOpenTime()))
-                            .collect(Collectors.toList());
+                        .filter(c -> batchTimeSet.contains(c.getOpenTime()))
+                        .collect(Collectors.toList());
 
                     // 转换并保存
                     List<CandlestickEntity> entities = convertToEntities(filteredCandlesticks, symbol, interval);
                     return saveBatch(entities);
-                } catch (Exception e) {
+                }catch(Exception e){
                     log.error("补充缺失数据失败: {}", e.getMessage(), e);
                     return Collections.emptyList();
                 }
@@ -252,24 +337,24 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 等待所有异步任务完成
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> futures.stream()
-                        .map(CompletableFuture::join)
-                        .mapToInt(List::size)
-                        .sum());
+            .thenApply(v -> futures.stream()
+                .map(CompletableFuture :: join)
+                .mapToInt(List :: size)
+                .sum());
     }
 
     /**
      * 计算时间间隔内预期的数据点数量
      */
-    private int calculateExpectedDataPoints(String interval, LocalDateTime startTime, LocalDateTime endTime) {
+    private int calculateExpectedDataPoints(String interval, LocalDateTime startTime, LocalDateTime endTime){
         long minutes = getIntervalMinutes(interval);
-        return (int) (ChronoUnit.MINUTES.between(startTime, endTime) / minutes) + 1;
+        return (int)(ChronoUnit.MINUTES.between(startTime, endTime) / minutes) + 1;
     }
 
     /**
      * 创建时间分片
      */
-    private List<TimeSlice> createTimeSlices(String interval, LocalDateTime startTime, LocalDateTime endTime, int batchCount) {
+    private List<TimeSlice> createTimeSlices(String interval, LocalDateTime startTime, LocalDateTime endTime, int batchCount){
         List<TimeSlice> slices = new ArrayList<>();
 
         long totalMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
@@ -280,9 +365,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         minutesPerBatch = ((minutesPerBatch / intervalMinutes) + 1) * intervalMinutes;
 
         LocalDateTime current = startTime;
-        while (current.isBefore(endTime)) {
+        while(current.isBefore(endTime)){
             LocalDateTime sliceEnd = current.plusMinutes(minutesPerBatch);
-            if (sliceEnd.isAfter(endTime)) {
+            if(sliceEnd.isAfter(endTime)){
                 sliceEnd = endTime;
             }
 
@@ -296,29 +381,37 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     /**
      * 获取间隔对应的分钟数
      */
-    private long getIntervalMinutes(String interval) {
+    private long getIntervalMinutes(String interval){
         String unit = interval.substring(interval.length() - 1);
         int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
 
-        switch (unit) {
-            case "m": return amount;
-            case "H": return amount * 60;
-            case "D": return amount * 60 * 24;
-            case "W": return amount * 60 * 24 * 7;
-            case "M": return amount * 60 * 24 * 30; // 简化处理，按30天/月计算
-            default: return 1;
+        switch(unit){
+            case "m":
+                return amount;
+            case "H":
+                return amount * 60;
+            case "D":
+                return amount * 60 * 24;
+            case "W":
+                return amount * 60 * 24 * 7;
+            case "M":
+                return amount * 60 * 24 * 30; // 简化处理，按30天/月计算
+            default:
+                return 1;
         }
     }
 
     /**
      * 生成预期的时间点列表
      */
-    private List<LocalDateTime> generateExpectedTimePoints(String interval, LocalDateTime startTime, LocalDateTime endTime) {
+    private List<LocalDateTime> generateExpectedTimePoints(String interval, LocalDateTime startTime, LocalDateTime endTime){
         List<LocalDateTime> timePoints = new ArrayList<>();
+        endTime = endTime.minusSeconds(1);
+
         long intervalMinutes = getIntervalMinutes(interval);
 
         LocalDateTime current = startTime;
-        while (!current.isAfter(endTime)) {
+        while(! current.isAfter(endTime)){
             timePoints.add(current);
             current = current.plusMinutes(intervalMinutes);
         }
@@ -329,62 +422,62 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     /**
      * 将LocalDateTime转换为毫秒时间戳
      */
-    private Long toEpochMilli(LocalDateTime time) {
+    private Long toEpochMilli(LocalDateTime time){
         return time.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
     /**
      * 将Candlestick转换为CandlestickEntity
      */
-    private List<CandlestickEntity> convertToEntities(List<Candlestick> candlesticks, String symbol, String intervalVal) {
+    private List<CandlestickEntity> convertToEntities(List<Candlestick> candlesticks, String symbol, String intervalVal){
         LocalDateTime now = LocalDateTime.now();
 
         return candlesticks.stream()
-                .map(c -> {
-                    CandlestickEntity entity = new CandlestickEntity();
-                    entity.setId(CandlestickEntity.createId(symbol, intervalVal, c.getOpenTime()));
-                    entity.setSymbol(symbol);
-                    entity.setIntervalVal(intervalVal);
-                    entity.setOpenTime(c.getOpenTime());
-                    entity.setCloseTime(c.getCloseTime());
-                    entity.setOpen(c.getOpen());
-                    entity.setHigh(c.getHigh());
-                    entity.setLow(c.getLow());
-                    entity.setClose(c.getClose());
-                    entity.setVolume(c.getVolume());
-                    entity.setQuoteVolume(c.getQuoteVolume());
-                    entity.setTrades(c.getTrades());
-                    entity.setFetchTime(now);
-                    return entity;
-                })
-                .collect(Collectors.toList());
+            .map(c -> {
+                CandlestickEntity entity = new CandlestickEntity();
+                entity.setId(CandlestickEntity.createId(symbol, intervalVal, c.getOpenTime()));
+                entity.setSymbol(symbol);
+                entity.setIntervalVal(intervalVal);
+                entity.setOpenTime(c.getOpenTime());
+                entity.setCloseTime(c.getCloseTime());
+                entity.setOpen(c.getOpen());
+                entity.setHigh(c.getHigh());
+                entity.setLow(c.getLow());
+                entity.setClose(c.getClose());
+                entity.setVolume(c.getVolume());
+                entity.setQuoteVolume(c.getQuoteVolume());
+                entity.setTrades(c.getTrades());
+                entity.setFetchTime(now);
+                return entity;
+            })
+            .collect(Collectors.toList());
     }
 
     /**
      * 批量保存实体，避免重复
      */
     @Transactional
-    public List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities) {
-        if (entities.isEmpty()) {
+    public List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities){
+        if(entities.isEmpty()){
             return Collections.emptyList();
         }
 
-        try {
+        try{
             // 获取第一个和最后一个实体的时间范围
             String symbol = entities.get(0).getSymbol();
             String interval = entities.get(0).getIntervalVal();
 
             LocalDateTime minTime = entities.stream()
-                    .map(CandlestickEntity::getOpenTime)
-                    .min(LocalDateTime::compareTo)
-                    .orElse(null);
+                .map(CandlestickEntity :: getOpenTime)
+                .min(LocalDateTime :: compareTo)
+                .orElse(null);
 
             LocalDateTime maxTime = entities.stream()
-                    .map(CandlestickEntity::getOpenTime)
-                    .max(LocalDateTime::compareTo)
-                    .orElse(null);
+                .map(CandlestickEntity :: getOpenTime)
+                .max(LocalDateTime :: compareTo)
+                .orElse(null);
 
-            if (minTime != null && maxTime != null) {
+            if(minTime != null && maxTime != null){
                 // 删除可能存在的重复数据
                 log.info("删除时间范围 {} ~ {} 内的数据，以避免重复", minTime, maxTime);
                 candlestickRepository.deleteBySymbolAndIntervalAndOpenTimeBetween(symbol, interval, minTime, maxTime);
@@ -393,7 +486,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
             // 保存新数据
             log.info("保存 {} 条新数据", entities.size());
             return candlestickRepository.saveAll(entities);
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("保存批量数据时出错: {}", e.getMessage(), e);
             throw e;
         }
@@ -402,14 +495,14 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     /**
      * 根据交易对和时间间隔查询最新的K线数据
      *
-     * @param symbol 交易对
+     * @param symbol   交易对
      * @param interval 时间间隔
-     * @param limit 数量限制
+     * @param limit    数量限制
      * @return K线数据列表
      */
-    public List<CandlestickEntity> getLatestHistoricalData(String symbol, String interval, int limit) {
+    public List<CandlestickEntity> getLatestHistoricalData(String symbol, String interval, int limit){
         return candlestickRepository.findLatestBySymbolAndInterval(
-                symbol, interval, PageRequest.of(0, limit));
+            symbol, interval, PageRequest.of(0, limit));
     }
 
     /**
@@ -418,14 +511,14 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
      * @param missingTimes 缺失的时间点列表
      * @return 按天分组的缺失时间点Map，key为每天的0点时间
      */
-    private Map<LocalDateTime, List<LocalDateTime>> groupMissingTimesByDay(List<LocalDateTime> missingTimes) {
-        Map<LocalDateTime, List<LocalDateTime>> result = new HashMap<>();
+    private Map<LocalDateTime,List<LocalDateTime>> groupMissingTimesByDay(List<LocalDateTime> missingTimes){
+        Map<LocalDateTime,List<LocalDateTime>> result = new HashMap<>();
 
-        for (LocalDateTime time : missingTimes) {
+        for(LocalDateTime time: missingTimes){
             // 获取当天的0点时间作为key
             LocalDateTime dayStart = time.toLocalDate().atStartOfDay();
 
-            if (!result.containsKey(dayStart)) {
+            if(! result.containsKey(dayStart)){
                 result.put(dayStart, new ArrayList<>());
             }
 
