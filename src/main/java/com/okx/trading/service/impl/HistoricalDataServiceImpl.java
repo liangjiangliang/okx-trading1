@@ -43,7 +43,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     private int maxThreads = 10;
 
     // 用于执行多线程查询的线程池
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+    private final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
     /**
      * 时间分片类
@@ -173,7 +173,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                 }
 
                 return totalSaved;
-            });
+            }, executorService);
     }
 
     /**
@@ -190,7 +190,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
 
         // 获取时间范围内的所有天数
         LocalDateTime currentDay = startTime.toLocalDate().atStartOfDay();
-        LocalDateTime lastDay = endTime.toLocalDate().atStartOfDay();
+        LocalDateTime lastDay = endTime.toLocalDate().atStartOfDay().minusSeconds(1);
 
         while(! currentDay.isAfter(lastDay)){
             // 计算当天结束时间（次日0点）-1 秒
@@ -455,6 +455,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
 
     /**
      * 批量保存实体，避免重复
+     * 如果数据已存在则跳过，不删除已有数据
      */
     @Transactional
     public List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities){
@@ -478,13 +479,32 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                 .orElse(null);
 
             if(minTime != null && maxTime != null){
-                // 删除可能存在的重复数据
-                log.info("删除时间范围 {} ~ {} 内的数据，以避免重复", minTime, maxTime);
-                candlestickRepository.deleteBySymbolAndIntervalAndOpenTimeBetween(symbol, interval, minTime, maxTime);
+                // 查询已存在的数据
+                List<CandlestickEntity> existingEntities = candlestickRepository
+                    .findBySymbolAndIntervalAndOpenTimeBetweenOrderByOpenTimeAsc(symbol, interval, minTime, maxTime);
+
+                // 创建已存在数据的ID集合，用于过滤
+                Set<String> existingIds = existingEntities.stream()
+                    .map(CandlestickEntity :: getId)
+                    .collect(Collectors.toSet());
+
+                // 过滤出不存在的数据
+                List<CandlestickEntity> newEntities = entities.stream()
+                    .filter(entity -> ! existingIds.contains(entity.getId()))
+                    .collect(Collectors.toList());
+
+                log.info("时间范围 {} ~ {} 内已有 {} 条数据，新增 {} 条数据",
+                    minTime, maxTime, existingEntities.size(), newEntities.size());
+
+                // 只保存新数据
+                if(! newEntities.isEmpty()){
+                    return candlestickRepository.saveAll(newEntities);
+                }else{
+                    return Collections.emptyList();
+                }
             }
 
-            // 保存新数据
-            log.info("保存 {} 条新数据", entities.size());
+            // 如果没有时间范围信息，直接保存所有数据
             return candlestickRepository.saveAll(entities);
         }catch(Exception e){
             log.error("保存批量数据时出错: {}", e.getMessage(), e);

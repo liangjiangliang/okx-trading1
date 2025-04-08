@@ -26,7 +26,7 @@ spring:
     database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -81,8 +81,11 @@ logging:
   level:
     root: INFO
     com.okx.trading: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.SQL: ERROR
+    org.hibernate.type.descriptor.sql.BasicBinder: ERROR
+    okhttp3.OkHttpClient: ERROR
+    okhttp3.logging.HttpLoggingInterceptor: ERROR
+
 
 # Swagger配置
 springfox:
@@ -95,3 +98,4 @@ springfox:
 springdoc:
   api-docs.path: /api-docs
   swagger-ui.path: /swagger-ui
+
