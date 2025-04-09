@@ -76,9 +76,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
         // 按不完整的天数创建任务列表
         List<CompletableFuture<Integer>> dayFutures = new ArrayList<>();
 
-        for (TimeSlice daySlice : daysToFetch) {
+        for(TimeSlice daySlice: daysToFetch){
             CompletableFuture<Integer> dayFuture = CompletableFuture.supplyAsync(() -> {
-                try {
+                try{
                     LocalDateTime dayStart = daySlice.getStart();
                     LocalDateTime dayEnd = daySlice.getEnd();
 
@@ -124,8 +124,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0])).join();
 
                     int totalSaved = batchFutures.stream()
-                        .map(CompletableFuture::join)
-                        .mapToInt(List::size)
+                        .map(CompletableFuture :: join)
+                        .mapToInt(List :: size)
                         .sum();
 
                     log.info("完成日期 {} 的数据获取, 共保存{}条数据", dayStart.toLocalDate(), totalSaved);
@@ -133,11 +133,11 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     // 再次检查当天数据完整性
                     boolean isComplete = isDayDataComplete(symbol, interval, dayStart, dayEnd);
 
-                    if (!isComplete) {
+                    if(! isComplete){
                         log.info("日期 {} 的数据仍不完整，尝试填充缺失数据点", dayStart.toLocalDate());
                         List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, dayStart, dayEnd);
 
-                        if (!missingTimes.isEmpty()) {
+                        if(! missingTimes.isEmpty()){
                             log.info("日期 {} 有 {} 个缺失的数据点，尝试单点填充", dayStart.toLocalDate(), missingTimes.size());
                             int filledCount = fillMissingData(symbol, interval, missingTimes).get();
                             totalSaved += filledCount;
@@ -145,7 +145,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     }
 
                     return totalSaved;
-                } catch (Exception e) {
+                }catch(Exception e){
                     log.error("获取日期 {} 的数据失败: {}", daySlice.getStart().toLocalDate(), e.getMessage(), e);
                     return 0;
                 }
@@ -159,14 +159,14 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
             .thenApplyAsync(v -> {
                 int totalSaved = dayFutures.stream()
                     .map(future -> {
-                        try {
+                        try{
                             return future.get();
-                        } catch (Exception e) {
+                        }catch(Exception e){
                             log.error("获取任务结果失败: {}", e.getMessage(), e);
                             return 0;
                         }
                     })
-                    .mapToInt(Integer::intValue)
+                    .mapToInt(Integer :: intValue)
                     .sum();
 
                 log.info("完成所有不完整天数的历史数据获取, 共保存{}条数据", totalSaved);
@@ -492,8 +492,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     .filter(entity -> ! existingIds.contains(entity.getId()))
                     .collect(Collectors.toList());
 
-                log.info("时间范围 {} ~ {} 内已有 {} 条数据，新增 {} 条数据",
-                    minTime, maxTime, existingEntities.size(), newEntities.size());
+                log.info("时间范围 {} ~ {} 内已有 {} 条数据, 查询获取 {} 条数据，新增 {} 条数据",
+                    minTime, maxTime, existingEntities.size(), entities.size(), newEntities.size());
 
                 // 只保存新数据
                 if(! newEntities.isEmpty()){

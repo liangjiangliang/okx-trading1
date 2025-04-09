@@ -298,8 +298,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                 // 使用clOrdId查找对应的future，而不是ordId
                 String clientOrderId = orderData.getString("clOrdId");
-                log.info("收到订单消息: orderId={}, clientOrderId={}, status={}",
-                    orderData.getString("ordId"), clientOrderId, orderData.getString("state"));
+                log.info("收到订单消息: orderId={}, clientOrderId={}, status={}, sMsg={}",
+                    orderData.getString("ordId"), clientOrderId, orderData.getString("state"),orderData.getString("sMsg"));
                 if(order.getSCode() != 0){
                     throw new BusinessException(order.getSCode(), order.getClientOrderId()+": "+order.getSMsg());
                 }
@@ -582,8 +582,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             try{
                 log.info("等待订单响应, 超时20秒, clientOrderId: {}", clientOrderId);
                 order = future.get(20, TimeUnit.SECONDS);
-                log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}",
-                    clientOrderId, order.getOrderId(), order.getStatus());
+                log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}, sMsg: {}",
+                    clientOrderId, order.getOrderId(), order.getStatus(),order.getSMsg());
             }catch(TimeoutException e){
                 log.warn("订单请求首次超时(20秒), 尝试通过REST API查询订单状态, clientOrderId: {}", clientOrderId);
 
