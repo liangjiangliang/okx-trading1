@@ -1,6 +1,5 @@
 package com.okx.trading.service.impl;
 
-import com.okx.trading.model.TimeSlice;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.repository.CandlestickRepository;
@@ -15,15 +14,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 历史K线数据服务实现类
@@ -44,6 +40,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
 
     // 用于执行多线程查询的线程池
     private final ExecutorService executorService = Executors.newFixedThreadPool(5);
+    private final ExecutorService batchExecutorService = Executors.newFixedThreadPool(5);
 
     /**
      * 时间分片类
@@ -152,7 +149,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     log.error("获取日期 {} 的数据失败: {}", daySlice.getStart().toLocalDate(), e.getMessage(), e);
                     return 0;
                 }
-            }, executorService);
+            }, batchExecutorService);
 
             dayFutures.add(dayFuture);
         }

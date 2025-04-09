@@ -93,6 +93,14 @@ public class OkxApiConfig {
         public void setPrivateChannel(String privateChannel) {
             this.privateChannel = privateChannel;
         }
+        
+        public String getBussinessChannel() {
+            return bussinessChannel;
+        }
+
+        public void setBussinessChannel(String bussinessChannel) {
+            this.bussinessChannel = bussinessChannel;
+        }
     }
 
     /**
