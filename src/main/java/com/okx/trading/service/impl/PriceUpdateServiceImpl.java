@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.math.BigDecimal;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * 价格更新服务实现类
@@ -108,6 +110,9 @@ public class PriceUpdateServiceImpl implements PriceUpdateService {
     private void runPriceUpdateLoop() {
         log.info("价格更新线程开始运行");
         
+        // 记录上次价格更新时间，用于检测价格更新中断
+        Map<String, Long> lastPriceUpdateTime = new ConcurrentHashMap<>();
+        
         while (running.get()) {
             try {
                 // 获取所有订阅的币种
@@ -121,13 +126,47 @@ public class PriceUpdateServiceImpl implements PriceUpdateService {
                 
                 log.debug("开始更新 {} 个币种的价格", subscribedCoins.size());
                 
+                // 获取当前时间戳，用于检测价格更新
+                final long currentTime = System.currentTimeMillis();
+                
                 // 为每个币种创建一个更新任务
                 for (String symbol : subscribedCoins) {
                     final String finalSymbol = symbol;
                     executorService.submit(() -> {
                         try {
+                            // 获取当前Redis中的价格
+                            BigDecimal currentPrice = redisCacheService.getCoinPrice(finalSymbol);
+                            
+                            // 检查是否需要强制更新价格 - 如果长时间未更新或Redis中没有价格数据
+                            boolean forceUpdate = false;
+                            if (!lastPriceUpdateTime.containsKey(finalSymbol)) {
+                                // 第一次更新，记录时间
+                                forceUpdate = true;
+                            } else if (currentTime - lastPriceUpdateTime.get(finalSymbol) > UPDATE_INTERVAL * 3) {
+                                // 超过正常更新间隔的3倍，可能出现问题
+                                log.warn("币种 {} 价格长时间未更新，强制更新", finalSymbol);
+                                forceUpdate = true;
+                            }
+                            
+                            // Redis中没有价格，强制更新
+                            if (currentPrice == null) {
+                                log.warn("Redis中没有币种 {} 的价格数据，强制更新", finalSymbol);
+                                forceUpdate = true;
+                            }
+                            
                             // 获取行情数据（会自动写入Redis缓存）
-                            okxApiService.getTicker(finalSymbol);
+                            if (forceUpdate) {
+                                // 强制触发WebSocket重新订阅更新
+                                okxApiService.unsubscribeTicker(finalSymbol);
+                                Thread.sleep(100); // 短暂等待取消订阅完成
+                                okxApiService.getTicker(finalSymbol);
+                            } else {
+                                // 正常更新
+                                okxApiService.getTicker(finalSymbol);
+                            }
+                            
+                            // 记录更新时间
+                            lastPriceUpdateTime.put(finalSymbol, currentTime);
                             log.debug("已更新币种 {} 的价格", finalSymbol);
                         } catch (Exception e) {
                             log.error("更新币种 {} 价格失败: {}", finalSymbol, e.getMessage());
@@ -155,6 +194,60 @@ public class PriceUpdateServiceImpl implements PriceUpdateService {
         }
         
         log.info("价格更新线程已退出");
+    }
+    
+    /**
+     * 强制更新所有订阅币种的价格
+     * 用于WebSocket连接重建后的价格恢复
+     */
+    @Override
+    public void forceUpdateAllPrices() {
+        try {
+            // 获取所有订阅的币种
+            Set<String> subscribedCoins = redisCacheService.getSubscribedCoins();
+            
+            if (subscribedCoins.isEmpty()) {
+                log.info("没有订阅的币种，无需强制更新价格");
+                return;
+            }
+            
+            log.info("开始强制更新 {} 个币种的价格", subscribedCoins.size());
+            
+            // 创建计数器和闭锁，以便等待所有更新完成
+            CountDownLatch latch = new CountDownLatch(subscribedCoins.size());
+            AtomicInteger successCount = new AtomicInteger(0);
+            
+            // 为每个币种创建一个更新任务
+            for (String symbol : subscribedCoins) {
+                final String finalSymbol = symbol;
+                executorService.submit(() -> {
+                    try {
+                        // 先取消订阅，再重新订阅以获取最新数据
+                        okxApiService.unsubscribeTicker(finalSymbol);
+                        Thread.sleep(100); // 短暂等待取消订阅完成
+                        okxApiService.getTicker(finalSymbol);
+                        
+                        successCount.incrementAndGet();
+                        log.debug("强制更新币种 {} 价格成功", finalSymbol);
+                    } catch (Exception e) {
+                        log.error("强制更新币种 {} 价格失败: {}", finalSymbol, e.getMessage());
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            
+            // 等待所有更新完成，最多等待30秒
+            boolean completed = latch.await(30, TimeUnit.SECONDS);
+            
+            if (completed) {
+                log.info("所有币种价格强制更新完成，成功: {}/{}", successCount.get(), subscribedCoins.size());
+            } else {
+                log.warn("币种价格强制更新超时，已完成: {}/{}", latch.getCount(), subscribedCoins.size());
+            }
+        } catch (Exception e) {
+            log.error("强制更新价格过程中发生错误: {}", e.getMessage(), e);
+        }
     }
     
     @Override

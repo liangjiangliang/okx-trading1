@@ -376,7 +376,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     ticker.setTimestamp(LocalDateTime.now());
                     return ticker;
                 }
-                // 如果Redis中没有价格，继续订阅以获取最新数据
+                
+                // 如果Redis中没有价格，可能是连接重置后未收到新的价格更新
+                // 主动重新订阅以获取最新数据
+                log.info("币种 {} 已订阅但Redis中无价格数据，重新触发订阅", symbol);
             }
 
             String channel = "tickers";
@@ -391,6 +394,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 标记为已订阅
             subscribedSymbols.add(symbol);
 
+            // 等待获取数据，设置超时时间
             Ticker ticker = future.get(10, TimeUnit.SECONDS);
             tickerFutures.remove(key);
 

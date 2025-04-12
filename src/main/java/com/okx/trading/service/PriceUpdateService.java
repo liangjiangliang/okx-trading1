@@ -40,4 +40,10 @@ public interface PriceUpdateService {
      * @return 移除是否成功
      */
     boolean removeSubscribedCoin(String symbol);
+    
+    /**
+     * 强制更新所有订阅币种的价格
+     * 用于WebSocket连接重建后的价格恢复
+     */
+    void forceUpdateAllPrices();
 } 

@@ -4,11 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.config.OkxApiConfig;
 import com.okx.trading.exception.OkxApiException;
+import com.okx.trading.event.WebSocketReconnectEvent;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -32,6 +34,7 @@ public class WebSocketUtil{
 
     private final OkxApiConfig okxApiConfig;
     private final OkHttpClient okHttpClient;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     private WebSocket publicWebSocket;
     private WebSocket bussinessWebSocket;
@@ -58,9 +61,10 @@ public class WebSocketUtil{
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(WebSocketUtil.class);
 
     @Autowired
-    public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient){
+    public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient, ApplicationEventPublisher applicationEventPublisher){
         this.okxApiConfig = okxApiConfig;
         this.okHttpClient = okHttpClient;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -892,7 +896,7 @@ public class WebSocketUtil{
             return;
         }
         
-        // 遍历并执行所有待执行的操作
+        // 首先恢复队列中所有待执行的操作
         int count = 0;
         while (!publicPendingOperations.isEmpty()) {
             PendingOperation operation = publicPendingOperations.poll();
@@ -909,7 +913,55 @@ public class WebSocketUtil{
             }
         }
         
-        logger.info("公共频道操作恢复完成，成功执行 {} 个操作", count);
+        // 重新订阅所有已记录的主题，确保所有币种都能及时更新价格
+        int topicCount = 0;
+        for (String topic : publicSubscribedTopics) {
+            try {
+                // 解析主题格式（例如："tickers:BTC-USDT"）
+                if (topic.contains(":")) {
+                    String[] parts = topic.split(":");
+                    String channel = parts[0];
+                    String symbol = parts[1];
+                    
+                    // 如果主题格式正确且不是自定义主题，重新订阅
+                    if (parts.length == 2 && !channel.equals("custom")) {
+                        logger.info("重新订阅主题: {}, 交易对: {}", channel, symbol);
+                        
+                        // 创建订阅消息
+                        JSONObject subscribeMessage = new JSONObject();
+                        subscribeMessage.put("op", "subscribe");
+                        
+                        JSONObject arg = new JSONObject();
+                        arg.put("channel", channel);
+                        arg.put("instId", symbol);
+                        
+                        JSONObject[] args = new JSONObject[]{arg};
+                        subscribeMessage.put("args", args);
+                        
+                        // 直接发送订阅请求
+                        publicWebSocket.send(subscribeMessage.toJSONString());
+                        topicCount++;
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("重新订阅主题失败: {}", topic, e);
+            }
+        }
+        
+        logger.info("公共频道操作恢复完成，成功执行 {} 个操作，重新订阅 {} 个主题", count, topicCount);
+        
+        // 发布WebSocket重连事件
+        try {
+            // 由于WebSocketUtil不是Spring Bean，无法直接访问ApplicationEventPublisher
+            // 使用反射查找Spring上下文，获取ApplicationEventPublisher
+            // 静态方法获取ApplicationContext
+            if (applicationEventPublisher != null) {
+                logger.info("发布WebSocket公共频道重连事件");
+                applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PUBLIC));
+            }
+        } catch (Exception e) {
+            logger.error("发布WebSocket重连事件失败", e);
+        }
     }
     
     /**
@@ -941,6 +993,16 @@ public class WebSocketUtil{
         }
         
         logger.info("私有频道操作恢复完成，成功执行 {} 个操作", count);
+        
+        // 发布WebSocket重连事件
+        try {
+            if (applicationEventPublisher != null) {
+                logger.info("发布WebSocket私有频道重连事件");
+                applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PRIVATE));
+            }
+        } catch (Exception e) {
+            logger.error("发布WebSocket重连事件失败", e);
+        }
     }
 
     /**

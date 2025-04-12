@@ -18,6 +18,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.alibaba.fastjson.JSONObject;
@@ -68,7 +69,12 @@ public class WebSocketUtilTest {
         when(okxApiConfig.getPassphrase()).thenReturn("test-passphrase");
 
         // 创建被测试对象
-        webSocketUtil = new WebSocketUtil(okxApiConfig, okHttpClient);
+        webSocketUtil = new WebSocketUtil(okxApiConfig, okHttpClient, new ApplicationEventPublisher(){
+            @Override
+            public void publishEvent(Object event){
+
+            }
+        });
 
         // 注入模拟的调度器
         ReflectionTestUtils.setField(webSocketUtil, "pingScheduler", pingScheduler);
@@ -89,7 +95,7 @@ public class WebSocketUtilTest {
 
         // 验证WebSocket连接是否被创建
         verify(okHttpClient, times(3)).newWebSocket(any(), any());
-        
+
         // 验证是否设置了定时任务
         verify(pingScheduler).scheduleAtFixedRate(any(Runnable.class), eq(15L), eq(15L), eq(TimeUnit.SECONDS));
         verify(reconnectScheduler).scheduleAtFixedRate(any(Runnable.class), eq(30L), eq(30L), eq(TimeUnit.SECONDS));
@@ -145,7 +151,7 @@ public class WebSocketUtilTest {
         // 创建测试消息
         JSONObject arg = new JSONObject();
         arg.put("channel", "test-channel");
-        
+
         JSONObject message = new JSONObject();
         message.put("arg", arg);
 
@@ -163,24 +169,24 @@ public class WebSocketUtilTest {
     public void testExponentialBackoffReconnect() {
         // 捕获重连调用
         ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
-        
+
         // 触发重连
         ReflectionTestUtils.invokeMethod(webSocketUtil, "schedulePublicReconnect");
-        
+
         // 验证是否使用指数退避策略
         verify(reconnectScheduler).schedule(runnableCaptor.capture(), eq(5L), eq(TimeUnit.SECONDS));
-        
+
         // 获取重连Runnable
         Runnable reconnectTask = runnableCaptor.getValue();
         assertNotNull(reconnectTask, "重连任务不应为空");
-        
+
         // 模拟连接失败
         when(webSocket.send(anyString())).thenReturn(false);
         when(okHttpClient.newWebSocket(any(), any())).thenReturn(webSocket);
-        
+
         // 执行重连任务
         reconnectTask.run();
-        
+
         // 验证是否尝试了新的连接
         verify(okHttpClient, times(2)).newWebSocket(any(), any());
     }
@@ -194,37 +200,37 @@ public class WebSocketUtilTest {
         AtomicBoolean publicConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "publicConnected");
         AtomicBoolean bussinessConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "bussinessConnected");
         AtomicBoolean privateConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "privateConnected");
-        
+
         // 保存原始值以便恢复
         boolean origPublicConnected = publicConnected.get();
         boolean origBussinessConnected = bussinessConnected.get();
         boolean origPrivateConnected = privateConnected.get();
-        
+
         try {
             // 设置为false模拟未连接
             publicConnected.set(false);
             bussinessConnected.set(false);
             privateConnected.set(false);
-            
+
             // 2. 执行订阅操作，应该加入待执行队列
             webSocketUtil.subscribePublicTopic("test-channel", "BTC-USDT");
             webSocketUtil.subscribePrivateTopic("account");
-            
+
             // 3. 验证操作已加入队列
             Object publicQueue = ReflectionTestUtils.getField(webSocketUtil, "publicPendingOperations");
             Object privateQueue = ReflectionTestUtils.getField(webSocketUtil, "privatePendingOperations");
             assertTrue(publicQueue != null && !publicQueue.toString().contains("size=0"));
             assertTrue(privateQueue != null && !privateQueue.toString().contains("size=0"));
-            
+
             // 4. 模拟连接建立
             ArgumentCaptor<WebSocketListener> listenerCaptor = ArgumentCaptor.forClass(WebSocketListener.class);
             when(okHttpClient.newWebSocket(any(), listenerCaptor.capture())).thenReturn(webSocket);
-            
+
             // 5. 触发连接
             ReflectionTestUtils.invokeMethod(webSocketUtil, "connectPublicChannel");
             ReflectionTestUtils.invokeMethod(webSocketUtil, "connectBussinessChannel");
             ReflectionTestUtils.invokeMethod(webSocketUtil, "connectPrivateChannel");
-            
+
             // 6. 捕获监听器并模拟公共频道连接成功
             if (!listenerCaptor.getAllValues().isEmpty()) {
                 WebSocketListener publicListener = listenerCaptor.getAllValues().get(0);
@@ -235,11 +241,11 @@ public class WebSocketUtilTest {
                     bussinessListener.onOpen(webSocket, null);
                 }
             }
-            
+
             // 模拟私有频道登录成功（需要修改标记并触发恢复）
             privateConnected.set(true);
             ReflectionTestUtils.invokeMethod(webSocketUtil, "restorePrivateOperations");
-            
+
             // 验证是否发送了订阅消息
             verify(webSocket, times(2)).send(anyString()); // 公共和私有消息各一次
         } finally {
@@ -249,7 +255,7 @@ public class WebSocketUtilTest {
             privateConnected.set(origPrivateConnected);
         }
     }
-    
+
     /**
      * 测试连接断开时的自动重连和恢复功能
      */
@@ -259,12 +265,12 @@ public class WebSocketUtilTest {
         AtomicBoolean publicConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "publicConnected");
         AtomicBoolean bussinessConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "bussinessConnected");
         AtomicBoolean privateConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "privateConnected");
-        
+
         // 保存原始值以便恢复
         boolean origPublicConnected = publicConnected.get();
         boolean origBussinessConnected = bussinessConnected.get();
         boolean origPrivateConnected = privateConnected.get();
-        
+
         try {
             // 1. 设置WebSocket和连接状态
             WebSocket mockWebSocket = webSocket; // 保存原始mock
@@ -274,27 +280,27 @@ public class WebSocketUtilTest {
             publicConnected.set(true);
             bussinessConnected.set(true);
             privateConnected.set(true);
-            
+
             // 2. 订阅主题
             webSocketUtil.subscribePublicTopic("test-channel", "BTC-USDT");
-            
+
             // 3. 捕获重连任务
             ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
-            
+
             // 4. 模拟连接关闭
             ArgumentCaptor<WebSocketListener> listenerCaptor = ArgumentCaptor.forClass(WebSocketListener.class);
             when(okHttpClient.newWebSocket(any(), listenerCaptor.capture())).thenReturn(webSocket);
             ReflectionTestUtils.invokeMethod(webSocketUtil, "connectPublicChannel");
-            
+
             if (!listenerCaptor.getAllValues().isEmpty()) {
                 WebSocketListener listener = listenerCaptor.getValue();
-                
+
                 // 5. 触发onClosed回调
                 listener.onClosed(mockWebSocket, 1001, "Connection closed");
-                
+
                 // 6. 验证是否调用了重连方法
                 verify(reconnectScheduler).schedule(runnableCaptor.capture(), eq(5L), eq(TimeUnit.SECONDS));
-                
+
                 // 7. 执行重连任务
                 when(webSocket.send(anyString())).thenReturn(true); // 确保连接成功
                 if (runnableCaptor.getValue() != null) {
@@ -308,7 +314,7 @@ public class WebSocketUtilTest {
             privateConnected.set(origPrivateConnected);
         }
     }
-    
+
     /**
      * 测试待执行操作队列
      */
@@ -318,44 +324,44 @@ public class WebSocketUtilTest {
         AtomicBoolean publicConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "publicConnected");
         AtomicBoolean bussinessConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "bussinessConnected");
         AtomicBoolean privateConnected = (AtomicBoolean) ReflectionTestUtils.getField(webSocketUtil, "privateConnected");
-        
+
         // 保存原始值以便恢复
         boolean origPublicConnected = publicConnected.get();
         boolean origBussinessConnected = bussinessConnected.get();
         boolean origPrivateConnected = privateConnected.get();
-        
+
         try {
             // 1. 模拟连接未就绪
             publicConnected.set(false);
             privateConnected.set(false);
-            
+
             // 2. 执行多个订阅操作
             webSocketUtil.subscribePublicTopic("test-channel1", "BTC-USDT");
             webSocketUtil.subscribePublicTopic("test-channel2", "ETH-USDT");
             webSocketUtil.subscribePrivateTopic("account");
             webSocketUtil.subscribePrivateTopic("orders");
-            
+
             // 3. 验证队列中的操作数量
             Object publicQueue = ReflectionTestUtils.getField(webSocketUtil, "publicPendingOperations");
             Object privateQueue = ReflectionTestUtils.getField(webSocketUtil, "privatePendingOperations");
             assertTrue(publicQueue != null && !publicQueue.toString().contains("size=0")); // 确认公共频道有操作
             assertTrue(privateQueue != null && !privateQueue.toString().contains("size=0")); // 确认私有频道有操作
-            
+
             // 4. 模拟连接就绪并恢复操作
             publicConnected.set(true);
             bussinessConnected.set(true);
             ReflectionTestUtils.setField(webSocketUtil, "publicWebSocket", webSocket);
             ReflectionTestUtils.setField(webSocketUtil, "bussinessWebSocket", webSocket);
             ReflectionTestUtils.invokeMethod(webSocketUtil, "restorePublicOperations");
-            
+
             privateConnected.set(true);
             ReflectionTestUtils.setField(webSocketUtil, "privateWebSocket", webSocket);
             ReflectionTestUtils.invokeMethod(webSocketUtil, "restorePrivateOperations");
-            
+
             // 5. 验证队列是否已处理
             publicQueue = ReflectionTestUtils.getField(webSocketUtil, "publicPendingOperations");
             privateQueue = ReflectionTestUtils.getField(webSocketUtil, "privatePendingOperations");
-            
+
             // 6. 验证是否发送了订阅消息
             verify(webSocket, times(4)).send(anyString()); // 总共4个订阅消息
         } finally {
@@ -365,4 +371,4 @@ public class WebSocketUtilTest {
             privateConnected.set(origPrivateConnected);
         }
     }
-} 
+}
