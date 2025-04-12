@@ -58,4 +58,14 @@ public interface HistoricalDataService {
      * @return 填补的数据点数量
      */
     CompletableFuture<Integer> fillMissingData(String symbol, String interval, List<LocalDateTime> missingTimes);
+    
+    /**
+     * 获取指定交易对和间隔的最新K线数据
+     * 
+     * @param symbol    交易对，如BTC-USDT
+     * @param interval  K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param limit     获取的数据条数限制
+     * @return 最新的K线数据列表，按时间降序排列
+     */
+    List<CandlestickEntity> getLatestHistoricalData(String symbol, String interval, int limit);
 } 

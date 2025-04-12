@@ -103,7 +103,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                             try{
                                 log.debug("获取时间片段数据: {}", slice);
                                 List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
-                                    symbol, interval, toEpochMilli(slice.getStart()), toEpochMilli(slice.getEnd()), batchSize);
+                                    symbol, interval, toEpochMilli(slice.getStart().minusSeconds(1)), toEpochMilli(slice.getEnd().minusSeconds(1)), batchSize);
 
                                 // 转换为实体类
                                 List<CandlestickEntity> entities = convertToEntities(candlesticks, symbol, interval);
@@ -434,7 +434,6 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
         return candlesticks.stream()
             .map(c -> {
                 CandlestickEntity entity = new CandlestickEntity();
-                entity.setId(CandlestickEntity.createId(symbol, intervalVal, c.getOpenTime()));
                 entity.setSymbol(symbol);
                 entity.setIntervalVal(intervalVal);
                 entity.setOpenTime(c.getOpenTime());
@@ -477,26 +476,26 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                 .max(LocalDateTime :: compareTo)
                 .orElse(null);
 
-            if(minTime != null && maxTime != null){
+            if(minTime != null && maxTime != null) {
                 // 查询已存在的数据
                 List<CandlestickEntity> existingEntities = candlestickRepository
                     .findBySymbolAndIntervalAndOpenTimeBetweenOrderByOpenTimeAsc(symbol, interval, minTime, maxTime);
 
-                // 创建已存在数据的ID集合，用于过滤
-                Set<String> existingIds = existingEntities.stream()
-                    .map(CandlestickEntity :: getId)
+                // 创建已存在数据的时间点集合，用于过滤
+                Set<LocalDateTime> existingTimePoints = existingEntities.stream()
+                    .map(CandlestickEntity::getOpenTime)
                     .collect(Collectors.toSet());
 
                 // 过滤出不存在的数据
                 List<CandlestickEntity> newEntities = entities.stream()
-                    .filter(entity -> ! existingIds.contains(entity.getId()))
+                    .filter(entity -> !existingTimePoints.contains(entity.getOpenTime()))
                     .collect(Collectors.toList());
 
                 log.info("时间范围 {} ~ {} 内已有 {} 条数据, 查询获取 {} 条数据，新增 {} 条数据",
                     minTime, maxTime, existingEntities.size(), entities.size(), newEntities.size());
 
                 // 只保存新数据
-                if(! newEntities.isEmpty()){
+                if(!newEntities.isEmpty()){
                     return candlestickRepository.saveAll(newEntities);
                 }else{
                     return Collections.emptyList();

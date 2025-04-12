@@ -2,6 +2,8 @@ package com.okx.trading.controller;
 
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
+import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.OkxApiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,10 +16,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,6 +36,9 @@ public class MarketControllerTest {
 
     @Mock
     private OkxApiService okxApiService;
+
+    @Mock
+    private HistoricalDataService historicalDataService;
 
     @InjectMocks
     private MarketController marketController;
@@ -146,5 +153,34 @@ public class MarketControllerTest {
         ticker.setAskQty(new BigDecimal("3"));
         ticker.setTimestamp(LocalDateTime.now());
         return ticker;
+    }
+
+    /**
+     * 测试获取最新K线数据
+     */
+    @Test
+    public void testGetLatestKlineData() throws Exception {
+        // 准备测试数据
+        String symbol = "BTC-USDT";
+        String interval = "1m";
+        int limit = 100;
+
+        List<CandlestickEntity> mockEntities = new ArrayList<>();
+
+        // 模拟服务方法
+        when(historicalDataService.getLatestHistoricalData(eq(symbol), eq(interval), eq(limit)))
+                .thenReturn(mockEntities);
+
+        // 执行测试
+        mockMvc.perform(get("/market/latest_klines")
+                        .param("symbol", symbol)
+                        .param("interval", interval)
+                        .param("limit", String.valueOf(limit)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").isArray());
+
+        // 验证服务调用
+        verify(historicalDataService).getLatestHistoricalData(eq(symbol), eq(interval), eq(limit));
     }
 }

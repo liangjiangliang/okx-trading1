@@ -22,11 +22,12 @@ import java.time.LocalDateTime;
 public class CandlestickEntity {
 
     /**
-     * 复合主键ID (symbol + interval + openTime)
+     * 自增主键ID
      */
     @Id
-    @Column(name = "id", nullable = false, length = 100)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Long id;
 
     /**
      * 交易对，如BTC-USDT
@@ -99,15 +100,4 @@ public class CandlestickEntity {
      */
     @Column(name = "fetch_time")
     private LocalDateTime fetchTime;
-
-    /**
-     * 创建复合ID
-     * @param symbol 交易对
-     * @param interval 时间间隔
-     * @param openTime 开盘时间
-     * @return 复合ID
-     */
-    public static String createId(String symbol, String interval, LocalDateTime openTime) {
-        return symbol + "_" + interval + "_" + openTime.toString();
-    }
 }
