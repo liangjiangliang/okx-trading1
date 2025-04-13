@@ -1,32 +1,38 @@
 package com.okx.trading.ta4j;
 
-import com.okx.trading.model.dto.BacktestResultDTO;
-import com.okx.trading.model.dto.TradeRecordDTO;
-import com.okx.trading.model.entity.CandlestickEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.ta4j.core.*;
-import org.ta4j.core.analysis.criteria.*;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
-import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.BarSeriesManager;
+import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Position;
+import org.ta4j.core.Rule;
+import org.ta4j.core.Strategy;
+import org.ta4j.core.TradingRecord;
+import org.ta4j.core.indicators.SMAIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
+
+import com.okx.trading.model.dto.BacktestResultDTO;
+import com.okx.trading.model.dto.TradeRecordDTO;
+import com.okx.trading.model.entity.CandlestickEntity;
 
 /**
  * TA4J 回测服务类
@@ -39,6 +45,10 @@ public class Ta4jBacktestService {
     // 策略类型常量
     public static final String STRATEGY_SMA = "SMA";
     public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER";
+    
+    // 策略参数说明
+    public static final String SMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
+    public static final String BOLLINGER_PARAMS_DESC = "周期,标准差倍数 (例如：20,2.0)";
     
     /**
      * 策略类型枚举
@@ -395,5 +405,68 @@ public class Ta4jBacktestService {
         }
         
         return records;
+    }
+
+    /**
+     * 获取策略参数说明
+     *
+     * @param strategyType 策略类型
+     * @return 策略参数说明
+     */
+    public static String getStrategyParamsDescription(String strategyType) {
+        switch (strategyType) {
+            case STRATEGY_SMA:
+                return SMA_PARAMS_DESC;
+            case STRATEGY_BOLLINGER_BANDS:
+                return BOLLINGER_PARAMS_DESC;
+            default:
+                return "未知策略类型";
+        }
+    }
+    
+    /**
+     * 验证策略参数是否合法
+     *
+     * @param strategyType 策略类型
+     * @param params 策略参数
+     * @return 是否合法
+     */
+    public static boolean validateStrategyParams(String strategyType, String params) {
+        if (params == null || params.trim().isEmpty()) {
+            return false;
+        }
+        
+        String[] paramArray = params.split(",");
+        
+        switch (strategyType) {
+            case STRATEGY_SMA:
+                // SMA策略参数: 短期均线周期,长期均线周期
+                if (paramArray.length != 2) {
+                    return false;
+                }
+                try {
+                    int shortPeriod = Integer.parseInt(paramArray[0]);
+                    int longPeriod = Integer.parseInt(paramArray[1]);
+                    return shortPeriod > 0 && longPeriod > shortPeriod;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+                
+            case STRATEGY_BOLLINGER_BANDS:
+                // 布林带策略参数: 周期,标准差倍数
+                if (paramArray.length != 2) {
+                    return false;
+                }
+                try {
+                    int period = Integer.parseInt(paramArray[0]);
+                    double stdDev = Double.parseDouble(paramArray[1]);
+                    return period > 0 && stdDev > 0;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+                
+            default:
+                return false;
+        }
     }
 }

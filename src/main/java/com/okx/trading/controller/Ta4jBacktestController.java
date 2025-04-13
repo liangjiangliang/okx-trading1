@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Ta4j回测控制器
@@ -37,41 +39,71 @@ public class Ta4jBacktestController {
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
     public ApiResponse<BacktestResultDTO> runBacktest(
-            @ApiParam(value = "交易对", required = true) @RequestParam String symbol,
-            @ApiParam(value = "时间间隔", required = true) @RequestParam String interval,
-            @ApiParam(value = "开始时间", required = true) @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true) @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
-            @ApiParam(value = "策略类型", required = true) @RequestParam String strategyType,
-            @ApiParam(value = "策略参数", required = true) @RequestParam String strategyParams,
-            @ApiParam(value = "初始资金", required = true) @RequestParam BigDecimal initialAmount,
-            @ApiParam(value = "是否保存结果", required = false, defaultValue = "false") @RequestParam(defaultValue = "false") boolean saveResult) {
-        
+            @ApiParam(value = "交易对", defaultValue = "BTC-USDT", required = true) @RequestParam String symbol,
+            @ApiParam(value = "时间间隔",defaultValue = "1h", required = true) @RequestParam String interval,
+            @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
+                defaultValue = "2018-01-01 00:00:00",
+                example = "2018-01-01 00:00:00",
+                required = true)
+                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
+                defaultValue = "2025-04-01 00:00:00",
+                example = "2025-04-01 00:00:00",
+                required = true)
+                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
+            @ApiParam(value = "策略类型 (SMA: 简单移动平均线策略, BOLLINGER: 布林带策略)",
+                   required = true,
+                   allowableValues = "SMA,BOLLINGER",
+                   example = "BOLLINGER")
+            @RequestParam String strategyType,
+            @ApiParam(value = "策略参数 (以逗号分隔的数字)\n" +
+                         "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
+                         "- BOLLINGER策略参数: 周期,标准差倍数 (例如：20,2.0)",
+                   required = true,
+                   example = "5,20")
+            @RequestParam String strategyParams,
+            @ApiParam(value = "初始资金",defaultValue = "100000", required = true) @RequestParam BigDecimal initialAmount,
+            @ApiParam(value = "是否保存结果", required = true, defaultValue = "true") @RequestParam(defaultValue = "true") boolean saveResult) {
+
         log.info("开始执行Ta4j回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}",
                 symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount);
-        
+
         try {
+            // 验证策略类型
+            if (!strategyType.equals(Ta4jBacktestService.STRATEGY_SMA) &&
+                !strategyType.equals(Ta4jBacktestService.STRATEGY_BOLLINGER_BANDS)) {
+                return ApiResponse.error(400, "无效的策略类型: " + strategyType +
+                        "，支持的策略类型: SMA, BOLLINGER");
+            }
+
+            // 验证策略参数
+            if (!Ta4jBacktestService.validateStrategyParams(strategyType, strategyParams)) {
+                return ApiResponse.error(400, "无效的策略参数: " + strategyParams +
+                        "，正确格式: " + Ta4jBacktestService.getStrategyParamsDescription(strategyType));
+            }
+
             // 获取历史数据
             List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
-            
+
             // 执行回测
             BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams);
-            
+
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
                 String backtestId = backtestTradeService.saveBacktestTrades(result, strategyParams);
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");
             }
-            
+
             return ApiResponse.success(result);
         } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             return ApiResponse.error(500, "回测过程中发生错误: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/history")
     @ApiOperation(value = "获取回测历史记录", notes = "获取所有已保存的回测历史ID")
     public ApiResponse<List<String>> getBacktestHistory() {
@@ -83,7 +115,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取回测历史记录出错: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/detail/{backtestId}")
     @ApiOperation(value = "获取回测详情", notes = "获取指定回测ID的详细交易记录")
     public ApiResponse<List<BacktestTradeEntity>> getBacktestDetail(
@@ -99,7 +131,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取回测详情出错: " + e.getMessage());
         }
     }
-    
+
     @DeleteMapping("/delete/{backtestId}")
     @ApiOperation(value = "删除回测记录", notes = "删除指定回测ID的所有交易记录")
     public ApiResponse<Void> deleteBacktestRecord(
@@ -112,4 +144,31 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "删除回测记录出错: " + e.getMessage());
         }
     }
-} 
+
+    @GetMapping("/strategies")
+    @ApiOperation(value = "获取支持的策略类型和参数说明", notes = "返回系统支持的所有策略类型和对应的参数说明")
+    public ApiResponse<Map<String, Map<String, String>>> getStrategies() {
+        try {
+            Map<String, Map<String, String>> strategies = new HashMap<>();
+
+            // SMA策略
+            Map<String, String> smaInfo = new HashMap<>();
+            smaInfo.put("name", "简单移动平均线策略");
+            smaInfo.put("description", "基于短期和长期移动平均线的交叉信号产生买卖信号");
+            smaInfo.put("params", Ta4jBacktestService.SMA_PARAMS_DESC);
+            strategies.put(Ta4jBacktestService.STRATEGY_SMA, smaInfo);
+
+            // 布林带策略
+            Map<String, String> bollingerInfo = new HashMap<>();
+            bollingerInfo.put("name", "布林带策略");
+            bollingerInfo.put("description", "基于价格突破布林带上下轨或回归中轨产生买卖信号");
+            bollingerInfo.put("params", Ta4jBacktestService.BOLLINGER_PARAMS_DESC);
+            strategies.put(Ta4jBacktestService.STRATEGY_BOLLINGER_BANDS, bollingerInfo);
+
+            return ApiResponse.success(strategies);
+        } catch (Exception e) {
+            log.error("获取策略信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取策略信息出错: " + e.getMessage());
+        }
+    }
+}

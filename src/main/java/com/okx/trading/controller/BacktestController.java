@@ -247,8 +247,10 @@ public class BacktestController {
     public ApiResponse<BacktestResultDTO> backtestWithTa4j(
             @ApiParam(value = "交易对", required = true) @RequestParam String symbol,
             @ApiParam(value = "时间间隔", required = true) @RequestParam String interval,
-            @ApiParam(value = "开始时间", required = true) @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true) @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @ApiParam(value = "开始时间", required = true) 
+                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @ApiParam(value = "结束时间", required = true) 
+                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @ApiParam(value = "策略类型", required = true) @RequestParam String strategyType,
             @ApiParam(value = "策略参数", required = true) @RequestParam String strategyParams,
             @ApiParam(value = "初始资金", required = true) @RequestParam BigDecimal initialAmount,
