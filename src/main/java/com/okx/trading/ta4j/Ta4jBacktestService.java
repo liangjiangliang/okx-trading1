@@ -272,6 +272,10 @@ public class Ta4jBacktestService {
             result.setStrategyName(strategyType);
             result.setParameterDescription(paramDescription);
             result.setTrades(new ArrayList<>());
+            
+            // 打印回测汇总信息
+            printBacktestSummary(result);
+            
             return result;
         }
         
@@ -340,7 +344,59 @@ public class Ta4jBacktestService {
         result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
+        
+        // 打印回测汇总信息
+        printBacktestSummary(result);
+        
         return result;
+    }
+    
+    /**
+     * 打印回测汇总信息到控制台
+     * 
+     * @param result 回测结果
+     */
+    private void printBacktestSummary(BacktestResultDTO result) {
+        StringBuilder summaryBuilder = new StringBuilder();
+        
+        // 构建分隔线
+        String separator = "================================================================";
+        
+        summaryBuilder.append("\n").append(separator).append("\n");
+        summaryBuilder.append("==================== 回测汇总信息 ====================\n");
+        summaryBuilder.append(separator).append("\n");
+        
+        // 策略信息
+        summaryBuilder.append("策略名称: ").append(result.getStrategyName()).append("\n");
+        summaryBuilder.append("策略参数: ").append(result.getParameterDescription()).append("\n");
+        summaryBuilder.append("------------------------------------------------------\n");
+        
+        // 财务指标
+        String initialAmountFormatted = String.format("%,.2f", result.getInitialAmount());
+        String finalAmountFormatted = String.format("%,.2f", result.getFinalAmount());
+        String totalProfitFormatted = String.format("%,.2f", result.getTotalProfit());
+        String totalReturnFormatted = String.format("%.2f%%", result.getTotalReturn().multiply(new BigDecimal("100")));
+        
+        summaryBuilder.append("初始资金: ").append(initialAmountFormatted).append("\n");
+        summaryBuilder.append("最终资金: ").append(finalAmountFormatted).append("\n");
+        summaryBuilder.append("总盈亏: ").append(totalProfitFormatted).append("\n");
+        summaryBuilder.append("总收益率: ").append(totalReturnFormatted).append("\n");
+        summaryBuilder.append("------------------------------------------------------\n");
+        
+        // 交易指标
+        String winRateFormatted = String.format("%.2f%%", result.getWinRate().multiply(new BigDecimal("100")));
+        String maxDrawdownFormatted = String.format("%.2f%%", result.getMaxDrawdown().multiply(new BigDecimal("100")));
+        
+        summaryBuilder.append("交易次数: ").append(result.getNumberOfTrades()).append("\n");
+        summaryBuilder.append("盈利交易: ").append(result.getProfitableTrades()).append("\n");
+        summaryBuilder.append("亏损交易: ").append(result.getUnprofitableTrades()).append("\n");
+        summaryBuilder.append("胜率: ").append(winRateFormatted).append("\n");
+        summaryBuilder.append("夏普比率: ").append(String.format("%.4f", result.getSharpeRatio())).append("\n");
+        summaryBuilder.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
+        summaryBuilder.append(separator).append("\n");
+        
+        // 输出汇总信息
+        log.info(summaryBuilder.toString());
     }
     
     /**

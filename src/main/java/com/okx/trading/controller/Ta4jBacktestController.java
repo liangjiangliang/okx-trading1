@@ -44,16 +44,16 @@ public class Ta4jBacktestController {
             @ApiParam(value = "交易对", defaultValue = "BTC-USDT", required = true, type = "string") @RequestParam String symbol,
             @ApiParam(value = "时间间隔",defaultValue = "1h", required = true, type = "string") @RequestParam String interval,
             @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
-                defaultValue = "2018-01-01 00:00:00", 
+                defaultValue = "2018-01-01 00:00:00",
                 example = "2018-01-01 00:00:00",
                 required = true,
-                type = "string") 
+                type = "string")
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
-                defaultValue = "2023-04-01 00:00:00", 
-                example = "2023-04-01 00:00:00",
+                defaultValue = "2025-04-01 00:00:00",
+                example = "2025-04-01 00:00:00",
                 required = true,
-                type = "string") 
+                type = "string")
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @ApiParam(value = "策略类型 (SMA: 简单移动平均线策略, BOLLINGER: 布林带策略)",
                    required = true,
@@ -65,19 +65,19 @@ public class Ta4jBacktestController {
                          "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
                          "- BOLLINGER策略参数: 周期,标准差倍数 (例如：20,2.0)",
                    required = true,
-                   example = "5,20",
+                   example = "20,2.0",
                    type = "string")
             @RequestParam String strategyParams,
             @ApiParam(value = "初始资金",
-                   defaultValue = "100000", 
+                   defaultValue = "100000",
                    required = true,
                    type = "number",
                    format = "decimal")
             @RequestParam BigDecimal initialAmount,
-            @ApiParam(value = "是否保存结果", 
-                   required = true, 
+            @ApiParam(value = "是否保存结果",
+                   required = true,
                    defaultValue = "true",
-                   type = "boolean") 
+                   type = "boolean")
             @RequestParam(defaultValue = "true") boolean saveResult) {
 
         log.info("开始执行Ta4j回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}",
@@ -110,11 +110,25 @@ public class Ta4jBacktestController {
             if (saveResult && result.isSuccess()) {
                 // 保存交易明细
                 String backtestId = backtestTradeService.saveBacktestTrades(result, strategyParams);
-                
+
                 // 保存汇总信息
                 backtestTradeService.saveBacktestSummary(result, strategyParams, symbol, interval, startTime, endTime, backtestId);
-                
+
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");
+                
+                // 打印回测ID信息
+                log.info("回测结果已保存，回测ID: {}", backtestId);
+            }
+
+            // 打印总体执行信息
+            if (result.isSuccess()) {
+                log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {:.2f}%", 
+                    result.getStrategyName(), 
+                    result.getParameterDescription(),
+                    result.getNumberOfTrades(),
+                    result.getTotalReturn().multiply(new BigDecimal("100")));
+            } else {
+                log.warn("回测执行失败 - 错误信息: {}", result.getErrorMessage());
             }
 
             return ApiResponse.success(result);
@@ -129,21 +143,21 @@ public class Ta4jBacktestController {
     public ApiResponse<Map<String, Map<String, String>>> getStrategies() {
         try {
             Map<String, Map<String, String>> strategies = new HashMap<>();
-            
+
             // SMA策略
             Map<String, String> smaInfo = new HashMap<>();
             smaInfo.put("name", "简单移动平均线策略");
             smaInfo.put("description", "基于短期和长期移动平均线的交叉信号产生买卖信号");
             smaInfo.put("params", Ta4jBacktestService.SMA_PARAMS_DESC);
             strategies.put(Ta4jBacktestService.STRATEGY_SMA, smaInfo);
-            
+
             // 布林带策略
             Map<String, String> bollingerInfo = new HashMap<>();
             bollingerInfo.put("name", "布林带策略");
             bollingerInfo.put("description", "基于价格突破布林带上下轨或回归中轨产生买卖信号");
             bollingerInfo.put("params", Ta4jBacktestService.BOLLINGER_PARAMS_DESC);
             strategies.put(Ta4jBacktestService.STRATEGY_BOLLINGER_BANDS, bollingerInfo);
-            
+
             return ApiResponse.success(strategies);
         } catch (Exception e) {
             log.error("获取策略信息出错: {}", e.getMessage(), e);
@@ -203,7 +217,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取回测汇总信息出错: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/summary/{backtestId}")
     @ApiOperation(value = "获取回测汇总信息", notes = "根据回测ID获取回测汇总信息")
     public ApiResponse<BacktestSummaryEntity> getBacktestSummary(
@@ -220,7 +234,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取回测汇总信息出错: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/summaries/strategy/{strategyName}")
     @ApiOperation(value = "根据策略名称获取回测汇总信息", notes = "获取特定策略的所有回测汇总信息")
     public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesByStrategy(
@@ -236,7 +250,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取策略回测汇总信息出错: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/summaries/symbol/{symbol}")
     @ApiOperation(value = "根据交易对获取回测汇总信息", notes = "获取特定交易对的所有回测汇总信息")
     public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesBySymbol(
@@ -252,7 +266,7 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取交易对回测汇总信息出错: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/summaries/best")
     @ApiOperation(value = "获取最佳表现的回测", notes = "根据策略名称和交易对获取表现最好的回测")
     public ApiResponse<List<BacktestSummaryEntity>> getBestPerformingBacktests(

@@ -85,7 +85,7 @@ okx:
       bussiness-channel: wss://ws.okx.com:8443/ws/v5/business
       private-channel: wss://ws.okx.com:8443/ws/v5/private
   proxy:
-    enabled: true # 是否启用代理
+    enabled: false # 是否启用代理
     host: localhost
     port: 10809
   historical-data:

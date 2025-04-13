@@ -126,12 +126,12 @@ public class RedisCacheServiceImpl implements RedisCacheService {
         try {
             // 检查是否已在订阅列表中
             boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(SUBSCRIBED_COINS_KEY, symbol));
-            
+
             // 添加订阅币种
             // SADD subscribe-coins BTC-USDT
             Long added = redisTemplate.opsForSet().add(SUBSCRIBED_COINS_KEY, symbol);
             boolean success = added != null && added > 0;
-            
+
             if (success) {
                 log.info("添加订阅币种: {}", symbol);
                 // 仅当币种是新添加的（之前不存在于列表中）时才发布事件
@@ -156,17 +156,17 @@ public class RedisCacheServiceImpl implements RedisCacheService {
         try {
             // 检查是否存在于订阅列表中
             boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(SUBSCRIBED_COINS_KEY, symbol));
-            
+
             if (!isMember) {
                 log.debug("币种 {} 不在订阅列表中，无需移除", symbol);
                 return true;
             }
-            
+
             // 移除订阅币种
             // SREM subscribe-coins BTC-USDT
             Long removed = redisTemplate.opsForSet().remove(SUBSCRIBED_COINS_KEY, symbol);
             boolean success = removed != null && removed > 0;
-            
+
             if (success) {
                 log.info("移除订阅币种: {}", symbol);
                 // 发布币种取消订阅事件

@@ -159,6 +159,9 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
         BacktestSummaryEntity savedEntity = backtestSummaryRepository.save(summaryEntity);
         logger.info("成功保存回测汇总信息，回测ID: {}", backtestId);
         
+        // 打印详细的汇总信息
+        com.okx.trading.util.BacktestResultPrinter.printSummaryEntity(savedEntity);
+        
         return savedEntity;
     }
     
