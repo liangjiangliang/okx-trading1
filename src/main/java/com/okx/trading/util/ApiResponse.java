@@ -1,4 +1,4 @@
-package com.okx.trading.model.common;
+package com.okx.trading.util;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

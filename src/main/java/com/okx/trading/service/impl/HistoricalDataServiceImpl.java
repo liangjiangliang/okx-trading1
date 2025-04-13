@@ -563,10 +563,10 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
 
     @Override
     public CompletableFuture<Integer> fetchAndSaveHistoricalDataWithFailureRecord(String symbol, String interval,
-                                                            LocalDateTime startTime, LocalDateTime endTime,
-                                                            ConcurrentMap<String, Integer> failedRequests) {
-        log.info("开始获取历史K线数据（带失败记录）: symbol={}, interval={}, startTime={}, endTime={}",
-            symbol, interval, startTime, endTime);
+                                                              LocalDateTime startTime, LocalDateTime endTime,
+                                                              ConcurrentMap<String, Integer> failedRequests) {
+        log.info("开始获取历史K线数据(带失败记录): symbol={}, interval={}, startTime={}, endTime={}",
+                symbol, interval, startTime, endTime);
 
         // 按天检查数据完整性，找出需要获取的天数
         List<TimeSlice> daysToFetch = getIncompleteDays(symbol, interval, startTime, endTime);
@@ -606,7 +606,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     for(TimeSlice slice: timeSlices){
                         CompletableFuture<List<CandlestickEntity>> future = CompletableFuture.supplyAsync(() -> {
                             try{
-                                log.debug("获取时间片段数据: {}", slice);
+                                log.debug("获取时间片段数据,左右都不包括,故意开始时间减一秒,结束时间也减一秒: {}", slice);
                                 List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
                                     symbol, interval, toEpochMilli(slice.getStart().minusSeconds(1)), toEpochMilli(slice.getEnd().minusSeconds(1)), batchSize);
 
@@ -619,8 +619,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                             }catch(Exception e){
                                 log.error("获取时间片段{}数据失败: {}", slice, e.getMessage(), e);
                                 // 记录失败的请求
-                                String key = slice.getStart().toString() + ":" + slice.getEnd().toString();
-                                failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                                String requestKey = String.format("%s_%s_%s_%s", symbol, interval,
+                                        slice.getStart().toString(), slice.getEnd().toString());
+                                failedRequests.compute(requestKey, (k, v) -> (v == null) ? 1 : v + 1);
                                 return Collections.emptyList();
                             }
                         }, executorService);
@@ -641,20 +642,21 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     // 再次检查当天数据完整性
                     boolean isComplete = isDayDataComplete(symbol, interval, dayStart, dayEnd);
 
-                    if(!isComplete){
+                    if(! isComplete){
                         log.info("日期 {} 的数据仍不完整，尝试填充缺失数据点", dayStart.toLocalDate());
                         List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, dayStart, dayEnd);
 
-                        if(!missingTimes.isEmpty()){
+                        if(! missingTimes.isEmpty()){
                             log.info("日期 {} 有 {} 个缺失的数据点，尝试单点填充", dayStart.toLocalDate(), missingTimes.size());
                             try {
                                 int filledCount = fillMissingData(symbol, interval, missingTimes).get();
                                 totalSaved += filledCount;
-                            } catch (Exception e) {
+                            } catch(Exception e) {
                                 log.error("填充缺失数据点失败: {}", e.getMessage(), e);
                                 // 记录失败的填充请求
-                                String key = dayStart.toString() + ":" + dayEnd.toString();
-                                failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                                String requestKey = String.format("%s_%s_fill_missing_%s", symbol, interval,
+                                        dayStart.toLocalDate().toString());
+                                failedRequests.compute(requestKey, (k, v) -> (v == null) ? 1 : v + 1);
                             }
                         }
                     }
@@ -663,8 +665,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                 }catch(Exception e){
                     log.error("获取日期 {} 的数据失败: {}", daySlice.getStart().toLocalDate(), e.getMessage(), e);
                     // 记录整天失败的请求
-                    String key = daySlice.getStart().toString() + ":" + daySlice.getEnd().toString();
-                    failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                    String requestKey = String.format("%s_%s_day_%s", symbol, interval,
+                            daySlice.getStart().toLocalDate().toString());
+                    failedRequests.compute(requestKey, (k, v) -> (v == null) ? 1 : v + 1);
                     return 0;
                 }
             }, batchExecutorService);
@@ -681,13 +684,17 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                             return future.get();
                         }catch(Exception e){
                             log.error("获取任务结果失败: {}", e.getMessage(), e);
+                            // 记录获取结果失败
+                            String requestKey = String.format("%s_%s_result_failure_%s", symbol, interval,
+                                    UUID.randomUUID().toString());
+                            failedRequests.compute(requestKey, (k, val) -> (val == null) ? 1 : val + 1);
                             return 0;
                         }
                     })
                     .mapToInt(Integer :: intValue)
                     .sum();
 
-                log.info("完成所有不完整天数的历史数据获取, 共保存{}条数据", totalSaved);
+                log.info("完成所有不完整天数的历史数据获取, 共保存{}条数据, 失败请求数量: {}", totalSaved, failedRequests.size());
                 return totalSaved;
             }, executorService);
     }

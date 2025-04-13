@@ -6,6 +6,9 @@ import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.backtest.BacktestFramework;
 import com.okx.trading.strategy.BollingerBandsStrategy;
 import com.okx.trading.strategy.SimpleMovingAverageStrategy;
+import com.okx.trading.model.dto.BacktestResultDTO;
+import com.okx.trading.ta4j.Ta4jBacktestService;
+import com.okx.trading.ta4j.Ta4jBacktestService.StrategyType;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -34,6 +37,7 @@ import java.util.Map;
 public class BacktestController {
 
     private final HistoricalDataService historicalDataService;
+    private final Ta4jBacktestService ta4jBacktestService;
 
     /**
      * 简单移动平均线策略回测

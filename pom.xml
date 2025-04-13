@@ -41,6 +41,13 @@
 <!--          <artifactId>wavefront-spring-boot-starter</artifactId>-->
 <!--        </dependency>-->
 
+        <!-- Ta4j - 技术分析回测框架 -->
+        <dependency>
+            <groupId>org.ta4j</groupId>
+            <artifactId>ta4j-core</artifactId>
+            <version>0.14</version>
+        </dependency>
+
         <!-- Database -->
         <dependency>
             <groupId>mysql</groupId>
