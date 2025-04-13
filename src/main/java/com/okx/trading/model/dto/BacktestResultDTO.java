@@ -1,42 +1,45 @@
 package com.okx.trading.model.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
  * 回测结果数据传输对象
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class BacktestResultDTO {
-    /**
-     * 初始投资金额
-     */
-    private double initialAmount;
     
     /**
-     * 最终资产金额
+     * 回测是否成功
      */
-    private double finalAmount;
+    private boolean success;
     
     /**
-     * 总收益
+     * 错误信息（如果回测失败）
      */
-    private double totalProfit;
+    private String errorMessage;
     
     /**
-     * 总收益率 (%)
+     * 初始资金
      */
-    private double totalReturn;
+    private BigDecimal initialAmount;
     
     /**
-     * 交易次数
+     * 最终资金
+     */
+    private BigDecimal finalAmount;
+    
+    /**
+     * 总盈亏（金额）
+     */
+    private BigDecimal totalProfit;
+    
+    /**
+     * 总回报率（百分比）
+     */
+    private BigDecimal totalReturn;
+    
+    /**
+     * 交易总次数
      */
     private int numberOfTrades;
     
@@ -48,60 +51,171 @@ public class BacktestResultDTO {
     /**
      * 亏损交易次数
      */
-    private int losingTrades;
+    private int unprofitableTrades;
     
     /**
-     * 胜率 (%)
+     * 胜率（百分比）
      */
-    private double winRate;
+    private BigDecimal winRate;
     
     /**
-     * 平均盈利 (%)
+     * 平均盈利（百分比）
      */
-    private double averageProfit;
+    private BigDecimal averageProfit;
+    
+    /**
+     * 最大回撤（百分比）
+     */
+    private BigDecimal maxDrawdown;
     
     /**
      * 夏普比率
      */
-    private double sharpeRatio;
+    private BigDecimal sharpeRatio;
     
     /**
-     * 回撤率 (%)
+     * 策略名称
      */
-    private double maxDrawdown;
+    private String strategyName;
     
     /**
-     * 买入持有策略收益率 (%)
+     * 参数描述
      */
-    private double buyAndHoldReturn;
-    
-    /**
-     * 初始余额
-     */
-    private double initialBalance;
-    
-    /**
-     * 最终余额
-     */
-    private double finalBalance;
-    
-    /**
-     * 数据点数量
-     */
-    private int totalBars;
-    
-    /**
-     * 总交易次数
-     */
-    private int totalTrades;
-    
-    /**
-     * 平均每笔交易收益
-     */
-    private double averageProfitPerTrade;
+    private String parameterDescription;
     
     /**
      * 交易记录列表
      */
     private List<TradeRecordDTO> trades;
+
+    public BacktestResultDTO() {
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public BigDecimal getInitialAmount() {
+        return initialAmount;
+    }
+
+    public void setInitialAmount(BigDecimal initialAmount) {
+        this.initialAmount = initialAmount;
+    }
+
+    public BigDecimal getFinalAmount() {
+        return finalAmount;
+    }
+
+    public void setFinalAmount(BigDecimal finalAmount) {
+        this.finalAmount = finalAmount;
+    }
+
+    public BigDecimal getTotalProfit() {
+        return totalProfit;
+    }
+
+    public void setTotalProfit(BigDecimal totalProfit) {
+        this.totalProfit = totalProfit;
+    }
+
+    public BigDecimal getTotalReturn() {
+        return totalReturn;
+    }
+
+    public void setTotalReturn(BigDecimal totalReturn) {
+        this.totalReturn = totalReturn;
+    }
+
+    public int getNumberOfTrades() {
+        return numberOfTrades;
+    }
+
+    public void setNumberOfTrades(int numberOfTrades) {
+        this.numberOfTrades = numberOfTrades;
+    }
+
+    public int getProfitableTrades() {
+        return profitableTrades;
+    }
+
+    public void setProfitableTrades(int profitableTrades) {
+        this.profitableTrades = profitableTrades;
+    }
+
+    public int getUnprofitableTrades() {
+        return unprofitableTrades;
+    }
+
+    public void setUnprofitableTrades(int unprofitableTrades) {
+        this.unprofitableTrades = unprofitableTrades;
+    }
+
+    public BigDecimal getWinRate() {
+        return winRate;
+    }
+
+    public void setWinRate(BigDecimal winRate) {
+        this.winRate = winRate;
+    }
+
+    public BigDecimal getAverageProfit() {
+        return averageProfit;
+    }
+
+    public void setAverageProfit(BigDecimal averageProfit) {
+        this.averageProfit = averageProfit;
+    }
+
+    public BigDecimal getMaxDrawdown() {
+        return maxDrawdown;
+    }
+
+    public void setMaxDrawdown(BigDecimal maxDrawdown) {
+        this.maxDrawdown = maxDrawdown;
+    }
+
+    public BigDecimal getSharpeRatio() {
+        return sharpeRatio;
+    }
+
+    public void setSharpeRatio(BigDecimal sharpeRatio) {
+        this.sharpeRatio = sharpeRatio;
+    }
+
+    public String getStrategyName() {
+        return strategyName;
+    }
+
+    public void setStrategyName(String strategyName) {
+        this.strategyName = strategyName;
+    }
+
+    public String getParameterDescription() {
+        return parameterDescription;
+    }
+
+    public void setParameterDescription(String parameterDescription) {
+        this.parameterDescription = parameterDescription;
+    }
+
+    public List<TradeRecordDTO> getTrades() {
+        return trades;
+    }
+
+    public void setTrades(List<TradeRecordDTO> trades) {
+        this.trades = trades;
+    }
 } 

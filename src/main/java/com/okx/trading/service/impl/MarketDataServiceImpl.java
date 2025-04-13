@@ -42,53 +42,52 @@ public class MarketDataServiceImpl implements MarketDataService {
         int actualPeriod = period != null ? period : 20;
         double actualStdDev = stdDev != null ? stdDev : 2.0;
         int actualLimit = limit != null ? limit : 500;
-        
+
         // 获取历史K线数据
-        List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalDataFromDb(
-                symbol, interval, actualLimit + actualPeriod);
-        
+        List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol,interval);
+
         if (candlesticks.size() < actualPeriod) {
             log.warn("获取到的K线数据不足以计算布林带,symbol:{},interval:{},期望数量:{},实际数量:{}",
                     symbol, interval, actualPeriod, candlesticks.size());
             return new ArrayList<>();
         }
-        
+
         // 提取收盘价列表
         List<BigDecimal> closePrices = candlesticks.stream()
                 .map(CandlestickEntity::getClose)
                 .collect(Collectors.toList());
-        
+
         // 计算布林带
         BollingerBands bollingerBands = TechnicalIndicatorUtil.calculateBollingerBands(
                 closePrices, actualPeriod, actualStdDev, 8);
-        
+
         // 转换为DTO
         List<BollingerBandsDTO> result = new ArrayList<>();
         for (int i = actualPeriod - 1; i < candlesticks.size(); i++) {
             CandlestickEntity candle = candlesticks.get(i);
             int bbIndex = i - actualPeriod + 1;
-            
+
             // 计算%B值 (Price - Lower) / (Upper - Lower)
             BigDecimal price = candle.getClose();
             BigDecimal upper = bollingerBands.getUpper().get(bbIndex);
             BigDecimal middle = bollingerBands.getMiddle().get(bbIndex);
             BigDecimal lower = bollingerBands.getLower().get(bbIndex);
-            
+
             BigDecimal percentB = null;
             BigDecimal bandwidth = null;
-            
+
             if (upper.compareTo(lower) != 0) {
                 // 计算%B = (Price - Lower) / (Upper - Lower)
                 percentB = price.subtract(lower)
                         .divide(upper.subtract(lower), 4, BigDecimal.ROUND_HALF_UP);
-                
+
                 // 计算Bandwidth = (Upper - Lower) / Middle
                 if (middle.compareTo(BigDecimal.ZERO) != 0) {
                     bandwidth = upper.subtract(lower)
                             .divide(middle, 4, BigDecimal.ROUND_HALF_UP);
                 }
             }
-            
+
             result.add(BollingerBandsDTO.builder()
                     .timestamp(candle.getOpenTime())
                     .price(price)
@@ -99,12 +98,12 @@ public class MarketDataServiceImpl implements MarketDataService {
                     .bandwidth(bandwidth)
                     .build());
         }
-        
+
         // 仅返回最新的limit条记录
         if (result.size() > actualLimit) {
             return result.subList(result.size() - actualLimit, result.size());
         }
-        
+
         return result;
     }
-} 
+}

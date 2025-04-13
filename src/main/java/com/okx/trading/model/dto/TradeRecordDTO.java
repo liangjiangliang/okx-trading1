@@ -1,67 +1,156 @@
 package com.okx.trading.model.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * 交易记录数据传输对象
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class TradeRecordDTO {
+    
     /**
-     * 交易类型：买入/卖出
+     * 交易序号
+     */
+    private int index;
+    
+    /**
+     * 交易类型（买入/卖出）
      */
     private String type;
     
     /**
-     * 交易时间
+     * 进场时间
      */
-    private LocalDateTime time;
+    private LocalDateTime entryTime;
     
     /**
-     * 交易价格
+     * 进场价格
      */
-    private double price;
+    private BigDecimal entryPrice;
     
     /**
-     * 交易数量
+     * 进场金额
      */
-    private double amount;
+    private BigDecimal entryAmount;
     
     /**
-     * 交易总额
+     * 退出时间
      */
-    private double total;
+    private LocalDateTime exitTime;
     
     /**
-     * 交易手续费
+     * 退出价格
      */
-    private double fee;
+    private BigDecimal exitPrice;
     
     /**
-     * 订单号/交易ID
+     * 退出金额
      */
-    private String orderId;
+    private BigDecimal exitAmount;
     
     /**
-     * 交易后账户余额
+     * 盈亏金额
      */
-    private double balanceAfterTrade;
+    private BigDecimal profit;
     
     /**
-     * 收益金额（仅针对卖出订单）
+     * 盈亏百分比
      */
-    private double profit;
+    private BigDecimal profitPercentage;
     
     /**
-     * 收益率（仅针对卖出订单）
+     * 交易是否完成
      */
-    private double profitRate;
+    private boolean closed;
+
+    public TradeRecordDTO() {
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public LocalDateTime getEntryTime() {
+        return entryTime;
+    }
+
+    public void setEntryTime(LocalDateTime entryTime) {
+        this.entryTime = entryTime;
+    }
+
+    public BigDecimal getEntryPrice() {
+        return entryPrice;
+    }
+
+    public void setEntryPrice(BigDecimal entryPrice) {
+        this.entryPrice = entryPrice;
+    }
+
+    public BigDecimal getEntryAmount() {
+        return entryAmount;
+    }
+
+    public void setEntryAmount(BigDecimal entryAmount) {
+        this.entryAmount = entryAmount;
+    }
+
+    public LocalDateTime getExitTime() {
+        return exitTime;
+    }
+
+    public void setExitTime(LocalDateTime exitTime) {
+        this.exitTime = exitTime;
+    }
+
+    public BigDecimal getExitPrice() {
+        return exitPrice;
+    }
+
+    public void setExitPrice(BigDecimal exitPrice) {
+        this.exitPrice = exitPrice;
+    }
+
+    public BigDecimal getExitAmount() {
+        return exitAmount;
+    }
+
+    public void setExitAmount(BigDecimal exitAmount) {
+        this.exitAmount = exitAmount;
+    }
+
+    public BigDecimal getProfit() {
+        return profit;
+    }
+
+    public void setProfit(BigDecimal profit) {
+        this.profit = profit;
+    }
+
+    public BigDecimal getProfitPercentage() {
+        return profitPercentage;
+    }
+
+    public void setProfitPercentage(BigDecimal profitPercentage) {
+        this.profitPercentage = profitPercentage;
+    }
+
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public void setClosed(boolean closed) {
+        this.closed = closed;
+    }
 } 

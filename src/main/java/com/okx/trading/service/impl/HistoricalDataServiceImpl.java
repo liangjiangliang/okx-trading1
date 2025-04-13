@@ -271,6 +271,11 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     }
 
     @Override
+     public List<CandlestickEntity> getHistoricalData(String symbol, String interval){
+         return candlestickRepository.findBySymbolAndIntervalAsc(symbol, interval);
+     }
+
+    @Override
     public List<LocalDateTime> checkDataIntegrity(String symbol, String interval,
                                                   LocalDateTime startTime, LocalDateTime endTime){
         log.info("检查数据完整性: symbol={}, interval={}, startTime={}, endTime={}",

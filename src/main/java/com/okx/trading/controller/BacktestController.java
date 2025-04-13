@@ -8,7 +8,6 @@ import com.okx.trading.strategy.BollingerBandsStrategy;
 import com.okx.trading.strategy.SimpleMovingAverageStrategy;
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.ta4j.Ta4jBacktestService;
-import com.okx.trading.ta4j.Ta4jBacktestService.StrategyType;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;

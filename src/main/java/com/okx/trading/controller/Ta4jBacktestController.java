@@ -5,36 +5,41 @@ import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
-import com.okx.trading.ta4j.Ta4jBacktestService.StrategyType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Ta4j回测控制器
  * 提供基于Ta4j库的回测API接口
  */
 @Api(tags = "Ta4j回测接口", description = "使用Ta4j库进行策略回测")
-@Slf4j
 @RestController
 @RequestMapping("/api/ta4j/backtest")
-@RequiredArgsConstructor
 public class Ta4jBacktestController {
+
+    private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestController.class);
 
     private final HistoricalDataService historicalDataService;
     private final Ta4jBacktestService ta4jBacktestService;
+
+    @Autowired
+    public Ta4jBacktestController(HistoricalDataService historicalDataService, Ta4jBacktestService ta4jBacktestService) {
+        this.historicalDataService = historicalDataService;
+        this.ta4jBacktestService = ta4jBacktestService;
+    }
 
     /**
      * 执行SMA策略回测
@@ -72,13 +77,11 @@ public class Ta4jBacktestController {
             }
             
             // 设置策略参数
-            Map<String, Object> params = new HashMap<>();
-            params.put("shortPeriod", shortPeriod);
-            params.put("longPeriod", longPeriod);
+            String params = shortPeriod + "," + longPeriod;
             
             // 执行回测
             BacktestResultDTO result = ta4jBacktestService.backtest(
-                    candlesticks, StrategyType.SMA, params, initialAmount);
+                    candlesticks, Ta4jBacktestService.STRATEGY_SMA, new BigDecimal(initialAmount), params);
             
             if (result == null) {
                 return ApiResponse.error(500, "回测执行失败，无法生成结果");
@@ -130,14 +133,11 @@ public class Ta4jBacktestController {
             }
             
             // 设置策略参数
-            Map<String, Object> params = new HashMap<>();
-            params.put("period", period);
-            params.put("deviation", deviation);
-            params.put("signalType", signalType);
+            String params = period + "," + deviation;
             
             // 执行回测
             BacktestResultDTO result = ta4jBacktestService.backtest(
-                    candlesticks, StrategyType.BOLLINGER_BANDS, params, initialAmount);
+                    candlesticks, Ta4jBacktestService.STRATEGY_BOLLINGER_BANDS, new BigDecimal(initialAmount), params);
             
             if (result == null) {
                 return ApiResponse.error(500, "回测执行失败，无法生成结果");

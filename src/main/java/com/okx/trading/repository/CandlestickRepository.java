@@ -33,6 +33,19 @@ public interface CandlestickRepository extends JpaRepository<CandlestickEntity, 
             @Param("symbol") String symbol, @Param("interval_val") String intervalVal,
             @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 
+
+    /**
+     * 根据交易对和时间间隔查询指定时间范围内的K线数据
+     *
+     * @param symbol 交易对
+     * @param interval 时间间隔
+     * @return K线数据列表
+     */
+    @Query("SELECT c FROM CandlestickEntity c WHERE c.symbol = :symbol AND c.intervalVal = :interval_val ORDER BY c.openTime ASC")
+    List<CandlestickEntity> findBySymbolAndIntervalAsc(
+            @Param("symbol") String symbol, @Param("interval_val") String intervalVal);
+
+
     /**
      * 根据交易对和时间间隔查询最新的K线数据
      *

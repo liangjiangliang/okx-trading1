@@ -37,10 +37,10 @@ public class PriceUpdateController {
      */
     @ApiOperation(value = "启动价格更新线程", notes = "启动独立线程更新缓存价格")
     @PostMapping("/start")
-    public ApiResponse<Void> startPriceUpdateThread() {
+    public ApiResponse<String> startPriceUpdateThread() {
         log.info("手动启动价格更新线程");
         priceUpdateService.startPriceUpdateThread();
-        return ApiResponse.success();
+        return ApiResponse.success("");
     }
 
     /**
@@ -50,10 +50,10 @@ public class PriceUpdateController {
      */
     @ApiOperation(value = "停止价格更新线程", notes = "停止独立线程更新缓存价格")
     @PostMapping("/stop")
-    public ApiResponse<Void> stopPriceUpdateThread() {
+    public ApiResponse<String> stopPriceUpdateThread() {
         log.info("手动停止价格更新线程");
         priceUpdateService.stopPriceUpdateThread();
-        return ApiResponse.success();
+        return ApiResponse.success("");
     }
 
     /**
@@ -100,4 +100,4 @@ public class PriceUpdateController {
         boolean success = priceUpdateService.removeSubscribedCoin(symbol);
         return ApiResponse.success(success);
     }
-} 
+}
