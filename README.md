@@ -1,488 +1,195 @@
-# OKX Trading API 集成服务
+# OKX交易回测系统
 
-一个用于集成OKX交易所API的SpringBoot服务，支持获取行情数据、账户信息以及交易功能。
+## 项目概述
+本项目是一个基于Java Spring Boot开发的加密货币交易策略回测系统，支持对历史K线数据进行策略回测，并提供详细的回测分析结果。系统可以评估不同交易策略在历史行情下的表现，帮助交易者优化交易决策。
 
-## 功能特点
-
-- 获取历史K线行情数据
-- 获取实时行情数据
-- 查询账户余额信息(包括真实账户和模拟账户)
-- 查询订单信息
-- 创建现货/合约订单
-- 取消订单
-- 支持真实数据和模拟数据切换
+## 主要功能
+- **历史数据获取**：从OKX交易所API获取历史K线数据
+- **策略回测**：支持SMA(简单移动平均线)和布林带(Bollinger Bands)等技术指标策略的回测
+- **性能分析**：计算回测结果的各项指标，如总收益率、夏普比率、胜率等
+- **数据存储**：将回测结果和交易记录保存到数据库中
+- **API接口**：提供RESTful API接口用于执行回测和查询结果
 
 ## 技术栈
-
 - Java 8
-- Spring Boot 2.7.8
-- Spring Data JPA
-- MySQL
-- Redis
-- OkHttp3
-- Swagger (API文档)
+- Spring Boot 2.x
+- MySQL 数据库
+- Redis 缓存
+- Ta4j 技术分析库
+- WebSocket 实时数据获取
+- Swagger API文档
 
-## 快速开始
+## 数据库表结构
 
-### 前置条件
+### 回测交易明细表 (backtest_trade)
+| 字段名 | 类型 | 描述 |
+|-------|------|------|
+| id | BIGINT | 主键ID |
+| backtest_id | BIGINT | 回测ID |
+| index | INT | 交易索引号 |
+| type | VARCHAR(10) | 交易类型(BUY/SELL) |
+| entry_time | DATETIME | 入场时间 |
+| entry_price | DECIMAL(20,8) | 入场价格 |
+| entry_amount | DECIMAL(20,8) | 入场金额 |
+| exit_time | DATETIME | 出场时间 |
+| exit_price | DECIMAL(20,8) | 出场价格 |
+| exit_amount | DECIMAL(20,8) | 出场金额 |
+| profit | DECIMAL(20,8) | 交易利润 |
+| profit_percentage | DECIMAL(10,4) | 交易利润百分比 |
+| closed | BOOLEAN | 是否已平仓 |
+| create_time | DATETIME | 创建时间 |
+| update_time | DATETIME | 更新时间 |
 
-- JDK 1.8+
+### 回测汇总表 (backtest_summary)
+| 字段名 | 类型 | 描述 |
+|-------|------|------|
+| id | BIGINT | 主键ID |
+| symbol | VARCHAR(20) | 交易对 |
+| interval | VARCHAR(10) | K线周期 |
+| strategy_type | VARCHAR(50) | 策略类型 |
+| start_time | DATETIME | 回测开始时间 |
+| end_time | DATETIME | 回测结束时间 |
+| initial_amount | DECIMAL(20,8) | 初始资金 |
+| final_amount | DECIMAL(20,8) | 最终资金 |
+| total_profit | DECIMAL(20,8) | 总利润 |
+| total_return | DECIMAL(10,4) | 总收益率 |
+| win_rate | DECIMAL(10,4) | 胜率 |
+| profit_factor | DECIMAL(10,4) | 盈亏比 |
+| sharpe_ratio | DECIMAL(10,4) | 夏普比率 |
+| max_drawdown | DECIMAL(10,4) | 最大回撤 |
+| trade_count | INT | 交易次数 |
+| parameters | TEXT | 策略参数(JSON格式) |
+| status | VARCHAR(20) | 回测状态 |
+| error_message | VARCHAR(500) | 错误信息 |
+| create_time | DATETIME | 创建时间 |
+| update_time | DATETIME | 更新时间 |
+
+## API接口说明
+
+### 执行回测
+- **URL**: `/api/v1/backtest`
+- **方法**: POST
+- **参数**:
+  - symbol: 交易对(如"BTC-USDT")
+  - interval: K线周期(如"1h", "4h", "1d")
+  - strategyType: 策略类型("SMA"或"BOLLINGER_BANDS")
+  - startTime: 回测开始时间
+  - endTime: 回测结束时间
+  - initialAmount: 初始资金
+  - parameters: 策略参数(JSON格式)
+- **返回**: 回测结果，包含回测ID和汇总指标
+
+### 获取回测交易记录
+- **URL**: `/api/v1/backtest/{backtestId}/trades`
+- **方法**: GET
+- **参数**:
+  - backtestId: 回测ID
+  - page: 页码
+  - size: 每页记录数
+- **返回**: 分页的交易记录列表
+
+### 获取回测汇总信息
+- **URL**: `/api/v1/backtest/{backtestId}`
+- **方法**: GET
+- **参数**:
+  - backtestId: 回测ID
+- **返回**: 回测汇总信息
+
+### 获取所有回测记录
+- **URL**: `/api/v1/backtest/list`
+- **方法**: GET
+- **参数**:
+  - page: 页码
+  - size: 每页记录数
+  - symbol: 交易对(可选)
+  - strategyType: 策略类型(可选)
+- **返回**: 分页的回测记录列表
+
+## 使用示例
+
+### 执行SMA策略回测
+```json
+{
+  "symbol": "BTC-USDT",
+  "interval": "1h",
+  "strategyType": "SMA",
+  "startTime": "2023-01-01T00:00:00",
+  "endTime": "2023-01-31T23:59:59",
+  "initialAmount": 10000,
+  "parameters": {
+    "shortPeriod": 5,
+    "longPeriod": 20
+  }
+}
+```
+
+### 执行布林带策略回测
+```json
+{
+  "symbol": "ETH-USDT",
+  "interval": "4h",
+  "strategyType": "BOLLINGER_BANDS",
+  "startTime": "2023-01-01T00:00:00",
+  "endTime": "2023-01-31T23:59:59",
+  "initialAmount": 10000,
+  "parameters": {
+    "period": 20,
+    "deviation": 2.0
+  }
+}
+```
+
+## 安装与配置
+
+### 环境要求
+- JDK 8
 - Maven 3.6+
 - MySQL 5.7+
-- Redis 5.0+
+- Redis 6.0+
 
-### 配置
+### 配置文件
+在`application.properties`中配置数据库和Redis连接：
 
-在 `application.yml` 中配置数据库、Redis和OKX API参数:
+```properties
+# 数据库配置
+spring.datasource.url=jdbc:mysql://localhost:3306/okx_trading?useSSL=false&serverTimezone=UTC
+spring.datasource.username=root
+spring.datasource.password=Password123?
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: root
-    password: Password123?
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  redis:
-    host: localhost
-    port: 6379
-    database: 0
-    timeout: 10000
-    
-okx:
-  api:
-    base-url: https://www.okx.com
-    api-key: ${OKX_API_KEY:}
-    secret-key: ${OKX_SECRET_KEY:}
-    passphrase: ${OKX_PASSPHRASE:}
-    use-mock-data: false # 是否使用模拟数据
+# Redis配置
+spring.redis.host=localhost
+spring.redis.port=6379
+
+# OKX API配置
+okx.api.key=your_api_key
+okx.api.secret=your_api_secret
+okx.api.passphrase=your_passphrase
+
+# 代理配置(适用于中国区域)
+proxy.host=localhost
+proxy.port=10809
 ```
 
-对于敏感信息，建议通过环境变量注入:
-
+### 构建与运行
 ```bash
-export OKX_API_KEY=your_api_key
-export OKX_SECRET_KEY=your_secret_key
-export OKX_PASSPHRASE=your_passphrase
-```
+# 克隆仓库
+git clone https://github.com/ralph-wren/okx-trading.git
 
-### 编译与运行
+# 进入项目目录
+cd okx-trading
 
-```bash
+# 编译打包
 mvn clean package
-java -jar target/trading-0.0.1-SNAPSHOT.jar
+
+# 运行应用
+java -jar target/okx-trading.jar
 ```
 
-或者使用Maven直接运行:
-
-```bash
-mvn spring-boot:run
-```
-
-## API接口文档
-
-启动应用后访问Swagger文档: http://localhost:8088/api/swagger-ui/
-
-### 行情数据接口
-
-#### 1. 获取K线数据
-
-```
-GET /api/market/klines?symbol={symbol}&interval={interval}&limit={limit}
-```
-
-**参数说明:**
-- `symbol`: 交易对，如 BTC-USDT (必填)
-- `interval`: K线间隔，如 1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M (必填)
-- `limit`: 获取数据条数，最大为1000 (选填)
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": [
-    {
-      "symbol": "BTC-USDT",
-      "interval": "1m",
-      "openTime": "2023-06-10 10:00:00",
-      "open": "26000.50",
-      "high": "26100.00",
-      "low": "25900.00",
-      "close": "26050.00",
-      "volume": "100.5",
-      "quoteVolume": "2612025.00",
-      "closeTime": "2023-06-10 10:01:00",
-      "trades": 500
-    }
-  ]
-}
-```
-
-#### 2. 获取最新行情
-
-```
-GET /api/market/ticker?symbol={symbol}
-```
-
-**参数说明:**
-- `symbol`: 交易对，如 BTC-USDT (必填)
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "symbol": "BTC-USDT",
-    "lastPrice": "26050.00",
-    "priceChange": "1050.00",
-    "priceChangePercent": "4.20",
-    "highPrice": "26500.00",
-    "lowPrice": "25000.00",
-    "volume": "5000.50",
-    "quoteVolume": "130125000.00",
-    "bidPrice": "26045.00",
-    "bidQty": "2.5",
-    "askPrice": "26055.00",
-    "askQty": "1.8",
-    "timestamp": "2023-06-10 10:15:00"
-  }
-}
-```
-
-### 账户信息接口
-
-#### 1. 获取账户余额
-
-```
-GET /api/account/balance
-```
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "totalEquity": "100000.50",
-    "accountType": 0,
-    "accountId": "12345678",
-    "availableBalance": "80000.40",
-    "frozenBalance": "20000.10",
-    "assetBalances": [
-      {
-        "asset": "BTC",
-        "available": "1.5000",
-        "frozen": "0.5000",
-        "total": "2.0000",
-        "usdValue": "52000.00"
-      },
-      {
-        "asset": "USDT",
-        "available": "50000.00",
-        "frozen": "10000.00",
-        "total": "60000.00",
-        "usdValue": "60000.00"
-      }
-    ]
-  }
-}
-```
-
-#### 2. 获取模拟账户余额
-
-```
-GET /api/account/simulated-balance
-```
-
-(响应格式同上，但 accountType = 1)
-
-### 交易接口
-
-#### 1. 获取订单列表
-
-```
-GET /api/trade/orders?symbol={symbol}&status={status}&limit={limit}
-```
-
-**参数说明:**
-- `symbol`: 交易对，如 BTC-USDT (必填)
-- `status`: 订单状态，如 NEW, PARTIALLY_FILLED, FILLED, CANCELED (选填)
-- `limit`: 获取数据条数，最大为100 (选填)
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": [
-    {
-      "orderId": "123456789",
-      "clientOrderId": "client12345",
-      "symbol": "BTC-USDT",
-      "price": "26000.00",
-      "origQty": "0.5000",
-      "executedQty": "0.0000",
-      "cummulativeQuoteQty": "0.0000",
-      "status": "NEW",
-      "type": "LIMIT",
-      "side": "BUY",
-      "timeInForce": "GTC",
-      "createTime": "2023-06-10 09:00:00",
-      "updateTime": "2023-06-10 09:00:00",
-      "simulated": false,
-      "fee": "13.00",
-      "feeCurrency": "USDT"
-    }
-  ]
-}
-```
-
-#### 2. 创建现货订单
-
-```
-POST /api/trade/spot-orders
-```
-
-**请求体示例 (按数量下单):**
-```json
-{
-  "symbol": "BTC-USDT",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "quantity": "0.5000",
-  "timeInForce": "GTC",
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按金额下单):**
-```json
-{
-  "symbol": "BTC-USDT",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "amount": "13000.00", // 使用13000USDT购买BTC
-  "timeInForce": "GTC",
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按账户可用余额比例买入):**
-```json
-{
-  "symbol": "BTC-USDT",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "buyRatio": "0.5", // 使用账户50%的USDT可用余额购买BTC
-  "timeInForce": "GTC",
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按持仓比例卖出):**
-```json
-{
-  "symbol": "BTC-USDT",
-  "type": "LIMIT",
-  "side": "SELL",
-  "price": "26000.00",
-  "sellRatio": "0.5", // 卖出50%的BTC持仓
-  "timeInForce": "GTC",
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体说明:**
-- 下单时有四种方式指定交易数量:
-  1. 使用`quantity`参数直接指定数量
-  2. 使用`amount`参数指定金额
-  3. 使用`buyRatio`参数指定购买时使用账户可用余额的比例(0.01-1)
-  4. 使用`sellRatio`参数指定卖出时卖出持仓的比例(0.01-1)
-- 如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio
-- 买入订单时，`amount`表示用于购买的计价货币金额（如USDT）
-- 卖出订单时，`amount`表示要卖出的标的资产数量（如BTC）
-- `buyRatio`仅在买入(BUY)时有效，`sellRatio`仅在卖出(SELL)时有效
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "orderId": "123456789",
-    "clientOrderId": "client12345",
-    "symbol": "BTC-USDT",
-    "price": "26000.00",
-    "origQty": "0.5000",
-    "executedQty": "0.0000",
-    "cummulativeQuoteQty": "0.0000",
-    "status": "NEW",
-    "type": "LIMIT",
-    "side": "BUY",
-    "timeInForce": "GTC",
-    "createTime": "2023-06-10 09:00:00",
-    "updateTime": "2023-06-10 09:00:00",
-    "simulated": false
-  }
-}
-```
-
-#### 3. 创建合约订单
-
-```
-POST /api/trade/futures-orders
-```
-
-**请求体示例 (按数量下单):**
-```json
-{
-  "symbol": "BTC-USDT-SWAP",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "quantity": "0.5000",
-  "timeInForce": "GTC",
-  "leverage": 5,
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按金额下单):**
-```json
-{
-  "symbol": "BTC-USDT-SWAP",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "amount": "13000.00", // 使用13000USDT购买BTC合约
-  "timeInForce": "GTC",
-  "leverage": 5,
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按账户可用余额比例买入):**
-```json
-{
-  "symbol": "BTC-USDT-SWAP",
-  "type": "LIMIT",
-  "side": "BUY",
-  "price": "26000.00",
-  "buyRatio": "0.3", // 使用账户30%的USDT可用余额购买BTC合约
-  "timeInForce": "GTC",
-  "leverage": 5,
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体示例 (按持仓比例卖出):**
-```json
-{
-  "symbol": "BTC-USDT-SWAP",
-  "type": "LIMIT",
-  "side": "SELL",
-  "price": "26000.00",
-  "sellRatio": "0.8", // 卖出80%的BTC合约持仓
-  "timeInForce": "GTC",
-  "leverage": 5,
-  "postOnly": false,
-  "simulated": false
-}
-```
-
-**请求体说明:**
-- 下单时有四种方式指定交易数量:
-  1. 使用`quantity`参数直接指定数量
-  2. 使用`amount`参数指定金额
-  3. 使用`buyRatio`参数指定购买时使用账户可用余额的比例(0.01-1)
-  4. 使用`sellRatio`参数指定卖出时卖出持仓的比例(0.01-1)
-- 如果同时提供多个参数，优先级为: quantity > amount > buyRatio/sellRatio
-- 买入订单时，`amount`表示用于购买的计价货币金额（如USDT）
-- 卖出订单时，`amount`表示要卖出的标的资产数量（如BTC）
-- `buyRatio`仅在买入(BUY)时有效，`sellRatio`仅在卖出(SELL)时有效
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "orderId": "123456789",
-    "clientOrderId": "client12345",
-    "symbol": "BTC-USDT-SWAP",
-    "price": "26000.00",
-    "origQty": "0.5000",
-    "executedQty": "0.0000",
-    "cummulativeQuoteQty": "0.0000",
-    "status": "NEW",
-    "type": "LIMIT",
-    "side": "BUY",
-    "timeInForce": "GTC",
-    "createTime": "2023-06-10 09:00:00",
-    "updateTime": "2023-06-10 09:00:00",
-    "simulated": false
-  }
-}
-```
-
-#### 4. 取消订单
-
-```
-DELETE /api/trade/orders?symbol={symbol}&orderId={orderId}
-```
-
-**参数说明:**
-- `symbol`: 交易对，如 BTC-USDT (必填)
-- `orderId`: 订单ID (必填)
-
-**响应示例:**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": true
-}
-```
-
-## 模拟模式与真实模式切换
-
-在 `application.yml` 中配置:
-
-```yaml
-okx:
-  api:
-    use-mock-data: true  # 使用模拟数据
-    # 或
-    use-mock-data: false # 使用真实API
-```
-
-## 代理设置
-
-在访问国际接口时可能需要代理，可以在配置文件中设置:
-
-```yaml
-okx:
-  proxy:
-    enabled: true
-    host: localhost
-    port: 10809
-```
-
-## 贡献与问题反馈
-
-如有问题或建议，请提交Issue或Pull Request。
+## 贡献指南
+欢迎提交Issue和Pull Request来改进本项目。提交代码前，请确保：
+1. 代码符合Java编码规范
+2. 添加单元测试和集成测试
+3. 更新相关文档
 
 ## 许可证
-
-此项目基于MIT许可证开源。
+MIT License
