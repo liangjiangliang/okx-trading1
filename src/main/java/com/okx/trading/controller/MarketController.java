@@ -6,6 +6,7 @@ import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.OkxApiService;
+import com.okx.trading.util.TechnicalIndicatorUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -20,12 +21,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 行情数据控制器
@@ -305,6 +309,93 @@ public class MarketController{
         }catch(Exception e){
             log.error("获取历史K线数据失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取布林带指标数据
+     *
+     * @param symbol       交易对，如BTC-USDT
+     * @param interval     K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param period       布林带周期，默认为20
+     * @param multiplier   标准差倍数，默认为2
+     * @param startTimeStr 开始时间 (yyyy-MM-dd HH:mm:ss)
+     * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
+     * @return 布林带数据
+     */
+    @ApiOperation(value = "获取布林带指标数据", notes = "根据历史K线数据计算布林带指标")
+    @ApiImplicitParams({
+        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+            required = true, dataType = "String", example = "1m", paramType = "query",
+            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
+        @ApiImplicitParam(name = "period", value = "布林带周期", required = false, dataType = "Integer", example = "20", paramType = "query"),
+        @ApiImplicitParam(name = "multiplier", value = "标准差倍数", required = false, dataType = "Double", example = "2.0", paramType = "query"),
+        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
+        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
+    })
+    @GetMapping("/bollinger_bands")
+    public ApiResponse<Map<String, Object>> getBollingerBands(
+        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+        @RequestParam(required = false, defaultValue = "20") Integer period,
+        @RequestParam(required = false, defaultValue = "2.0") Double multiplier,
+        @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
+        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr) {
+
+        log.info("获取布林带指标数据, symbol: {}, interval: {}, period: {}, multiplier: {}, startTime: {}, endTime: {}",
+            symbol, interval, period, multiplier, startTimeStr, endTimeStr);
+
+        try {
+            // 将字符串时间转换为LocalDateTime
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
+            LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
+
+            // 获取历史K线数据
+            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(
+                symbol, interval, startTime, endTime);
+
+            if (candlesticks.isEmpty()) {
+                return ApiResponse.error(404, "未找到指定时间范围内的K线数据");
+            }
+
+            // 提取收盘价
+            List<BigDecimal> closePrices = candlesticks.stream()
+                .map(CandlestickEntity::getClose)
+                .collect(Collectors.toList());
+
+            // 计算布林带
+            TechnicalIndicatorUtil.BollingerBands bands = 
+                TechnicalIndicatorUtil.calculateBollingerBands(closePrices, period, multiplier, 8);
+
+            // 构建返回结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("symbol", symbol);
+            result.put("interval", interval);
+            result.put("period", period);
+            result.put("multiplier", multiplier);
+            result.put("startTime", startTimeStr);
+            result.put("endTime", endTimeStr);
+            result.put("dataPoints", candlesticks.size());
+            
+            // 收集时间和价格等数据
+            List<Map<String, Object>> dataPoints = new ArrayList<>();
+            for (int i = 0; i < candlesticks.size(); i++) {
+                Map<String, Object> point = new HashMap<>();
+                point.put("time", candlesticks.get(i).getOpenTime().format(formatter));
+                point.put("price", candlesticks.get(i).getClose());
+                point.put("middle", bands.getMiddle().get(i));
+                point.put("upper", bands.getUpper().get(i));
+                point.put("lower", bands.getLower().get(i));
+                dataPoints.add(point);
+            }
+            result.put("data", dataPoints);
+            
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("计算布林带指标失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "计算布林带指标失败: " + e.getMessage());
         }
     }
 }

@@ -1,5 +1,6 @@
-package com.okx.trading.strategy.backtest;
+package com.okx.trading.strategy;
 
+import com.okx.trading.backtest.BacktestFramework;
 import com.okx.trading.model.entity.CandlestickEntity;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,7 @@ import java.util.List;
  */
 @Slf4j
 @Getter
-public class SimpleMovingAverageStrategy extends BacktestFramework {
+public class SimpleMovingAverageStrategy extends BacktestFramework{
 
     /**
      * 短期均线周期
@@ -93,7 +94,7 @@ public class SimpleMovingAverageStrategy extends BacktestFramework {
                     if (currentCross && !previousCross && !inPosition) {
                         // 使用指定比例的现金买入
                         BigDecimal buyAmount = cash.multiply(tradingRatio).divide(closePrice, 8, RoundingMode.DOWN);
-                        buy(candle.getOpenTime(), closePrice, buyAmount, 
+                        buy(candle.getOpenTime(), closePrice, buyAmount,
                             String.format("短期均线(%.2f)上穿长期均线(%.2f)", shortMA, longMA));
                         inPosition = true;
                     }
@@ -133,4 +134,4 @@ public class SimpleMovingAverageStrategy extends BacktestFramework {
         }
         return sum.divide(new BigDecimal(period), 8, RoundingMode.HALF_UP);
     }
-} 
+}
