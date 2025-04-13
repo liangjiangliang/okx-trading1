@@ -4,6 +4,7 @@ import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 
 /**
  * Ta4j回测控制器
@@ -93,7 +95,12 @@ public class Ta4jBacktestController {
 
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
+                // 保存交易明细
                 String backtestId = backtestTradeService.saveBacktestTrades(result, strategyParams);
+                
+                // 保存汇总信息
+                backtestTradeService.saveBacktestSummary(result, strategyParams, symbol, interval, startTime, endTime, backtestId);
+                
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");
             }
 
@@ -169,6 +176,84 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("获取策略信息出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取策略信息出错: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/summaries")
+    @ApiOperation(value = "获取所有回测汇总信息", notes = "获取所有已保存的回测汇总信息")
+    public ApiResponse<List<BacktestSummaryEntity>> getAllBacktestSummaries() {
+        try {
+            List<BacktestSummaryEntity> summaries = backtestTradeService.getAllBacktestSummaries();
+            return ApiResponse.success(summaries);
+        } catch (Exception e) {
+            log.error("获取回测汇总信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取回测汇总信息出错: " + e.getMessage());
+        }
+    }
+    
+    @GetMapping("/summary/{backtestId}")
+    @ApiOperation(value = "获取回测汇总信息", notes = "根据回测ID获取回测汇总信息")
+    public ApiResponse<BacktestSummaryEntity> getBacktestSummary(
+            @ApiParam(value = "回测ID", required = true) @PathVariable String backtestId) {
+        try {
+            Optional<BacktestSummaryEntity> summary = backtestTradeService.getBacktestSummaryById(backtestId);
+            if (summary.isPresent()) {
+                return ApiResponse.success(summary.get());
+            } else {
+                return ApiResponse.error(404, "未找到指定回测ID的汇总信息");
+            }
+        } catch (Exception e) {
+            log.error("获取回测汇总信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取回测汇总信息出错: " + e.getMessage());
+        }
+    }
+    
+    @GetMapping("/summaries/strategy/{strategyName}")
+    @ApiOperation(value = "根据策略名称获取回测汇总信息", notes = "获取特定策略的所有回测汇总信息")
+    public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesByStrategy(
+            @ApiParam(value = "策略名称", required = true) @PathVariable String strategyName) {
+        try {
+            List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesByStrategy(strategyName);
+            if (summaries.isEmpty()) {
+                return ApiResponse.error(404, "未找到该策略的回测汇总信息");
+            }
+            return ApiResponse.success(summaries);
+        } catch (Exception e) {
+            log.error("获取策略回测汇总信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取策略回测汇总信息出错: " + e.getMessage());
+        }
+    }
+    
+    @GetMapping("/summaries/symbol/{symbol}")
+    @ApiOperation(value = "根据交易对获取回测汇总信息", notes = "获取特定交易对的所有回测汇总信息")
+    public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesBySymbol(
+            @ApiParam(value = "交易对", required = true) @PathVariable String symbol) {
+        try {
+            List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesBySymbol(symbol);
+            if (summaries.isEmpty()) {
+                return ApiResponse.error(404, "未找到该交易对的回测汇总信息");
+            }
+            return ApiResponse.success(summaries);
+        } catch (Exception e) {
+            log.error("获取交易对回测汇总信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取交易对回测汇总信息出错: " + e.getMessage());
+        }
+    }
+    
+    @GetMapping("/summaries/best")
+    @ApiOperation(value = "获取最佳表现的回测", notes = "根据策略名称和交易对获取表现最好的回测")
+    public ApiResponse<List<BacktestSummaryEntity>> getBestPerformingBacktests(
+            @ApiParam(value = "策略名称", required = true) @RequestParam String strategyName,
+            @ApiParam(value = "交易对", required = true) @RequestParam String symbol) {
+        try {
+            List<BacktestSummaryEntity> summaries = backtestTradeService.getBestPerformingBacktests(strategyName, symbol);
+            if (summaries.isEmpty()) {
+                return ApiResponse.error(404, "未找到符合条件的回测汇总信息");
+            }
+            return ApiResponse.success(summaries);
+        } catch (Exception e) {
+            log.error("获取最佳表现回测信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取最佳表现回测信息出错: " + e.getMessage());
         }
     }
 }

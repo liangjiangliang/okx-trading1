@@ -2,7 +2,9 @@ package com.okx.trading.service.impl;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
+import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.BacktestTradeEntity;
+import com.okx.trading.repository.BacktestSummaryRepository;
 import com.okx.trading.repository.BacktestTradeRepository;
 import com.okx.trading.service.BacktestTradeService;
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,10 +30,13 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     private static final Logger logger = LoggerFactory.getLogger(BacktestTradeServiceImpl.class);
     
     private final BacktestTradeRepository backtestTradeRepository;
+    private final BacktestSummaryRepository backtestSummaryRepository;
     
     @Autowired
-    public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository) {
+    public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository,
+                                   BacktestSummaryRepository backtestSummaryRepository) {
         this.backtestTradeRepository = backtestTradeRepository;
+        this.backtestSummaryRepository = backtestSummaryRepository;
     }
     
     @Override
@@ -109,6 +115,54 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     }
     
     @Override
+    @Transactional
+    public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult, 
+                                                   String strategyParams,
+                                                   String symbol,
+                                                   String interval,
+                                                   LocalDateTime startTime,
+                                                   LocalDateTime endTime,
+                                                   String backtestId) {
+        if (backtestResult == null || !backtestResult.isSuccess()) {
+            logger.warn("尝试保存无效的回测汇总结果");
+            return null;
+        }
+        
+        // 如果没有提供backtestId，则生成一个新的
+        if (backtestId == null || backtestId.isEmpty()) {
+            backtestId = UUID.randomUUID().toString();
+        }
+        
+        // 创建汇总实体
+        BacktestSummaryEntity summaryEntity = BacktestSummaryEntity.builder()
+                .backtestId(backtestId)
+                .strategyName(backtestResult.getStrategyName())
+                .strategyParams(strategyParams)
+                .symbol(symbol)
+                .intervalVal(interval)
+                .startTime(startTime)
+                .endTime(endTime)
+                .initialAmount(backtestResult.getInitialAmount())
+                .finalAmount(backtestResult.getFinalAmount())
+                .totalProfit(backtestResult.getTotalProfit())
+                .totalReturn(backtestResult.getTotalReturn())
+                .numberOfTrades(backtestResult.getNumberOfTrades())
+                .profitableTrades(backtestResult.getProfitableTrades())
+                .unprofitableTrades(backtestResult.getUnprofitableTrades())
+                .winRate(backtestResult.getWinRate())
+                .averageProfit(backtestResult.getAverageProfit())
+                .maxDrawdown(backtestResult.getMaxDrawdown())
+                .sharpeRatio(backtestResult.getSharpeRatio())
+                .build();
+        
+        // 保存汇总信息
+        BacktestSummaryEntity savedEntity = backtestSummaryRepository.save(summaryEntity);
+        logger.info("成功保存回测汇总信息，回测ID: {}", backtestId);
+        
+        return savedEntity;
+    }
+    
+    @Override
     public List<BacktestTradeEntity> getTradesByBacktestId(String backtestId) {
         return backtestTradeRepository.findByBacktestIdOrderByIndexAsc(backtestId);
     }
@@ -131,7 +185,34 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     @Override
     @Transactional
     public void deleteBacktestRecords(String backtestId) {
+        // 同时删除交易明细和汇总信息
         backtestTradeRepository.deleteByBacktestId(backtestId);
+        backtestSummaryRepository.deleteByBacktestId(backtestId);
         logger.info("已删除回测ID为 {} 的所有记录", backtestId);
+    }
+    
+    @Override
+    public List<BacktestSummaryEntity> getAllBacktestSummaries() {
+        return backtestSummaryRepository.findAll();
+    }
+    
+    @Override
+    public Optional<BacktestSummaryEntity> getBacktestSummaryById(String backtestId) {
+        return backtestSummaryRepository.findByBacktestId(backtestId);
+    }
+    
+    @Override
+    public List<BacktestSummaryEntity> getBacktestSummariesByStrategy(String strategyName) {
+        return backtestSummaryRepository.findByStrategyNameOrderByCreateTimeDesc(strategyName);
+    }
+    
+    @Override
+    public List<BacktestSummaryEntity> getBacktestSummariesBySymbol(String symbol) {
+        return backtestSummaryRepository.findBySymbolOrderByCreateTimeDesc(symbol);
+    }
+    
+    @Override
+    public List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol) {
+        return backtestSummaryRepository.findBestPerformingBacktests(strategyName, symbol);
     }
 } 
