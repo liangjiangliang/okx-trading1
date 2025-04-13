@@ -13,22 +13,22 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApiResponse<T> {
-    
+
     /**
      * 状态码，200表示成功
      */
     private int code;
-    
+
     /**
      * 消息
      */
     private String message;
-    
+
     /**
      * 数据
      */
     private T data;
-    
+
     /**
      * 创建成功响应
      * @param data 数据
@@ -38,7 +38,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(200, "success", data);
     }
-    
+
     /**
      * 创建成功响应
      * @param message 消息
@@ -49,7 +49,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(String message, T data) {
         return new ApiResponse<>(200, message, data);
     }
-    
+
     /**
      * 创建错误响应
      * @param code 错误码
@@ -60,7 +60,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(int code, String message) {
         return new ApiResponse<>(code, message, null);
     }
-    
+
     /**
      * 创建错误响应
      * @param code 错误码
@@ -72,4 +72,9 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(int code, String message, T data) {
         return new ApiResponse<>(code, message, data);
     }
-} 
+
+
+    public static <T> ApiResponse<T> error( String message) {
+         return new ApiResponse<>(-1, message, null);
+     }
+}
