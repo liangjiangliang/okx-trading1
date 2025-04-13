@@ -3,6 +3,7 @@ package com.okx.trading.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 
 import com.okx.trading.model.entity.CandlestickEntity;
 
@@ -24,6 +25,35 @@ public interface HistoricalDataService {
      */
     CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval, 
                                                       LocalDateTime startTime, LocalDateTime endTime);
+    
+    /**
+     * 根据时间范围获取并保存历史K线数据，同时记录失败的请求
+     * 将自动分片、多线程获取并检查数据完整性
+     *
+     * @param symbol     交易对，如BTC-USDT
+     * @param interval   K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param startTime  开始时间
+     * @param endTime    结束时间
+     * @param failedRequests 用于记录失败请求的并发Map
+     * @return 获取的K线数据数量
+     */
+    CompletableFuture<Integer> fetchAndSaveHistoricalDataWithFailureRecord(String symbol, String interval, 
+                                                      LocalDateTime startTime, LocalDateTime endTime,
+                                                      ConcurrentMap<String, Integer> failedRequests);
+    
+    /**
+     * 获取并保存指定时间片段的K线数据，同时记录失败的请求
+     *
+     * @param symbol     交易对，如BTC-USDT
+     * @param interval   K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param startTime  时间片段开始时间
+     * @param endTime    时间片段结束时间
+     * @param failedRequests 用于记录失败请求的并发Map
+     * @return 获取的K线数据数量
+     */
+    CompletableFuture<Integer> fetchAndSaveTimeSliceWithFailureRecord(String symbol, String interval, 
+                                                      LocalDateTime startTime, LocalDateTime endTime,
+                                                      ConcurrentMap<String, Integer> failedRequests);
     
     /**
      * 查询数据库中存储的历史K线数据
@@ -68,4 +98,12 @@ public interface HistoricalDataService {
      * @return 最新的K线数据列表，按时间降序排列
      */
     List<CandlestickEntity> getLatestHistoricalData(String symbol, String interval, int limit);
+    
+    /**
+     * 获取间隔对应的分钟数
+     * 
+     * @param interval K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @return 对应的分钟数
+     */
+    long getIntervalMinutes(String interval);
 } 

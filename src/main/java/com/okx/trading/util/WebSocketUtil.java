@@ -41,8 +41,8 @@ public class WebSocketUtil{
     private WebSocket privateWebSocket;
 
     private final Map<String,Consumer<JSONObject>> messageHandlers = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService pingScheduler = Executors.newSingleThreadScheduledExecutor();
-    private final ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService pingScheduler;
+    private final ScheduledExecutorService reconnectScheduler;
     
     // 添加队列存储待执行的操作
     private final ConcurrentLinkedQueue<PendingOperation> publicPendingOperations = new ConcurrentLinkedQueue<>();
@@ -61,10 +61,14 @@ public class WebSocketUtil{
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(WebSocketUtil.class);
 
     @Autowired
-    public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient, ApplicationEventPublisher applicationEventPublisher){
+    public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient, ApplicationEventPublisher applicationEventPublisher,
+                         @Qualifier("websocketPingScheduler") ScheduledExecutorService pingScheduler,
+                         @Qualifier("websocketReconnectScheduler") ScheduledExecutorService reconnectScheduler) {
         this.okxApiConfig = okxApiConfig;
         this.okHttpClient = okHttpClient;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.pingScheduler = pingScheduler;
+        this.reconnectScheduler = reconnectScheduler;
     }
 
     /**

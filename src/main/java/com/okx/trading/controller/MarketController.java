@@ -29,18 +29,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.time.temporal.ChronoUnit;
 
 /**
- * 行情数据控制器
- * 提供获取K线数据、行情等接口
+ * 市场数据控制器
+ * 提供K线数据获取和技术指标计算的接口
  */
-@Api(tags = "行情数据")
 @Slf4j
 @Validated
 @RestController
 @RequestMapping("/market")
 @RequiredArgsConstructor
+@Api(tags = "市场数据接口", description = "提供K线数据获取和技术指标计算的接口")
 public class MarketController{
 
     private final OkxApiService okxApiService;
@@ -259,12 +262,13 @@ public class MarketController{
 
 
     /**
-     * 获取历史K线数据并保存，同时检查数据完整性，如有缺失则按天分组递归获取
+     * 获取历史K线数据并保存，自动检查并补充缺失数据
      *
      * @param symbol       交易对，如BTC-USDT
      * @param interval     K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
      * @param startTimeStr 开始时间 (yyyy-MM-dd HH:mm:ss)
      * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
+     * @param maxRetries   最大重试次数
      * @return 操作结果
      */
     @ApiOperation(value = "获取历史K线数据并保存，自动检查并补充缺失数据", notes = "获取并保存指定交易对的历史K线数据，检查数据完整性并自动按天分组递归获取缺失数据")
@@ -273,18 +277,20 @@ public class MarketController{
         @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
             required = true, dataType = "String", example = "1m", paramType = "query",
             allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
+        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
+        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query"),
+        @ApiImplicitParam(name = "maxRetries", value = "最大重试次数", required = false, dataType = "Integer", example = "3", paramType = "query")
     })
     @GetMapping("/fetch_history_with_integrity_check")
     public ApiResponse<String> fetchAndSaveHistoryWithIntegrityCheck(
         @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
         @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
         @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
-        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr){
+        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr,
+        @RequestParam(required = false, defaultValue = "3") Integer maxRetries){
 
-        log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}",
-            symbol, interval, startTimeStr, endTimeStr);
+        log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}, 最大重试次数: {}",
+            symbol, interval, startTimeStr, endTimeStr, maxRetries);
 
         try{
             // 将字符串时间转换为LocalDateTime
@@ -292,20 +298,105 @@ public class MarketController{
             LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
             LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
 
-            // 异步执行数据获取任务，该方法会自动进行数据完整性检查
-            CompletableFuture<Integer> future = historicalDataService.fetchAndSaveHistoricalData(symbol, interval, startTime, endTime);
+            // 计算预期的数据点总数（用于统计）
+            long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
+            long expectedDataPoints = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
+            log.info("预期获取的数据点总数: {}", expectedDataPoints);
 
-            // 创建一个后台线程来等待结果并输出日志
+            // 创建一个ConcurrentHashMap来记录失败的请求
+            ConcurrentMap<String, Integer> failedRequests = new ConcurrentHashMap<>();
+            
+            // 记录初始请求开始时间
+            long startTimestamp = System.currentTimeMillis();
+
+            // 异步执行数据获取任务，该方法会自动进行数据完整性检查
+            CompletableFuture<Integer> future = historicalDataService.fetchAndSaveHistoricalDataWithFailureRecord(
+                symbol, interval, startTime, endTime, failedRequests);
+
+            // 创建一个后台线程来等待结果并处理失败的请求
             CompletableFuture.runAsync(() -> {
                 try{
-                    int count = future.get();
-                    log.info("历史数据获取任务完成，共获取{}条数据", count);
+                    // 等待初始请求完成
+                    int dataCount = future.get();
+                    log.info("初始历史数据获取任务完成，共获取{}条数据", dataCount);
+                    
+                    // 如果有失败的请求，进行重试
+                    int retryCount = 0;
+                    while(!failedRequests.isEmpty() && retryCount < maxRetries) {
+                        retryCount++;
+                        log.info("第{}次重试，处理{}个失败的请求", retryCount, failedRequests.size());
+                        
+                        // 复制当前失败请求列表进行重试
+                        Map<String, Integer> currentFailures = new HashMap<>(failedRequests);
+                        failedRequests.clear(); // 清空列表，准备记录本次重试中的失败
+                        
+                        // 为每个失败的请求创建重试任务
+                        List<CompletableFuture<Integer>> retryFutures = new ArrayList<>();
+                        for(Map.Entry<String, Integer> entry : currentFailures.entrySet()) {
+                            String[] parts = entry.getKey().split(":");
+                            if(parts.length == 2) {
+                                LocalDateTime sliceStart = LocalDateTime.parse(parts[0]);
+                                LocalDateTime sliceEnd = LocalDateTime.parse(parts[1]);
+                                
+                                CompletableFuture<Integer> retryFuture = historicalDataService.fetchAndSaveTimeSliceWithFailureRecord(
+                                    symbol, interval, sliceStart, sliceEnd, failedRequests);
+                                retryFutures.add(retryFuture);
+                            }
+                        }
+                        
+                        // 等待所有重试任务完成
+                        CompletableFuture.allOf(retryFutures.toArray(new CompletableFuture[0])).join();
+                        
+                        // 计算重试获取的数据量
+                        int retryDataCount = retryFutures.stream()
+                            .map(f -> {
+                                try {
+                                    return f.get();
+                                } catch (Exception e) {
+                                    log.error("获取重试任务结果失败", e);
+                                    return 0;
+                                }
+                            })
+                            .mapToInt(Integer::intValue)
+                            .sum();
+                        
+                        dataCount += retryDataCount;
+                        log.info("第{}次重试完成，此次获取{}条数据，累计{}条数据，剩余{}个失败请求", 
+                            retryCount, retryDataCount, dataCount, failedRequests.size());
+                    }
+                    
+                    // 完成后检查整体数据完整性
+                    List<LocalDateTime> finalMissingPoints = historicalDataService.checkDataIntegrity(
+                        symbol, interval, startTime, endTime);
+                    
+                    // 计算总耗时
+                    long totalTimeMillis = System.currentTimeMillis() - startTimestamp;
+                    
+                    // 打印最终统计信息
+                    log.info("=== 历史数据获取任务统计 ===");
+                    log.info("交易对: {}, 时间间隔: {}", symbol, interval);
+                    log.info("时间范围: {} 至 {}", startTimeStr, endTimeStr);
+                    log.info("预期数据点: {}", expectedDataPoints);
+                    log.info("实际获取: {}", dataCount);
+                    log.info("成功率: {}%", String.format("%.2f", (dataCount * 100.0 / expectedDataPoints)));
+                    log.info("仍然缺失: {}", finalMissingPoints.size());
+                    log.info("重试次数: {}/{}", retryCount, maxRetries);
+                    log.info("总耗时: {}秒", totalTimeMillis / 1000);
+                    log.info("失败请求数: {}", failedRequests.size());
+                    if(!failedRequests.isEmpty()) {
+                        log.info("失败请求清单 (前10个):");
+                        failedRequests.entrySet().stream()
+                            .limit(10)
+                            .forEach(entry -> log.info("  {} - 失败{}次", entry.getKey(), entry.getValue()));
+                    }
+                    log.info("===========================");
+                    
                 }catch(Exception e){
                     log.error("历史数据获取任务异常", e);
                 }
             });
 
-            return ApiResponse.success("历史数据获取任务已启动，已包含数据完整性检查和缺失数据自动获取，请稍后查询数据");
+            return ApiResponse.success("历史数据获取任务已启动，包含完整性检查和失败请求重试机制，请稍后查询数据");
         }catch(Exception e){
             log.error("获取历史K线数据失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
@@ -366,7 +457,7 @@ public class MarketController{
                 .collect(Collectors.toList());
 
             // 计算布林带
-            TechnicalIndicatorUtil.BollingerBands bands = 
+            TechnicalIndicatorUtil.BollingerBands bands =
                 TechnicalIndicatorUtil.calculateBollingerBands(closePrices, period, multiplier, 8);
 
             // 构建返回结果
@@ -378,7 +469,7 @@ public class MarketController{
             result.put("startTime", startTimeStr);
             result.put("endTime", endTimeStr);
             result.put("dataPoints", candlesticks.size());
-            
+
             // 收集时间和价格等数据
             List<Map<String, Object>> dataPoints = new ArrayList<>();
             for (int i = 0; i < candlesticks.size(); i++) {
@@ -391,7 +482,7 @@ public class MarketController{
                 dataPoints.add(point);
             }
             result.put("data", dataPoints);
-            
+
             return ApiResponse.success(result);
         } catch (Exception e) {
             log.error("计算布林带指标失败: {}", e.getMessage(), e);

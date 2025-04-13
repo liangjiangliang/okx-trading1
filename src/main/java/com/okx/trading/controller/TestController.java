@@ -16,6 +16,6 @@ public class TestController {
      */
     @GetMapping("/test")
     public String test() {
-        return "111wa ！！！Trump is the president of the United States! Hello, this is a test message! Hot deployment is working! Good China";
+        return "$$$!!!???111wa ！！！Trump is the president of the United States! Hello, this is a test message! Hot deployment is working! Good China";
     }
 }

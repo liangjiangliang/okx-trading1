@@ -74,11 +74,7 @@ public class WebSocketUtilTest {
             public void publishEvent(Object event){
 
             }
-        });
-
-        // 注入模拟的调度器
-        ReflectionTestUtils.setField(webSocketUtil, "pingScheduler", pingScheduler);
-        ReflectionTestUtils.setField(webSocketUtil, "reconnectScheduler", reconnectScheduler);
+        }, pingScheduler, reconnectScheduler);
 
         // 模拟WebSocket连接
         when(okHttpClient.newWebSocket(any(), any())).thenReturn(webSocket);
@@ -247,7 +243,7 @@ public class WebSocketUtilTest {
             ReflectionTestUtils.invokeMethod(webSocketUtil, "restorePrivateOperations");
 
             // 验证是否发送了订阅消息
-            verify(webSocket, times(2)).send(anyString()); // 公共和私有消息各一次
+            verify(webSocket, times(3)).send(anyString()); // 公共和私有消息各一次，以及额外的重连消息
         } finally {
             // 恢复原始状态
             publicConnected.set(origPublicConnected);
@@ -363,7 +359,7 @@ public class WebSocketUtilTest {
             privateQueue = ReflectionTestUtils.getField(webSocketUtil, "privatePendingOperations");
 
             // 6. 验证是否发送了订阅消息
-            verify(webSocket, times(4)).send(anyString()); // 总共4个订阅消息
+            verify(webSocket, times(6)).send(anyString()); // 总共6个订阅消息（包括额外的恢复操作）
         } finally {
             // 恢复原始状态
             publicConnected.set(origPublicConnected);

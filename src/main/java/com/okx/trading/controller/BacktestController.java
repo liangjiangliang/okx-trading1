@@ -52,10 +52,10 @@ public class BacktestController {
     @GetMapping("/sma")
     @ApiOperation("简单移动平均线策略回测")
     public ApiResponse<?> testSimpleMovingAverageStrategy(
-            @ApiParam(value = "交易对", required = true) @RequestParam String symbol,
-            @ApiParam(value = "K线周期", required = true) @RequestParam String interval,
-            @ApiParam(value = "开始时间", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
+            @ApiParam(value = "交易对", defaultValue = "BTC-USDT",required = true) @RequestParam String symbol,
+            @ApiParam(value = "K线周期",defaultValue ="1H", required = true) @RequestParam String interval,
+            @ApiParam(value = "开始时间",defaultValue = "2018-01-01 00:00:00", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @ApiParam(value = "结束时间",defaultValue = "2025-04-01 00:00:00", required = true) @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @ApiParam(value = "短期均线周期", defaultValue = "5") @RequestParam(defaultValue = "5") int shortPeriod,
             @ApiParam(value = "长期均线周期", defaultValue = "20") @RequestParam(defaultValue = "20") int longPeriod,
             @ApiParam(value = "初始资金", defaultValue = "10000") @RequestParam(defaultValue = "10000") BigDecimal initialBalance,

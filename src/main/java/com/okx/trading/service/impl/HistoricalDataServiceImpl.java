@@ -7,40 +7,44 @@ import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.OkxApiService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 /**
- * 历史K线数据服务实现类
+ * 历史数据服务实现类
+ * 提供获取历史K线数据并保存到数据库的功能
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class HistoricalDataServiceImpl implements HistoricalDataService{
 
     private final OkxApiService okxApiService;
     private final CandlestickRepository candlestickRepository;
+    private final ExecutorService executorService;
+    private final ExecutorService batchExecutorService;
 
     @Value("${okx.historical-data.batch-size:100}")
     private int batchSize = 100;
 
     @Value("${okx.historical-data.max-threads:10}")
     private int maxThreads = 10;
-
-    // 用于执行多线程查询的线程池
-    private final ExecutorService executorService = Executors.newFixedThreadPool(5);
-    private final ExecutorService batchExecutorService = Executors.newFixedThreadPool(5);
 
     /**
      * 时间分片类
@@ -55,6 +59,16 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
         public String toString(){
             return String.format("[%s - %s]", start, end);
         }
+    }
+
+    @Autowired
+    public HistoricalDataServiceImpl(OkxApiService okxApiService, CandlestickRepository candlestickRepository,
+                                   @Qualifier("historicalDataExecutorService") ExecutorService executorService,
+                                   @Qualifier("batchHistoricalDataExecutorService") ExecutorService batchExecutorService) {
+        this.okxApiService = okxApiService;
+        this.candlestickRepository = candlestickRepository;
+        this.executorService = executorService;
+        this.batchExecutorService = batchExecutorService;
     }
 
     @Override
@@ -101,7 +115,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     for(TimeSlice slice: timeSlices){
                         CompletableFuture<List<CandlestickEntity>> future = CompletableFuture.supplyAsync(() -> {
                             try{
-                                log.debug("获取时间片段数据: {}", slice);
+                                log.debug("获取时间片段数据,左右都不包括,故意开始时间减一秒,结束时间也减一秒: {}", slice);
                                 List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
                                     symbol, interval, toEpochMilli(slice.getStart().minusSeconds(1)), toEpochMilli(slice.getEnd().minusSeconds(1)), batchSize);
 
@@ -380,7 +394,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     /**
      * 获取间隔对应的分钟数
      */
-    private long getIntervalMinutes(String interval){
+    @Override
+    public long getIntervalMinutes(String interval) {
         String unit = interval.substring(interval.length() - 1);
         int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
 
@@ -544,6 +559,198 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
         }
 
         return result;
+    }
+
+    @Override
+    public CompletableFuture<Integer> fetchAndSaveHistoricalDataWithFailureRecord(String symbol, String interval,
+                                                            LocalDateTime startTime, LocalDateTime endTime,
+                                                            ConcurrentMap<String, Integer> failedRequests) {
+        log.info("开始获取历史K线数据（带失败记录）: symbol={}, interval={}, startTime={}, endTime={}",
+            symbol, interval, startTime, endTime);
+
+        // 按天检查数据完整性，找出需要获取的天数
+        List<TimeSlice> daysToFetch = getIncompleteDays(symbol, interval, startTime, endTime);
+
+        if(daysToFetch.isEmpty()){
+            log.info("指定时间范围内的所有天数数据都已完整，无需获取");
+            return CompletableFuture.completedFuture(0);
+        }
+
+        log.info("需要获取的天数: {}", daysToFetch.size());
+
+        // 按不完整的天数创建任务列表
+        List<CompletableFuture<Integer>> dayFutures = new ArrayList<>();
+
+        for(TimeSlice daySlice: daysToFetch){
+            CompletableFuture<Integer> dayFuture = CompletableFuture.supplyAsync(() -> {
+                try{
+                    LocalDateTime dayStart = daySlice.getStart();
+                    LocalDateTime dayEnd = daySlice.getEnd();
+
+                    log.info("开始获取日期 {} 的数据", dayStart.toLocalDate());
+
+                    // 计算当天预期的数据点数量
+                    int expectedDayTotal = calculateExpectedDataPoints(interval, dayStart, dayEnd);
+                    log.info("预计需要获取的数据点数量: {}", expectedDayTotal);
+
+                    // 计算需要分成的批次数
+                    int requiredBatches = (int)Math.ceil((double)expectedDayTotal / batchSize);
+                    log.info("将分为{}个批次获取, 每批次{}条数据", requiredBatches, batchSize);
+
+                    // 创建当天的时间分片
+                    List<TimeSlice> timeSlices = createTimeSlices(interval, dayStart, dayEnd, requiredBatches);
+
+                    // 创建多线程任务列表
+                    List<CompletableFuture<List<CandlestickEntity>>> batchFutures = new ArrayList<>();
+
+                    for(TimeSlice slice: timeSlices){
+                        CompletableFuture<List<CandlestickEntity>> future = CompletableFuture.supplyAsync(() -> {
+                            try{
+                                log.debug("获取时间片段数据: {}", slice);
+                                List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
+                                    symbol, interval, toEpochMilli(slice.getStart().minusSeconds(1)), toEpochMilli(slice.getEnd().minusSeconds(1)), batchSize);
+
+                                // 转换为实体类
+                                List<CandlestickEntity> entities = convertToEntities(candlesticks, symbol, interval);
+                                log.debug("时间片段{}获取到{}条数据", slice, entities.size());
+
+                                // 保存数据
+                                return saveBatch(entities);
+                            }catch(Exception e){
+                                log.error("获取时间片段{}数据失败: {}", slice, e.getMessage(), e);
+                                // 记录失败的请求
+                                String key = slice.getStart().toString() + ":" + slice.getEnd().toString();
+                                failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                                return Collections.emptyList();
+                            }
+                        }, executorService);
+
+                        batchFutures.add(future);
+                    }
+
+                    // 合并当天所有批次的结果
+                    CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0])).join();
+
+                    int totalSaved = batchFutures.stream()
+                        .map(CompletableFuture :: join)
+                        .mapToInt(List :: size)
+                        .sum();
+
+                    log.info("完成日期 {} 的数据获取, 共保存{}条数据", dayStart.toLocalDate(), totalSaved);
+
+                    // 再次检查当天数据完整性
+                    boolean isComplete = isDayDataComplete(symbol, interval, dayStart, dayEnd);
+
+                    if(!isComplete){
+                        log.info("日期 {} 的数据仍不完整，尝试填充缺失数据点", dayStart.toLocalDate());
+                        List<LocalDateTime> missingTimes = checkDataIntegrity(symbol, interval, dayStart, dayEnd);
+
+                        if(!missingTimes.isEmpty()){
+                            log.info("日期 {} 有 {} 个缺失的数据点，尝试单点填充", dayStart.toLocalDate(), missingTimes.size());
+                            try {
+                                int filledCount = fillMissingData(symbol, interval, missingTimes).get();
+                                totalSaved += filledCount;
+                            } catch (Exception e) {
+                                log.error("填充缺失数据点失败: {}", e.getMessage(), e);
+                                // 记录失败的填充请求
+                                String key = dayStart.toString() + ":" + dayEnd.toString();
+                                failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                            }
+                        }
+                    }
+
+                    return totalSaved;
+                }catch(Exception e){
+                    log.error("获取日期 {} 的数据失败: {}", daySlice.getStart().toLocalDate(), e.getMessage(), e);
+                    // 记录整天失败的请求
+                    String key = daySlice.getStart().toString() + ":" + daySlice.getEnd().toString();
+                    failedRequests.compute(key, (k, v) -> (v == null) ? 1 : v + 1);
+                    return 0;
+                }
+            }, batchExecutorService);
+
+            dayFutures.add(dayFuture);
+        }
+
+        // 合并所有天数的任务结果
+        return CompletableFuture.allOf(dayFutures.toArray(new CompletableFuture[0]))
+            .thenApplyAsync(v -> {
+                int totalSaved = dayFutures.stream()
+                    .map(future -> {
+                        try{
+                            return future.get();
+                        }catch(Exception e){
+                            log.error("获取任务结果失败: {}", e.getMessage(), e);
+                            return 0;
+                        }
+                    })
+                    .mapToInt(Integer :: intValue)
+                    .sum();
+
+                log.info("完成所有不完整天数的历史数据获取, 共保存{}条数据", totalSaved);
+                return totalSaved;
+            }, executorService);
+    }
+
+    @Override
+    public CompletableFuture<Integer> fetchAndSaveTimeSliceWithFailureRecord(String symbol, String interval,
+                                                          LocalDateTime startTime, LocalDateTime endTime,
+                                                          ConcurrentMap<String, Integer> failedRequests) {
+        String sliceKey = startTime.toString() + ":" + endTime.toString();
+        log.info("开始获取时间片段数据（带失败记录）: symbol={}, interval={}, timeSlice={}", symbol, interval, sliceKey);
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // 获取原始数据
+                List<Candlestick> candlesticks = okxApiService.getHistoryKlineData(
+                    symbol, interval, toEpochMilli(startTime.minusSeconds(1)), toEpochMilli(endTime.minusSeconds(1)), batchSize);
+
+                if (candlesticks.isEmpty()) {
+                    log.warn("时间片段 {} 未获取到数据", sliceKey);
+                    // 记录失败请求
+                    failedRequests.compute(sliceKey, (k, v) -> (v == null) ? 1 : v + 1);
+                    return 0;
+                }
+
+                // 转换为实体并保存
+                List<CandlestickEntity> entities = convertToEntities(candlesticks, symbol, interval);
+                List<CandlestickEntity> savedEntities = saveBatch(entities);
+
+                log.info("时间片段 {} 成功保存 {} 条数据", sliceKey, savedEntities.size());
+
+                // 检查是否完整获取
+                List<LocalDateTime> expectedTimes = generateExpectedTimePoints(interval, startTime, endTime);
+                List<LocalDateTime> existingTimes = savedEntities.stream()
+                    .map(CandlestickEntity::getOpenTime)
+                    .collect(Collectors.toList());
+
+                Set<LocalDateTime> expectedSet = new HashSet<>(expectedTimes);
+                expectedSet.removeAll(existingTimes);
+
+                if (!expectedSet.isEmpty()) {
+                    log.warn("时间片段 {} 仍有 {} 个缺失的数据点", sliceKey, expectedSet.size());
+
+                    // 尝试直接填充缺失点
+                    List<LocalDateTime> missingTimes = new ArrayList<>(expectedSet);
+                    try {
+                        int filledCount = fillMissingData(symbol, interval, missingTimes).get();
+                        log.info("时间片段 {} 成功填充 {} 个缺失数据点", sliceKey, filledCount);
+                        return savedEntities.size() + filledCount;
+                    } catch (Exception e) {
+                        log.error("填充缺失数据点失败: {}", e.getMessage(), e);
+                        // 如果填充失败但原始获取成功，不记录失败
+                        return savedEntities.size();
+                    }
+                }
+
+                return savedEntities.size();
+            } catch (Exception e) {
+                log.error("获取时间片段 {} 数据失败: {}", sliceKey, e.getMessage(), e);
+                // 记录失败请求
+                failedRequests.compute(sliceKey, (k, v) -> (v == null) ? 1 : v + 1);
+                return 0;
+            }
+        }, executorService);
     }
 }
 

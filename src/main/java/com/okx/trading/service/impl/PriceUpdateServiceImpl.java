@@ -3,8 +3,9 @@ package com.okx.trading.service.impl;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.PriceUpdateService;
 import com.okx.trading.service.RedisCacheService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -23,11 +24,11 @@ import java.util.concurrent.CountDownLatch;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PriceUpdateServiceImpl implements PriceUpdateService {
 
     private final OkxApiService okxApiService;
     private final RedisCacheService redisCacheService;
+    private final ExecutorService executorService;
     
     /**
      * 价格更新线程
@@ -40,14 +41,21 @@ public class PriceUpdateServiceImpl implements PriceUpdateService {
     private final AtomicBoolean running = new AtomicBoolean(false);
     
     /**
-     * 线程池，用于执行价格更新任务
-     */
-    private final ExecutorService executorService = Executors.newFixedThreadPool(5);
-    
-    /**
      * 价格更新间隔（毫秒）
      */
     private static final long UPDATE_INTERVAL = 5000; // 5秒更新一次
+    
+    /**
+     * 构造函数，注入依赖
+     */
+    @Autowired
+    public PriceUpdateServiceImpl(OkxApiService okxApiService, 
+                                 RedisCacheService redisCacheService,
+                                 @Qualifier("priceUpdateExecutorService") ExecutorService executorService) {
+        this.okxApiService = okxApiService;
+        this.redisCacheService = redisCacheService;
+        this.executorService = executorService;
+    }
     
     /**
      * 应用启动时自动启动价格更新线程
