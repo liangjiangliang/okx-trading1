@@ -245,16 +245,18 @@ public class BacktestController {
     @GetMapping("/ta4j")
     @ApiOperation(value = "基于Ta4j的策略回测", notes = "使用Ta4j库进行策略回测")
     public ApiResponse<BacktestResultDTO> backtestWithTa4j(
-            @ApiParam(value = "交易对", required = true) @RequestParam String symbol,
-            @ApiParam(value = "时间间隔", required = true) @RequestParam String interval,
-            @ApiParam(value = "开始时间", required = true) 
+            @ApiParam(value = "交易对", required = true, type = "string") @RequestParam String symbol,
+            @ApiParam(value = "时间间隔", required = true, type = "string") @RequestParam String interval,
+            @ApiParam(value = "开始时间", required = true, type = "string") 
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true) 
+            @ApiParam(value = "结束时间", required = true, type = "string") 
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
-            @ApiParam(value = "策略类型", required = true) @RequestParam String strategyType,
-            @ApiParam(value = "策略参数", required = true) @RequestParam String strategyParams,
-            @ApiParam(value = "初始资金", required = true) @RequestParam BigDecimal initialAmount,
-            @ApiParam(value = "是否保存结果", required = false, defaultValue = "false") @RequestParam(defaultValue = "false") boolean saveResult) {
+            @ApiParam(value = "策略类型", required = true, type = "string") @RequestParam String strategyType,
+            @ApiParam(value = "策略参数", required = true, type = "string") @RequestParam String strategyParams,
+            @ApiParam(value = "初始资金", required = true, type = "number", format = "decimal") 
+                @RequestParam BigDecimal initialAmount,
+            @ApiParam(value = "是否保存结果", required = false, defaultValue = "false", type = "boolean") 
+                @RequestParam(defaultValue = "false") boolean saveResult) {
 
         log.info("开始执行回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}",
                 symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount);

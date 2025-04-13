@@ -36,6 +36,9 @@ spring:
     port: 6379
     database: 0
     timeout: 10000
+    repositories:
+      enabled: true
+      base-package: com.okx.trading.repository.redis
   # SpringFox兼容配置 - 解决与Spring Boot 2.7.x的兼容性问题
   mvc:
     pathmatch:

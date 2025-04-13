@@ -1,8 +1,14 @@
 package com.okx.trading.config;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.PathSelectors;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -13,10 +19,6 @@ import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger.web.SwaggerResource;
 import springfox.documentation.swagger.web.SwaggerResourcesProvider;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Swagger配置类
@@ -40,6 +42,9 @@ public class SwaggerConfig {
                 .apis(RequestHandlerSelectors.basePackage("com.okx.trading.controller"))
                 .paths(PathSelectors.any())
                 .build()
+                // 注册通用的数据类型，解决dataTypeClass为Void的问题
+                .directModelSubstitute(LocalDateTime.class, String.class)
+                .directModelSubstitute(BigDecimal.class, Double.class)
                 // 设置字符集为UTF-8，确保中文正常显示
                 .pathMapping("/");
     }
