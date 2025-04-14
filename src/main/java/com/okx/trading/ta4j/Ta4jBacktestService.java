@@ -14,25 +14,14 @@ import org.springframework.stereotype.Service;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BarSeriesManager;
-import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Position;
-import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
 import org.ta4j.core.TradingRecord;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
-import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.ta4j.strategy.StrategyFactory;
 
 /**
  * TA4J 回测服务类
@@ -42,20 +31,50 @@ public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
     
-    // 策略类型常量
-    public static final String STRATEGY_SMA = "SMA";
-    public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER";
+    // 策略类型常量 - 使用StrategyFactory中的常量
+    public static final String STRATEGY_SMA = StrategyFactory.STRATEGY_SMA;
+    public static final String STRATEGY_BOLLINGER_BANDS = StrategyFactory.STRATEGY_BOLLINGER_BANDS;
+    public static final String STRATEGY_MACD = StrategyFactory.STRATEGY_MACD;
+    public static final String STRATEGY_RSI = StrategyFactory.STRATEGY_RSI;
+    public static final String STRATEGY_STOCHASTIC = StrategyFactory.STRATEGY_STOCHASTIC;
+    public static final String STRATEGY_ADX = StrategyFactory.STRATEGY_ADX;
+    public static final String STRATEGY_CCI = StrategyFactory.STRATEGY_CCI;
+    public static final String STRATEGY_WILLIAMS_R = StrategyFactory.STRATEGY_WILLIAMS_R;
+    public static final String STRATEGY_TRIPLE_EMA = StrategyFactory.STRATEGY_TRIPLE_EMA;
+    public static final String STRATEGY_ICHIMOKU = StrategyFactory.STRATEGY_ICHIMOKU;
+    public static final String STRATEGY_PARABOLIC_SAR = StrategyFactory.STRATEGY_PARABOLIC_SAR;
+    public static final String STRATEGY_CHANDELIER_EXIT = StrategyFactory.STRATEGY_CHANDELIER_EXIT;
     
-    // 策略参数说明
-    public static final String SMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String BOLLINGER_PARAMS_DESC = "周期,标准差倍数 (例如：20,2.0)";
+    // 策略参数说明 - 使用StrategyFactory中的常量
+    public static final String SMA_PARAMS_DESC = StrategyFactory.SMA_PARAMS_DESC;
+    public static final String BOLLINGER_PARAMS_DESC = StrategyFactory.BOLLINGER_PARAMS_DESC;
+    public static final String MACD_PARAMS_DESC = StrategyFactory.MACD_PARAMS_DESC;
+    public static final String RSI_PARAMS_DESC = StrategyFactory.RSI_PARAMS_DESC;
+    public static final String STOCHASTIC_PARAMS_DESC = StrategyFactory.STOCHASTIC_PARAMS_DESC;
+    public static final String ADX_PARAMS_DESC = StrategyFactory.ADX_PARAMS_DESC;
+    public static final String CCI_PARAMS_DESC = StrategyFactory.CCI_PARAMS_DESC;
+    public static final String WILLIAMS_R_PARAMS_DESC = StrategyFactory.WILLIAMS_R_PARAMS_DESC;
+    public static final String TRIPLE_EMA_PARAMS_DESC = StrategyFactory.TRIPLE_EMA_PARAMS_DESC;
+    public static final String ICHIMOKU_PARAMS_DESC = StrategyFactory.ICHIMOKU_PARAMS_DESC;
+    public static final String PARABOLIC_SAR_PARAMS_DESC = StrategyFactory.PARABOLIC_SAR_PARAMS_DESC;
+    public static final String CHANDELIER_EXIT_PARAMS_DESC = StrategyFactory.CHANDELIER_EXIT_PARAMS_DESC;
     
     /**
-     * 策略类型枚举
+     * 策略类型枚举 - 扩展以包含所有策略
      */
     public enum StrategyType {
         SMA,
-        BOLLINGER_BANDS
+        BOLLINGER_BANDS,
+        MACD,
+        RSI,
+        STOCHASTIC,
+        ADX,
+        CCI,
+        WILLIAMS_R,
+        TRIPLE_EMA,
+        ICHIMOKU,
+        PARABOLIC_SAR,
+        CHANDELIER_EXIT
     }
 
     @Autowired
@@ -65,7 +84,7 @@ public class Ta4jBacktestService {
      * 执行回测
      *
      * @param candlesticks 历史K线数据
-     * @param strategyType 策略类型 (SMA, BOLLINGER)
+     * @param strategyType 策略类型
      * @param initialAmount 初始资金
      * @param params 策略参数
      * @return 回测结果
@@ -86,44 +105,15 @@ public class Ta4jBacktestService {
             
             // 使用转换器将蜡烛图实体转换为条形系列
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
+
+            // 使用策略工厂解析参数
+            Map<String, Object> paramMap = StrategyFactory.parseParams(strategyType, params);
             
-            Strategy strategy;
-            String strategyDescription;
-            
-            // 根据策略类型创建不同的策略
-            switch (strategyType.toUpperCase()) {
-                case STRATEGY_SMA:
-                    int shortPeriod = 9;
-                    int longPeriod = 21;
-                    if (params != null && !params.isEmpty()) {
-                        String[] paramArray = params.split(",");
-                        if (paramArray.length >= 2) {
-                            shortPeriod = Integer.parseInt(paramArray[0]);
-                            longPeriod = Integer.parseInt(paramArray[1]);
-                        }
-                    }
-                    strategy = createSMAStrategy(series, shortPeriod, longPeriod);
-                    strategyDescription = "SMA Cross Strategy (" + shortPeriod + "," + longPeriod + ")";
-                    break;
-                case STRATEGY_BOLLINGER_BANDS:
-                    int period = 20;
-                    double multiplier = 2.0;
-                    if (params != null && !params.isEmpty()) {
-                        String[] paramArray = params.split(",");
-                        if (paramArray.length >= 2) {
-                            period = Integer.parseInt(paramArray[0]);
-                            multiplier = Double.parseDouble(paramArray[1]);
-                        }
-                    }
-                    strategy = createBollingerBandsStrategy(series, period, multiplier);
-                    strategyDescription = "Bollinger Bands Strategy (" + period + "," + multiplier + ")";
-                    break;
-                default:
-                    BacktestResultDTO result = new BacktestResultDTO();
-                    result.setSuccess(false);
-                    result.setErrorMessage("不支持的策略类型: " + strategyType);
-                    return result;
-            }
+            // 使用策略工厂创建策略
+            Strategy strategy = StrategyFactory.createStrategy(series, strategyType, paramMap);
+
+            // 构建策略描述
+            String strategyDescription = createStrategyDescription(strategyType, paramMap);
             
             // 执行回测
             BarSeriesManager seriesManager = new BarSeriesManager(series);
@@ -141,6 +131,129 @@ public class Ta4jBacktestService {
     }
     
     /**
+     * 创建策略描述
+     * 
+     * @param strategyType 策略类型
+     * @param params 参数映射
+     * @return 策略描述
+     */
+    private String createStrategyDescription(String strategyType, Map<String, Object> params) {
+        StringBuilder descBuilder = new StringBuilder();
+        
+        switch (strategyType) {
+            case STRATEGY_SMA:
+                descBuilder.append("SMA Cross Strategy (")
+                        .append(params.get("shortPeriod"))
+                        .append(",")
+                        .append(params.get("longPeriod"))
+                        .append(")");
+                break;
+            case STRATEGY_BOLLINGER_BANDS:
+                descBuilder.append("Bollinger Bands Strategy (")
+                        .append(params.get("period"))
+                        .append(",")
+                        .append(params.get("deviation"))
+                        .append(")");
+                break;
+            case STRATEGY_MACD:
+                descBuilder.append("MACD Strategy (")
+                        .append(params.get("shortPeriod"))
+                        .append(",")
+                        .append(params.get("longPeriod"))
+                        .append(",")
+                        .append(params.get("signalPeriod"))
+                        .append(")");
+                break;
+            case STRATEGY_RSI:
+                descBuilder.append("RSI Strategy (")
+                        .append(params.get("period"))
+                        .append(",")
+                        .append(params.get("oversold"))
+                        .append(",")
+                        .append(params.get("overbought"))
+                        .append(")");
+                break;
+            case STRATEGY_STOCHASTIC:
+                descBuilder.append("Stochastic Oscillator Strategy (")
+                        .append(params.get("kPeriod"))
+                        .append(",")
+                        .append(params.get("kSmooth"))
+                        .append(",")
+                        .append(params.get("dSmooth"))
+                        .append(",")
+                        .append(params.get("oversold"))
+                        .append(",")
+                        .append(params.get("overbought"))
+                        .append(")");
+                break;
+            case STRATEGY_ADX:
+                descBuilder.append("ADX Strategy (")
+                        .append(params.get("adxPeriod"))
+                        .append(",")
+                        .append(params.get("diPeriod"))
+                        .append(",")
+                        .append(params.get("threshold"))
+                        .append(")");
+                break;
+            case STRATEGY_CCI:
+                descBuilder.append("CCI Strategy (")
+                        .append(params.get("period"))
+                        .append(",")
+                        .append(params.get("oversold"))
+                        .append(",")
+                        .append(params.get("overbought"))
+                        .append(")");
+                break;
+            case STRATEGY_WILLIAMS_R:
+                descBuilder.append("Williams %R Strategy (")
+                        .append(params.get("period"))
+                        .append(",")
+                        .append(params.get("oversold"))
+                        .append(",")
+                        .append(params.get("overbought"))
+                        .append(")");
+                break;
+            case STRATEGY_TRIPLE_EMA:
+                descBuilder.append("Triple EMA Strategy (")
+                        .append(params.get("shortPeriod"))
+                        .append(",")
+                        .append(params.get("middlePeriod"))
+                        .append(",")
+                        .append(params.get("longPeriod"))
+                        .append(")");
+                break;
+            case STRATEGY_ICHIMOKU:
+                descBuilder.append("Ichimoku Cloud Strategy (")
+                        .append(params.get("conversionPeriod"))
+                        .append(",")
+                        .append(params.get("basePeriod"))
+                        .append(",")
+                        .append(params.get("laggingSpan"))
+                        .append(")");
+                break;
+            case STRATEGY_PARABOLIC_SAR:
+                descBuilder.append("Parabolic SAR Strategy (")
+                        .append(params.get("step"))
+                        .append(",")
+                        .append(params.get("max"))
+                        .append(")");
+                break;
+            case STRATEGY_CHANDELIER_EXIT:
+                descBuilder.append("Chandelier Exit Strategy (")
+                        .append(params.get("period"))
+                        .append(",")
+                        .append(params.get("multiplier"))
+                        .append(")");
+                break;
+            default:
+                descBuilder.append(strategyType).append(" Strategy");
+                break;
+        }
+        
+        return descBuilder.toString();
+    }
+    
+    /**
      * 执行回测（基于枚举和Map参数）
      *
      * @param candlesticks  历史K线数据
@@ -152,20 +265,56 @@ public class Ta4jBacktestService {
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, StrategyType strategyType, 
                                    Map<String, Object> params, double initialAmount) {
         String strategyTypeStr;
-        String paramsStr = "";
+        String paramsStr;
         
         switch (strategyType) {
             case SMA:
                 strategyTypeStr = STRATEGY_SMA;
-                if (params.containsKey("shortPeriod") && params.containsKey("longPeriod")) {
-                    paramsStr = params.get("shortPeriod") + "," + params.get("longPeriod");
-                }
+                paramsStr = buildParamsString(params, "shortPeriod", "longPeriod");
                 break;
             case BOLLINGER_BANDS:
                 strategyTypeStr = STRATEGY_BOLLINGER_BANDS;
-                if (params.containsKey("period") && params.containsKey("deviation")) {
-                    paramsStr = params.get("period") + "," + params.get("deviation");
-                }
+                paramsStr = buildParamsString(params, "period", "deviation");
+                break;
+            case MACD:
+                strategyTypeStr = STRATEGY_MACD;
+                paramsStr = buildParamsString(params, "shortPeriod", "longPeriod", "signalPeriod");
+                break;
+            case RSI:
+                strategyTypeStr = STRATEGY_RSI;
+                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
+                break;
+            case STOCHASTIC:
+                strategyTypeStr = STRATEGY_STOCHASTIC;
+                paramsStr = buildParamsString(params, "kPeriod", "kSmooth", "dSmooth", "oversold", "overbought");
+                break;
+            case ADX:
+                strategyTypeStr = STRATEGY_ADX;
+                paramsStr = buildParamsString(params, "adxPeriod", "diPeriod", "threshold");
+                break;
+            case CCI:
+                strategyTypeStr = STRATEGY_CCI;
+                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
+                break;
+            case WILLIAMS_R:
+                strategyTypeStr = STRATEGY_WILLIAMS_R;
+                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
+                break;
+            case TRIPLE_EMA:
+                strategyTypeStr = STRATEGY_TRIPLE_EMA;
+                paramsStr = buildParamsString(params, "shortPeriod", "middlePeriod", "longPeriod");
+                break;
+            case ICHIMOKU:
+                strategyTypeStr = STRATEGY_ICHIMOKU;
+                paramsStr = buildParamsString(params, "conversionPeriod", "basePeriod", "laggingSpan");
+                break;
+            case PARABOLIC_SAR:
+                strategyTypeStr = STRATEGY_PARABOLIC_SAR;
+                paramsStr = buildParamsString(params, "step", "max");
+                break;
+            case CHANDELIER_EXIT:
+                strategyTypeStr = STRATEGY_CHANDELIER_EXIT;
+                paramsStr = buildParamsString(params, "period", "multiplier");
                 break;
             default:
                 BacktestResultDTO result = new BacktestResultDTO();
@@ -176,69 +325,29 @@ public class Ta4jBacktestService {
         
         return backtest(candlesticks, strategyTypeStr, new BigDecimal(initialAmount), paramsStr);
     }
-
+    
     /**
-     * 创建SMA交叉策略
-     *
-     * @param series BarSeries对象
-     * @param shortPeriod 短周期
-     * @param longPeriod 长周期
-     * @return 策略对象
+     * 根据参数键构建参数字符串
+     * 
+     * @param params 参数映射
+     * @param keys 参数键数组
+     * @return 参数字符串
      */
-    private Strategy createSMAStrategy(BarSeries series, int shortPeriod, int longPeriod) {
-        if (series == null) {
-            throw new IllegalArgumentException("BarSeries不能为null");
+    private String buildParamsString(Map<String, Object> params, String... keys) {
+        StringBuilder paramsStr = new StringBuilder();
+        boolean firstParam = true;
+        
+        for (String key : keys) {
+            if (params.containsKey(key)) {
+                if (!firstParam) {
+                    paramsStr.append(",");
+                }
+                paramsStr.append(params.get(key));
+                firstParam = false;
+            }
         }
         
-        if (series.getBarCount() <= longPeriod) {
-            throw new IllegalArgumentException("数据点不足以计算指标");
-        }
-        
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
-        // 创建短期和长期SMA指标
-        SMAIndicator shortSma = new SMAIndicator(closePrice, shortPeriod);
-        SMAIndicator longSma = new SMAIndicator(closePrice, longPeriod);
-        
-        // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(shortSma, longSma); // 短期均线上穿长期均线，买入信号
-        Rule exitRule = new CrossedDownIndicatorRule(shortSma, longSma); // 短期均线下穿长期均线，卖出信号
-        
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    /**
-     * 创建布林带策略
-     *
-     * @param series BarSeries对象
-     * @param period 周期
-     * @param multiplier 标准差乘数
-     * @return 策略对象
-     */
-    private Strategy createBollingerBandsStrategy(BarSeries series, int period, double multiplier) {
-        if (series == null) {
-            throw new IllegalArgumentException("BarSeries不能为null");
-        }
-        
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标");
-        }
-        
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
-        // 创建布林带指标
-        SMAIndicator sma = new SMAIndicator(closePrice, period);
-        StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, period);
-        
-        BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
-        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(multiplier));
-        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(multiplier));
-        
-        // 创建规则
-        Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand); // 价格低于下轨，买入信号
-        Rule exitRule = new OverIndicatorRule(closePrice, upperBand);   // 价格高于上轨，卖出信号
-        
-        return new BaseStrategy(entryRule, exitRule);
+        return paramsStr.toString();
     }
 
     /**
@@ -470,14 +579,7 @@ public class Ta4jBacktestService {
      * @return 策略参数说明
      */
     public static String getStrategyParamsDescription(String strategyType) {
-        switch (strategyType) {
-            case STRATEGY_SMA:
-                return SMA_PARAMS_DESC;
-            case STRATEGY_BOLLINGER_BANDS:
-                return BOLLINGER_PARAMS_DESC;
-            default:
-                return "未知策略类型";
-        }
+        return StrategyFactory.getStrategyParamsDescription(strategyType);
     }
     
     /**
@@ -488,41 +590,6 @@ public class Ta4jBacktestService {
      * @return 是否合法
      */
     public static boolean validateStrategyParams(String strategyType, String params) {
-        if (params == null || params.trim().isEmpty()) {
-            return false;
-        }
-        
-        String[] paramArray = params.split(",");
-        
-        switch (strategyType) {
-            case STRATEGY_SMA:
-                // SMA策略参数: 短期均线周期,长期均线周期
-                if (paramArray.length != 2) {
-                    return false;
-                }
-                try {
-                    int shortPeriod = Integer.parseInt(paramArray[0]);
-                    int longPeriod = Integer.parseInt(paramArray[1]);
-                    return shortPeriod > 0 && longPeriod > shortPeriod;
-                } catch (NumberFormatException e) {
-                    return false;
-                }
-                
-            case STRATEGY_BOLLINGER_BANDS:
-                // 布林带策略参数: 周期,标准差倍数
-                if (paramArray.length != 2) {
-                    return false;
-                }
-                try {
-                    int period = Integer.parseInt(paramArray[0]);
-                    double stdDev = Double.parseDouble(paramArray[1]);
-                    return period > 0 && stdDev > 0;
-                } catch (NumberFormatException e) {
-                    return false;
-                }
-                
-            default:
-                return false;
-        }
+        return StrategyFactory.validateStrategyParams(strategyType, params);
     }
 }

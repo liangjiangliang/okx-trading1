@@ -1,33 +1,36 @@
 package com.okx.trading.ta4j;
 
-import com.okx.trading.model.dto.BacktestResultDTO;
-import com.okx.trading.model.entity.CandlestickEntity;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.ta4j.core.*;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.num.DecimalNum;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.ta4j.core.Bar;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.BaseBar;
+import org.ta4j.core.BaseBarSeries;
+import org.ta4j.core.num.DecimalNum;
+
+import com.okx.trading.model.dto.BacktestResultDTO;
+import com.okx.trading.model.entity.CandlestickEntity;
 
 /**
  * Ta4j回测服务测试类
@@ -50,9 +53,9 @@ public class Ta4jBacktestServiceTest {
         mockCandlesticks = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
             CandlestickEntity candlestick = mock(CandlestickEntity.class);
-            // 设置必要的mock行为
-            when(CandlestickAdapter.getSymbol(candlestick)).thenReturn("BTC-USDT");
-            when(CandlestickAdapter.getIntervalVal(candlestick)).thenReturn("1h");
+            // 使用lenient()包装以避免不必要的stubbing警告
+            lenient().when(CandlestickAdapter.getSymbol(candlestick)).thenReturn("BTC-USDT");
+            lenient().when(CandlestickAdapter.getIntervalVal(candlestick)).thenReturn("1h");
             mockCandlesticks.add(candlestick);
         }
 
@@ -112,6 +115,33 @@ public class Ta4jBacktestServiceTest {
         assertNotNull(result.getWinRate());
         assertNotNull(result.getTrades());
         assertEquals(Ta4jBacktestService.STRATEGY_BOLLINGER_BANDS, result.getStrategyName());
+
+        // 验证converter被调用
+        verify(converter).convert(eq(mockCandlesticks), anyString());
+    }
+    
+    @Test
+    public void testBacktest_WithChandelierExitStrategy_ShouldReturnResultDTO() {
+        // 准备
+        BigDecimal initialAmount = new BigDecimal("10000");
+        String params = "22,3.0"; // period=22, multiplier=3.0
+
+        // 执行
+        BacktestResultDTO result = ta4jBacktestService.backtest(
+                mockCandlesticks, 
+                Ta4jBacktestService.STRATEGY_CHANDELIER_EXIT, 
+                initialAmount, 
+                params);
+
+        // 验证
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        assertEquals(initialAmount, result.getInitialAmount());
+        assertNotNull(result.getTotalProfit());
+        assertNotNull(result.getTotalReturn());
+        assertNotNull(result.getWinRate());
+        assertNotNull(result.getTrades());
+        assertEquals(Ta4jBacktestService.STRATEGY_CHANDELIER_EXIT, result.getStrategyName());
 
         // 验证converter被调用
         verify(converter).convert(eq(mockCandlesticks), anyString());
