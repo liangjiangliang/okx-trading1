@@ -100,6 +100,18 @@ public interface HistoricalDataService {
     CompletableFuture<Integer> fillMissingData(String symbol, String interval, List<LocalDateTime> missingTimes);
 
     /**
+     * 单独获取缺失的数据点，同时记录失败的请求
+     *
+     * @param symbol       交易对，如BTC-USDT
+     * @param interval     K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param missingTimes 缺失的时间点列表
+     * @param failedRequests 用于记录失败请求的并发Map
+     * @return 填补的数据点数量
+     */
+    CompletableFuture<Integer> fillMissingData(String symbol, String interval, List<LocalDateTime> missingTimes,
+                                              ConcurrentMap<String, Integer> failedRequests);
+
+    /**
      * 获取指定交易对和间隔的最新K线数据
      *
      * @param symbol    交易对，如BTC-USDT

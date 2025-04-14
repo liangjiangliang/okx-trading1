@@ -269,6 +269,7 @@ public class MarketController{
      * @param startTimeStr 开始时间 (yyyy-MM-dd HH:mm:ss)
      * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
      * @param maxRetries   最大重试次数
+     * @param maxExecutions 最大执行次数，每次执行包含maxRetries次重试。默认为10
      * @return 操作结果
      */
     @ApiOperation(value = "获取历史K线数据并保存，自动检查并补充缺失数据", notes = "获取并保存指定交易对的历史K线数据，检查数据完整性并自动按天分组递归获取缺失数据")
@@ -279,7 +280,8 @@ public class MarketController{
             allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
         @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
         @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "maxRetries", value = "最大重试次数", required = false, dataType = "Integer", example = "3", paramType = "query")
+        @ApiImplicitParam(name = "maxRetries", value = "每次执行中的最大重试次数", required = false, dataType = "Integer", example = "3", paramType = "query"),
+        @ApiImplicitParam(name = "maxExecutions", value = "最大执行次数，直到数据完整或达到此次数", required = false, dataType = "Integer", example = "10", paramType = "query")
     })
     @GetMapping("/fetch_history_with_integrity_check")
     public ApiResponse<String> fetchAndSaveHistoryWithIntegrityCheck(
@@ -287,10 +289,11 @@ public class MarketController{
         @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
         @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
         @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr,
-        @RequestParam(required = false, defaultValue = "3") Integer maxRetries){
+        @RequestParam(required = false, defaultValue = "3") Integer maxRetries,
+        @RequestParam(required = false, defaultValue = "10") Integer maxExecutions){
 
-        log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}, 最大重试次数: {}",
-            symbol, interval, startTimeStr, endTimeStr, maxRetries);
+        log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}, 每次执行最大重试次数: {}, 最大执行次数: {}",
+            symbol, interval, startTimeStr, endTimeStr, maxRetries, maxExecutions);
 
         try{
             // 将字符串时间转换为LocalDateTime
@@ -303,101 +306,136 @@ public class MarketController{
             long expectedDataPoints = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
             log.info("预期获取的数据点总数: {}", expectedDataPoints);
 
-            // 创建一个ConcurrentHashMap来记录失败的请求
-            ConcurrentMap<String, Integer> failedRequests = new ConcurrentHashMap<>();
-            
             // 记录初始请求开始时间
             long startTimestamp = System.currentTimeMillis();
 
-            // 异步执行数据获取任务，该方法会自动进行数据完整性检查
-            CompletableFuture<Integer> future = historicalDataService.fetchAndSaveHistoricalDataWithFailureRecord(
-                symbol, interval, startTime, endTime, failedRequests);
-
-            // 创建一个后台线程来等待结果并处理失败的请求
+            // 异步执行数据获取任务
             CompletableFuture.runAsync(() -> {
-                try{
-                    // 等待初始请求完成
-                    int dataCount = future.get();
-                    log.info("初始历史数据获取任务完成，共获取{}条数据", dataCount);
+                try {
+                    // 多次执行，直到数据完整或达到最大执行次数
+                    int executionCount = 0;
+                    List<LocalDateTime> missingPoints = new ArrayList<>();
+                    int totalDataCount = 0;
                     
-                    // 如果有失败的请求，进行重试
-                    int retryCount = 0;
-                    while(!failedRequests.isEmpty() && retryCount < maxRetries) {
-                        retryCount++;
-                        log.info("第{}次重试，处理{}个失败的请求", retryCount, failedRequests.size());
+                    do {
+                        executionCount++;
+                        log.info("第 {} 次执行数据获取流程", executionCount);
                         
-                        // 复制当前失败请求列表进行重试
-                        Map<String, Integer> currentFailures = new HashMap<>(failedRequests);
-                        failedRequests.clear(); // 清空列表，准备记录本次重试中的失败
+                        // 创建一个ConcurrentHashMap来记录失败的请求
+                        ConcurrentMap<String, Integer> failedRequests = new ConcurrentHashMap<>();
                         
-                        // 为每个失败的请求创建重试任务
-                        List<CompletableFuture<Integer>> retryFutures = new ArrayList<>();
-                        for(Map.Entry<String, Integer> entry : currentFailures.entrySet()) {
-                            String[] parts = entry.getKey().split(":");
-                            if(parts.length == 2) {
-                                LocalDateTime sliceStart = LocalDateTime.parse(parts[0]);
-                                LocalDateTime sliceEnd = LocalDateTime.parse(parts[1]);
-                                
-                                CompletableFuture<Integer> retryFuture = historicalDataService.fetchAndSaveTimeSliceWithFailureRecord(
-                                    symbol, interval, sliceStart, sliceEnd, failedRequests);
-                                retryFutures.add(retryFuture);
-                            }
+                        // 执行初始数据获取
+                        CompletableFuture<Integer> future;
+                        if (executionCount == 1 || missingPoints.isEmpty()) {
+                            // 首次执行或没有特定缺失点时，获取整个时间范围
+                            future = historicalDataService.fetchAndSaveHistoricalDataWithFailureRecord(
+                                symbol, interval, startTime, endTime, failedRequests);
+                        } else {
+                            // 有缺失点时，只获取缺失的数据
+                            log.info("针对性获取 {} 个缺失数据点", missingPoints.size());
+                            future = historicalDataService.fillMissingData(symbol, interval, missingPoints, failedRequests);
                         }
                         
-                        // 等待所有重试任务完成
-                        CompletableFuture.allOf(retryFutures.toArray(new CompletableFuture[0])).join();
+                        // 等待初始请求完成
+                        int dataCount = future.get();
+                        log.info("第 {} 次执行初始数据获取完成，获取 {} 条数据", executionCount, dataCount);
+                        totalDataCount += dataCount;
                         
-                        // 计算重试获取的数据量
-                        int retryDataCount = retryFutures.stream()
-                            .map(f -> {
-                                try {
-                                    return f.get();
-                                } catch (Exception e) {
-                                    log.error("获取重试任务结果失败", e);
-                                    return 0;
+                        // 重试机制 - 处理失败的请求
+                        int retryCount = 0;
+                        while (!failedRequests.isEmpty() && retryCount < maxRetries) {
+                            retryCount++;
+                            log.info("执行 {} - 第 {} 次重试，处理 {} 个失败的请求", executionCount, retryCount, failedRequests.size());
+                            
+                            // 复制当前失败请求列表进行重试
+                            Map<String, Integer> currentFailures = new HashMap<>(failedRequests);
+                            failedRequests.clear(); // 清空列表，准备记录本次重试中的失败
+                            
+                            // 为每个失败的请求创建重试任务
+                            List<CompletableFuture<Integer>> retryFutures = new ArrayList<>();
+                            for (Map.Entry<String, Integer> entry : currentFailures.entrySet()) {
+                                String[] parts = entry.getKey().split(":");
+                                if (parts.length == 2) {
+                                    LocalDateTime sliceStart = LocalDateTime.parse(parts[0]);
+                                    LocalDateTime sliceEnd = LocalDateTime.parse(parts[1]);
+                                    
+                                    CompletableFuture<Integer> retryFuture = historicalDataService.fetchAndSaveTimeSliceWithFailureRecord(
+                                        symbol, interval, sliceStart, sliceEnd, failedRequests);
+                                    retryFutures.add(retryFuture);
                                 }
-                            })
-                            .mapToInt(Integer::intValue)
-                            .sum();
+                            }
+                            
+                            // 等待所有重试任务完成
+                            CompletableFuture.allOf(retryFutures.toArray(new CompletableFuture[0])).join();
+                            
+                            // 计算重试获取的数据量
+                            int retryDataCount = retryFutures.stream()
+                                .map(f -> {
+                                    try {
+                                        return f.get();
+                                    } catch (Exception e) {
+                                        log.error("获取重试任务结果失败", e);
+                                        return 0;
+                                    }
+                                })
+                                .mapToInt(Integer::intValue)
+                                .sum();
+                            
+                            totalDataCount += retryDataCount;
+                            log.info("执行 {} - 第 {} 次重试完成，此次获取 {} 条数据，累计 {} 条数据，剩余 {} 个失败请求", 
+                                executionCount, retryCount, retryDataCount, totalDataCount, failedRequests.size());
+                        }
                         
-                        dataCount += retryDataCount;
-                        log.info("第{}次重试完成，此次获取{}条数据，累计{}条数据，剩余{}个失败请求", 
-                            retryCount, retryDataCount, dataCount, failedRequests.size());
-                    }
+                        // 检查整体数据完整性
+                        missingPoints = historicalDataService.checkDataIntegrity(symbol, interval, startTime, endTime);
+                        log.info("执行 {} 完成后，仍有 {} 个数据点缺失", executionCount, missingPoints.size());
+                        
+                        // 如果已经达到数据完整（没有缺失点）或者达到最大执行次数，则跳出循环
+                    } while (!missingPoints.isEmpty() && executionCount < maxExecutions);
                     
                     // 完成后检查整体数据完整性
                     List<LocalDateTime> finalMissingPoints = historicalDataService.checkDataIntegrity(
                         symbol, interval, startTime, endTime);
                     
+                    // 获取实际存储的数据量
+                    List<CandlestickEntity> storedData = historicalDataService.getHistoricalData(
+                        symbol, interval, startTime, endTime);
+                    int actualDataCount = storedData.size();
+                    
                     // 计算总耗时
                     long totalTimeMillis = System.currentTimeMillis() - startTimestamp;
                     
                     // 打印最终统计信息
-                    log.info("=== 历史数据获取任务统计 ===");
+                    log.info("=== 历史数据获取任务最终统计 ===");
                     log.info("交易对: {}, 时间间隔: {}", symbol, interval);
                     log.info("时间范围: {} 至 {}", startTimeStr, endTimeStr);
                     log.info("预期数据点: {}", expectedDataPoints);
-                    log.info("实际获取: {}", dataCount);
-                    log.info("成功率: {}%", String.format("%.2f", (dataCount * 100.0 / expectedDataPoints)));
+                    log.info("实际存储数量: {}", actualDataCount);
+                    log.info("成功率: {}%", String.format("%.2f", (actualDataCount * 100.0 / expectedDataPoints)));
                     log.info("仍然缺失: {}", finalMissingPoints.size());
-                    log.info("重试次数: {}/{}", retryCount, maxRetries);
+                    log.info("总执行次数: {}/{}", executionCount, maxExecutions);
                     log.info("总耗时: {}秒", totalTimeMillis / 1000);
-                    log.info("失败请求数: {}", failedRequests.size());
-                    if(!failedRequests.isEmpty()) {
-                        log.info("失败请求清单 (前10个):");
-                        failedRequests.entrySet().stream()
-                            .limit(10)
-                            .forEach(entry -> log.info("  {} - 失败{}次", entry.getKey(), entry.getValue()));
+                    
+                    if (!finalMissingPoints.isEmpty()) {
+                        log.info("最终缺失点列表 (前20个):");
+                        finalMissingPoints.stream()
+                            .limit(20)
+                            .forEach(time -> log.info("  {}", time));
                     }
+                    
+                    String completionStatus = finalMissingPoints.isEmpty() ? 
+                        "数据已完整获取" : 
+                        String.format("任务完成但仍有 %d 个数据点缺失", finalMissingPoints.size());
+                    log.info(completionStatus);
                     log.info("===========================");
                     
-                }catch(Exception e){
+                } catch (Exception e) {
                     log.error("历史数据获取任务异常", e);
                 }
             });
 
-            return ApiResponse.success("历史数据获取任务已启动，包含完整性检查和失败请求重试机制，请稍后查询数据");
-        }catch(Exception e){
+            return ApiResponse.success("历史数据获取任务已启动，包含完整性检查和失败请求重试机制，最多执行 " + maxExecutions + " 次，请稍后查询数据");
+        } catch (Exception e) {
             log.error("获取历史K线数据失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
         }
