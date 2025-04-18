@@ -1,7 +1,10 @@
 package com.okx.trading.service.impl;
 
 import com.okx.trading.event.CoinSubscriptionEvent;
+import com.okx.trading.model.market.Candlestick;
+import com.okx.trading.model.market.Ticker;
 import com.okx.trading.service.RedisCacheService;
+import com.okx.trading.util.TechnicalIndicatorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -9,6 +12,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -21,9 +25,9 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class RedisCacheServiceImpl implements RedisCacheService {
+public class RedisCacheServiceImpl implements RedisCacheService{
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String,Object> redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -31,6 +35,8 @@ public class RedisCacheServiceImpl implements RedisCacheService {
      */
     private static final String COIN_PRICE_KEY = "coin-rt-price";
 
+
+    private static final String COIN_KLINE_PREFIX_KEY = "coin-rt-kline:";
     /**
      * Redis中订阅币种列表的key
      */
@@ -40,6 +46,7 @@ public class RedisCacheServiceImpl implements RedisCacheService {
      * 默认订阅的币种
      */
     private static final String[] DEFAULT_COINS = {"BTC-USDT", "ETH-USDT", "SOL-USDT"};
+
 
     @Override
     public void updateCoinPrice(String symbol, BigDecimal price) {
@@ -51,70 +58,88 @@ public class RedisCacheServiceImpl implements RedisCacheService {
         } catch (Exception e) {
             log.error("更新币种实时价格到Redis失败: {}", e.getMessage(), e);
         }
+
     }
 
     @Override
-    public Map<String, BigDecimal> getAllCoinPrices() {
-        try {
+    public void updateCandlestick(Candlestick candlestick){
+        try{
+            String key = COIN_KLINE_PREFIX_KEY + candlestick.getSymbol() + ":" + candlestick.getInterval();
+            long openTime = candlestick.getOpenTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            double parseDouble = Double.parseDouble(String.valueOf(openTime));
+            Set<Object> exist = redisTemplate.opsForZSet().rangeByScore(key, parseDouble, parseDouble);
+            if(! exist.isEmpty()){
+                redisTemplate.opsForZSet().removeRangeByScore(key, parseDouble, parseDouble);
+            }
+            redisTemplate.opsForZSet().add(key, candlestick, parseDouble);
+        }catch(Exception e){
+            log.error("更新币种实时K线到Redis失败: {} {},", candlestick, e.getMessage(), e);
+        }
+
+    }
+
+    @Override
+    public Map<String,BigDecimal> getAllCoinPrices(){
+        try{
             // 获取所有币种价格
             // HGETALL coin-rt-price
-            Map<Object, Object> entries = redisTemplate.opsForHash().entries(COIN_PRICE_KEY);
-            Map<String, BigDecimal> result = new HashMap<>(entries.size());
+            Map<Object,Object> entries = redisTemplate.opsForHash().entries(COIN_PRICE_KEY);
+            Map<String,BigDecimal> result = new HashMap<>(entries.size());
 
             // 转换类型
-            for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+            for(Map.Entry<Object,Object> entry: entries.entrySet()){
                 String symbol = entry.getKey().toString();
                 BigDecimal price = new BigDecimal(entry.getValue().toString());
                 result.put(symbol, price);
             }
 
             return result;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("从Redis获取所有币种实时价格失败: {}", e.getMessage(), e);
             return new HashMap<>();
         }
     }
 
     @Override
-    public BigDecimal getCoinPrice(String symbol) {
-        try {
+    public BigDecimal getCoinPrice(String symbol){
+        try{
             // 获取指定币种价格
             // HGET coin-rt-price BTC-USDT
             Object value = redisTemplate.opsForHash().get(COIN_PRICE_KEY, symbol);
-            if (value != null) {
+            if(value != null){
                 return new BigDecimal(value.toString());
             }
             return null;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("从Redis获取币种 {} 实时价格失败: {}", symbol, e.getMessage(), e);
             return null;
         }
     }
 
     @Override
-    public Set<String> getSubscribedCoins() {
-        try {
+    public Set<String> getSubscribedCoins(){
+        try{
             // 获取所有订阅的币种
             // SMEMBERS subscribe-coins
             Set<Object> members = redisTemplate.opsForSet().members(SUBSCRIBED_COINS_KEY);
-            if (members == null || members.isEmpty()) {
+            if(members == null || members.isEmpty()){
                 // 如果为空，初始化默认币种
                 initDefaultSubscribedCoins();
                 members = redisTemplate.opsForSet().members(SUBSCRIBED_COINS_KEY);
             }
 
             Set<String> result = new HashSet<>(members.size());
-            for (Object member : members) {
+            for(Object member: members){
                 result.add(member.toString());
             }
 
             log.debug("获取订阅币种列表，共 {} 个", result.size());
             return result;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("从Redis获取订阅币种列表失败: {}", e.getMessage(), e);
             // 返回默认币种
             Set<String> defaultSet = new HashSet<>(DEFAULT_COINS.length);
-            for (String coin : DEFAULT_COINS) {
+            for(String coin: DEFAULT_COINS){
                 defaultSet.add(coin);
             }
             return defaultSet;
@@ -122,8 +147,8 @@ public class RedisCacheServiceImpl implements RedisCacheService {
     }
 
     @Override
-    public boolean addSubscribedCoin(String symbol) {
-        try {
+    public boolean addSubscribedCoin(String symbol){
+        try{
             // 检查是否已在订阅列表中
             boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(SUBSCRIBED_COINS_KEY, symbol));
 
@@ -132,32 +157,32 @@ public class RedisCacheServiceImpl implements RedisCacheService {
             Long added = redisTemplate.opsForSet().add(SUBSCRIBED_COINS_KEY, symbol);
             boolean success = added != null && added > 0;
 
-            if (success) {
+            if(success){
                 log.info("添加订阅币种: {}", symbol);
                 // 仅当币种是新添加的（之前不存在于列表中）时才发布事件
-                if (!isMember) {
+                if(! isMember){
                     log.debug("发布币种 {} 订阅事件", symbol);
                     eventPublisher.publishEvent(new CoinSubscriptionEvent(this, symbol, CoinSubscriptionEvent.EventType.SUBSCRIBE));
-                } else {
+                }else{
                     log.debug("币种 {} 已存在于订阅列表中，不重复发布事件", symbol);
                 }
-            } else {
+            }else{
                 log.debug("币种 {} 已在订阅列表中", symbol);
             }
             return true;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("添加订阅币种 {} 到Redis失败: {}", symbol, e.getMessage(), e);
             return false;
         }
     }
 
     @Override
-    public boolean removeSubscribedCoin(String symbol) {
-        try {
+    public boolean removeSubscribedCoin(String symbol){
+        try{
             // 检查是否存在于订阅列表中
             boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(SUBSCRIBED_COINS_KEY, symbol));
 
-            if (!isMember) {
+            if(! isMember){
                 log.debug("币种 {} 不在订阅列表中，无需移除", symbol);
                 return true;
             }
@@ -167,34 +192,34 @@ public class RedisCacheServiceImpl implements RedisCacheService {
             Long removed = redisTemplate.opsForSet().remove(SUBSCRIBED_COINS_KEY, symbol);
             boolean success = removed != null && removed > 0;
 
-            if (success) {
+            if(success){
                 log.info("移除订阅币种: {}", symbol);
                 // 发布币种取消订阅事件
                 log.debug("发布币种 {} 取消订阅事件", symbol);
                 eventPublisher.publishEvent(new CoinSubscriptionEvent(this, symbol, CoinSubscriptionEvent.EventType.UNSUBSCRIBE));
-            } else {
+            }else{
                 log.debug("币种 {} 不在订阅列表中，或移除失败", symbol);
             }
             return true;
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("从Redis移除订阅币种 {} 失败: {}", symbol, e.getMessage(), e);
             return false;
         }
     }
 
     @Override
-    public void initDefaultSubscribedCoins() {
-        try {
+    public void initDefaultSubscribedCoins(){
+        try{
             // 检查是否已有订阅币种
             Long size = redisTemplate.opsForSet().size(SUBSCRIBED_COINS_KEY);
-            if (size == null || size == 0) {
+            if(size == null || size == 0){
                 // 添加默认订阅币种
-                for (String coin : DEFAULT_COINS) {
+                for(String coin: DEFAULT_COINS){
                     redisTemplate.opsForSet().add(SUBSCRIBED_COINS_KEY, coin);
                 }
-                log.info("初始化默认订阅币种: {}", (Object) DEFAULT_COINS);
+                log.info("初始化默认订阅币种: {}", (Object)DEFAULT_COINS);
             }
-        } catch (Exception e) {
+        }catch(Exception e){
             log.error("初始化默认订阅币种失败: {}", e.getMessage(), e);
         }
     }

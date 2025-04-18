@@ -1,5 +1,8 @@
 package com.okx.trading.service;
 
+import com.okx.trading.model.market.Candlestick;
+import com.okx.trading.model.market.Ticker;
+
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
@@ -9,7 +12,7 @@ import java.util.Set;
  * 用于实时价格数据的缓存操作
  */
 public interface RedisCacheService {
-    
+
     /**
      * 更新币种实时价格
      *
@@ -17,14 +20,16 @@ public interface RedisCacheService {
      * @param price 最新价格
      */
     void updateCoinPrice(String symbol, BigDecimal price);
-    
+
+
+    void updateCandlestick(  Candlestick candlestick);
     /**
      * 获取所有币种的实时价格
      *
      * @return 所有币种的实时价格Map，key为币种，value为价格
      */
     Map<String, BigDecimal> getAllCoinPrices();
-    
+
     /**
      * 获取指定币种的实时价格
      *
@@ -39,7 +44,7 @@ public interface RedisCacheService {
      * @return 订阅的币种Set
      */
     Set<String> getSubscribedCoins();
-    
+
     /**
      * 添加订阅币种
      *
@@ -47,7 +52,7 @@ public interface RedisCacheService {
      * @return 添加是否成功
      */
     boolean addSubscribedCoin(String symbol);
-    
+
     /**
      * 移除订阅币种
      *
@@ -55,10 +60,10 @@ public interface RedisCacheService {
      * @return 移除是否成功
      */
     boolean removeSubscribedCoin(String symbol);
-    
+
     /**
      * 初始化默认订阅币种
      * 仅当订阅列表为空时添加默认币种
      */
     void initDefaultSubscribedCoins();
-} 
+}

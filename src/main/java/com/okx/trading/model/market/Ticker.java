@@ -1,5 +1,6 @@
 package com.okx.trading.model.market;
 
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -86,4 +87,10 @@ public class Ticker{
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
+
+
+    @Override
+    public String toString(){
+        return JSONObject.toJSONString(this);
+    }
 }

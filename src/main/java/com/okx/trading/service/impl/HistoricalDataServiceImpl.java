@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -429,7 +430,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     Set<LocalDateTime> savedTimeSet = savedEntities.stream()
                         .map(CandlestickEntity::getOpenTime)
                         .collect(Collectors.toSet());
-                    
+
                     batchTimeSet.removeAll(savedTimeSet);
                     if (!batchTimeSet.isEmpty()) {
                         log.warn("批次 {} 仍有 {} 个点未能获取", batchKey, batchTimeSet.size());
@@ -457,7 +458,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
                     .map(CompletableFuture::join)
                     .mapToInt(List::size)
                     .sum();
-                
+
                 log.info("总共补充了 {} 个缺失数据点", totalSaved);
                 return totalSaved;
             });

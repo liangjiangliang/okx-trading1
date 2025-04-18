@@ -1,5 +1,6 @@
 package com.okx.trading.model.market;
 
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -81,4 +82,9 @@ public class Candlestick {
      * 0 代表 K 线未完结，1 代表 K 线已完结
      */
     private int state;
+
+    @Override
+    public String toString(){
+        return JSONObject.toJSONString(this);
+    }
 }

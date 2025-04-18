@@ -116,6 +116,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     redisCacheService.updateCoinPrice(symbol, lastPrice);
                 }
 
+
+
                 CompletableFuture<Ticker> future = tickerFutures.get(channel + "_" + symbol);
                 if(future != null && ! future.isDone()){
                     future.complete(ticker);
@@ -169,7 +171,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                 if(candlestick != null){
                     candlestick.setInterval(interval);
-                    log.info("获取实时标记价格k线数据: {}", candlestick);
+                    redisCacheService.updateCandlestick(candlestick);
+                    log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
                 }
             }
@@ -345,7 +348,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 获取K线数据通常需要更长时间，使用配置值的1.5倍
             int klineTimeout = (int)(okxApiConfig.getTimeout() * 1.5);
             klineTimeout = Math.max(15, klineTimeout); // 至少15秒
-            
+
             try {
                 List<Candlestick> candlesticks = future.get(klineTimeout, TimeUnit.SECONDS);
                 klineFutures.remove(key);
@@ -381,7 +384,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     ticker.setTimestamp(LocalDateTime.now());
                     return ticker;
                 }
-                
+
                 // 如果Redis中没有价格，可能是连接重置后未收到新的价格更新
                 // 主动重新订阅以获取最新数据
                 log.info("币种 {} 已订阅但Redis中无价格数据，重新触发订阅", symbol);
@@ -401,12 +404,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             // 获取配置的超时时间，默认为10秒
             int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
-            
+
             // 添加重试逻辑
             Ticker ticker = null;
             int retryCount = 0;
             int maxRetries = 3;
-            
+
             while (ticker == null && retryCount < maxRetries) {
                 try {
                     // 等待获取数据，使用配置中的超时时间
@@ -422,7 +425,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     webSocketUtil.subscribePublicTopic(channel, symbol);
                 }
             }
-            
+
             tickerFutures.remove(key);
             return ticker;
         } catch (Exception e) {
@@ -623,7 +626,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}, sMsg: {}",
                     clientOrderId, order.getOrderId(), order.getStatus(),order.getSMsg());
             }catch(TimeoutException e){
-                log.warn("订单请求首次超时({}秒), 尝试通过REST API查询订单状态, clientOrderId: {}", 
+                log.warn("订单请求首次超时({}秒), 尝试通过REST API查询订单状态, clientOrderId: {}",
                     Math.max(20, okxApiConfig.getTimeout() * 2), clientOrderId);
 
                 // 通过REST API查询订单信息
