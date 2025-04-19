@@ -853,7 +853,7 @@ public class WebSocketUtil{
 
         // 直接发送
         targetSocket.send(subscribeMessage.toJSONString());
-        logger.info("订阅公共频道主题，参数: {}", arg);
+        logger.debug("订阅公共频道主题，参数: {}", arg);
     }
 
     /**
