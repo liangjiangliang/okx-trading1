@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: okx-trading-app
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=Password123?
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false
+      - SPRING_REDIS_HOST=host.docker.internal
+      - SPRING_REDIS_PORT=6379
+      - JAVA_OPTS=-Xmx1g -Xms512m
+      - OKX_API_KEY=${OKX_API_KEY:-}
+      - OKX_SECRET_KEY=${OKX_SECRET_KEY:-}
+      - OKX_PASSPHRASE=${OKX_PASSPHRASE:-}
+      - PROXY_ENABLED=${PROXY_ENABLED:-false}
+      - PROXY_HOST=${PROXY_HOST:-localhost}
+      - PROXY_PORT=${PROXY_PORT:-10809}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - okx-network
+
+# 已注释MySQL和Redis服务，使用本地服务
+#  mysql:
+#    image: mysql:8.0
+#    container_name: okx-trading-mysql
+#    restart: always
+#    ports:
+#      - "3306:3306"
+#    environment:
+#      - MYSQL_ROOT_PASSWORD=Password123?
+#      - MYSQL_DATABASE=okx_trading
+#      - TZ=Asia/Shanghai
+#    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+8:00
+#    volumes:
+#      - mysql-data:/var/lib/mysql
+#      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+#    networks:
+#      - okx-network
+#
+#  redis:
+#    image: redis:6.2-alpine
+#    container_name: okx-trading-redis
+#    restart: always
+#    ports:
+#      - "6379:6379"
+#    command: redis-server --appendonly yes
+#    volumes:
+#      - redis-data:/data
+#    networks:
+#      - okx-network
+
+# 网络配置
+networks:
+  okx-network:
+    driver: bridge
+
+# 注释卷配置，因为不再使用Docker中的MySQL和Redis
+#volumes:
+#  mysql-data:
+#  redis-data:
