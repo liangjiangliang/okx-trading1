@@ -7,7 +7,6 @@ import com.okx.trading.service.OkxApiService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,15 +25,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 负责定期从交易所API获取K线数据并更新缓存
  */
 @Service
+@RequiredArgsConstructor
 public class KlineUpdateServiceImpl implements KlineUpdateService {
 
     private static final Logger log = LoggerFactory.getLogger(KlineUpdateServiceImpl.class);
 
-    @Autowired
-    private KlineCacheService klineCacheService;
-    
-    @Autowired
-    private OkxApiService okxApiService;
+    private final KlineCacheService klineCacheService;
+    private final OkxApiService okxApiService;
 
     // 所有需要更新的K线订阅
     private final Map<String, Set<String>> klineSubscriptions = new ConcurrentHashMap<>();
@@ -43,9 +40,8 @@ public class KlineUpdateServiceImpl implements KlineUpdateService {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     // 调度器
-    @Autowired
-    @Qualifier("klineUpdateScheduler") 
-    private ScheduledExecutorService scheduler;
+    private @Qualifier("klineUpdateScheduler") ScheduledExecutorService scheduler;
+//    private ScheduledExecutorService scheduler;
 
     // 默认更新频率为30秒
     @Value("${okx.kline.update-interval-seconds:30}")
@@ -103,12 +99,8 @@ public class KlineUpdateServiceImpl implements KlineUpdateService {
         if (running.compareAndSet(false, true)) {
             log.info("启动K线数据更新线程，更新频率：{}秒", updateIntervalSeconds);
 
-            // 确保调度器不为空
-            if (scheduler == null) {
-                log.error("启动K线数据更新线程失败: 调度器为空");
-                running.set(false);
-                return;
-            }
+            // 创建调度器
+//            scheduler = Executors.newSingleThreadScheduledExecutor();
 
             // 立即执行一次，然后按照设定的频率定期执行
             scheduler.scheduleAtFixedRate(

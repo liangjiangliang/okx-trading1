@@ -95,7 +95,10 @@ okx:
     kline:
       max-count: 300   # 日志配置
       cleanup-interval: 300  # 秒
-logging:
+  kline:
+    update-interval-seconds: 30
+
+
   level:
     root: INFO
     com.okx.trading: INFO
