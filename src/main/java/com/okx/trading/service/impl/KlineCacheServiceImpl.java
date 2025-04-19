@@ -13,7 +13,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -55,11 +54,36 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
+
+        // 初始化时同步一次Redis中的订阅数据到内存
+        updateSubscriptionsFromRedis();
+    }
+
+    /**
+     * 将Redis中的订阅信息同步到内存
+     */
+    private void updateSubscriptionsFromRedis() {
+        try {
+            Map<String, Set<String>> redisSubscriptions = getAllSubscriptions();
+            if (!redisSubscriptions.isEmpty()) {
+                // 更新内存中的订阅状态
+                subscriptionMap.clear();
+                subscriptionMap.putAll(redisSubscriptions);
+                log.info("从Redis加载了{}个交易对的订阅信息", redisSubscriptions.size());
+            }
+        } catch (Exception e) {
+            log.error("从Redis同步订阅信息失败", e);
+        }
     }
 
     @Override
     public boolean subscribeKline(String symbol, String interval) {
         try {
+            if (symbol == null || interval == null) {
+                log.warn("订阅K线数据失败: 交易对或时间间隔为空");
+                return false;
+            }
+
             String key = generateSubscriptionKey(symbol, interval);
 
             // 添加到内存缓存
@@ -86,7 +110,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
     @Override
     public List<String> batchSubscribeKline(String symbol, List<String> intervals) {
-        if (CollectionUtils.isEmpty(intervals)) {
+        if (symbol == null || CollectionUtils.isEmpty(intervals)) {
             return Collections.emptyList();
         }
 
@@ -103,6 +127,11 @@ public class KlineCacheServiceImpl implements KlineCacheService {
     @Override
     public boolean unsubscribeKline(String symbol, String interval) {
         try {
+            if (symbol == null || interval == null) {
+                log.warn("取消订阅K线数据失败: 交易对或时间间隔为空");
+                return false;
+            }
+
             String key = generateSubscriptionKey(symbol, interval);
 
             // 从内存缓存移除
@@ -135,7 +164,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
     @Override
     public List<String> batchUnsubscribeKline(String symbol, List<String> intervals) {
-        if (CollectionUtils.isEmpty(intervals)) {
+        if (symbol == null || CollectionUtils.isEmpty(intervals)) {
             return Collections.emptyList();
         }
 
@@ -149,42 +178,6 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         return successList;
     }
 
-    // 安全地获取Candlestick对象的symbol字段
-    private String getSymbol(Candlestick candlestick) {
-        try {
-            Field field = Candlestick.class.getDeclaredField("symbol");
-            field.setAccessible(true);
-            return (String) field.get(candlestick);
-        } catch (Exception e) {
-            log.error("获取symbol失败: {}", e.getMessage());
-            return "unknown";
-        }
-    }
-
-    // 安全地获取Candlestick对象的interval字段
-    private String getInterval(Candlestick candlestick) {
-        try {
-            Field field = Candlestick.class.getDeclaredField("interval");
-            field.setAccessible(true);
-            return (String) field.get(candlestick);
-        } catch (Exception e) {
-            log.error("获取interval失败: {}", e.getMessage());
-            return "unknown";
-        }
-    }
-
-    // 安全地获取Candlestick对象的openTime字段
-    private LocalDateTime getOpenTime(Candlestick candlestick) {
-        try {
-            Field field = Candlestick.class.getDeclaredField("openTime");
-            field.setAccessible(true);
-            return (LocalDateTime) field.get(candlestick);
-        } catch (Exception e) {
-            log.error("获取openTime失败: {}", e.getMessage());
-            return null;
-        }
-    }
-
     @Override
     public boolean cacheKlineData(Candlestick candlestick) {
         if (candlestick == null) {
@@ -192,8 +185,14 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         }
 
         try {
-            String symbol = getSymbol(candlestick);
-            String interval = getInterval(candlestick);
+            String symbol = candlestick.getSymbol();
+            String interval = candlestick.getInterval();
+
+            if (symbol == null || interval == null) {
+                log.warn("缓存K线数据失败: 交易对或时间间隔为空");
+                return false;
+            }
+
             String cacheKey = generateCacheKey(symbol, interval);
 
             // 获取当前缓存的K线数据
@@ -206,10 +205,11 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
                 // 查找是否存在相同时间的K线数据
                 boolean updated = false;
-                LocalDateTime candlestickOpenTime = getOpenTime(candlestick);
+                LocalDateTime candlestickOpenTime = candlestick.getOpenTime();
 
                 for (int i = 0; i < cachedKlineData.size(); i++) {
-                    LocalDateTime existingOpenTime = getOpenTime(cachedKlineData.get(i));
+                    Candlestick existingCandle = cachedKlineData.get(i);
+                    LocalDateTime existingOpenTime = existingCandle.getOpenTime();
                     if (existingOpenTime != null && candlestickOpenTime != null &&
                         existingOpenTime.equals(candlestickOpenTime)) {
                         // 替换已存在的K线数据
@@ -225,8 +225,8 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
                     // 按时间排序
                     cachedKlineData.sort((c1, c2) -> {
-                        LocalDateTime time1 = getOpenTime(c1);
-                        LocalDateTime time2 = getOpenTime(c2);
+                        LocalDateTime time1 = c1.getOpenTime();
+                        LocalDateTime time2 = c2.getOpenTime();
                         if (time1 == null && time2 == null) return 0;
                         if (time1 == null) return -1;
                         if (time2 == null) return 1;
@@ -242,13 +242,15 @@ public class KlineCacheServiceImpl implements KlineCacheService {
             String updatedKlineDataJson = objectMapper.writeValueAsString(cachedKlineData);
             redisTemplate.opsForValue().set(cacheKey, updatedKlineDataJson, KLINE_CACHE_DURATION);
 
-            log.info("已缓存单条K线数据: {} {}, 时间: {}", symbol, interval, getOpenTime(candlestick));
+            log.info("已缓存单条K线数据: {} {}, 时间: {}", symbol, interval, candlestick.getOpenTime());
             return true;
         } catch (JsonProcessingException e) {
-            log.error("缓存K线数据失败 - JSON序列化/反序列化错误: {}, 错误: {}", getSymbol(candlestick), e.getMessage(), e);
+            log.error("缓存K线数据失败 - JSON序列化/反序列化错误: {}, 错误: {}",
+                      candlestick.getSymbol(), e.getMessage(), e);
             return false;
         } catch (Exception e) {
-            log.error("缓存K线数据失败: {}, 错误: {}", getSymbol(candlestick), e.getMessage(), e);
+            log.error("缓存K线数据失败: {}, 错误: {}",
+                      candlestick.getSymbol(), e.getMessage(), e);
             return false;
         }
     }
@@ -267,8 +269,8 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         for (Candlestick candlestick : candlesticks) {
             if (candlestick == null) continue;
 
-            String symbol = getSymbol(candlestick);
-            String interval = getInterval(candlestick);
+            String symbol = candlestick.getSymbol();
+            String interval = candlestick.getInterval();
 
             if (symbol == null || interval == null) continue;
 
@@ -302,7 +304,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
                     // 创建一个Map用于快速查找已有的K线数据（按开盘时间索引）
                     Map<LocalDateTime, Integer> existingDataMap = new HashMap<>();
                     for (int i = 0; i < cachedKlineData.size(); i++) {
-                        LocalDateTime openTime = getOpenTime(cachedKlineData.get(i));
+                        LocalDateTime openTime = cachedKlineData.get(i).getOpenTime();
                         if (openTime != null) {
                             existingDataMap.put(openTime, i);
                         }
@@ -310,7 +312,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
                     // 处理新的K线数据
                     for (Candlestick kline : data) {
-                        LocalDateTime openTime = getOpenTime(kline);
+                        LocalDateTime openTime = kline.getOpenTime();
                         if (openTime == null) continue;
 
                         Integer existingIndex = existingDataMap.get(openTime);
@@ -328,8 +330,8 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
                     // 按时间排序
                     cachedKlineData.sort((c1, c2) -> {
-                        LocalDateTime time1 = getOpenTime(c1);
-                        LocalDateTime time2 = getOpenTime(c2);
+                        LocalDateTime time1 = c1.getOpenTime();
+                        LocalDateTime time2 = c2.getOpenTime();
                         if (time1 == null && time2 == null) return 0;
                         if (time1 == null) return -1;
                         if (time2 == null) return 1;
@@ -360,8 +362,8 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
         // 按时间倒序排序
         allData.sort((c1, c2) -> {
-            LocalDateTime time1 = getOpenTime(c1);
-            LocalDateTime time2 = getOpenTime(c2);
+            LocalDateTime time1 = c1.getOpenTime();
+            LocalDateTime time2 = c2.getOpenTime();
             if (time1 == null && time2 == null) return 0;
             if (time1 == null) return 1; // null 放在后面
             if (time2 == null) return -1;
@@ -385,7 +387,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         // 筛选时间范围内的数据
         List<Candlestick> filteredData = allData.stream()
                 .filter(kline -> {
-                    LocalDateTime openTime = getOpenTime(kline);
+                    LocalDateTime openTime = kline.getOpenTime();
                     if (openTime == null) return false;
 
                     // 将LocalDateTime转换为long进行比较
@@ -397,8 +399,8 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
         // 按时间升序排序
         filteredData.sort((c1, c2) -> {
-            LocalDateTime time1 = getOpenTime(c1);
-            LocalDateTime time2 = getOpenTime(c2);
+            LocalDateTime time1 = c1.getOpenTime();
+            LocalDateTime time2 = c2.getOpenTime();
             if (time1 == null && time2 == null) return 0;
             if (time1 == null) return -1;
             if (time2 == null) return 1;
@@ -415,6 +417,10 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
     @Override
     public boolean isKlineSubscribed(String symbol, String interval) {
+        if (symbol == null || interval == null) {
+            return false;
+        }
+
         // 优先从内存中检查
         Set<String> intervals = subscriptionMap.get(symbol);
         if (intervals != null && intervals.contains(interval)) {
@@ -424,6 +430,12 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         // 从Redis检查（防止服务重启后内存状态丢失）
         String key = generateSubscriptionKey(symbol, interval);
         Boolean isMember = redisTemplate.opsForSet().isMember(KLINE_SUBSCRIPTION_KEY, key);
+
+        // 如果Redis中存在但内存中不存在，则更新内存
+        if (Boolean.TRUE.equals(isMember) && (intervals == null || !intervals.contains(interval))) {
+            subscriptionMap.computeIfAbsent(symbol, k -> new HashSet<>()).add(interval);
+        }
+
         return Boolean.TRUE.equals(isMember);
     }
 
@@ -443,6 +455,17 @@ public class KlineCacheServiceImpl implements KlineCacheService {
     @Override
     public List<String> getSubscribedIntervals(String symbol) {
         try {
+            if (symbol == null) {
+                return Collections.emptyList();
+            }
+
+            // 优先从内存中获取
+            Set<String> intervals = subscriptionMap.get(symbol);
+            if (intervals != null) {
+                return new ArrayList<>(intervals);
+            }
+
+            // 如果内存中没有，则从Redis获取完整订阅信息
             Map<String, List<String>> allSubscriptions = getAllSubscribedKlines();
             return allSubscriptions.getOrDefault(symbol, Collections.emptyList());
         } catch (Exception e) {
@@ -452,12 +475,33 @@ public class KlineCacheServiceImpl implements KlineCacheService {
     }
 
     @Override
+    public Set<String> getAllSubscribedSymbols() {
+        return getAllSubscriptions().keySet();
+    }
+
+    @Override
+    public Map<String, Set<String>> getAllSubscribedSymbolsWithIntervals() {
+        return getAllSubscriptions();
+    }
+
+    @Override
     public boolean clearKlineCache(String symbol, String interval) {
         try {
+            if (symbol == null || interval == null) {
+                log.warn("清除K线缓存失败: 交易对或时间间隔为空");
+                return false;
+            }
+
             String cacheKey = generateCacheKey(symbol, interval);
-            redisTemplate.delete(cacheKey);
-            log.info("已清除K线缓存: {} {}", symbol, interval);
-            return true;
+            Boolean deleted = redisTemplate.delete(cacheKey);
+
+            if (Boolean.TRUE.equals(deleted)) {
+                log.info("已清除K线缓存: {} {}", symbol, interval);
+                return true;
+            } else {
+                log.warn("清除K线缓存失败或缓存不存在: {} {}", symbol, interval);
+                return false;
+            }
         } catch (Exception e) {
             log.error("清除K线缓存失败: {} {}, 错误: {}", symbol, interval, e.getMessage(), e);
             return false;
@@ -484,6 +528,10 @@ public class KlineCacheServiceImpl implements KlineCacheService {
      */
     private List<Candlestick> getKlineData(String symbol, String interval) {
         try {
+            if (symbol == null || interval == null) {
+                return Collections.emptyList();
+            }
+
             String cacheKey = generateCacheKey(symbol, interval);
 
             // 从Redis缓存获取K线数据

@@ -46,7 +46,7 @@ public class ThreadPoolConfig {
      */
     @Bean(name = "historicalDataExecutorService")
     public ExecutorService historicalDataExecutorService() {
-        return Executors.newFixedThreadPool(maxHistoricalDataThreads, 
+        return Executors.newFixedThreadPool(maxHistoricalDataThreads,
                 createThreadFactory("历史数据查询"));
     }
 
@@ -56,7 +56,7 @@ public class ThreadPoolConfig {
      */
     @Bean(name = "batchHistoricalDataExecutorService")
     public ExecutorService batchHistoricalDataExecutorService() {
-        return Executors.newFixedThreadPool(5, 
+        return Executors.newFixedThreadPool(5,
                 createThreadFactory("历史数据批处理"));
     }
 
@@ -67,7 +67,7 @@ public class ThreadPoolConfig {
     @Bean(name = "priceUpdateExecutorService")
     @Primary
     public ExecutorService priceUpdateExecutorService() {
-        return Executors.newFixedThreadPool(maxPriceUpdateThreads, 
+        return Executors.newFixedThreadPool(maxPriceUpdateThreads,
                 createThreadFactory("价格更新"));
     }
 
@@ -89,5 +89,16 @@ public class ThreadPoolConfig {
     public ScheduledExecutorService websocketReconnectScheduler() {
         return Executors.newSingleThreadScheduledExecutor(
                 createThreadFactory("WebSocket重连"));
+    }
+
+
+    /**
+     * WebSocket重连线程池
+     * 用于WebSocket连接断开后的重连任务
+     */
+    @Bean(name = "klineUpdateScheduler")
+    public ScheduledExecutorService klineUpdateScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(
+                createThreadFactory("K线更新"));
     }
 }

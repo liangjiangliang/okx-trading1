@@ -58,17 +58,17 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String field = symbol + ":" + interval;
-        
+
         when(hashOperations.hasKey(anyString(), eq(field))).thenReturn(false);
-        
+
         // 执行
         boolean result = klineCacheService.subscribeKline(symbol, interval);
-        
+
         // 验证
         assertTrue(result);
         verify(hashOperations).put("kline-subscriptions", field, "1");
         verify(eventPublisher).publishEvent(eventCaptor.capture());
-        
+
         KlineSubscriptionEvent event = eventCaptor.getValue();
         assertEquals(symbol, event.getSymbol());
         assertEquals(interval, event.getInterval());
@@ -81,12 +81,12 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String field = symbol + ":" + interval;
-        
+
         when(hashOperations.hasKey(anyString(), eq(field))).thenReturn(true);
-        
+
         // 执行
         boolean result = klineCacheService.subscribeKline(symbol, interval);
-        
+
         // 验证
         assertFalse(result);
         verify(hashOperations, never()).put(anyString(), anyString(), anyString());
@@ -99,18 +99,18 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String field = symbol + ":" + interval;
-        
+
         when(hashOperations.hasKey(anyString(), eq(field))).thenReturn(true);
         when(hashOperations.delete(anyString(), eq(field))).thenReturn(1L);
-        
+
         // 执行
         boolean result = klineCacheService.unsubscribeKline(symbol, interval);
-        
+
         // 验证
         assertTrue(result);
         verify(hashOperations).delete("kline-subscriptions", field);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
-        
+
         KlineSubscriptionEvent event = eventCaptor.getValue();
         assertEquals(symbol, event.getSymbol());
         assertEquals(interval, event.getInterval());
@@ -123,12 +123,12 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String field = symbol + ":" + interval;
-        
+
         when(hashOperations.hasKey(anyString(), eq(field))).thenReturn(false);
-        
+
         // 执行
         boolean result = klineCacheService.unsubscribeKline(symbol, interval);
-        
+
         // 验证
         assertFalse(result);
         verify(hashOperations, never()).delete(anyString(), anyString());
@@ -140,25 +140,25 @@ public class KlineCacheServiceImplTest {
         // 准备
         String symbol = "BTC-USDT";
         List<String> intervals = Arrays.asList("1m", "5m", "15m");
-        
+
         // 模拟1m和5m能成功订阅，15m已经订阅过了
         String field1 = symbol + ":1m";
         String field2 = symbol + ":5m";
         String field3 = symbol + ":15m";
-        
+
         when(hashOperations.hasKey(anyString(), eq(field1))).thenReturn(false);
         when(hashOperations.hasKey(anyString(), eq(field2))).thenReturn(false);
         when(hashOperations.hasKey(anyString(), eq(field3))).thenReturn(true);
-        
+
         // 执行
         List<String> result = klineCacheService.batchSubscribeKline(symbol, intervals);
-        
+
         // 验证
         assertEquals(2, result.size());
         assertTrue(result.contains("1m"));
         assertTrue(result.contains("5m"));
         assertFalse(result.contains("15m"));
-        
+
         verify(hashOperations, times(2)).put(anyString(), anyString(), anyString());
         verify(eventPublisher, times(2)).publishEvent(any());
     }
@@ -175,17 +175,17 @@ public class KlineCacheServiceImplTest {
         candlestick.setLow(new BigDecimal("49000"));
         candlestick.setClose(new BigDecimal("50500"));
         candlestick.setVolume(new BigDecimal("10"));
-        
+
         String key = "kline-data:BTC-USDT:1m";
         long timestamp = candlestick.getOpenTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         double score = Double.parseDouble(String.valueOf(timestamp));
-        
+
         when(zSetOperations.rangeByScore(eq(key), eq(score), eq(score))).thenReturn(Collections.emptySet());
         when(zSetOperations.add(eq(key), eq(candlestick), eq(score))).thenReturn(true);
-        
+
         // 执行
         boolean result = klineCacheService.cacheKlineData(candlestick);
-        
+
         // 验证
         assertTrue(result);
         verify(zSetOperations, never()).removeRangeByScore(anyString(), anyDouble(), anyDouble());
@@ -204,20 +204,20 @@ public class KlineCacheServiceImplTest {
         candlestick.setLow(new BigDecimal("49000"));
         candlestick.setClose(new BigDecimal("50500"));
         candlestick.setVolume(new BigDecimal("10"));
-        
+
         String key = "kline-data:BTC-USDT:1m";
         long timestamp = candlestick.getOpenTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         double score = Double.parseDouble(String.valueOf(timestamp));
-        
+
         Set<Object> existingData = new HashSet<>();
         existingData.add(new Candlestick());
-        
+
         when(zSetOperations.rangeByScore(eq(key), eq(score), eq(score))).thenReturn(existingData);
         when(zSetOperations.add(eq(key), eq(candlestick), eq(score))).thenReturn(true);
-        
+
         // 执行
         boolean result = klineCacheService.cacheKlineData(candlestick);
-        
+
         // 验证
         assertTrue(result);
         verify(zSetOperations).removeRangeByScore(key, score, score);
@@ -231,12 +231,12 @@ public class KlineCacheServiceImplTest {
         redisEntries.put("BTC-USDT:1m", "1");
         redisEntries.put("BTC-USDT:5m", "1");
         redisEntries.put("ETH-USDT:1m", "1");
-        
+
         when(hashOperations.entries(anyString())).thenReturn(redisEntries);
-        
+
         // 执行
         Map<String, List<String>> result = klineCacheService.getAllSubscribedKlines();
-        
+
         // 验证
         assertEquals(2, result.size());
         assertTrue(result.containsKey("BTC-USDT"));
@@ -255,27 +255,27 @@ public class KlineCacheServiceImplTest {
         String interval = "1m";
         int limit = 5;
         String key = "kline-data:" + symbol + ":" + interval;
-        
+
         // 模拟Redis返回的K线数据
         Set<Object> redisResult = new HashSet<>();
         Candlestick c1 = new Candlestick();
         c1.setSymbol(symbol);
         c1.setInterval(interval);
         c1.setOpenTime(LocalDateTime.now().minusMinutes(2));
-        
+
         Candlestick c2 = new Candlestick();
         c2.setSymbol(symbol);
         c2.setInterval(interval);
         c2.setOpenTime(LocalDateTime.now().minusMinutes(1));
-        
+
         redisResult.add(c1);
         redisResult.add(c2);
-        
+
         when(zSetOperations.reverseRange(eq(key), eq(0L), eq((long)(limit - 1)))).thenReturn(redisResult);
-        
+
         // 执行
         List<Candlestick> result = klineCacheService.getLatestKlineData(symbol, interval, limit);
-        
+
         // 验证
         assertEquals(2, result.size());
         verify(zSetOperations).reverseRange(key, 0, limit - 1);
@@ -287,12 +287,12 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String field = symbol + ":" + interval;
-        
+
         when(hashOperations.hasKey(anyString(), eq(field))).thenReturn(true);
-        
+
         // 执行
         boolean result = klineCacheService.isKlineSubscribed(symbol, interval);
-        
+
         // 验证
         assertTrue(result);
         verify(hashOperations).hasKey("kline-subscriptions", field);
@@ -304,14 +304,14 @@ public class KlineCacheServiceImplTest {
         String symbol = "BTC-USDT";
         String interval = "1m";
         String key = "kline-data:" + symbol + ":" + interval;
-        
+
         when(redisTemplate.delete(eq(key))).thenReturn(true);
-        
+
         // 执行
         boolean result = klineCacheService.clearKlineCache(symbol, interval);
-        
+
         // 验证
         assertTrue(result);
         verify(redisTemplate).delete(key);
     }
-} 
+}

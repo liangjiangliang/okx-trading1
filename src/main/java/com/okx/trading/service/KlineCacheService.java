@@ -28,7 +28,7 @@ public interface KlineCacheService {
      * @return 订阅成功的间隔列表
      */
     List<String> batchSubscribeKline(String symbol, List<String> intervals);
-    
+
     /**
      * 取消订阅指定交易对和时间间隔的K线数据
      *
@@ -37,7 +37,7 @@ public interface KlineCacheService {
      * @return 取消订阅是否成功
      */
     boolean unsubscribeKline(String symbol, String interval);
-    
+
     /**
      * 批量取消订阅K线数据
      *
@@ -46,14 +46,14 @@ public interface KlineCacheService {
      * @return 取消订阅成功的间隔列表
      */
     List<String> batchUnsubscribeKline(String symbol, List<String> intervals);
-    
+
     /**
      * 获取所有已订阅的K线信息
-     * 
+     *
      * @return Map, key为symbol, value为该symbol订阅的时间间隔列表
      */
     Map<String, List<String>> getAllSubscribedKlines();
-    
+
     /**
      * 获取指定交易对的所有已订阅K线间隔
      *
@@ -61,7 +61,7 @@ public interface KlineCacheService {
      * @return 已订阅的K线间隔列表
      */
     List<String> getSubscribedIntervals(String symbol);
-    
+
     /**
      * 将K线数据缓存到Redis
      *
@@ -69,7 +69,7 @@ public interface KlineCacheService {
      * @return 缓存是否成功
      */
     boolean cacheKlineData(Candlestick candlestick);
-    
+
     /**
      * 批量缓存K线数据到Redis
      *
@@ -77,7 +77,7 @@ public interface KlineCacheService {
      * @return 成功缓存的条数
      */
     int batchCacheKlineData(List<Candlestick> candlesticks);
-    
+
     /**
      * 获取指定交易对和时间间隔的最新K线数据
      *
@@ -87,7 +87,7 @@ public interface KlineCacheService {
      * @return K线数据列表
      */
     List<Candlestick> getLatestKlineData(String symbol, String interval, int limit);
-    
+
     /**
      * 获取指定交易对和时间间隔的历史K线数据
      *
@@ -99,13 +99,13 @@ public interface KlineCacheService {
      * @return K线数据列表
      */
     List<Candlestick> getHistoricalKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
-    
+
     /**
      * 初始化默认K线订阅
      * 为默认交易对和时间间隔创建订阅
      */
     void initDefaultKlineSubscriptions();
-    
+
     /**
      * 检查K线订阅状态
      *
@@ -114,7 +114,7 @@ public interface KlineCacheService {
      * @return 是否已订阅
      */
     boolean isKlineSubscribed(String symbol, String interval);
-    
+
     /**
      * 清除指定交易对和时间间隔的K线缓存
      *
@@ -123,4 +123,18 @@ public interface KlineCacheService {
      * @return 清除是否成功
      */
     boolean clearKlineCache(String symbol, String interval);
-} 
+
+    /**
+     * 获取当前所有已订阅的交易对
+     *
+     * @return 已订阅的交易对集合
+     */
+    Set<String> getAllSubscribedSymbols();
+
+    /**
+     * 获取所有已订阅的交易对和对应的时间间隔
+     *
+     * @return 交易对与时间间隔的映射，key为交易对，value为该交易对订阅的时间间隔集合
+     */
+    Map<String, Set<String>> getAllSubscribedSymbolsWithIntervals();
+}

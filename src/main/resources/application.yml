@@ -91,9 +91,10 @@ okx:
   historical-data:
     batch-size: 100
     max-threads: 10
-
-
-# 日志配置
+  trading:
+    kline:
+      max-count: 300   # 日志配置
+      cleanup-interval: 300  # 秒
 logging:
   level:
     root: INFO

@@ -20,7 +20,7 @@ public class AsyncConfig {
         executor.setCorePoolSize(5); // 核心线程数
         executor.setMaxPoolSize(10); // 最大线程数
         executor.setQueueCapacity(100); // 队列容量
-        executor.setThreadNamePrefix("WebSocketAsyn-"); // 设置线程名称前缀
+        executor.setThreadNamePrefix("WebSocketAsyn订阅-"); // 设置线程名称前缀
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
