@@ -6,6 +6,8 @@ import com.okx.trading.util.TechnicalIndicatorUtil;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -37,7 +39,7 @@ import java.util.stream.Collectors;
 public class IndicatorCalculationServiceImpl implements IndicatorCalculationService, CommandLineRunner{
 
     private static final Logger logger = LoggerFactory.getLogger(IndicatorCalculationServiceImpl.class);
-    
+
     private final RedisTemplate<String,Object> redisTemplate;
 
     // 指标计算参数常量
@@ -56,17 +58,19 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     private static final String INDICATOR_SUBSCRIPTION_KEY = "indicator-subscriptions";
 
     // 线程池
+    @Qualifier("indicatorCalculateScheduler")
+    @Autowired
     private ScheduledExecutorService scheduler;
     private RedisMessageListenerContainer listenerContainer;
 
     // 订阅映射表，key为交易对，value为时间间隔集合
     private final Map<String,Set<String>> subscriptionMap = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    public void init(){
-        scheduler = Executors.newScheduledThreadPool(2);
-        logger.info("指标计算服务初始化完成");
-    }
+//    @PostConstruct
+//    public void init(){
+//        scheduler = Executors.newScheduledThreadPool(2);
+//        logger.info("指标计算服务初始化完成");
+//    }
 
     @PreDestroy
     public void cleanup(){
@@ -592,7 +596,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
         logger.debug("设置K线数据订阅监听: {}", channelPattern);
 
         // 创建消息监听器
-        MessageListenerAdapter listenerAdapter = 
+        MessageListenerAdapter listenerAdapter =
             new MessageListenerAdapter();
         listenerAdapter.setDelegate(new RedisMessageListener(symbol, interval));
         listenerAdapter.setDefaultListenerMethod("onMessage");
@@ -611,12 +615,12 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     private class RedisMessageListener {
         private final String symbol;
         private final String interval;
-        
+
         public RedisMessageListener(String symbol, String interval) {
             this.symbol = symbol;
             this.interval = interval;
         }
-        
+
         public void onMessage(Object message, String pattern) {
             handleKlineUpdate(symbol, interval, message);
         }

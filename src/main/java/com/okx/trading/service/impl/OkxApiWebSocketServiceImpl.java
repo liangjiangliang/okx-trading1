@@ -77,19 +77,19 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         webSocketUtil.registerHandler("tickers", this :: handleTickerMessage);
 
         // 注册标准K线处理器
-        webSocketUtil.registerHandler("mark-price-candle1m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle5m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle15m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle30m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle1H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle2H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle4H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle6H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle12H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle1D", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle1W", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle1M", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("mark-price-candle3M", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1m", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle5m", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle15m", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle30m", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1H", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle2H", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle4H", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle6H", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle12H", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1D", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1W", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1M", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle3M", this :: handleKlineMessage);
 
         // 注册标记价格K线处理器
         webSocketUtil.registerHandler("mark-price", this :: handleTickerMessage);
@@ -146,7 +146,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             String channel = arg.getString("channel");
 
             // 对于标记价格K线，从bar参数获取interval
-            String interval = channel.replaceAll("mark-price-candle", "");
+            String interval = channel.replaceAll("candle", "");
             // 构建缓存键 - 确保与getKlineData和unsubscribeKlineData方法使用相同的键格式
             String key = channel + "_" + symbol + "_" + interval;
 
@@ -333,7 +333,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     public List<Candlestick> getKlineData(String symbol, String interval, Integer limit){
         try{
             // 构建标记价格K线的正确频道名和参数
-            String channel = "mark-price-candle" + interval;
+            String channel = "candle" + interval;
             // 确保键格式统一
             String key = channel + "_" + symbol + "_" + interval;
 
@@ -816,7 +816,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         candlestick.setHigh(new BigDecimal(candleData.getString(2)));
         candlestick.setLow(new BigDecimal(candleData.getString(3)));
         candlestick.setClose(new BigDecimal(candleData.getString(4)));
-        candlestick.setState(Integer.parseInt(candleData.getString(5)));
+        candlestick.setVolume(new BigDecimal(candleData.getString(5)));
+        candlestick.setVolCcy(new BigDecimal(candleData.getString(6)));
+        candlestick.setQuoteVolume(new BigDecimal(candleData.getString(7)));
+        candlestick.setState(Integer.parseInt(candleData.getString(8)));
 
         return candlestick;
     }
@@ -1022,7 +1025,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     public boolean unsubscribeKlineData(String symbol, String interval){
         try{
             // 取消订阅标记价格K线数据
-            String channel = "mark-price-candle" + interval;
+            String channel = "candle" + interval;
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅

@@ -58,12 +58,17 @@ public class Candlestick {
     private BigDecimal close;
 
     /**
-     * 成交量
+     * 成交量,以张为单位
      */
     private BigDecimal volume;
 
     /**
-     * 成交额
+     * 成交量,以币为单位
+     */
+    private BigDecimal volCcy;
+
+    /**
+     * 成交额,计价货币 ,usdt usdc
      */
     private BigDecimal quoteVolume;
 

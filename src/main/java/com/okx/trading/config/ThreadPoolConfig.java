@@ -101,4 +101,10 @@ public class ThreadPoolConfig {
         return Executors.newSingleThreadScheduledExecutor(
                 createThreadFactory("K线更新"));
     }
+
+    @Bean(name = "indicatorCalculateScheduler")
+    public ScheduledExecutorService indicatorCalculateScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(
+                createThreadFactory("指标计算"));
+    }
 }
