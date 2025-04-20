@@ -179,13 +179,13 @@ public class KlineUpdateServiceImpl implements KlineUpdateService{
                         // 从交易所API获取K线数据
                         List<Candlestick> klineData = okxApiService.getKlineData(symbol, interval, 10);
 
-                        // 更新到缓存
-                        int cached = klineCacheService.batchCacheKlineData(klineData);
-
-                        if(cached > 0){
-                            successCount++;
-                            log.debug("成功更新交易对 {} 的 {} 间隔K线数据，共 {} 条", symbol, interval, cached);
-                        }
+//                        // 更新到缓存
+//                        int cached = klineCacheService.batchCacheKlineData(klineData);
+//
+//                        if(cached > 0){
+//                            successCount++;
+//                            log.debug("成功更新交易对 {} 的 {} 间隔K线数据，共 {} 条", symbol, interval, cached);
+//                        }
                     }catch(Exception e){
                         log.error("更新交易对 {} 的 {} 间隔K线数据失败: {}", symbol, interval, e.getMessage());
                     }
