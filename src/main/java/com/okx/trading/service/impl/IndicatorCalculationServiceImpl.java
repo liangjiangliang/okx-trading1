@@ -700,9 +700,9 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
             return null;
         }
 
-        interval = interval.toUpperCase();
+//        interval = interval.toUpperCase();
         try{
-            if(interval.endsWith("M") && ! interval.endsWith("IM")){
+            if(interval.endsWith("M") ){
                 // 月线，按30天计算
                 int months = Integer.parseInt(interval.substring(0, interval.length() - 1));
                 return Duration.ofDays(30 * months);
@@ -718,11 +718,11 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
                 // 小时线
                 int hours = Integer.parseInt(interval.substring(0, interval.length() - 1));
                 return Duration.ofHours(hours);
-            }else if(interval.endsWith("M")){
+            }else if(interval.endsWith("m")){
                 // 分钟线
                 int minutes = Integer.parseInt(interval.substring(0, interval.length() - 1));
                 return Duration.ofMinutes(minutes);
-            }else if(interval.endsWith("S")){
+            }else if(interval.endsWith("s")){
                 // 秒线
                 int seconds = Integer.parseInt(interval.substring(0, interval.length() - 1));
                 return Duration.ofSeconds(seconds);
