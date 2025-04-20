@@ -18,7 +18,9 @@ import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Headers;
 import okhttp3.OkHttpClient;
+import okhttp3.internal.http2.Header;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import okhttp3.Request;
 import okhttp3.Response;
+import springfox.documentation.schema.Maps;
 
 /**
  * OKX API WebSocket服务实现类

@@ -26,7 +26,7 @@ public class HttpClientConfig {
 
     /**
      * 创建并配置OkHttp客户端
-     * 
+     *
      * @return 配置好的OkHttpClient实例
      */
     @Bean
@@ -44,20 +44,20 @@ public class HttpClientConfig {
                 .connectionPool(new ConnectionPool(10, 10, TimeUnit.MINUTES))
                 .addInterceptor(loggingInterceptor);
 
-        // 如果启用代理，则设置代理
-        if (proxyConfig.isEnabled()) {
-            Proxy proxy = new Proxy(Proxy.Type.HTTP, 
+        // 如果启用代理，则设置代理 ,http 都启用 代理 ,订阅不需要代理
+        if (true) {
+            Proxy proxy = new Proxy(Proxy.Type.HTTP,
                     new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort()));
             builder.proxy(proxy);
         }
 
         return builder.build();
     }
-    
+
     /**
      * 创建WebSocket专用HTTP客户端
      * 为WebSocket连接配置更长的超时时间和更宽松的设置
-     * 
+     *
      * @return WebSocket专用的OkHttpClient实例
      */
     @Bean(name = "webSocketHttpClient")
@@ -77,11 +77,11 @@ public class HttpClientConfig {
 
         // 如果启用代理，则设置代理
         if (proxyConfig.isEnabled()) {
-            Proxy proxy = new Proxy(Proxy.Type.HTTP, 
+            Proxy proxy = new Proxy(Proxy.Type.HTTP,
                     new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort()));
             builder.proxy(proxy);
         }
 
         return builder.build();
     }
-} 
+}
