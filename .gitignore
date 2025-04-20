@@ -119,3 +119,4 @@ application-local.yml
 application-local.properties
 *-local.yml
 *-local.properties
+!/logs/
