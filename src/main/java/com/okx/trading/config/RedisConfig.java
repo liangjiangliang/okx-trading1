@@ -8,53 +8,38 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
- * Redis配置类
- * 配置RedisTemplate
+ * Redis 配置类
+ * 提供通用的 RedisTemplate 配置
  */
 @Configuration
 public class RedisConfig {
 
-    /**
-     * 配置RedisTemplate
-     * key使用StringRedisSerializer
-     * value使用GenericJackson2JsonRedisSerializer
-     * hash的key也使用StringRedisSerializer
-     * hash的value使用GenericJackson2JsonRedisSerializer
-     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-//        // 使用StringRedisSerializer来序列化和反序列化redis的key
-//        template.setKeySerializer(new StringRedisSerializer());
-//        // 使用GenericJackson2JsonRedisSerializer来序列化和反序列化redis的value值
-//        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-//
-//        // Hash的key也采用StringRedisSerializer的序列化方式
-//        template.setHashKeySerializer(new StringRedisSerializer());
-//        // Hash的value使用GenericJackson2JsonRedisSerializer的序列化方式
-//        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
-//
-        // 设置序列化方式
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(Object.class);
-        ObjectMapper mapper = new ObjectMapper();
+        // key 和 hash key 用 String 序列化器
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        // 这一步关键：注册 Java8 时间模块！
-        mapper.registerModule(new JavaTimeModule());
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // value 和 hash value 用通用的 JSON 序列化器
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule()); // 支持 Java8 时间
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        serializer.setObjectMapper(mapper);
-        template.setValueSerializer(serializer);
-        template.setKeySerializer(new StringRedisSerializer());
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
+        // 设置 key/value 和 hashKey/hashValue 的序列化器
+        template.setKeySerializer(stringSerializer);
+        template.setValueSerializer(jsonSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setHashValueSerializer(jsonSerializer);
+
+        // 初始化 template
         template.afterPropertiesSet();
-        template.afterPropertiesSet();
-
         return template;
     }
 }
