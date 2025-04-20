@@ -71,7 +71,7 @@ public class RedisCacheServiceImpl implements RedisCacheService{
             if(! exist.isEmpty()){
                 redisTemplate.opsForZSet().removeRangeByScore(key, parseDouble, parseDouble);
             }
-            redisTemplate.opsForZSet().add(key, candlestick, parseDouble);
+            redisTemplate.opsForZSet().add(key, candlestick.toString(), parseDouble);
         }catch(Exception e){
             log.error("更新币种实时K线到Redis失败: {} {},", candlestick, e.getMessage(), e);
         }

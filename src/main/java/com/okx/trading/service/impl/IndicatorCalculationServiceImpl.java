@@ -1,5 +1,6 @@
 package com.okx.trading.service.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.IndicatorCalculationService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
@@ -53,9 +54,9 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     private static final int KDJ_DEFAULT_PERIOD = 9;
 
     // Redis键前缀
-    private static final String SOURCE_KLINE_PREFIX = "codis coin-rt-kline:";
+    private static final String SOURCE_KLINE_PREFIX = "coin-rt-kline:";
     private static final String TARGET_INDICATOR_PREFIX = "coin-rt-indicator:";
-    private static final String INDICATOR_SUBSCRIPTION_KEY = "indicator-subscriptions";
+    private static final String INDICATOR_SUBSCRIPTION_KEY = "kline:subscriptions";
 
     // 线程池
     @Qualifier("indicatorCalculateScheduler")
@@ -85,23 +86,14 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     @Override
     public void startService(){
         try{
-            logger.info("启动指标计算服务...");
-
-            // 从Redis加载订阅信息
-            loadSubscriptionsFromRedis();
-
-            // 执行初始指标计算
-            executeInitialCalculation();
 
             // 设置定期任务，定期检查新订阅
             scheduler.scheduleAtFixedRate(
                 this :: checkNewSubscriptions,
+                0,
                 1,
-                60,
-                TimeUnit.MINUTES
+                TimeUnit.SECONDS
             );
-
-            logger.info("指标计算服务启动成功，已加载{}个交易对的订阅", subscriptionMap.size());
         }catch(Exception e){
             logger.error("启动指标计算服务失败", e);
         }
@@ -144,10 +136,9 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
             // 转换为List并按时间排序
             List<Candlestick> klineList = klineSet.stream()
-                .filter(obj -> obj instanceof Candlestick)
-                .map(obj -> (Candlestick)obj)
-                .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
-                .collect(Collectors.toList());
+                        .map(obj -> JSONObject.parseObject((String)obj, Candlestick.class))
+                        .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
+                        .collect(Collectors.toList());
 
             if(klineList.size() < 2){
                 logger.warn("K线数据不足，无法检查连续性: {}", key);
@@ -200,8 +191,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
             // 转换为List并按时间排序
             List<Candlestick> klineList = klineSet.stream()
-                .filter(obj -> obj instanceof Candlestick)
-                .map(obj -> (Candlestick)obj)
+                .map(obj -> JSONObject.parseObject((String)obj, Candlestick.class))
                 .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
                 .collect(Collectors.toList());
 
@@ -525,7 +515,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
                 for(Object key: subscriptionKeys){
                     String subscriptionKey = key.toString();
-                    String[] parts = subscriptionKey.split(":");
+                    String[] parts = subscriptionKey.split("-");
                     if(parts.length == 2){
                         String symbol = parts[0];
                         String interval = parts[1];
@@ -549,7 +539,14 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
      */
     private void checkNewSubscriptions(){
         try{
-            logger.debug("检查新订阅...");
+            logger.debug("启动指标计算服务...");
+
+            // 从Redis加载订阅信息
+//            loadSubscriptionsFromRedis();
+
+            // 执行初始指标计算
+//            executeInitialCalculation();
+
             Set<Object> subscriptionKeys = redisTemplate.opsForSet().members(INDICATOR_SUBSCRIPTION_KEY);
 
             if(subscriptionKeys == null || subscriptionKeys.isEmpty()){

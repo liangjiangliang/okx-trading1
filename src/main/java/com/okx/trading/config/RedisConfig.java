@@ -34,7 +34,7 @@ public class RedisConfig {
 
         // 设置 key/value 和 hashKey/hashValue 的序列化器
         template.setKeySerializer(stringSerializer);
-        template.setValueSerializer(jsonSerializer);
+        template.setValueSerializer(stringSerializer);
         template.setHashKeySerializer(stringSerializer);
         template.setHashValueSerializer(jsonSerializer);
 
