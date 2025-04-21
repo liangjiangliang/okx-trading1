@@ -21,7 +21,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -82,7 +81,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
                 Candlestick candlestick = new Candlestick();
                 candlestick.setSymbol(symbol);
-                candlestick.setInterval(interval);
+                candlestick.setIntervalVal(interval);
 
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);
@@ -704,7 +703,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
                 Candlestick candlestick = new Candlestick();
                 candlestick.setSymbol(symbol);
-                candlestick.setInterval(interval);
+                candlestick.setIntervalVal(interval);
 
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);

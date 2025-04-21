@@ -119,7 +119,7 @@ public class MarketControllerTest {
                                         BigDecimal low, BigDecimal close) {
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol(symbol);
-        candlestick.setInterval(interval);
+        candlestick.setIntervalVal(interval);
         candlestick.setOpenTime(time);
         candlestick.setOpen(open);
         candlestick.setHigh(high);

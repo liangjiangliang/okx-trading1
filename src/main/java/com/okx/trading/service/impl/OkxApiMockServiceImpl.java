@@ -194,7 +194,7 @@ public class OkxApiMockServiceImpl implements OkxApiService {
 
             Candlestick candlestick = new Candlestick();
             candlestick.setSymbol(symbol);
-            candlestick.setInterval(interval);
+            candlestick.setIntervalVal(interval);
             candlestick.setOpenTime(time);
             candlestick.setOpen(open);
             candlestick.setHigh(high);
@@ -537,7 +537,7 @@ public class OkxApiMockServiceImpl implements OkxApiService {
         }
 
         List<Candlestick> allData = candlestickCache.get(cacheKey);
-        
+
         // 根据时间范围过滤数据
         List<Candlestick> filteredData = allData.stream()
                 .filter(candlestick -> {
@@ -547,10 +547,10 @@ public class OkxApiMockServiceImpl implements OkxApiService {
                     return afterStart && beforeEnd;
                 })
                 .collect(Collectors.toList());
-        
+
         // 按时间排序（从新到旧）
         filteredData.sort((c1, c2) -> c2.getOpenTime().compareTo(c1.getOpenTime()));
-        
+
         // 限制返回数量
         int size = limit != null && limit > 0 ? Math.min(limit, filteredData.size()) : filteredData.size();
         return filteredData.subList(0, size);

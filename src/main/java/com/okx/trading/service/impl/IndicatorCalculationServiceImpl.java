@@ -10,17 +10,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -28,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -131,9 +127,9 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
             }
 
             // 计算预期的时间间隔
-            Duration expectedInterval = getIntervalDuration(klineList.get(0).getInterval());
+            Duration expectedInterval = getIntervalDuration(klineList.get(0).getIntervalVal());
             if(expectedInterval == null){
-                logger.warn("无法识别的时间间隔: {}", klineList.get(0).getInterval());
+                logger.warn("无法识别的时间间隔: {}", klineList.get(0).getIntervalVal());
                 return false;
             }
 
@@ -156,7 +152,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
             return isContinuous;
         }catch(Exception e){
-            logger.error("检查K线数据连续性出错: {} {}", klineList.get(0).getSymbol(), klineList.get(0).getInterval(), e);
+            logger.error("检查K线数据连续性出错: {} {}", klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), e);
             return false;
         }
     }

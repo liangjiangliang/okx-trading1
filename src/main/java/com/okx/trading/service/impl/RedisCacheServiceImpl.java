@@ -2,9 +2,7 @@ package com.okx.trading.service.impl;
 
 import com.okx.trading.event.CoinSubscriptionEvent;
 import com.okx.trading.model.market.Candlestick;
-import com.okx.trading.model.market.Ticker;
 import com.okx.trading.service.RedisCacheService;
-import com.okx.trading.util.TechnicalIndicatorUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -64,7 +62,7 @@ public class RedisCacheServiceImpl implements RedisCacheService{
     @Override
     public void updateCandlestick(Candlestick candlestick){
         try{
-            String key = COIN_KLINE_PREFIX_KEY + candlestick.getSymbol() + ":" + candlestick.getInterval();
+            String key = COIN_KLINE_PREFIX_KEY + candlestick.getSymbol() + ":" + candlestick.getIntervalVal();
             long openTime = candlestick.getOpenTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             double parseDouble = Double.parseDouble(String.valueOf(openTime));
             Set<Object> exist = redisTemplate.opsForZSet().rangeByScore(key, parseDouble, parseDouble);

@@ -40,7 +40,7 @@ public class OkxApiMockServiceTest {
 
         for (Candlestick candlestick : candlesticks) {
             assertEquals("BTC-USDT", candlestick.getSymbol());
-            assertEquals("1m", candlestick.getInterval());
+            assertEquals("1m", candlestick.getIntervalVal());
             assertNotNull(candlestick.getOpenTime());
             assertNotNull(candlestick.getOpen());
             assertNotNull(candlestick.getHigh());

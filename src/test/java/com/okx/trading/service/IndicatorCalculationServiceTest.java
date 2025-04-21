@@ -9,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 
 import java.math.BigDecimal;
@@ -220,7 +219,7 @@ public class IndicatorCalculationServiceTest {
 
         // 配置模拟对象的行为
         when(mockCandlestick.getSymbol()).thenReturn(symbol);
-        when(mockCandlestick.getInterval()).thenReturn(interval);
+        when(mockCandlestick.getIntervalVal()).thenReturn(interval);
         when(mockCandlestick.getOpenTime()).thenReturn(openTime);
         when(mockCandlestick.getCloseTime()).thenReturn(closeTime);
         when(mockCandlestick.getOpen()).thenReturn(new BigDecimal("30000.00").add(new BigDecimal(index * 10)));

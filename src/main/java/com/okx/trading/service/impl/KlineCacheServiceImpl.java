@@ -186,7 +186,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
         try {
             String symbol = candlestick.getSymbol();
-            String interval = candlestick.getInterval();
+            String interval = candlestick.getIntervalVal();
 
             if (symbol == null || interval == null) {
                 log.warn("缓存K线数据失败: 交易对或时间间隔为空");
@@ -270,7 +270,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
             if (candlestick == null) continue;
 
             String symbol = candlestick.getSymbol();
-            String interval = candlestick.getInterval();
+            String interval = candlestick.getIntervalVal();
 
             if (symbol == null || interval == null) continue;
 

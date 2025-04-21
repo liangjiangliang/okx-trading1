@@ -2,7 +2,6 @@ package com.okx.trading.service.impl;
 
 import com.okx.trading.event.KlineSubscriptionEvent;
 import com.okx.trading.model.market.Candlestick;
-import com.okx.trading.service.KlineCacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -168,7 +167,7 @@ public class KlineCacheServiceImplTest {
         // 准备
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol("BTC-USDT");
-        candlestick.setInterval("1m");
+        candlestick.setIntervalVal("1m");
         candlestick.setOpenTime(LocalDateTime.now());
         candlestick.setOpen(new BigDecimal("50000"));
         candlestick.setHigh(new BigDecimal("51000"));
@@ -197,7 +196,7 @@ public class KlineCacheServiceImplTest {
         // 准备
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol("BTC-USDT");
-        candlestick.setInterval("1m");
+        candlestick.setIntervalVal("1m");
         candlestick.setOpenTime(LocalDateTime.now());
         candlestick.setOpen(new BigDecimal("50000"));
         candlestick.setHigh(new BigDecimal("51000"));
@@ -260,12 +259,12 @@ public class KlineCacheServiceImplTest {
         Set<Object> redisResult = new HashSet<>();
         Candlestick c1 = new Candlestick();
         c1.setSymbol(symbol);
-        c1.setInterval(interval);
+        c1.setIntervalVal(interval);
         c1.setOpenTime(LocalDateTime.now().minusMinutes(2));
 
         Candlestick c2 = new Candlestick();
         c2.setSymbol(symbol);
-        c2.setInterval(interval);
+        c2.setIntervalVal(interval);
         c2.setOpenTime(LocalDateTime.now().minusMinutes(1));
 
         redisResult.add(c1);

@@ -18,9 +18,7 @@ import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.Headers;
 import okhttp3.OkHttpClient;
-import okhttp3.internal.http2.Header;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import okhttp3.Request;
 import okhttp3.Response;
-import springfox.documentation.schema.Maps;
 
 /**
  * OKX API WebSocket服务实现类
@@ -169,9 +166,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
 
                 if(candlestick != null){
-                    candlestick.setInterval(interval);
+                    candlestick.setIntervalVal(interval);
                     redisCacheService.updateCandlestick(candlestick);
-                    indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(),candlestick.getInterval());
+                    indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(),candlestick.getIntervalVal());
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
                 }
@@ -354,7 +351,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 klineFutures.remove(key);
 
                 // 添加间隔信息
-                candlesticks.forEach(c -> c.setInterval(interval));
+                candlesticks.forEach(c -> c.setIntervalVal(interval));
 
                 // 限制返回数量
                 int size = limit != null && limit > 0 ? Math.min(limit, candlesticks.size()) : candlesticks.size();
@@ -1112,7 +1109,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
                 Candlestick candlestick = new Candlestick();
                 candlestick.setSymbol(symbol);
-                candlestick.setInterval(interval);
+                candlestick.setIntervalVal(interval);
 
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);
