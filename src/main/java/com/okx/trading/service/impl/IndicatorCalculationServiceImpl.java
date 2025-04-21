@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -34,13 +36,13 @@ import java.util.stream.Collectors;
  * 负责实时计算K线数据的技术指标，并存储到Redis中
  */
 @Service
-@RequiredArgsConstructor
-public class IndicatorCalculationServiceImpl implements IndicatorCalculationService, CommandLineRunner{
+public class IndicatorCalculationServiceImpl implements IndicatorCalculationService, CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(IndicatorCalculationServiceImpl.class);
 
     private final RedisTemplate<String,Object> redisTemplate;
 
+    @Lazy
     private final HistoricalDataService historicalDataService;
 
     // 指标计算参数常量
@@ -66,6 +68,13 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
     // 订阅映射表，key为交易对，value为时间间隔集合
     private final Map<String,Set<String>> subscriptionMap = new ConcurrentHashMap<>();
+
+    @Autowired
+    public IndicatorCalculationServiceImpl(RedisTemplate<String,Object> redisTemplate,
+                                          @Lazy HistoricalDataService historicalDataService) {
+        this.redisTemplate = redisTemplate;
+        this.historicalDataService = historicalDataService;
+    }
 
 //    @PostConstruct
 //    public void init(){

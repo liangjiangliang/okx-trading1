@@ -13,11 +13,13 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -68,7 +70,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     }
 
     @Autowired
-    public HistoricalDataServiceImpl(OkxApiService okxApiService, CandlestickRepository candlestickRepository,
+    public HistoricalDataServiceImpl(@Lazy OkxApiService okxApiService,
+                                     CandlestickRepository candlestickRepository,
                                      @Qualifier("historicalDataExecutorService") ExecutorService executorService,
                                      @Qualifier("batchHistoricalDataExecutorService") ExecutorService batchExecutorService){
         this.okxApiService = okxApiService;
@@ -78,7 +81,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     }
 
     @Override
-    public CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval,
+    public synchronized CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval,
                                                                  LocalDateTime startTime, LocalDateTime endTime){
         log.info("开始获取历史K线数据: symbol={}, interval={}, startTime={}, endTime={}",
             symbol, interval, startTime, endTime);
@@ -206,9 +209,16 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     private List<TimeSlice> getIncompleteDays(String symbol, String interval, LocalDateTime startTime, LocalDateTime endTime){
         List<TimeSlice> incompleteDays = new ArrayList<>();
 
+
         // 获取时间范围内的所有天数
         LocalDateTime currentDay = startTime.toLocalDate().atStartOfDay();
         LocalDateTime lastDay = endTime.toLocalDate().atStartOfDay().minusSeconds(1);
+        if(startTime.getDayOfYear() == endTime.getDayOfYear()){
+            // 检查当天数据是否完整
+            if(! isDayDataComplete(symbol, interval, currentDay, currentDay.plusDays(1).minusSeconds(1))){
+                incompleteDays.add(new TimeSlice(currentDay, endTime.plusDays(1).minusSeconds(1)));
+            }
+        }
 
         while(! currentDay.isAfter(lastDay)){
             // 计算当天结束时间（次日0点）-1 秒
@@ -482,7 +492,10 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
      */
     private List<TimeSlice> createTimeSlices(String interval, LocalDateTime startTime, LocalDateTime endTime, int batchCount){
         List<TimeSlice> slices = new ArrayList<>();
-
+        LocalDateTime now = LocalDateTime.now();
+        if(endTime.getSecond() >= now.getSecond()){
+            endTime = now;
+        }
         long totalMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
         long minutesPerBatch = totalMinutes / batchCount;
         long intervalMinutes = getIntervalMinutes(interval);
