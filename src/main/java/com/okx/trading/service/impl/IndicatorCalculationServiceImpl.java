@@ -122,33 +122,18 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     }
 
     @Override
-    public boolean checkKlineContinuity(String symbol, String interval){
+    public boolean checkKlineContinuity(List<Candlestick> klineList){
         try{
-            logger.debug("检查K线数据连续性: {} {}", symbol, interval);
-            String key = SOURCE_KLINE_PREFIX + symbol + ":" + interval;
-
-            // 获取所有K线数据
-            Set<Object> klineSet = redisTemplate.opsForZSet().range(key, 0, - 1);
-            if(klineSet == null || klineSet.isEmpty()){
-                logger.warn("未找到K线数据: {}", key);
-                return false;
-            }
-
-            // 转换为List并按时间排序
-            List<Candlestick> klineList = klineSet.stream()
-                        .map(obj -> JSONObject.parseObject((String)obj, Candlestick.class))
-                        .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
-                        .collect(Collectors.toList());
 
             if(klineList.size() < 2){
-                logger.warn("K线数据不足，无法检查连续性: {}", key);
+                logger.warn("K线数据不足，无法检查连续性: {}", klineList.get(0).getSymbol());
                 return false;
             }
 
             // 计算预期的时间间隔
-            Duration expectedInterval = getIntervalDuration(interval);
+            Duration expectedInterval = getIntervalDuration(klineList.get(0).getInterval());
             if(expectedInterval == null){
-                logger.warn("无法识别的时间间隔: {}", interval);
+                logger.warn("无法识别的时间间隔: {}", klineList.get(0).getInterval());
                 return false;
             }
 
@@ -163,7 +148,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
                 long diffSeconds = Math.abs(actualInterval.getSeconds() - expectedInterval.getSeconds());
                 if(diffSeconds > 1){
                     logger.warn("K线数据不连续: {} 在 {} 和 {} 之间, 预期间隔: {}, 实际间隔: {}秒",
-                        key, prevTime, currTime, expectedInterval.getSeconds(), actualInterval.getSeconds());
+                        klineList.get(0).getSymbol(), prevTime, currTime, expectedInterval.getSeconds(), actualInterval.getSeconds());
                     isContinuous = false;
                     break;
                 }
@@ -171,7 +156,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
             return isContinuous;
         }catch(Exception e){
-            logger.error("检查K线数据连续性出错: {} {}", symbol, interval, e);
+            logger.error("检查K线数据连续性出错: {} {}", klineList.get(0).getSymbol(), klineList.get(0).getInterval(), e);
             return false;
         }
     }
@@ -203,7 +188,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
             }
 
             // 检查数据连续性
-            if(! checkKlineContinuity(symbol, interval)){
+            if(! checkKlineContinuity(klineList)){
                 logger.warn("K线数据不连续，跳过指标计算: {} {}", symbol, interval);
                 return false;
             }
@@ -609,16 +594,16 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     /**
      * Redis消息监听器内部类
      */
-    private class RedisMessageListener {
+    private class RedisMessageListener{
         private final String symbol;
         private final String interval;
 
-        public RedisMessageListener(String symbol, String interval) {
+        public RedisMessageListener(String symbol, String interval){
             this.symbol = symbol;
             this.interval = interval;
         }
 
-        public void onMessage(Object message, String pattern) {
+        public void onMessage(Object message, String pattern){
             handleKlineUpdate(symbol, interval, message);
         }
     }
@@ -702,7 +687,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
 //        interval = interval.toUpperCase();
         try{
-            if(interval.endsWith("M") ){
+            if(interval.endsWith("M")){
                 // 月线，按30天计算
                 int months = Integer.parseInt(interval.substring(0, interval.length() - 1));
                 return Duration.ofDays(30 * months);

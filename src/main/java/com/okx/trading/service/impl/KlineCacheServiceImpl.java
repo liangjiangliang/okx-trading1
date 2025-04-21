@@ -513,14 +513,19 @@ public class KlineCacheServiceImpl implements KlineCacheService {
         log.info("初始化默认K线订阅");
 
         // 默认订阅的交易对和时间间隔
-        List<String> defaultSymbols = Arrays.asList(DEFAULT_SYMBOLS);
-        List<String> defaultIntervals = Arrays.asList(DEFAULT_INTERVALS);
-
-        // 批量订阅
-        for (String symbol : defaultSymbols) {
-            List<String> successIntervals = batchSubscribeKline(symbol, defaultIntervals);
-            log.info("为交易对 {} 订阅K线间隔: {}", symbol, successIntervals);
+        Set<String> members = redisTemplate.opsForSet().members(KLINE_SUBSCRIPTION_KEY);
+        for(String member: members){
+            String[] split = member.split(":");
+            String symbol = split[0];
+            String interval = split[1];
+            batchSubscribeKline(symbol,Collections.singletonList(interval));
         }
+
+//        // 批量订阅
+//        for (String symbol : defaultSymbols) {
+//            List<String> successIntervals = batchSubscribeKline(symbol, defaultIntervals);
+//            log.info("为交易对 {} 订阅K线间隔: {}", symbol, successIntervals);
+//        }
     }
 
     /**

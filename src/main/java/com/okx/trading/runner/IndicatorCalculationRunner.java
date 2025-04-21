@@ -27,7 +27,7 @@ public class IndicatorCalculationRunner implements CommandLineRunner {
 
     /**
      * 构造函数，通过Spring注入服务
-     * 
+     *
      * @param indicatorCalculationService 指标计算服务
      */
     @Autowired
@@ -37,20 +37,20 @@ public class IndicatorCalculationRunner implements CommandLineRunner {
 
     /**
      * 在应用启动后执行的方法
-     * 
+     *
      * @param args 命令行参数
      */
     @Override
     public void run(String... args) {
         try {
-            logger.info("开始启动指标计算服务...");
-            
-            // 启动指标计算服务
-            indicatorCalculationService.startService();
-            
-            logger.info("指标计算服务启动完成");
+//            logger.info("开始启动指标计算服务...");
+//
+//            // 启动指标计算服务
+//            indicatorCalculationService.startService();
+//
+//            logger.info("指标计算服务启动完成");
         } catch (Exception e) {
             logger.error("启动指标计算服务失败", e);
         }
     }
-} 
+}

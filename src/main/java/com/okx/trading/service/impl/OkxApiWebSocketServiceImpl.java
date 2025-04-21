@@ -56,6 +56,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
     private final OkHttpClient okHttpClient;
+    private final IndicatorCalculationServiceImpl indicatorCalculationServiceImpl;
 
     // 缓存和回调
     private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -145,7 +146,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             String symbol = arg.getString("instId");
             String channel = arg.getString("channel");
 
-            // 对于标记价格K线，从bar参数获取interval
+            // 从bar参数获取interval
             String interval = channel.replaceAll("candle", "");
             // 构建缓存键 - 确保与getKlineData和unsubscribeKlineData方法使用相同的键格式
             String key = channel + "_" + symbol + "_" + interval;
@@ -162,19 +163,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 Object item = dataArray.get(i);
                 Candlestick candlestick = null;
 
-                if(item instanceof JSONArray){
-                    // 标准K线格式：数组的数组
-                    JSONArray candleData = (JSONArray)item;
-                    candlestick = parseCandlestick(candleData, symbol, channel);
-                }else if(item instanceof JSONObject){
-                    // 某些API返回对象数组
-                    JSONObject candleObj = (JSONObject)item;
-                    candlestick = parseCandlestickFromObject(candleObj, symbol, channel);
-                }
+                // 标准K线格式：数组的数组
+                JSONArray candleData = (JSONArray)item;
+                candlestick = parseCandlestick(candleData, symbol, channel);
+
 
                 if(candlestick != null){
                     candlestick.setInterval(interval);
                     redisCacheService.updateCandlestick(candlestick);
+                    indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(),candlestick.getInterval());
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
                 }
