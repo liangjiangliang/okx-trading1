@@ -27,8 +27,15 @@ public class IndicatorCalculationController {
     /**
      * 指标计算服务
      */
-    @Autowired
-    private IndicatorCalculationService indicatorCalculationService;
+    private final IndicatorCalculationService indicatorCalculationService;
+
+    /**
+     * 构造函数注入
+     * @param indicatorCalculationService 指标计算服务
+     */
+    public IndicatorCalculationController(IndicatorCalculationService indicatorCalculationService) {
+        this.indicatorCalculationService = indicatorCalculationService;
+    }
 
     /**
      * 订阅指标计算
@@ -42,9 +49,9 @@ public class IndicatorCalculationController {
     public ApiResponse<?> subscribeIndicator(
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval) {
-        
+
         boolean success = indicatorCalculationService.subscribeIndicatorCalculation(symbol, interval);
-        
+
         if (success) {
             logger.info("成功订阅指标计算: {} {}", symbol, interval);
             return ApiResponse.success("成功订阅指标计算: " + symbol + " " + interval, null);
@@ -66,9 +73,9 @@ public class IndicatorCalculationController {
     public ApiResponse<?> unsubscribeIndicator(
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval) {
-        
+
         boolean success = indicatorCalculationService.unsubscribeIndicatorCalculation(symbol, interval);
-        
+
         if (success) {
             logger.info("成功取消订阅指标计算: {} {}", symbol, interval);
             return ApiResponse.success("成功取消订阅指标计算: " + symbol + " " + interval, null);
@@ -102,9 +109,9 @@ public class IndicatorCalculationController {
     public ApiResponse<Map<String, Object>> getMACDIndicator(
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval) {
-        
+
         Map<String, Object> macdData = indicatorCalculationService.getMACDIndicator(symbol, interval);
-        
+
         if (macdData != null && !macdData.isEmpty()) {
             return ApiResponse.success("获取MACD指标成功", macdData);
         } else {
@@ -126,9 +133,9 @@ public class IndicatorCalculationController {
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval,
             @ApiParam(value = "RSI周期", defaultValue = "14") @RequestParam(defaultValue = "14") int period) {
-        
+
         List<Double> rsiData = indicatorCalculationService.getRSIIndicator(symbol, interval, period);
-        
+
         if (rsiData != null && !rsiData.isEmpty()) {
             return ApiResponse.success("获取RSI指标成功", rsiData);
         } else {
@@ -148,9 +155,9 @@ public class IndicatorCalculationController {
     public ApiResponse<Map<String, Object>> getKDJIndicator(
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval) {
-        
+
         Map<String, Object> kdjData = indicatorCalculationService.getKDJIndicator(symbol, interval);
-        
+
         if (kdjData != null && !kdjData.isEmpty()) {
             return ApiResponse.success("获取KDJ指标成功", kdjData);
         } else {
@@ -170,13 +177,13 @@ public class IndicatorCalculationController {
     public ApiResponse<Map<String, Object>> getBollingerBandsIndicator(
             @ApiParam(value = "交易对符号", required = true) @RequestParam String symbol,
             @ApiParam(value = "K线间隔", required = true) @RequestParam String interval) {
-        
+
         Map<String, Object> bollData = indicatorCalculationService.getBollingerBandsIndicator(symbol, interval);
-        
+
         if (bollData != null && !bollData.isEmpty()) {
             return ApiResponse.success("获取布林带指标成功", bollData);
         } else {
             return ApiResponse.error(404, "获取布林带指标失败");
         }
     }
-} 
+}
