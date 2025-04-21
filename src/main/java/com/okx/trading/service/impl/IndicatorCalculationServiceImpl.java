@@ -2,7 +2,9 @@ package com.okx.trading.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.market.Candlestick;
+import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.IndicatorCalculationService;
+import com.okx.trading.service.OkxApiService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -38,6 +40,8 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     private static final Logger logger = LoggerFactory.getLogger(IndicatorCalculationServiceImpl.class);
 
     private final RedisTemplate<String,Object> redisTemplate;
+
+    private final HistoricalDataService historicalDataService;
 
     // 指标计算参数常量
     private static final int DEFAULT_SCALE = 8;
@@ -145,6 +149,8 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
                 if(diffSeconds > 1){
                     logger.warn("K线数据不连续: {} 在 {} 和 {} 之间, 预期间隔: {}, 实际间隔: {}秒",
                         klineList.get(0).getSymbol(), prevTime, currTime, expectedInterval.getSeconds(), actualInterval.getSeconds());
+                    // 填充k线
+                    historicalDataService.fetchAndSaveHistoricalData( klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), prevTime,currTime);
                     isContinuous = false;
                     break;
                 }
