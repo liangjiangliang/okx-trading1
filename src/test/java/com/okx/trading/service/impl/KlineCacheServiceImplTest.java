@@ -1,6 +1,7 @@
 package com.okx.trading.service.impl;
 
 import com.okx.trading.event.KlineSubscriptionEvent;
+import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -273,7 +274,7 @@ public class KlineCacheServiceImplTest {
         when(zSetOperations.reverseRange(eq(key), eq(0L), eq((long)(limit - 1)))).thenReturn(redisResult);
 
         // 执行
-        List<Candlestick> result = klineCacheService.getLatestKlineData(symbol, interval, limit);
+        List<CandlestickEntity> result = klineCacheService.getLatestKlineData(symbol, interval, limit);
 
         // 验证
         assertEquals(2, result.size());

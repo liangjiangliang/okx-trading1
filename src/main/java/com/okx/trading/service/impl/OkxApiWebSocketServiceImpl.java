@@ -7,12 +7,14 @@ import com.okx.trading.exception.BusinessException;
 import com.okx.trading.exception.OkxApiException;
 import com.okx.trading.model.account.AccountBalance;
 import com.okx.trading.model.account.AccountBalance.AssetBalance;
+import com.okx.trading.model.dto.IndicatorValueDTO;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
+import com.okx.trading.service.TechnicalIndicatorService;
 import com.okx.trading.util.HttpUtil;
 import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
@@ -33,9 +35,14 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import okhttp3.Request;
 import okhttp3.Response;
+import reactor.util.function.Tuple2;
+
+
+import static com.okx.trading.service.impl.TechnicalIndicatorServiceImpl.*;
 
 /**
  * OKX API WebSocket服务实现类
@@ -55,9 +62,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
     private final OkHttpClient okHttpClient;
-    
+
     @Lazy
     private final IndicatorCalculationServiceImpl indicatorCalculationServiceImpl;
+
+    private final TechnicalIndicatorService technicalIndicatorService;
 
     // 缓存和回调
     private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -171,7 +180,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 if(candlestick != null){
                     candlestick.setIntervalVal(interval);
                     redisCacheService.updateCandlestick(candlestick);
-                    indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(), candlestick.getIntervalVal());
+                    // indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(), candlestick.getIntervalVal());
+                    Map<String,IndicatorValueDTO> stringIndicatorValueDTOMap = technicalIndicatorService.calculateMultipleIndicators(candlestick.getSymbol(), candlestick.getIntervalVal(), indicatorParamMap);
+                    HashMap<String,Map<String,BigDecimal>> indicators = new HashMap<>();
+                    for(Map.Entry<String,IndicatorValueDTO> valueDTOEntry: stringIndicatorValueDTOMap.entrySet()){
+                        indicators.put(valueDTOEntry.getKey(),valueDTOEntry.getValue().getValues());
+                    }
+                    candlestick.setIndecator(indicators);
+                    redisCacheService.updateCandlestick(candlestick);
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
                 }

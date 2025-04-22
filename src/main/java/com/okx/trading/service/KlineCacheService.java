@@ -1,5 +1,6 @@
 package com.okx.trading.service;
 
+import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,7 @@ public interface KlineCacheService {
      */
     List<String> getSubscribedIntervals(String symbol);
 
+    List<CandlestickEntity> getKlineData(String symbol, String interval, int klineLimit);
     /**
      * 将K线数据缓存到Redis
      *
@@ -86,7 +88,7 @@ public interface KlineCacheService {
      * @param limit 获取条数，默认1
      * @return K线数据列表
      */
-    List<Candlestick> getLatestKlineData(String symbol, String interval, int limit);
+    List<CandlestickEntity> getLatestKlineData(String symbol, String interval, int limit);
 
     /**
      * 获取指定交易对和时间间隔的历史K线数据
@@ -98,7 +100,7 @@ public interface KlineCacheService {
      * @param limit 获取条数
      * @return K线数据列表
      */
-    List<Candlestick> getHistoricalKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
+    List<CandlestickEntity> getHistoricalKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
 
     /**
      * 初始化默认K线订阅

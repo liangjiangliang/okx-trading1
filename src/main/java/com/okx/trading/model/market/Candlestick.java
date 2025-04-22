@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * K线数据模型
@@ -87,6 +88,8 @@ public class Candlestick {
      * 0 代表 K 线未完结，1 代表 K 线已完结
      */
     private int state;
+
+    private Map<String,Map<String,BigDecimal>> indecator;
 
     @Override
     public String toString(){
