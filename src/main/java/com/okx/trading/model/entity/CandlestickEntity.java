@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
@@ -19,7 +20,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "candlestick_history")
-public class CandlestickEntity {
+public class CandlestickEntity implements Comparable<CandlestickEntity>{
 
     /**
      * 自增主键ID
@@ -100,4 +101,9 @@ public class CandlestickEntity {
      */
     @Column(name = "fetch_time")
     private LocalDateTime fetchTime;
+
+    @Override
+    public int compareTo(@NotNull CandlestickEntity o){
+        return this.getOpenTime().compareTo(o.getOpenTime());
+    }
 }

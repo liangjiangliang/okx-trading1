@@ -1,11 +1,20 @@
 package com.okx.trading.constant;
 
 
+import org.springframework.stereotype.Component;
+
 import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 
+@Component
 public class IndicatorInfo{
+
+    public static final String SOURCE_KLINE_PREFIX = "coin-rt-kline:";
+    public static final String TARGET_INDICATOR_PREFIX = "coin-rt-indicator:";
+    public static final String INDICATOR_SUBSCRIPTION_KEY = "kline:subscriptions";
+    // 最少需要的K线数量
+    public static final int MIN_KLINE_COUNT = 50;
     // 支持的指标类型常量
     public static final String INDICATOR_SMA = "SMA";
     public static final String INDICATOR_EMA = "EMA";

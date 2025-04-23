@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,7 +20,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Candlestick {
+public class Candlestick implements Comparable<Candlestick>{
 
     private String channel;
     /**
@@ -94,5 +95,11 @@ public class Candlestick {
     @Override
     public String toString(){
         return JSONObject.toJSONString(this);
+    }
+
+
+    @Override
+    public int compareTo(@NotNull Candlestick o){
+        return this.getOpenTime().compareTo(o.getOpenTime());
     }
 }

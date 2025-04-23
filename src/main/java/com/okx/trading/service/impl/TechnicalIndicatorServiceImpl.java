@@ -5,6 +5,7 @@ import com.okx.trading.model.dto.IndicatorValueDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.HistoricalDataService;
+import com.okx.trading.service.IndicatorCalculationService;
 import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.service.TechnicalIndicatorService;
 import com.okx.trading.ta4j.CandlestickBarSeriesConverter;
@@ -48,11 +49,7 @@ import static com.okx.trading.constant.IndicatorInfo.*;
 public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
 
     private static final Logger log = LoggerFactory.getLogger(TechnicalIndicatorServiceImpl.class);
-    private static final String SOURCE_KLINE_PREFIX = "coin-rt-kline:";
-    private static final String TARGET_INDICATOR_PREFIX = "coin-rt-indicator:";
-    private static final String INDICATOR_SUBSCRIPTION_KEY = "kline:subscriptions";
-    // 最少需要的K线数量
-    private static final int MIN_KLINE_COUNT = 50;
+
 
     @Autowired
     private RedisTemplate<String,Object> redisTemplate;
@@ -62,6 +59,9 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
 
     @Autowired
     private CandlestickBarSeriesConverter barSeriesConverter;
+
+    @Autowired
+    private IndicatorCalculationService indicatorCalculationService;
 
     @Override
     public IndicatorValueDTO calculateLastIndicator(String symbol, String interval, String indicatorType, String params){
@@ -91,8 +91,22 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
             return new HashMap<>();
         }
 
+        List<Candlestick> candlestickList = klineSet.stream().map(x -> JSONObject.parseObject((String)x, Candlestick.class)).collect(Collectors.toList());
+        Collections.sort(candlestickList);
+
+        if(candlestickList.size() > MIN_KLINE_COUNT){
+            candlestickList = candlestickList.subList(candlestickList.size() - 1 - MIN_KLINE_COUNT, candlestickList.size() - 1);
+        }
+
+        boolean checkedKlineContinuity = indicatorCalculationService.checkKlineContinuity(candlestickList);
+        if(! checkedKlineContinuity){
+            log.warn("{} {} k线数据不连续,停止计算指标", candlestickList.get(0).getSymbol(), candlestickList.get(0).getIntervalVal());
+            return new HashMap<>();
+        }
+
         // 转换为List并按时间排序
-        List<CandlestickEntity> klines = klineSet.stream()
+        List<CandlestickEntity> klines = candlestickList.stream()
+            .map(JSONObject :: toJSONString)
             .map(obj -> JSONObject.parseObject((String)obj, CandlestickEntity.class))
             .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
             .collect(Collectors.toList());

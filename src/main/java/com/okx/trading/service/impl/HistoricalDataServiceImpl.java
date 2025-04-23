@@ -211,12 +211,13 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
 
 
         // 获取时间范围内的所有天数
-        LocalDateTime currentDay = startTime.toLocalDate().atStartOfDay();
-        LocalDateTime lastDay = endTime.toLocalDate().atStartOfDay().minusSeconds(1);
+        LocalDateTime currentDay = startTime;
+        LocalDateTime lastDay = endTime.minusSeconds(1);
         if(startTime.getDayOfYear() == endTime.getDayOfYear()){
             // 检查当天数据是否完整
-            if(! isDayDataComplete(symbol, interval, currentDay, currentDay.plusDays(1).minusSeconds(1))){
-                incompleteDays.add(new TimeSlice(currentDay, endTime.plusDays(1).minusSeconds(1)));
+            if(! isDayDataComplete(symbol, interval, currentDay, lastDay)){
+                incompleteDays.add(new TimeSlice(currentDay, lastDay));
+                return incompleteDays;
             }
         }
 

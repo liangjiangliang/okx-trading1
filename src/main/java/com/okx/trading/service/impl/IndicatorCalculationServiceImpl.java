@@ -31,12 +31,14 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+import static com.okx.trading.constant.IndicatorInfo.MIN_KLINE_COUNT;
+
 /**
  * 指标计算服务实现类
  * 负责实时计算K线数据的技术指标，并存储到Redis中
  */
 @Service
-public class IndicatorCalculationServiceImpl implements IndicatorCalculationService, CommandLineRunner {
+public class IndicatorCalculationServiceImpl implements IndicatorCalculationService, CommandLineRunner{
 
     private static final Logger logger = LoggerFactory.getLogger(IndicatorCalculationServiceImpl.class);
 
@@ -71,7 +73,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
 
     @Autowired
     public IndicatorCalculationServiceImpl(RedisTemplate<String,Object> redisTemplate,
-                                          @Lazy HistoricalDataService historicalDataService) {
+                                           @Lazy HistoricalDataService historicalDataService){
         this.redisTemplate = redisTemplate;
         this.historicalDataService = historicalDataService;
     }
@@ -96,13 +98,13 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     public void startService(){
         try{
 
-            // 设置定期任务，定期检查新订阅
-            scheduler.scheduleAtFixedRate(
-                this :: checkNewSubscriptions,
-                0,
-                1,
-                TimeUnit.SECONDS
-            );
+//            // 设置定期任务，定期检查新订阅
+//            scheduler.scheduleAtFixedRate(
+//                this :: checkNewSubscriptions,
+//                0,
+//                1,
+//                TimeUnit.SECONDS
+//            );
         }catch(Exception e){
             logger.error("启动指标计算服务失败", e);
         }
@@ -159,7 +161,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
                     logger.warn("K线数据不连续: {} 在 {} 和 {} 之间, 预期间隔: {}, 实际间隔: {}秒",
                         klineList.get(0).getSymbol(), prevTime, currTime, expectedInterval.getSeconds(), actualInterval.getSeconds());
                     // 填充k线
-                    historicalDataService.fetchAndSaveHistoricalData( klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), prevTime,currTime);
+                    historicalDataService.fetchAndSaveHistoricalData(klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), prevTime, currTime);
                     isContinuous = false;
                     break;
                 }
