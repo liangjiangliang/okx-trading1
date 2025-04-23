@@ -38,6 +38,8 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.okx.trading.constant.IndicatorInfo.*;
+
 /**
  * 技术指标服务实现类
  * 负责计算各种技术指标值
@@ -51,44 +53,6 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     private static final String INDICATOR_SUBSCRIPTION_KEY = "kline:subscriptions";
     // 最少需要的K线数量
     private static final int MIN_KLINE_COUNT = 50;
-
-    // 支持的指标类型常量
-    public static final String INDICATOR_SMA = "SMA";
-    public static final String INDICATOR_EMA = "EMA";
-    public static final String INDICATOR_BOLLINGER_BANDS = "BOLLINGER";
-    public static final String INDICATOR_MACD = "MACD";
-    public static final String INDICATOR_RSI = "RSI";
-    public static final String INDICATOR_STOCHASTIC = "STOCHASTIC";
-    public static final String INDICATOR_WILLIAMS_R = "WILLIAMS_R";
-    public static final String INDICATOR_CCI = "CCI";
-    public static final String INDICATOR_ATR = "ATR";
-    public static final String INDICATOR_PARABOLIC_SAR = "PARABOLIC_SAR";
-
-    // 指标参数说明
-    private static final String SMA_PARAMS_DESC = "周期 (例如：14)";
-    private static final String EMA_PARAMS_DESC = "周期 (例如：12)";
-    private static final String BOLLINGER_PARAMS_DESC = "周期,标准差倍数 (例如：20,2.0)";
-    private static final String MACD_PARAMS_DESC = "短周期,长周期,信号周期 (例如：12,26,9)";
-    private static final String RSI_PARAMS_DESC = "周期 (例如：14)";
-    private static final String STOCHASTIC_PARAMS_DESC = "K周期,%K平滑周期,%D平滑周期 (例如：14,3,3)";
-    private static final String WILLIAMS_R_PARAMS_DESC = "周期 (例如：14)";
-    private static final String CCI_PARAMS_DESC = "周期 (例如：20)";
-    private static final String ATR_PARAMS_DESC = "周期 (例如：14)";
-    private static final String PARABOLIC_SAR_PARAMS_DESC = "步长,最大步长 (例如：0.02,0.2)";
-
-
-    public static final Map<String,String> indicatorParamMap=new HashMap<>();
-    @PostConstruct
-    public void  init(){
-        indicatorParamMap.put(INDICATOR_SMA,"14");
-        indicatorParamMap.put(INDICATOR_EMA,"12");
-        indicatorParamMap.put(INDICATOR_BOLLINGER_BANDS,"20,2.0");
-        indicatorParamMap.put(INDICATOR_MACD,"12,26,9");
-        indicatorParamMap.put(INDICATOR_RSI,"14");
-        indicatorParamMap.put(INDICATOR_STOCHASTIC,"14,3,3");
-        indicatorParamMap.put(INDICATOR_WILLIAMS_R,"14");
-
-    }
 
     @Autowired
     private RedisTemplate<String,Object> redisTemplate;

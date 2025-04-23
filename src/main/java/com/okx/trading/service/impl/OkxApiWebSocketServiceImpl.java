@@ -42,6 +42,7 @@ import okhttp3.Response;
 import reactor.util.function.Tuple2;
 
 
+import static com.okx.trading.constant.IndicatorInfo.indicatorParamMap;
 import static com.okx.trading.service.impl.TechnicalIndicatorServiceImpl.*;
 
 /**
@@ -181,10 +182,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                     candlestick.setIntervalVal(interval);
                     redisCacheService.updateCandlestick(candlestick);
                     // indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(), candlestick.getIntervalVal());
-                    Map<String,IndicatorValueDTO> stringIndicatorValueDTOMap = technicalIndicatorService.calculateMultipleIndicators(candlestick.getSymbol(), candlestick.getIntervalVal(), indicatorParamMap);
+                    Map<String,IndicatorValueDTO> stringIndicatorValueDTOMap = technicalIndicatorService
+                        .calculateMultipleIndicators(candlestick.getSymbol(), candlestick.getIntervalVal(), indicatorParamMap);
                     HashMap<String,Map<String,BigDecimal>> indicators = new HashMap<>();
                     for(Map.Entry<String,IndicatorValueDTO> valueDTOEntry: stringIndicatorValueDTOMap.entrySet()){
-                        indicators.put(valueDTOEntry.getKey(),valueDTOEntry.getValue().getValues());
+                        indicators.put(valueDTOEntry.getKey(), valueDTOEntry.getValue().getValues());
                     }
                     candlestick.setIndecator(indicators);
                     redisCacheService.updateCandlestick(candlestick);
@@ -1094,7 +1096,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             startTime = startTime - 1;
             endTime = endTime + 1;
             log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}",
-                symbol, interval, startTime, endTime , limit);
+                symbol, interval, startTime, endTime, limit);
 
             // 使用现有的已经注入的依赖，向REST API发起请求
             String url = okxApiConfig.getBaseUrl() + "/api/v5/market/history-candles";
