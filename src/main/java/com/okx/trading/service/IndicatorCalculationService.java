@@ -29,7 +29,7 @@ public interface IndicatorCalculationService {
      * @param interval K线间隔，如 1m, 5m, 15m, 30m, 1H, 4H, 1D 等
      * @return 是否连续
      */
-    boolean checkKlineContinuity(List<Candlestick> klineList);
+    void checkKlineContinuityAndFill(List<Candlestick> klineList);
 
     /**
      * 计算指定交易对和时间间隔的技术指标

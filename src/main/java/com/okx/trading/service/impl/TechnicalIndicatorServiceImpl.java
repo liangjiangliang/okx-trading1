@@ -4,16 +4,13 @@ import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.dto.IndicatorValueDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
-import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.IndicatorCalculationService;
 import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.service.TechnicalIndicatorService;
 import com.okx.trading.ta4j.CandlestickBarSeriesConverter;
-import com.okx.trading.ta4j.strategy.StrategyFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
@@ -34,8 +31,6 @@ import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.num.Num;
 
-import javax.annotation.PostConstruct;
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -98,17 +93,13 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
             candlestickList = candlestickList.subList(candlestickList.size() - 1 - MIN_KLINE_COUNT, candlestickList.size() - 1);
         }
 
-        boolean checkedKlineContinuity = indicatorCalculationService.checkKlineContinuity(candlestickList);
-        if(! checkedKlineContinuity){
-            log.warn("{} {} k线数据不连续,停止计算指标", candlestickList.get(0).getSymbol(), candlestickList.get(0).getIntervalVal());
-            return new HashMap<>();
-        }
+        indicatorCalculationService.checkKlineContinuityAndFill(candlestickList);
 
         // 转换为List并按时间排序
         List<CandlestickEntity> klines = candlestickList.stream()
             .map(JSONObject :: toJSONString)
             .map(obj -> JSONObject.parseObject((String)obj, CandlestickEntity.class))
-            .sorted(Comparator.comparing(candlestick -> candlestick.getOpenTime()))
+            .sorted()
             .collect(Collectors.toList());
 
         Map<String,IndicatorValueDTO> result = new HashMap<>();

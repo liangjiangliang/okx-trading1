@@ -48,7 +48,7 @@ public class IndicatorCalculationServiceTest {
      * 测试检查K线数据连续性
      */
     @Test
-    public void testCheckKlineContinuity() {
+    public void testCheckKlineContinuityAndFill() {
         // 准备测试数据 - 连续的K线
         String symbol = "BTC-USDT";
         String interval = "1m";
@@ -68,7 +68,7 @@ public class IndicatorCalculationServiceTest {
      * 测试检查K线数据不连续
      */
     @Test
-    public void testCheckKlineContinuityWithGap() {
+    public void testCheckKlineContinuityAndFillWithGap() {
         // 准备测试数据 - 不连续的K线
         String symbol = "BTC-USDT";
         String interval = "1m";
@@ -88,7 +88,7 @@ public class IndicatorCalculationServiceTest {
      * 测试当Redis中没有K线数据时
      */
     @Test
-    public void testCheckKlineContinuityWithNoData() {
+    public void testCheckKlineContinuityAndFillWithNoData() {
         // 准备测试数据 - 没有K线数据
         String symbol = "BTC-USDT";
         String interval = "1m";

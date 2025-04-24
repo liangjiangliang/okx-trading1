@@ -81,7 +81,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     }
 
     @Override
-    public synchronized CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval,
+    public CompletableFuture<Integer> fetchAndSaveHistoricalData(String symbol, String interval,
                                                                  LocalDateTime startTime, LocalDateTime endTime){
         log.info("开始获取历史K线数据: symbol={}, interval={}, startTime={}, endTime={}",
             symbol, interval, startTime, endTime);
@@ -494,7 +494,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
     private List<TimeSlice> createTimeSlices(String interval, LocalDateTime startTime, LocalDateTime endTime, int batchCount){
         List<TimeSlice> slices = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
-        if(endTime.getSecond() >= now.getSecond()){
+        if(endTime.isAfter(now)){
             endTime = now;
         }
         long totalMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
@@ -598,7 +598,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
      * 如果数据已存在则跳过，不删除已有数据
      */
     @Transactional
-    public List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities){
+    public synchronized List<CandlestickEntity> saveBatch(List<CandlestickEntity> entities){
         if(entities.isEmpty()){
             return Collections.emptyList();
         }

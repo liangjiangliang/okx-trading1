@@ -4,9 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.IndicatorCalculationService;
-import com.okx.trading.service.OkxApiService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +19,6 @@ import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -133,23 +130,24 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
     }
 
     @Override
-    public boolean checkKlineContinuity(List<Candlestick> klineList){
+    public void checkKlineContinuityAndFill(List<Candlestick> klineList){
         try{
-
-            if(klineList.size() < 2){
-                logger.warn("K线数据不足，无法检查连续性: {}", klineList.get(0).getSymbol());
-                return false;
+            if(klineList.size() < MIN_KLINE_COUNT){
+                Collections.sort(klineList);
+                LocalDateTime end = klineList.get(klineList.size() - 1).getOpenTime();
+                String intervalVal = klineList.get(klineList.size() - 1).getIntervalVal();
+                Duration intervalDuration = getIntervalDuration(intervalVal);
+                LocalDateTime start = end.minusSeconds(MIN_KLINE_COUNT * intervalDuration.getSeconds());
+                historicalDataService.fetchAndSaveHistoricalData(klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), start, end);
             }
 
             // 计算预期的时间间隔
             Duration expectedInterval = getIntervalDuration(klineList.get(0).getIntervalVal());
             if(expectedInterval == null){
                 logger.warn("无法识别的时间间隔: {}", klineList.get(0).getIntervalVal());
-                return false;
             }
 
             // 检查每两个相邻K线之间的时间间隔
-            boolean isContinuous = true;
             for(int i = 1;i < klineList.size();i++){
                 LocalDateTime prevTime = klineList.get(i - 1).getOpenTime();
                 LocalDateTime currTime = klineList.get(i).getOpenTime();
@@ -162,15 +160,11 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
                         klineList.get(0).getSymbol(), prevTime, currTime, expectedInterval.getSeconds(), actualInterval.getSeconds());
                     // 填充k线
                     historicalDataService.fetchAndSaveHistoricalData(klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), prevTime, currTime);
-                    isContinuous = false;
                     break;
                 }
             }
-
-            return isContinuous;
         }catch(Exception e){
             logger.error("检查K线数据连续性出错: {} {}", klineList.get(0).getSymbol(), klineList.get(0).getIntervalVal(), e);
-            return false;
         }
     }
 
@@ -201,10 +195,7 @@ public class IndicatorCalculationServiceImpl implements IndicatorCalculationServ
             }
 
             // 检查数据连续性
-            if(! checkKlineContinuity(klineList)){
-                logger.warn("K线数据不连续，跳过指标计算: {} {}", symbol, interval);
-                return false;
-            }
+            checkKlineContinuityAndFill(klineList);
 
             // 提取收盘价序列
             List<BigDecimal> closeList = klineList.stream()
