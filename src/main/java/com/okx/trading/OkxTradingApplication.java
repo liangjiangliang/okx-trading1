@@ -39,10 +39,11 @@ public class OkxTradingApplication {
         String contextPath = env.getProperty("server.servlet.context-path", "");
 
         log.info("\n----------------------------------------------------------\n" +
-                "应用 '{}' 已成功启动! 访问URL:\n" +
-                "本地: \thttp://localhost:{}{}\n" +
-                "外部: \thttp://{}:{}{}\n" +
-                "----------------------------------------------------------",
+                        "应用 '{}' 已成功启动! 访问URL:\n" +
+                        "本地: \thttp://localhost:{}{}\n" +
+                        "外部: \thttp://{}:{}{}\n" +
+                        "swagger: http://localhost:8088/api/swagger-ui/" +
+                        "----------------------------------------------------------",
                 env.getProperty("spring.application.name", "okx-trading"),
                 port,
                 contextPath,
