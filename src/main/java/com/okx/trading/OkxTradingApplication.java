@@ -42,7 +42,7 @@ public class OkxTradingApplication {
                         "应用 '{}' 已成功启动! 访问URL:\n" +
                         "本地: \thttp://localhost:{}{}\n" +
                         "外部: \thttp://{}:{}{}\n" +
-                        "swagger: http://localhost:8088/api/swagger-ui/" +
+                        "swagger: http://localhost:8088/api/swagger-ui\n" +
                         "----------------------------------------------------------",
                 env.getProperty("spring.application.name", "okx-trading"),
                 port,
