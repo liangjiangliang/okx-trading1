@@ -131,7 +131,7 @@ public class Ta4jBacktestController {
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
                 // 保存交易明细
-                String backtestId = backtestTradeService.saveBacktestTrades(result, strategyParams);
+                String backtestId = backtestTradeService.saveBacktestTrades(symbol,result, strategyParams);
 
                 // 保存汇总信息
                 backtestTradeService.saveBacktestSummary(result, strategyParams, symbol, interval, startTime, endTime, backtestId);

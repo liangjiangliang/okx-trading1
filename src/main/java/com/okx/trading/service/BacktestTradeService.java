@@ -12,7 +12,7 @@ import com.okx.trading.model.entity.BacktestTradeEntity;
  * 回测交易服务接口
  */
 public interface BacktestTradeService {
-    
+
     /**
      * 保存回测交易记录
      *
@@ -20,7 +20,7 @@ public interface BacktestTradeService {
      * @param strategyParams 策略参数
      * @return 保存的回测ID
      */
-    String saveBacktestTrades(BacktestResultDTO backtestResult, String strategyParams);
+    String saveBacktestTrades(String symbol ,BacktestResultDTO backtestResult, String strategyParams);
 
     /**
      * 保存回测汇总信息
@@ -34,14 +34,14 @@ public interface BacktestTradeService {
      * @param backtestId 回测ID (如果已经有ID则使用该ID)
      * @return 保存的回测汇总信息
      */
-    BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult, 
+    BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
                                               String strategyParams,
                                               String symbol,
                                               String interval,
                                               LocalDateTime startTime,
                                               LocalDateTime endTime,
                                               String backtestId);
-    
+
     /**
      * 根据回测ID查询交易记录列表
      *
@@ -49,7 +49,7 @@ public interface BacktestTradeService {
      * @return 交易记录列表
      */
     List<BacktestTradeEntity> getTradesByBacktestId(String backtestId);
-    
+
     /**
      * 获取回测的最大回撤
      *
@@ -57,28 +57,28 @@ public interface BacktestTradeService {
      * @return 最大回撤百分比
      */
     double getMaxDrawdown(String backtestId);
-    
+
     /**
      * 获取所有回测ID
      *
      * @return 回测ID列表
      */
     List<String> getAllBacktestIds();
-    
+
     /**
      * 删除指定回测的所有记录
      *
      * @param backtestId 回测ID
      */
     void deleteBacktestRecords(String backtestId);
-    
+
     /**
      * 获取所有回测汇总信息
      *
      * @return 回测汇总信息列表
      */
     List<BacktestSummaryEntity> getAllBacktestSummaries();
-    
+
     /**
      * 根据回测ID获取回测汇总信息
      *
@@ -86,7 +86,7 @@ public interface BacktestTradeService {
      * @return 回测汇总信息
      */
     Optional<BacktestSummaryEntity> getBacktestSummaryById(String backtestId);
-    
+
     /**
      * 根据策略名称获取回测汇总信息列表
      *
@@ -94,7 +94,7 @@ public interface BacktestTradeService {
      * @return 回测汇总信息列表
      */
     List<BacktestSummaryEntity> getBacktestSummariesByStrategy(String strategyName);
-    
+
     /**
      * 根据交易对获取回测汇总信息列表
      *
@@ -102,7 +102,7 @@ public interface BacktestTradeService {
      * @return 回测汇总信息列表
      */
     List<BacktestSummaryEntity> getBacktestSummariesBySymbol(String symbol);
-    
+
     /**
      * A获取特定策略和交易对的最优回测
      *
@@ -111,4 +111,4 @@ public interface BacktestTradeService {
      * @return 回测汇总信息列表
      */
     List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol);
-} 
+}

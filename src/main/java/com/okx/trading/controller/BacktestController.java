@@ -247,15 +247,15 @@ public class BacktestController {
     public ApiResponse<BacktestResultDTO> backtestWithTa4j(
             @ApiParam(value = "交易对", required = true, type = "string") @RequestParam String symbol,
             @ApiParam(value = "时间间隔", required = true, type = "string") @RequestParam String interval,
-            @ApiParam(value = "开始时间", required = true, type = "string") 
+            @ApiParam(value = "开始时间", required = true, type = "string")
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true, type = "string") 
+            @ApiParam(value = "结束时间", required = true, type = "string")
                 @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @ApiParam(value = "策略类型", required = true, type = "string") @RequestParam String strategyType,
             @ApiParam(value = "策略参数", required = true, type = "string") @RequestParam String strategyParams,
-            @ApiParam(value = "初始资金", required = true, type = "number", format = "decimal") 
+            @ApiParam(value = "初始资金", required = true, type = "number", format = "decimal")
                 @RequestParam BigDecimal initialAmount,
-            @ApiParam(value = "是否保存结果", required = false, defaultValue = "false", type = "boolean") 
+            @ApiParam(value = "是否保存结果", required = false, defaultValue = "false", type = "boolean")
                 @RequestParam(defaultValue = "false") boolean saveResult) {
 
         log.info("开始执行回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}",
@@ -273,7 +273,7 @@ public class BacktestController {
 
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
-                String backtestId = backtestTradeService.saveBacktestTrades(result, strategyParams);
+                String backtestId = backtestTradeService.saveBacktestTrades(symbol,result, strategyParams);
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");
             }
 

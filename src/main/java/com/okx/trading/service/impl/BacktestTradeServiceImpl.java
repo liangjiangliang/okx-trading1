@@ -26,67 +26,64 @@ import java.util.stream.Collectors;
  */
 @Service
 public class BacktestTradeServiceImpl implements BacktestTradeService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(BacktestTradeServiceImpl.class);
-    
+
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestSummaryRepository backtestSummaryRepository;
-    
+
     @Autowired
     public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository,
                                    BacktestSummaryRepository backtestSummaryRepository) {
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestSummaryRepository = backtestSummaryRepository;
     }
-    
+
     @Override
     @Transactional
-    public String saveBacktestTrades(BacktestResultDTO backtestResult, String strategyParams) {
+    public String saveBacktestTrades(String symbol, BacktestResultDTO backtestResult, String strategyParams) {
         if (backtestResult == null || !backtestResult.isSuccess()) {
             logger.warn("尝试保存无效的回测结果");
             return null;
         }
-        
+
         // 生成唯一回测ID
         String backtestId = UUID.randomUUID().toString();
-        
+
         List<TradeRecordDTO> trades = backtestResult.getTrades();
         if (trades == null || trades.isEmpty()) {
             logger.info("回测结果中没有交易记录");
             return backtestId;
         }
-        
+
         // 计算每次交易后的资产总值和最大回撤
         BigDecimal initialAmount = backtestResult.getInitialAmount();
         BigDecimal highestValue = initialAmount;
         BigDecimal currentValue = initialAmount;
         BigDecimal maxDrawdown = BigDecimal.ZERO;
-        
-        // 先从第一个交易记录中获取交易对信息
-        String symbol = trades.get(0).getType().contains("BTC") ? "BTC-USDT" : "ETH-USDT";
-        
+
         for (TradeRecordDTO trade : trades) {
             // 更新当前价值
             if (trade.getProfit() != null) {
                 currentValue = currentValue.add(trade.getProfit());
             }
-            
+
             // 更新历史最高价值
             if (currentValue.compareTo(highestValue) > 0) {
                 highestValue = currentValue;
             }
-            
+
             // 计算当前回撤
             if (highestValue.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal currentDrawdown = highestValue.subtract(currentValue)
                         .divide(highestValue, 4, RoundingMode.HALF_UP)
                         .multiply(new BigDecimal("100"));
-                
+
                 if (currentDrawdown.compareTo(maxDrawdown) > 0) {
                     maxDrawdown = currentDrawdown;
                 }
             }
-            
+
             BacktestTradeEntity entity = BacktestTradeEntity.builder()
                     .backtestId(backtestId)
                     .strategyName(backtestResult.getStrategyName())
@@ -106,17 +103,17 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                     .maxDrawdown(maxDrawdown)
                     .closed(trade.isClosed())
                     .build();
-            
+
             backtestTradeRepository.save(entity);
         }
-        
+
         logger.info("成功保存回测记录，回测ID: {}, 交易数量: {}", backtestId, trades.size());
         return backtestId;
     }
-    
+
     @Override
     @Transactional
-    public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult, 
+    public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
                                                    String strategyParams,
                                                    String symbol,
                                                    String interval,
@@ -127,12 +124,12 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
             logger.warn("尝试保存无效的回测汇总结果");
             return null;
         }
-        
+
         // 如果没有提供backtestId，则生成一个新的
         if (backtestId == null || backtestId.isEmpty()) {
             backtestId = UUID.randomUUID().toString();
         }
-        
+
         // 创建汇总实体
         BacktestSummaryEntity summaryEntity = BacktestSummaryEntity.builder()
                 .backtestId(backtestId)
@@ -154,28 +151,28 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .maxDrawdown(backtestResult.getMaxDrawdown())
                 .sharpeRatio(backtestResult.getSharpeRatio())
                 .build();
-        
+
         // 保存汇总信息
         BacktestSummaryEntity savedEntity = backtestSummaryRepository.save(summaryEntity);
         logger.info("成功保存回测汇总信息，回测ID: {}", backtestId);
-        
+
         // 打印详细的汇总信息
         com.okx.trading.util.BacktestResultPrinter.printSummaryEntity(savedEntity);
-        
+
         return savedEntity;
     }
-    
+
     @Override
     public List<BacktestTradeEntity> getTradesByBacktestId(String backtestId) {
         return backtestTradeRepository.findByBacktestIdOrderByIndexAsc(backtestId);
     }
-    
+
     @Override
     public double getMaxDrawdown(String backtestId) {
         BigDecimal maxDrawdown = backtestTradeRepository.findMaxDrawdownByBacktestId(backtestId);
         return maxDrawdown != null ? maxDrawdown.doubleValue() : 0.0;
     }
-    
+
     @Override
     public List<String> getAllBacktestIds() {
         // 这里我们需要自定义查询来获取所有唯一的backtestId
@@ -184,7 +181,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .distinct()
                 .collect(Collectors.toList());
     }
-    
+
     @Override
     @Transactional
     public void deleteBacktestRecords(String backtestId) {
@@ -193,29 +190,29 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
         backtestSummaryRepository.deleteByBacktestId(backtestId);
         logger.info("已删除回测ID为 {} 的所有记录", backtestId);
     }
-    
+
     @Override
     public List<BacktestSummaryEntity> getAllBacktestSummaries() {
         return backtestSummaryRepository.findAll();
     }
-    
+
     @Override
     public Optional<BacktestSummaryEntity> getBacktestSummaryById(String backtestId) {
         return backtestSummaryRepository.findByBacktestId(backtestId);
     }
-    
+
     @Override
     public List<BacktestSummaryEntity> getBacktestSummariesByStrategy(String strategyName) {
         return backtestSummaryRepository.findByStrategyNameOrderByCreateTimeDesc(strategyName);
     }
-    
+
     @Override
     public List<BacktestSummaryEntity> getBacktestSummariesBySymbol(String symbol) {
         return backtestSummaryRepository.findBySymbolOrderByCreateTimeDesc(symbol);
     }
-    
+
     @Override
     public List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol) {
         return backtestSummaryRepository.findBestPerformingBacktests(strategyName, symbol);
     }
-} 
+}
