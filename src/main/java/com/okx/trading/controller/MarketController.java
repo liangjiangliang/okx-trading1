@@ -253,7 +253,7 @@ public class MarketController{
         @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
         @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr,
         @RequestParam(required = false, defaultValue = "3") Integer maxRetries,
-        @RequestParam(required = false, defaultValue = "10") Integer maxExecutions){
+        @RequestParam(required = false, defaultValue = "3") Integer maxExecutions){
 
         log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}, 每次执行最大重试次数: {}, 最大执行次数: {}",
             symbol, interval, startTimeStr, endTimeStr, maxRetries, maxExecutions);
@@ -266,7 +266,7 @@ public class MarketController{
 
             // 计算预期的数据点总数（用于统计）
             long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-            long expectedDataPoints = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
+            long expectedDataPoints = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
             log.info("预期获取的数据点总数: {}", expectedDataPoints);
 
             // 记录初始请求开始时间
