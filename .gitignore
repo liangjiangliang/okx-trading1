@@ -120,3 +120,4 @@ application-local.properties
 *-local.yml
 *-local.properties
 !/logs/
+/nul

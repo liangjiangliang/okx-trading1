@@ -30,7 +30,7 @@ import com.okx.trading.ta4j.strategy.StrategyFactory;
 public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
-    
+
     // 策略类型常量 - 使用StrategyFactory中的常量
     public static final String STRATEGY_SMA = StrategyFactory.STRATEGY_SMA;
     public static final String STRATEGY_BOLLINGER_BANDS = StrategyFactory.STRATEGY_BOLLINGER_BANDS;
@@ -44,7 +44,7 @@ public class Ta4jBacktestService {
     public static final String STRATEGY_ICHIMOKU = StrategyFactory.STRATEGY_ICHIMOKU;
     public static final String STRATEGY_PARABOLIC_SAR = StrategyFactory.STRATEGY_PARABOLIC_SAR;
     public static final String STRATEGY_CHANDELIER_EXIT = StrategyFactory.STRATEGY_CHANDELIER_EXIT;
-    
+
     // 策略参数说明 - 使用StrategyFactory中的常量
     public static final String SMA_PARAMS_DESC = StrategyFactory.SMA_PARAMS_DESC;
     public static final String BOLLINGER_PARAMS_DESC = StrategyFactory.BOLLINGER_PARAMS_DESC;
@@ -58,7 +58,7 @@ public class Ta4jBacktestService {
     public static final String ICHIMOKU_PARAMS_DESC = StrategyFactory.ICHIMOKU_PARAMS_DESC;
     public static final String PARABOLIC_SAR_PARAMS_DESC = StrategyFactory.PARABOLIC_SAR_PARAMS_DESC;
     public static final String CHANDELIER_EXIT_PARAMS_DESC = StrategyFactory.CHANDELIER_EXIT_PARAMS_DESC;
-    
+
     /**
      * 策略类型枚举 - 扩展以包含所有策略
      */
@@ -89,7 +89,7 @@ public class Ta4jBacktestService {
      * @param params 策略参数
      * @return 回测结果
      */
-    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType, 
+    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
                                     BigDecimal initialAmount, String params) {
         if (candlesticks == null || candlesticks.isEmpty()) {
             BacktestResultDTO result = new BacktestResultDTO();
@@ -100,25 +100,25 @@ public class Ta4jBacktestService {
 
         try {
             // 生成唯一的系列名称
-            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + 
+            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" +
                                CandlestickAdapter.getIntervalVal(candlesticks.get(0));
-            
+
             // 使用转换器将蜡烛图实体转换为条形系列
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
             // 使用策略工厂解析参数
             Map<String, Object> paramMap = StrategyFactory.parseParams(strategyType, params);
-            
+
             // 使用策略工厂创建策略
             Strategy strategy = StrategyFactory.createStrategy(series, strategyType, paramMap);
 
             // 构建策略描述
             String strategyDescription = createStrategyDescription(strategyType, paramMap);
-            
+
             // 执行回测
             BarSeriesManager seriesManager = new BarSeriesManager(series);
             TradingRecord tradingRecord = seriesManager.run(strategy);
-            
+
             // 计算回测指标
             return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, strategyDescription);
         } catch (Exception e) {
@@ -129,17 +129,17 @@ public class Ta4jBacktestService {
             return result;
         }
     }
-    
+
     /**
      * 创建策略描述
-     * 
+     *
      * @param strategyType 策略类型
      * @param params 参数映射
      * @return 策略描述
      */
     private String createStrategyDescription(String strategyType, Map<String, Object> params) {
         StringBuilder descBuilder = new StringBuilder();
-        
+
         switch (strategyType) {
             case STRATEGY_SMA:
                 descBuilder.append("SMA Cross Strategy (")
@@ -249,10 +249,10 @@ public class Ta4jBacktestService {
                 descBuilder.append(strategyType).append(" Strategy");
                 break;
         }
-        
+
         return descBuilder.toString();
     }
-    
+
     /**
      * 执行回测（基于枚举和Map参数）
      *
@@ -262,11 +262,11 @@ public class Ta4jBacktestService {
      * @param initialAmount 初始资金
      * @return 回测结果
      */
-    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, StrategyType strategyType, 
+    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, StrategyType strategyType,
                                    Map<String, Object> params, double initialAmount) {
         String strategyTypeStr;
         String paramsStr;
-        
+
         switch (strategyType) {
             case SMA:
                 strategyTypeStr = STRATEGY_SMA;
@@ -322,13 +322,13 @@ public class Ta4jBacktestService {
                 result.setErrorMessage("不支持的策略类型: " + strategyType);
                 return result;
         }
-        
+
         return backtest(candlesticks, strategyTypeStr, new BigDecimal(initialAmount), paramsStr);
     }
-    
+
     /**
      * 根据参数键构建参数字符串
-     * 
+     *
      * @param params 参数映射
      * @param keys 参数键数组
      * @return 参数字符串
@@ -336,7 +336,7 @@ public class Ta4jBacktestService {
     private String buildParamsString(Map<String, Object> params, String... keys) {
         StringBuilder paramsStr = new StringBuilder();
         boolean firstParam = true;
-        
+
         for (String key : keys) {
             if (params.containsKey(key)) {
                 if (!firstParam) {
@@ -346,7 +346,7 @@ public class Ta4jBacktestService {
                 firstParam = false;
             }
         }
-        
+
         return paramsStr.toString();
     }
 
@@ -360,8 +360,8 @@ public class Ta4jBacktestService {
      * @param paramDescription 参数描述
      * @return 回测结果DTO
      */
-    private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord, 
-                                                     BigDecimal initialAmount, String strategyType, 
+    private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
+                                                     BigDecimal initialAmount, String strategyType,
                                                      String paramDescription) {
         // 如果没有交易，返回简单结果
         if (tradingRecord.getPositionCount() == 0) {
@@ -381,17 +381,17 @@ public class Ta4jBacktestService {
             result.setStrategyName(strategyType);
             result.setParameterDescription(paramDescription);
             result.setTrades(new ArrayList<>());
-            
+
             // 打印回测汇总信息
             printBacktestSummary(result);
-            
+
             return result;
         }
-        
+
         // 手动计算交易统计信息
         int tradeCount = 0;
         int profitableTrades = 0;
-        
+
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 tradeCount++;
@@ -400,7 +400,7 @@ public class Ta4jBacktestService {
                 }
             }
         }
-        
+
         // 计算总利润和最终金额
         BigDecimal totalProfit = BigDecimal.ZERO;
         for (Position position : tradingRecord.getPositions()) {
@@ -409,33 +409,33 @@ public class Ta4jBacktestService {
                 totalProfit = totalProfit.add(new BigDecimal(profitValue));
             }
         }
-        
+
         // 最终资金
-        BigDecimal finalAmount = initialAmount.add(totalProfit.multiply(initialAmount));
-        
+        BigDecimal finalAmount = initialAmount.add(totalProfit);
+
         // 计算其他指标
         BigDecimal totalReturn = BigDecimal.ZERO;
         if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalReturn = finalAmount.subtract(initialAmount)
                                    .divide(initialAmount, 4, RoundingMode.HALF_UP);
         }
-        
+
         // 计算胜率
         BigDecimal winRate = BigDecimal.ZERO;
         if (tradeCount > 0) {
             winRate = new BigDecimal(profitableTrades)
                          .divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
-        
+
         // 平均利润
         BigDecimal averageProfit = BigDecimal.ZERO;
         if (tradeCount > 0) {
             averageProfit = totalProfit.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
-        
+
         // 提取交易记录
         List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord);
-        
+
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
         result.setSuccess(true);
@@ -453,49 +453,49 @@ public class Ta4jBacktestService {
         result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
-        
+
         // 打印回测汇总信息
         printBacktestSummary(result);
-        
+
         return result;
     }
-    
+
     /**
      * 打印回测汇总信息到控制台
-     * 
+     *
      * @param result 回测结果
      */
     private void printBacktestSummary(BacktestResultDTO result) {
         StringBuilder summaryBuilder = new StringBuilder();
-        
+
         // 构建分隔线
         String separator = "================================================================";
-        
+
         summaryBuilder.append("\n").append(separator).append("\n");
         summaryBuilder.append("==================== 回测汇总信息 ====================\n");
         summaryBuilder.append(separator).append("\n");
-        
+
         // 策略信息
         summaryBuilder.append("策略名称: ").append(result.getStrategyName()).append("\n");
         summaryBuilder.append("策略参数: ").append(result.getParameterDescription()).append("\n");
         summaryBuilder.append("------------------------------------------------------\n");
-        
+
         // 财务指标
         String initialAmountFormatted = String.format("%,.2f", result.getInitialAmount());
         String finalAmountFormatted = String.format("%,.2f", result.getFinalAmount());
         String totalProfitFormatted = String.format("%,.2f", result.getTotalProfit());
         String totalReturnFormatted = String.format("%.2f%%", result.getTotalReturn().multiply(new BigDecimal("100")));
-        
+
         summaryBuilder.append("初始资金: ").append(initialAmountFormatted).append("\n");
         summaryBuilder.append("最终资金: ").append(finalAmountFormatted).append("\n");
         summaryBuilder.append("总盈亏: ").append(totalProfitFormatted).append("\n");
         summaryBuilder.append("总收益率: ").append(totalReturnFormatted).append("\n");
         summaryBuilder.append("------------------------------------------------------\n");
-        
+
         // 交易指标
         String winRateFormatted = String.format("%.2f%%", result.getWinRate().multiply(new BigDecimal("100")));
         String maxDrawdownFormatted = String.format("%.2f%%", result.getMaxDrawdown().multiply(new BigDecimal("100")));
-        
+
         summaryBuilder.append("交易次数: ").append(result.getNumberOfTrades()).append("\n");
         summaryBuilder.append("盈利交易: ").append(result.getProfitableTrades()).append("\n");
         summaryBuilder.append("亏损交易: ").append(result.getUnprofitableTrades()).append("\n");
@@ -503,11 +503,11 @@ public class Ta4jBacktestService {
         summaryBuilder.append("夏普比率: ").append(String.format("%.4f", result.getSharpeRatio())).append("\n");
         summaryBuilder.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
         summaryBuilder.append(separator).append("\n");
-        
+
         // 输出汇总信息
         log.info(summaryBuilder.toString());
     }
-    
+
     /**
      * 从交易记录中提取交易明细
      *
@@ -517,27 +517,27 @@ public class Ta4jBacktestService {
      */
     private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord) {
         List<TradeRecordDTO> records = new ArrayList<>();
-        
+
         int index = 1;
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 // 获取入场和出场信息
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
-                
+
                 Bar entryBar = series.getBar(entryIndex);
                 Bar exitBar = series.getBar(exitIndex);
-                
+
                 ZonedDateTime entryTime = entryBar.getEndTime();
                 ZonedDateTime exitTime = exitBar.getEndTime();
-                
+
                 BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
                 BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
-                
+
                 // 交易盈亏
                 BigDecimal profit;
                 BigDecimal profitPercentage;
-                
+
                 if (position.getEntry().isBuy()) {
                     // 如果是买入操作，盈亏 = 卖出价 - 买入价
                     profit = exitPrice.subtract(entryPrice);
@@ -547,10 +547,10 @@ public class Ta4jBacktestService {
                     profit = entryPrice.subtract(exitPrice);
                     profitPercentage = profit.divide(entryPrice, 4, RoundingMode.HALF_UP);
                 }
-                
+
                 // 假设交易金额为1000
                 BigDecimal tradeAmount = BigDecimal.valueOf(1000);
-                
+
                 // 创建交易记录DTO
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
@@ -564,11 +564,11 @@ public class Ta4jBacktestService {
                 recordDTO.setProfit(profit);
                 recordDTO.setProfitPercentage(profitPercentage);
                 recordDTO.setClosed(true);
-                
+
                 records.add(recordDTO);
             }
         }
-        
+
         return records;
     }
 
@@ -581,7 +581,7 @@ public class Ta4jBacktestService {
     public static String getStrategyParamsDescription(String strategyType) {
         return StrategyFactory.getStrategyParamsDescription(strategyType);
     }
-    
+
     /**
      * 验证策略参数是否合法
      *
