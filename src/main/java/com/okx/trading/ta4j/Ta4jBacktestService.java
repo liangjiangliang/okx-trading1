@@ -406,7 +406,8 @@ public class Ta4jBacktestService {
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 double profitValue = position.getProfit().doubleValue();
-                totalProfit = totalProfit.add(new BigDecimal(profitValue));
+                double ratio = profitValue / position.getEntry().getNetPrice().doubleValue();
+                totalProfit = totalProfit.add(initialAmount.divide(new BigDecimal(10)).multiply(new BigDecimal(ratio)));
             }
         }
 
@@ -434,7 +435,7 @@ public class Ta4jBacktestService {
         }
 
         // 提取交易记录
-        List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord);
+        List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord,initialAmount);
 
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
@@ -515,7 +516,7 @@ public class Ta4jBacktestService {
      * @param tradingRecord 交易记录
      * @return 交易记录DTO列表
      */
-    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord) {
+    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord ,BigDecimal initialAmount ) {
         List<TradeRecordDTO> records = new ArrayList<>();
 
         int index = 1;
@@ -548,8 +549,8 @@ public class Ta4jBacktestService {
                     profitPercentage = profit.divide(entryPrice, 4, RoundingMode.HALF_UP);
                 }
 
-                // 假设交易金额为1000
-                BigDecimal tradeAmount = BigDecimal.valueOf(1000);
+                // 假设交易金额为初始金额1/10
+                BigDecimal tradeAmount = initialAmount.divide(new BigDecimal(10));
 
                 // 创建交易记录DTO
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
@@ -560,8 +561,8 @@ public class Ta4jBacktestService {
                 recordDTO.setEntryPrice(entryPrice);
                 recordDTO.setExitPrice(exitPrice);
                 recordDTO.setEntryAmount(tradeAmount);
-                recordDTO.setExitAmount(tradeAmount.add(profit));
-                recordDTO.setProfit(profit);
+                recordDTO.setExitAmount(tradeAmount.add(tradeAmount.multiply(profitPercentage)));
+                recordDTO.setProfit(tradeAmount.multiply(profitPercentage));
                 recordDTO.setProfitPercentage(profitPercentage);
                 recordDTO.setClosed(true);
 
