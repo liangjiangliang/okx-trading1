@@ -102,6 +102,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                     .totalAssets(currentValue)
                     .maxDrawdown(maxDrawdown)
                     .closed(trade.isClosed())
+                    .fee(trade.getFee())
                     .build();
 
             backtestTradeRepository.save(entity);
@@ -150,6 +151,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .averageProfit(backtestResult.getAverageProfit())
                 .maxDrawdown(backtestResult.getMaxDrawdown())
                 .sharpeRatio(backtestResult.getSharpeRatio())
+                .totalFee(backtestResult.getTotalFee())
                 .build();
 
         // 保存汇总信息

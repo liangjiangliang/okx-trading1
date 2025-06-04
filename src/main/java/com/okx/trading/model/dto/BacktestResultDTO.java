@@ -87,6 +87,11 @@ public class BacktestResultDTO {
      * 交易记录列表
      */
     private List<TradeRecordDTO> trades;
+    
+    /**
+     * 总手续费
+     */
+    private BigDecimal totalFee;
 
     public BacktestResultDTO() {
     }
@@ -217,5 +222,13 @@ public class BacktestResultDTO {
 
     public void setTrades(List<TradeRecordDTO> trades) {
         this.trades = trades;
+    }
+    
+    public BigDecimal getTotalFee() {
+        return totalFee;
+    }
+    
+    public void setTotalFee(BigDecimal totalFee) {
+        this.totalFee = totalFee;
     }
 } 

@@ -87,10 +87,11 @@ public class Ta4jBacktestService {
      * @param strategyType 策略类型
      * @param initialAmount 初始资金
      * @param params 策略参数
+     * @param feeRatio 交易手续费率（例如0.001表示0.1%）
      * @return 回测结果
      */
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
-                                    BigDecimal initialAmount, String params) {
+                                    BigDecimal initialAmount, String params, BigDecimal feeRatio) {
         if (candlesticks == null || candlesticks.isEmpty()) {
             BacktestResultDTO result = new BacktestResultDTO();
             result.setSuccess(false);
@@ -120,7 +121,7 @@ public class Ta4jBacktestService {
             TradingRecord tradingRecord = seriesManager.run(strategy);
 
             // 计算回测指标
-            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, strategyDescription);
+            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, strategyDescription, feeRatio);
         } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             BacktestResultDTO result = new BacktestResultDTO();
@@ -128,6 +129,20 @@ public class Ta4jBacktestService {
             result.setErrorMessage("回测过程中发生错误: " + e.getMessage());
             return result;
         }
+    }
+
+    /**
+     * 执行回测（不带手续费参数的重载方法，使用默认手续费率0）
+     *
+     * @param candlesticks  历史K线数据
+     * @param strategyType  策略类型
+     * @param initialAmount 初始资金
+     * @param params        策略参数
+     * @return 回测结果
+     */
+    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
+                                    BigDecimal initialAmount, String params) {
+        return backtest(candlesticks, strategyType, initialAmount, params, BigDecimal.ZERO);
     }
 
     /**
@@ -358,11 +373,12 @@ public class Ta4jBacktestService {
      * @param initialAmount 初始资金
      * @param strategyType 策略类型
      * @param paramDescription 参数描述
+     * @param feeRatio 交易手续费率
      * @return 回测结果DTO
      */
     private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
                                                      BigDecimal initialAmount, String strategyType,
-                                                     String paramDescription) {
+                                                     String paramDescription, BigDecimal feeRatio) {
         // 如果没有交易，返回简单结果
         if (tradingRecord.getPositionCount() == 0) {
             BacktestResultDTO result = new BacktestResultDTO();
@@ -381,6 +397,7 @@ public class Ta4jBacktestService {
             result.setStrategyName(strategyType);
             result.setParameterDescription(paramDescription);
             result.setTrades(new ArrayList<>());
+            result.setTotalFee(BigDecimal.ZERO);
 
             // 打印回测汇总信息
             printBacktestSummary(result);
@@ -401,13 +418,19 @@ public class Ta4jBacktestService {
             }
         }
 
-        // 计算总利润和最终金额
+        // 提取交易记录（考虑手续费）
+        List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord, initialAmount, feeRatio);
+        
+        // 计算总利润和总手续费
         BigDecimal totalProfit = BigDecimal.ZERO;
-        for (Position position : tradingRecord.getPositions()) {
-            if (position.isClosed()) {
-                double profitValue = position.getProfit().doubleValue();
-                double ratio = profitValue / position.getEntry().getNetPrice().doubleValue();
-                totalProfit = totalProfit.add(initialAmount.divide(new BigDecimal(10)).multiply(new BigDecimal(ratio)));
+        BigDecimal totalFee = BigDecimal.ZERO;
+        
+        for (TradeRecordDTO trade : tradeRecords) {
+            if (trade.getProfit() != null) {
+                totalProfit = totalProfit.add(trade.getProfit());
+            }
+            if (trade.getFee() != null) {
+                totalFee = totalFee.add(trade.getFee());
             }
         }
 
@@ -434,15 +457,12 @@ public class Ta4jBacktestService {
             averageProfit = totalProfit.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
-        // 提取交易记录
-        List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord,initialAmount);
-
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
         result.setSuccess(true);
         result.setInitialAmount(initialAmount);
         result.setFinalAmount(finalAmount);
-        result.setTotalProfit(finalAmount.subtract(initialAmount));
+        result.setTotalProfit(totalProfit);
         result.setTotalReturn(totalReturn);
         result.setNumberOfTrades(tradeCount);
         result.setProfitableTrades(profitableTrades);
@@ -454,11 +474,118 @@ public class Ta4jBacktestService {
         result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
+        result.setTotalFee(totalFee);
 
         // 打印回测汇总信息
         printBacktestSummary(result);
 
         return result;
+    }
+
+    /**
+     * 计算回测指标（不带手续费参数的重载方法）
+     *
+     * @param series BarSeries对象
+     * @param tradingRecord 交易记录
+     * @param initialAmount 初始资金
+     * @param strategyType 策略类型
+     * @param paramDescription 参数描述
+     * @return 回测结果DTO
+     */
+    private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
+                                                     BigDecimal initialAmount, String strategyType,
+                                                     String paramDescription) {
+        return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, paramDescription, BigDecimal.ZERO);
+    }
+
+    /**
+     * 从交易记录中提取交易明细（带手续费计算）
+     *
+     * @param series BarSeries对象
+     * @param tradingRecord 交易记录
+     * @param initialAmount 初始资金
+     * @param feeRatio 交易手续费率
+     * @return 交易记录DTO列表
+     */
+    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord, 
+                                                   BigDecimal initialAmount, BigDecimal feeRatio) {
+        List<TradeRecordDTO> records = new ArrayList<>();
+
+        int index = 1;
+        BigDecimal tradeAmount = initialAmount;
+        
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
+                // 获取入场和出场信息
+                int entryIndex = position.getEntry().getIndex();
+                int exitIndex = position.getExit().getIndex();
+
+                Bar entryBar = series.getBar(entryIndex);
+                Bar exitBar = series.getBar(exitIndex);
+
+                ZonedDateTime entryTime = entryBar.getEndTime();
+                ZonedDateTime exitTime = exitBar.getEndTime();
+
+                BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
+                BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
+
+                // 计算入场手续费
+                BigDecimal entryFee = tradeAmount.multiply(feeRatio);
+                
+                // 扣除入场手续费后的实际交易金额
+                BigDecimal actualTradeAmount = tradeAmount.subtract(entryFee);
+
+                // 交易盈亏百分比
+                BigDecimal profitPercentage;
+
+                if (position.getEntry().isBuy()) {
+                    // 如果是买入操作，盈亏百分比 = (卖出价 - 买入价) / 买入价
+                    profitPercentage = exitPrice.subtract(entryPrice)
+                                       .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                } else {
+                    // 如果是卖出操作（做空），盈亏百分比 = (买入价 - 卖出价) / 买入价
+                    profitPercentage = entryPrice.subtract(exitPrice)
+                                       .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                }
+
+                // 计算出场金额（包含盈亏）
+                BigDecimal exitAmount = actualTradeAmount.add(actualTradeAmount.multiply(profitPercentage));
+                
+                // 计算出场手续费
+                BigDecimal exitFee = exitAmount.multiply(feeRatio);
+                
+                // 扣除出场手续费后的实际出场金额
+                BigDecimal actualExitAmount = exitAmount.subtract(exitFee);
+                
+                // 总手续费
+                BigDecimal totalFee = entryFee.add(exitFee);
+                
+                // 实际盈亏（考虑手续费）
+                BigDecimal actualProfit = actualExitAmount.subtract(tradeAmount);
+
+                // 创建交易记录DTO
+                TradeRecordDTO recordDTO = new TradeRecordDTO();
+                recordDTO.setIndex(index++);
+                recordDTO.setType(position.getEntry().isBuy() ? "BUY" : "SELL");
+                recordDTO.setEntryTime(entryTime.toLocalDateTime());
+                recordDTO.setExitTime(exitTime.toLocalDateTime());
+                recordDTO.setEntryPrice(entryPrice);
+                recordDTO.setExitPrice(exitPrice);
+                recordDTO.setEntryAmount(tradeAmount);
+                recordDTO.setExitAmount(actualExitAmount);
+                recordDTO.setProfit(actualProfit);
+                recordDTO.setProfitPercentage(profitPercentage);
+                recordDTO.setClosed(true);
+                recordDTO.setFee(totalFee);
+
+                records.add(recordDTO);
+                
+                // 更新下一次交易的资金（全仓交易）
+                tradeAmount = actualExitAmount;
+            }
+        }
+
+        return records;
     }
 
     /**
@@ -486,11 +613,13 @@ public class Ta4jBacktestService {
         String finalAmountFormatted = String.format("%,.2f", result.getFinalAmount());
         String totalProfitFormatted = String.format("%,.2f", result.getTotalProfit());
         String totalReturnFormatted = String.format("%.2f%%", result.getTotalReturn().multiply(new BigDecimal("100")));
+        String totalFeeFormatted = String.format("%,.2f", result.getTotalFee() != null ? result.getTotalFee() : BigDecimal.ZERO);
 
         summaryBuilder.append("初始资金: ").append(initialAmountFormatted).append("\n");
         summaryBuilder.append("最终资金: ").append(finalAmountFormatted).append("\n");
         summaryBuilder.append("总盈亏: ").append(totalProfitFormatted).append("\n");
         summaryBuilder.append("总收益率: ").append(totalReturnFormatted).append("\n");
+        summaryBuilder.append("总手续费: ").append(totalFeeFormatted).append("\n");
         summaryBuilder.append("------------------------------------------------------\n");
 
         // 交易指标
@@ -507,70 +636,6 @@ public class Ta4jBacktestService {
 
         // 输出汇总信息
         log.info(summaryBuilder.toString());
-    }
-
-    /**
-     * 从交易记录中提取交易明细
-     *
-     * @param series BarSeries对象
-     * @param tradingRecord 交易记录
-     * @return 交易记录DTO列表
-     */
-    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord ,BigDecimal initialAmount ) {
-        List<TradeRecordDTO> records = new ArrayList<>();
-
-        int index = 1;
-        for (Position position : tradingRecord.getPositions()) {
-            if (position.isClosed()) {
-                // 获取入场和出场信息
-                int entryIndex = position.getEntry().getIndex();
-                int exitIndex = position.getExit().getIndex();
-
-                Bar entryBar = series.getBar(entryIndex);
-                Bar exitBar = series.getBar(exitIndex);
-
-                ZonedDateTime entryTime = entryBar.getEndTime();
-                ZonedDateTime exitTime = exitBar.getEndTime();
-
-                BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
-                BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
-
-                // 交易盈亏
-                BigDecimal profit;
-                BigDecimal profitPercentage;
-
-                if (position.getEntry().isBuy()) {
-                    // 如果是买入操作，盈亏 = 卖出价 - 买入价
-                    profit = exitPrice.subtract(entryPrice);
-                    profitPercentage = profit.divide(entryPrice, 4, RoundingMode.HALF_UP);
-                } else {
-                    // 如果是卖出操作（做空），盈亏 = 买入价 - 卖出价
-                    profit = entryPrice.subtract(exitPrice);
-                    profitPercentage = profit.divide(entryPrice, 4, RoundingMode.HALF_UP);
-                }
-
-                // 假设交易金额为初始金额1/10
-                BigDecimal tradeAmount = initialAmount.divide(new BigDecimal(10));
-
-                // 创建交易记录DTO
-                TradeRecordDTO recordDTO = new TradeRecordDTO();
-                recordDTO.setIndex(index++);
-                recordDTO.setType(position.getEntry().isBuy() ? "BUY" : "SELL");
-                recordDTO.setEntryTime(entryTime.toLocalDateTime());
-                recordDTO.setExitTime(exitTime.toLocalDateTime());
-                recordDTO.setEntryPrice(entryPrice);
-                recordDTO.setExitPrice(exitPrice);
-                recordDTO.setEntryAmount(tradeAmount);
-                recordDTO.setExitAmount(tradeAmount.add(tradeAmount.multiply(profitPercentage)));
-                recordDTO.setProfit(tradeAmount.multiply(profitPercentage));
-                recordDTO.setProfitPercentage(profitPercentage);
-                recordDTO.setClosed(true);
-
-                records.add(recordDTO);
-            }
-        }
-
-        return records;
     }
 
     /**

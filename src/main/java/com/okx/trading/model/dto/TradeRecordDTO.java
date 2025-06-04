@@ -62,6 +62,11 @@ public class TradeRecordDTO {
      * 交易是否完成
      */
     private boolean closed;
+    
+    /**
+     * 交易手续费
+     */
+    private BigDecimal fee;
 
     public TradeRecordDTO() {
     }
@@ -152,5 +157,13 @@ public class TradeRecordDTO {
 
     public void setClosed(boolean closed) {
         this.closed = closed;
+    }
+    
+    public BigDecimal getFee() {
+        return fee;
+    }
+    
+    public void setFee(BigDecimal fee) {
+        this.fee = fee;
     }
 } 

@@ -134,6 +134,12 @@ public class BacktestSummaryEntity {
     private BigDecimal sharpeRatio;
     
     /**
+     * 总手续费
+     */
+    @Column(name = "total_fee", precision = 20, scale = 8)
+    private BigDecimal totalFee;
+    
+    /**
      * 创建时间
      */
     @Column(name = "create_time")

@@ -90,14 +90,20 @@ public class Ta4jBacktestController {
                    type = "number",
                    format = "decimal")
             @RequestParam BigDecimal initialAmount,
+            @ApiParam(value = "交易手续费率",
+                   defaultValue = "0.001",
+                   required = false,
+                   type = "number",
+                   format = "decimal")
+            @RequestParam(required = false, defaultValue = "0.001") BigDecimal feeRatio,
             @ApiParam(value = "是否保存结果",
                    required = true,
                    defaultValue = "true",
                    type = "boolean")
             @RequestParam(defaultValue = "true") boolean saveResult) {
 
-        log.info("开始执行Ta4j回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}",
-                symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount);
+        log.info("开始执行Ta4j回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}, 手续费率: {}",
+                symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount, feeRatio);
 
         try {
             // 使用策略工厂验证策略类型
@@ -126,7 +132,7 @@ public class Ta4jBacktestController {
             }
 
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams);
+            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams, feeRatio);
 
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
@@ -144,11 +150,12 @@ public class Ta4jBacktestController {
 
             // 打印总体执行信息
             if (result.isSuccess()) {
-                log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {:.2f}%",
+                log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {:.2f}%，总手续费: {:.2f}",
                     result.getStrategyName(),
                     result.getParameterDescription(),
                     result.getNumberOfTrades(),
-                    result.getTotalReturn().multiply(new BigDecimal("100")));
+                    result.getTotalReturn().multiply(new BigDecimal("100")),
+                    result.getTotalFee());
             } else {
                 log.warn("回测执行失败 - 错误信息: {}", result.getErrorMessage());
             }
