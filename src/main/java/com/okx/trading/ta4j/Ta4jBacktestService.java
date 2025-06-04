@@ -420,11 +420,11 @@ public class Ta4jBacktestService {
 
         // 提取交易记录（考虑手续费）
         List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord, initialAmount, feeRatio);
-        
+
         // 计算总利润和总手续费
         BigDecimal totalProfit = BigDecimal.ZERO;
         BigDecimal totalFee = BigDecimal.ZERO;
-        
+
         for (TradeRecordDTO trade : tradeRecords) {
             if (trade.getProfit() != null) {
                 totalProfit = totalProfit.add(trade.getProfit());
@@ -507,13 +507,13 @@ public class Ta4jBacktestService {
      * @param feeRatio 交易手续费率
      * @return 交易记录DTO列表
      */
-    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord, 
+    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord,
                                                    BigDecimal initialAmount, BigDecimal feeRatio) {
         List<TradeRecordDTO> records = new ArrayList<>();
 
         int index = 1;
         BigDecimal tradeAmount = initialAmount;
-        
+
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 // 获取入场和出场信息
@@ -531,35 +531,38 @@ public class Ta4jBacktestService {
 
                 // 计算入场手续费
                 BigDecimal entryFee = tradeAmount.multiply(feeRatio);
-                
+
                 // 扣除入场手续费后的实际交易金额
                 BigDecimal actualTradeAmount = tradeAmount.subtract(entryFee);
 
-                // 交易盈亏百分比
-                BigDecimal profitPercentage;
+                // 价格变动百分比
+                BigDecimal pricePercentage;
 
                 if (position.getEntry().isBuy()) {
                     // 如果是买入操作，盈亏百分比 = (卖出价 - 买入价) / 买入价
-                    profitPercentage = exitPrice.subtract(entryPrice)
+                    pricePercentage = exitPrice.subtract(entryPrice)
                                        .divide(entryPrice, 4, RoundingMode.HALF_UP);
                 } else {
                     // 如果是卖出操作（做空），盈亏百分比 = (买入价 - 卖出价) / 买入价
-                    profitPercentage = entryPrice.subtract(exitPrice)
+                    pricePercentage = entryPrice.subtract(exitPrice)
                                        .divide(entryPrice, 4, RoundingMode.HALF_UP);
                 }
 
                 // 计算出场金额（包含盈亏）
-                BigDecimal exitAmount = actualTradeAmount.add(actualTradeAmount.multiply(profitPercentage));
-                
+                BigDecimal exitAmount = actualTradeAmount.add(actualTradeAmount.multiply(pricePercentage));
+
                 // 计算出场手续费
                 BigDecimal exitFee = exitAmount.multiply(feeRatio);
-                
+
                 // 扣除出场手续费后的实际出场金额
                 BigDecimal actualExitAmount = exitAmount.subtract(exitFee);
-                
+
+                // 实际收益百分比，最终出场金额除以入场金额
+                BigDecimal profitPercentage=actualExitAmount.divide(tradeAmount,4, RoundingMode.HALF_UP).subtract(new BigDecimal(1));
+
                 // 总手续费
                 BigDecimal totalFee = entryFee.add(exitFee);
-                
+
                 // 实际盈亏（考虑手续费）
                 BigDecimal actualProfit = actualExitAmount.subtract(tradeAmount);
 
@@ -579,7 +582,7 @@ public class Ta4jBacktestService {
                 recordDTO.setFee(totalFee);
 
                 records.add(recordDTO);
-                
+
                 // 更新下一次交易的资金（全仓交易）
                 tradeAmount = actualExitAmount;
             }
