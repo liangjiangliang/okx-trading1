@@ -138,6 +138,7 @@ public class Ta4jBacktestController {
             if (saveResult && result.isSuccess()) {
                 // 保存交易明细
                 String backtestId = backtestTradeService.saveBacktestTrades(symbol,result, strategyParams);
+                result.setBacktestId(backtestId);
 
                 // 保存汇总信息
                 backtestTradeService.saveBacktestSummary(result, strategyParams, symbol, interval, startTime, endTime, backtestId);

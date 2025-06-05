@@ -1,93 +1,98 @@
 package com.okx.trading.model.dto;
 
+import lombok.Data;
+
 import java.math.BigDecimal;
 import java.util.List;
 
 /**
  * 回测结果数据传输对象
  */
+@Data
 public class BacktestResultDTO {
-    
+
     /**
      * 回测是否成功
      */
     private boolean success;
-    
+
     /**
      * 错误信息（如果回测失败）
      */
     private String errorMessage;
-    
+
+    private String  backtestId;
+
     /**
      * 初始资金
      */
     private BigDecimal initialAmount;
-    
+
     /**
      * 最终资金
      */
     private BigDecimal finalAmount;
-    
+
     /**
      * 总盈亏（金额）
      */
     private BigDecimal totalProfit;
-    
+
     /**
      * 总回报率（百分比）
      */
     private BigDecimal totalReturn;
-    
+
     /**
      * 交易总次数
      */
     private int numberOfTrades;
-    
+
     /**
      * 盈利交易次数
      */
     private int profitableTrades;
-    
+
     /**
      * 亏损交易次数
      */
     private int unprofitableTrades;
-    
+
     /**
      * 胜率（百分比）
      */
     private BigDecimal winRate;
-    
+
     /**
      * 平均盈利（百分比）
      */
     private BigDecimal averageProfit;
-    
+
     /**
      * 最大回撤（百分比）
      */
     private BigDecimal maxDrawdown;
-    
+
     /**
      * 夏普比率
      */
     private BigDecimal sharpeRatio;
-    
+
     /**
      * 策略名称
      */
     private String strategyName;
-    
+
     /**
      * 参数描述
      */
     private String parameterDescription;
-    
+
     /**
      * 交易记录列表
      */
     private List<TradeRecordDTO> trades;
-    
+
     /**
      * 总手续费
      */
@@ -223,12 +228,12 @@ public class BacktestResultDTO {
     public void setTrades(List<TradeRecordDTO> trades) {
         this.trades = trades;
     }
-    
+
     public BigDecimal getTotalFee() {
         return totalFee;
     }
-    
+
     public void setTotalFee(BigDecimal totalFee) {
         this.totalFee = totalFee;
     }
-} 
+}
