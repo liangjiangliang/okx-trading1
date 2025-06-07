@@ -5,9 +5,11 @@ import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
+import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.MarketDataService;
+import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
 import com.okx.trading.ta4j.strategy.StrategyFactory;
 import io.swagger.annotations.Api;
@@ -42,64 +44,101 @@ public class Ta4jBacktestController {
     private final Ta4jBacktestService ta4jBacktestService;
     private final BacktestTradeService backtestTradeService;
     private final MarketDataService marketDataService;
+    private final StrategyInfoService strategyInfoService;
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
     public ApiResponse<BacktestResultDTO> runBacktest(
             @ApiParam(value = "交易对", defaultValue = "BTC-USDT", required = true, type = "string") @RequestParam String symbol,
-            @ApiParam(value = "时间间隔",defaultValue = "1h", required = true, type = "string") @RequestParam String interval,
+            @ApiParam(value = "时间间隔", defaultValue = "1h", required = true, type = "string") @RequestParam String interval,
             @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
-                defaultValue = "2018-01-01 00:00:00",
-                example = "2018-01-01 00:00:00",
-                required = true,
-                type = "string")
-                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+                    defaultValue = "2018-01-01 00:00:00",
+                    example = "2018-01-01 00:00:00",
+                    required = true,
+                    type = "string")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
-                defaultValue = "2025-04-01 00:00:00",
-                example = "2025-04-01 00:00:00",
-                required = true,
-                type = "string")
-                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
+                    defaultValue = "2025-04-01 00:00:00",
+                    example = "2025-04-01 00:00:00",
+                    required = true,
+                    type = "string")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @ApiParam(value = "策略类型",
-                   required = true,
-                   allowableValues = "SMA,BOLLINGER,MACD,RSI,STOCHASTIC,ADX,CCI,WILLIAMS_R,TRIPLE_EMA,ICHIMOKU,PARABOLIC_SAR,CHANDELIER_EXIT",
-                   example = "BOLLINGER",
-                   type = "string")
+                    required = true,
+                    example = "BOLLINGER",
+                    type = "string")
             @RequestParam String strategyType,
             @ApiParam(value = "策略参数 (以逗号分隔的数字)\n" +
-                         "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
-                         "- BOLLINGER策略参数: 周期,标准差倍数 (例如：20,2.0)\n" +
-                         "- MACD策略参数: 短周期,长周期,信号周期 (例如：12,26,9)\n" +
-                         "- RSI策略参数: RSI周期,超卖阈值,超买阈值 (例如：14,30,70)\n" +
-                         "- STOCHASTIC策略参数: K周期,%K平滑周期,%D平滑周期,超卖阈值,超买阈值 (例如：14,3,3,20,80)\n" +
-                         "- ADX策略参数: ADX周期,DI周期,阈值 (例如：14,14,25)\n" +
-                         "- CCI策略参数: CCI周期,超卖阈值,超买阈值 (例如：20,-100,100)\n" +
-                         "- WILLIAMS_R策略参数: 周期,超卖阈值,超买阈值 (例如：14,-80,-20)\n" +
-                         "- TRIPLE_EMA策略参数: 短期EMA,中期EMA,长期EMA (例如：5,10,20)\n" +
-                         "- ICHIMOKU策略参数: 转换线周期,基准线周期,延迟跨度 (例如：9,26,52)\n" +
-                         "- PARABOLIC_SAR策略参数: 步长,最大步长 (例如：0.02,0.2)\n" +
-                         "- CHANDELIER_EXIT策略参数: 周期,乘数 (例如：22,3.0)\n" +
-                         "- 不传或传空字符串将使用默认参数",
-                   required = false,
-                   example = "20,2.0",
-                   type = "string")
+                    "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
+                    "- EMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- WMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- HMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- KAMA策略参数: 周期,快速EMA周期,慢速EMA周期 (例如：10,2,30)\n" +
+                    "- ZLEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- DEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- TEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
+                    "- VWAP策略参数: 周期 (例如：14)\n" +
+                    "- BOLLINGER策略参数: 周期,标准差倍数 (例如：20,2.0)\n" +
+                    "- KELTNER_CHANNEL策略参数: EMA周期,ATR周期,乘数 (例如：20,10,2.0)\n" +
+                    "- MACD策略参数: 短周期,长周期,信号周期 (例如：12,26,9)\n" +
+                    "- PPO策略参数: 短周期,长周期,信号周期 (例如：12,26,9)\n" +
+                    "- DPO策略参数: 周期 (例如：20)\n" +
+                    "- RSI策略参数: RSI周期,超卖阈值,超买阈值 (例如：14,30,70)\n" +
+                    "- STOCHASTIC策略参数: K周期,%K平滑周期,%D平滑周期,超卖阈值,超买阈值 (例如：14,3,3,20,80)\n" +
+                    "- STOCHASTIC_RSI策略参数: RSI周期,随机指标周期,K平滑周期,D平滑周期,超卖阈值,超买阈值 (例如：14,14,3,3,20,80)\n" +
+                    "- CCI策略参数: CCI周期,超卖阈值,超买阈值 (例如：20,-100,100)\n" +
+                    "- CMO策略参数: 周期,超卖阈值,超买阈值 (例如：14,-30,30)\n" +
+                    "- ROC策略参数: 周期,阈值 (例如：12,0)\n" +
+                    "- WILLIAMS_R策略参数: 周期,超卖阈值,超买阈值 (例如：14,-80,-20)\n" +
+                    "- TRIX策略参数: TRIX周期,信号周期 (例如：15,9)\n" +
+                    "- AWESOME_OSCILLATOR策略参数: 短周期,长周期 (例如：5,34)\n" +
+                    "- ADX策略参数: ADX周期,DI周期,阈值 (例如：14,14,25)\n" +
+                    "- AROON策略参数: 周期,阈值 (例如：25,70)\n" +
+                    "- ICHIMOKU策略参数: 转换线周期,基准线周期,延迟跨度 (例如：9,26,52)\n" +
+                    "- ICHIMOKU_CLOUD_BREAKOUT策略参数: 转换线周期,基准线周期,延迟跨度 (例如：9,26,52)\n" +
+                    "- PARABOLIC_SAR策略参数: 步长,最大步长 (例如：0.02,0.2)\n" +
+                    "- DMA策略参数: 短期均线周期,长期均线周期 (例如：10,50)\n" +
+                    "- DMI策略参数: 周期,ADX阈值 (例如：14,20)\n" +
+                    "- SUPERTREND策略参数: ATR周期,乘数 (例如：10,3.0)\n" +
+                    "- TRIPLE_EMA策略参数: 短期EMA,中期EMA,长期EMA (例如：5,10,20)\n" +
+                    "- CHANDELIER_EXIT策略参数: 周期,乘数 (例如：22,3.0)\n" +
+                    "- ULCER_INDEX策略参数: 周期,阈值 (例如：14,5.0)\n" +
+                    "- ATR策略参数: 周期,乘数 (例如：14,2.0)\n" +
+                    "- KDJ策略参数: K周期,D周期,J周期,超卖阈值,超买阈值 (例如：9,3,3,20,80)\n" +
+                    "- OBV策略参数: 短期OBV周期,长期OBV周期 (例如：5,20)\n" +
+                    "- MASS_INDEX策略参数: EMA周期,累积周期,阈值 (例如：9,25,27)\n" +
+                    "- DOJI策略参数: 影线比例阈值 (例如：0.1)\n" +
+                    "- BULLISH_ENGULFING/BEARISH_ENGULFING/BULLISH_HARAMI/BEARISH_HARAMI策略参数: 确认周期 (例如：1)\n" +
+                    "- THREE_WHITE_SOLDIERS/THREE_BLACK_CROWS策略参数: 确认周期 (例如：3)\n" +
+                    "- DUAL_THRUST策略参数: 周期,K1,K2 (例如：14,0.5,0.5)\n" +
+                    "- TURTLE_TRADING策略参数: 入场周期,出场周期,ATR周期,ATR乘数 (例如：20,10,14,2.0)\n" +
+                    "- MEAN_REVERSION策略参数: 均线周期,标准差倍数 (例如：20,2.0)\n" +
+                    "- TREND_FOLLOWING策略参数: 短期均线周期,长期均线周期,ADX周期,ADX阈值 (例如：5,20,14,25)\n" +
+                    "- BREAKOUT策略参数: 突破周期,确认周期 (例如：20,3)\n" +
+                    "- GOLDEN_CROSS/DEATH_CROSS策略参数: 短期均线周期,长期均线周期 (例如：50,200)\n" +
+                    "- DUAL_MA_WITH_RSI策略参数: 短期均线周期,长期均线周期,RSI周期,RSI阈值 (例如：5,20,14,50)\n" +
+                    "- MACD_WITH_BOLLINGER策略参数: MACD短周期,MACD长周期,MACD信号周期,布林带周期,布林带标准差倍数 (例如：12,26,9,20,2.0)\n" +
+                    "- 不传或传空字符串将使用默认参数",
+                    required = false,
+                    example = "20,2.0",
+                    type = "string")
             @RequestParam(required = false) String strategyParams,
             @ApiParam(value = "初始资金",
-                   defaultValue = "100000",
-                   required = true,
-                   type = "number",
-                   format = "decimal")
+                    defaultValue = "100000",
+                    required = true,
+                    type = "number",
+                    format = "decimal")
             @RequestParam BigDecimal initialAmount,
             @ApiParam(value = "交易手续费率",
-                   defaultValue = "0.001",
-                   required = false,
-                   type = "number",
-                   format = "decimal")
+                    defaultValue = "0.001",
+                    required = false,
+                    type = "number",
+                    format = "decimal")
             @RequestParam(required = false, defaultValue = "0.001") BigDecimal feeRatio,
             @ApiParam(value = "是否保存结果",
-                   required = true,
-                   defaultValue = "true",
-                   type = "boolean")
+                    required = true,
+                    defaultValue = "true",
+                    type = "boolean")
             @RequestParam(defaultValue = "true") boolean saveResult) {
 
         log.info("开始执行Ta4j回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 策略: {}, 参数: {}, 初始资金: {}, 手续费率: {}",
@@ -137,7 +176,7 @@ public class Ta4jBacktestController {
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
                 // 保存交易明细
-                String backtestId = backtestTradeService.saveBacktestTrades(symbol,result, strategyParams);
+                String backtestId = backtestTradeService.saveBacktestTrades(symbol, result, strategyParams);
                 result.setBacktestId(backtestId);
 
                 // 保存汇总信息
@@ -152,11 +191,11 @@ public class Ta4jBacktestController {
             // 打印总体执行信息
             if (result.isSuccess()) {
                 log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {:.2f}%，总手续费: {:.2f}",
-                    result.getStrategyName(),
-                    result.getParameterDescription(),
-                    result.getNumberOfTrades(),
-                    result.getTotalReturn().multiply(new BigDecimal("100")),
-                    result.getTotalFee());
+                        result.getStrategyName(),
+                        result.getParameterDescription(),
+                        result.getNumberOfTrades(),
+                        result.getTotalReturn().multiply(new BigDecimal("100")),
+                        result.getTotalFee());
             } else {
                 log.warn("回测执行失败 - 错误信息: {}", result.getErrorMessage());
             }
@@ -170,30 +209,74 @@ public class Ta4jBacktestController {
 
     /**
      * 验证策略类型是否有效
+     *
      * @param strategyType 策略类型
      * @return 是否有效
      */
     private boolean isValidStrategyType(String strategyType) {
         return strategyType != null && (
                 strategyType.equals(StrategyFactory.STRATEGY_SMA) ||
-                strategyType.equals(StrategyFactory.STRATEGY_BOLLINGER_BANDS) ||
-                strategyType.equals(StrategyFactory.STRATEGY_MACD) ||
-                strategyType.equals(StrategyFactory.STRATEGY_RSI) ||
-                strategyType.equals(StrategyFactory.STRATEGY_STOCHASTIC) ||
-                strategyType.equals(StrategyFactory.STRATEGY_ADX) ||
-                strategyType.equals(StrategyFactory.STRATEGY_CCI) ||
-                strategyType.equals(StrategyFactory.STRATEGY_WILLIAMS_R) ||
-                strategyType.equals(StrategyFactory.STRATEGY_TRIPLE_EMA) ||
-                strategyType.equals(StrategyFactory.STRATEGY_ICHIMOKU) ||
-                strategyType.equals(StrategyFactory.STRATEGY_PARABOLIC_SAR) ||
-                strategyType.equals(StrategyFactory.STRATEGY_CHANDELIER_EXIT)
+                        strategyType.equals(StrategyFactory.STRATEGY_BOLLINGER_BANDS) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_MACD) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_RSI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_STOCHASTIC) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ADX) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_CCI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_WILLIAMS_R) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_TRIPLE_EMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ICHIMOKU) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_PARABOLIC_SAR) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_CHANDELIER_EXIT) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_EMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_WMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_HMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_KAMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ZLEMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DEMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_TEMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_VWAP) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_STOCHASTIC_RSI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_CMO) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ROC) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_PPO) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DPO) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_TRIX) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_AWESOME_OSCILLATOR) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_AROON) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ICHIMOKU_CLOUD_BREAKOUT) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DMA) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DMI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_SUPERTREND) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_KELTNER_CHANNEL) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ULCER_INDEX) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_ATR) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_KDJ) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_OBV) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_MASS_INDEX) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DOJI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_BULLISH_ENGULFING) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_BEARISH_ENGULFING) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_BULLISH_HARAMI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_BEARISH_HARAMI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_THREE_WHITE_SOLDIERS) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_THREE_BLACK_CROWS) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DUAL_THRUST) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_TURTLE_TRADING) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_MEAN_REVERSION) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_TREND_FOLLOWING) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_BREAKOUT) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_GOLDEN_CROSS) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DEATH_CROSS) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_DUAL_MA_WITH_RSI) ||
+                        strategyType.equals(StrategyFactory.STRATEGY_MACD_WITH_BOLLINGER)
         );
     }
 
     /**
      * 验证策略参数是否合法
+     *
      * @param strategyType 策略类型
-     * @param params 策略参数
+     * @param params       策略参数
      * @return 是否合法
      */
     private boolean validateStrategyParams(String strategyType, String params) {
@@ -209,6 +292,7 @@ public class Ta4jBacktestController {
 
     /**
      * 获取策略参数说明
+     *
      * @param strategyType 策略类型
      * @return 参数说明
      */
@@ -218,37 +302,49 @@ public class Ta4jBacktestController {
 
     /**
      * 获取策略的默认参数
+     *
      * @param strategyType 策略类型
      * @return 默认参数字符串
      */
     private String getDefaultParams(String strategyType) {
-        switch (strategyType) {
-            case StrategyFactory.STRATEGY_SMA:
-                return "9,21"; // 短期均线周期,长期均线周期
-            case StrategyFactory.STRATEGY_BOLLINGER_BANDS:
-                return "20,2.0"; // 周期,标准差倍数
-            case StrategyFactory.STRATEGY_MACD:
-                return "12,26,9"; // 短周期,长周期,信号周期
-            case StrategyFactory.STRATEGY_RSI:
-                return "14,30,70"; // RSI周期,超卖阈值,超买阈值
-            case StrategyFactory.STRATEGY_STOCHASTIC:
-                return "14,3,3,20,80"; // K周期,%K平滑周期,%D平滑周期,超卖阈值,超买阈值
-            case StrategyFactory.STRATEGY_ADX:
-                return "14,14,25"; // ADX周期,DI周期,阈值
-            case StrategyFactory.STRATEGY_CCI:
-                return "20,-100,100"; // CCI周期,超卖阈值,超买阈值
-            case StrategyFactory.STRATEGY_WILLIAMS_R:
-                return "14,-80,-20"; // 周期,超卖阈值,超买阈值
-            case StrategyFactory.STRATEGY_TRIPLE_EMA:
-                return "5,10,20"; // 短期EMA,中期EMA,长期EMA
-            case StrategyFactory.STRATEGY_ICHIMOKU:
-                return "9,26,52"; // 转换线周期,基准线周期,延迟跨度
-            case StrategyFactory.STRATEGY_PARABOLIC_SAR:
-                return "0.02,0.2"; // 步长,最大步长
-            case StrategyFactory.STRATEGY_CHANDELIER_EXIT:
-                return "22,3.0"; // 周期,乘数
-            default:
-                return "";
+        // 从数据库中获取策略的默认参数
+        String defaultParams = strategyInfoService.getDefaultParams(strategyType);
+        log.info("获取到策略[{}]的原始默认参数: {}", strategyType, defaultParams);
+        
+        if (defaultParams != null && !defaultParams.isEmpty()) {
+            // 检查参数是否是JSON格式
+            if (defaultParams.startsWith("{") && defaultParams.endsWith("}")) {
+                try {
+                    // 简化JSON处理逻辑，直接提取值部分
+                    String[] parts = defaultParams.replace("{", "")
+                            .replace("}", "")
+                            .replaceAll("\\s", "")
+                            .replaceAll("\"", "")
+                            .split(",");
+                    
+                    StringBuilder result = new StringBuilder();
+                    
+                    for (String part : parts) {
+                        String[] keyValue = part.split(":");
+                        if (keyValue.length == 2) {
+                            result.append(keyValue[1]).append(",");
+                        }
+                    }
+                    
+                    // 移除最后一个逗号（如果有）
+                    if (result.length() > 0 && result.charAt(result.length() - 1) == ',') {
+                        result.deleteCharAt(result.length() - 1);
+                    }
+                    
+                    defaultParams = result.toString();
+                    log.info("转换后的参数格式: {}", defaultParams);
+                } catch (Exception e) {
+                    log.error("转换参数格式失败: {}", e.getMessage(), e);
+                }
+            }
+            return defaultParams;
+        } else {
+            throw new IllegalArgumentException(strategyType + "策略没有获取到对应参数!");
         }
     }
 
@@ -256,92 +352,8 @@ public class Ta4jBacktestController {
     @ApiOperation(value = "获取支持的策略类型和参数说明", notes = "返回系统支持的所有策略类型和对应的参数说明")
     public ApiResponse<Map<String, Map<String, String>>> getStrategies() {
         try {
-            Map<String, Map<String, String>> strategies = new HashMap<>();
-
-            // SMA策略
-            Map<String, String> smaInfo = new HashMap<>();
-            smaInfo.put("name", "简单移动平均线策略");
-            smaInfo.put("description", "基于短期和长期移动平均线的交叉信号产生买卖信号");
-            smaInfo.put("params", StrategyFactory.SMA_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_SMA, smaInfo);
-
-            // 布林带策略
-            Map<String, String> bollingerInfo = new HashMap<>();
-            bollingerInfo.put("name", "布林带策略");
-            bollingerInfo.put("description", "基于价格突破布林带上下轨或回归中轨产生买卖信号");
-            bollingerInfo.put("params", StrategyFactory.BOLLINGER_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_BOLLINGER_BANDS, bollingerInfo);
-
-            // MACD策略
-            Map<String, String> macdInfo = new HashMap<>();
-            macdInfo.put("name", "MACD策略");
-            macdInfo.put("description", "基于MACD线与信号线的交叉以及柱状图的变化产生买卖信号");
-            macdInfo.put("params", StrategyFactory.MACD_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_MACD, macdInfo);
-
-            // RSI策略
-            Map<String, String> rsiInfo = new HashMap<>();
-            rsiInfo.put("name", "RSI相对强弱指标策略");
-            rsiInfo.put("description", "基于RSI指标的超买超卖区域产生买卖信号");
-            rsiInfo.put("params", StrategyFactory.RSI_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_RSI, rsiInfo);
-
-            // 随机指标策略
-            Map<String, String> stochasticInfo = new HashMap<>();
-            stochasticInfo.put("name", "随机指标策略");
-            stochasticInfo.put("description", "基于随机指标的K线与D线交叉以及超买超卖区域产生买卖信号");
-            stochasticInfo.put("params", StrategyFactory.STOCHASTIC_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_STOCHASTIC, stochasticInfo);
-
-            // ADX策略
-            Map<String, String> adxInfo = new HashMap<>();
-            adxInfo.put("name", "ADX趋向指标策略");
-            adxInfo.put("description", "基于ADX趋向指标和DI方向指标的变化产生买卖信号");
-            adxInfo.put("params", StrategyFactory.ADX_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_ADX, adxInfo);
-
-            // CCI策略
-            Map<String, String> cciInfo = new HashMap<>();
-            cciInfo.put("name", "CCI顺势指标策略");
-            cciInfo.put("description", "基于CCI指标的超买超卖区域产生买卖信号");
-            cciInfo.put("params", StrategyFactory.CCI_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_CCI, cciInfo);
-
-            // Williams %R策略
-            Map<String, String> williamsInfo = new HashMap<>();
-            williamsInfo.put("name", "威廉指标策略");
-            williamsInfo.put("description", "基于威廉指标的超买超卖区域产生买卖信号");
-            williamsInfo.put("params", StrategyFactory.WILLIAMS_R_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_WILLIAMS_R, williamsInfo);
-
-            // 三重EMA策略
-            Map<String, String> tripleEmaInfo = new HashMap<>();
-            tripleEmaInfo.put("name", "三重EMA策略");
-            tripleEmaInfo.put("description", "基于三条不同周期的指数移动平均线之间的关系产生买卖信号");
-            tripleEmaInfo.put("params", StrategyFactory.TRIPLE_EMA_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_TRIPLE_EMA, tripleEmaInfo);
-
-            // 一目均衡表策略
-            Map<String, String> ichimokuInfo = new HashMap<>();
-            ichimokuInfo.put("name", "一目均衡表策略");
-            ichimokuInfo.put("description", "基于日本一目均衡表的云层、转换线和基准线之间的关系产生买卖信号");
-            ichimokuInfo.put("params", StrategyFactory.ICHIMOKU_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_ICHIMOKU, ichimokuInfo);
-
-            // 抛物线SAR策略
-            Map<String, String> pSarInfo = new HashMap<>();
-            pSarInfo.put("name", "抛物线SAR策略");
-            pSarInfo.put("description", "基于抛物线转向系统(SAR)指标的方向变化产生买卖信号");
-            pSarInfo.put("params", StrategyFactory.PARABOLIC_SAR_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_PARABOLIC_SAR, pSarInfo);
-
-            // 吊灯线退出策略
-            Map<String, String> chandelierInfo = new HashMap<>();
-            chandelierInfo.put("name", "吊灯线退出策略");
-            chandelierInfo.put("description", "基于ATR波动率的吊灯线退出法则产生主要用于止损的卖出信号");
-            chandelierInfo.put("params", StrategyFactory.CHANDELIER_EXIT_PARAMS_DESC);
-            strategies.put(StrategyFactory.STRATEGY_CHANDELIER_EXIT, chandelierInfo);
-
+            // 从数据库中获取所有策略信息
+            Map<String, Map<String, String>> strategies = strategyInfoService.getStrategiesInfo();
             return ApiResponse.success(strategies);
         } catch (Exception e) {
             log.error("获取策略信息出错: {}", e.getMessage(), e);

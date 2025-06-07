@@ -47,6 +47,11 @@
             <artifactId>ta4j-core</artifactId>
             <version>0.14</version>
         </dependency>
+        <dependency>
+            <groupId>org.ta4j</groupId>
+            <artifactId>ta4j-examples</artifactId>
+            <version>0.14</version>
+        </dependency>
 
         <!-- Database -->
         <dependency>
