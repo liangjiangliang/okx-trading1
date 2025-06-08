@@ -129,6 +129,13 @@
             <artifactId>commons-codec</artifactId>
             <version>1.15</version> <!-- 请根据需要选择版本 -->
         </dependency>
+        
+        <!-- Janino - 用于动态编译和加载Java代码 -->
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+            <version>3.1.9</version>
+        </dependency>
 
         <!-- Spring Boot DevTools -->
         <dependency>

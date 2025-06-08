@@ -68,7 +68,10 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
             Map<String, String> strategyInfo = new HashMap<>();
             strategyInfo.put("name", strategy.getStrategyName());
             strategyInfo.put("description", strategy.getDescription());
+            strategyInfo.put("default_params", strategy.getDefaultParams());
+            strategyInfo.put("category", strategy.getCategory());
             strategyInfo.put("params", strategy.getParamsDesc());
+            strategyInfo.put("strategy_code", strategy.getStrategyCode());
             result.put(strategy.getStrategyCode(), strategyInfo);
         }
 

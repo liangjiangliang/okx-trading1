@@ -1,5 +1,6 @@
 package com.okx.trading.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.BacktestTradeEntity;
@@ -23,10 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -145,23 +143,10 @@ public class Ta4jBacktestController {
                 symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount, feeRatio);
 
         try {
-            // 使用策略工厂验证策略类型
-            String supportedStrategies = "SMA, BOLLINGER, MACD, RSI, STOCHASTIC, ADX, CCI, WILLIAMS_R, TRIPLE_EMA, ICHIMOKU, PARABOLIC_SAR, CHANDELIER_EXIT";
-            if (!isValidStrategyType(strategyType)) {
-                return ApiResponse.error(400, "无效的策略类型: " + strategyType +
-                        "，支持的策略类型: " + supportedStrategies);
-            }
-
             // 如果策略参数为空，使用默认参数
             if (strategyParams == null || strategyParams.trim().isEmpty()) {
                 strategyParams = getDefaultParams(strategyType);
                 log.info("使用默认参数: {}", strategyParams);
-            }
-
-            // 验证策略参数
-            if (!validateStrategyParams(strategyType, strategyParams)) {
-                return ApiResponse.error(400, "无效的策略参数: " + strategyParams +
-                        "，正确格式: " + getStrategyParamsDescription(strategyType));
             }
 
             // 获取历史数据
@@ -310,32 +295,30 @@ public class Ta4jBacktestController {
         // 从数据库中获取策略的默认参数
         String defaultParams = strategyInfoService.getDefaultParams(strategyType);
         log.info("获取到策略[{}]的原始默认参数: {}", strategyType, defaultParams);
-        
+
         if (defaultParams != null && !defaultParams.isEmpty()) {
             // 检查参数是否是JSON格式
             if (defaultParams.startsWith("{") && defaultParams.endsWith("}")) {
                 try {
-                    // 简化JSON处理逻辑，直接提取值部分
-                    String[] parts = defaultParams.replace("{", "")
-                            .replace("}", "")
-                            .replaceAll("\\s", "")
-                            .replaceAll("\"", "")
-                            .split(",");
-                    
+                    // 使用FastJSON解析JSON字符串
+                    com.alibaba.fastjson.JSONObject jsonObject = com.alibaba.fastjson.JSON.parseObject(defaultParams);
+
+                    // 将JSON对象中的值提取出来，按照逗号分隔
                     StringBuilder result = new StringBuilder();
-                    
-                    for (String part : parts) {
-                        String[] keyValue = part.split(":");
-                        if (keyValue.length == 2) {
-                            result.append(keyValue[1]).append(",");
+
+                    // 遍历JSON对象的所有键值对
+                    for (String key : jsonObject.keySet()) {
+                        Object value = jsonObject.get(key);
+                        if (value != null) {
+                            result.append(value).append(",");
                         }
                     }
-                    
+
                     // 移除最后一个逗号（如果有）
                     if (result.length() > 0 && result.charAt(result.length() - 1) == ',') {
                         result.deleteCharAt(result.length() - 1);
                     }
-                    
+
                     defaultParams = result.toString();
                     log.info("转换后的参数格式: {}", defaultParams);
                 } catch (Exception e) {
