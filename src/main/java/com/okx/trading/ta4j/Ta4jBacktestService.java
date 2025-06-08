@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,34 +32,6 @@ public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
 
-    // 策略类型常量 - 使用StrategyFactory中的常量
-    public static final String STRATEGY_SMA = StrategyFactory.STRATEGY_SMA;
-    public static final String STRATEGY_BOLLINGER_BANDS = StrategyFactory.STRATEGY_BOLLINGER_BANDS;
-    public static final String STRATEGY_MACD = StrategyFactory.STRATEGY_MACD;
-    public static final String STRATEGY_RSI = StrategyFactory.STRATEGY_RSI;
-    public static final String STRATEGY_STOCHASTIC = StrategyFactory.STRATEGY_STOCHASTIC;
-    public static final String STRATEGY_ADX = StrategyFactory.STRATEGY_ADX;
-    public static final String STRATEGY_CCI = StrategyFactory.STRATEGY_CCI;
-    public static final String STRATEGY_WILLIAMS_R = StrategyFactory.STRATEGY_WILLIAMS_R;
-    public static final String STRATEGY_TRIPLE_EMA = StrategyFactory.STRATEGY_TRIPLE_EMA;
-    public static final String STRATEGY_ICHIMOKU = StrategyFactory.STRATEGY_ICHIMOKU;
-    public static final String STRATEGY_PARABOLIC_SAR = StrategyFactory.STRATEGY_PARABOLIC_SAR;
-    public static final String STRATEGY_CHANDELIER_EXIT = StrategyFactory.STRATEGY_CHANDELIER_EXIT;
-
-    // 策略参数说明 - 使用StrategyFactory中的常量
-    public static final String SMA_PARAMS_DESC = StrategyFactory.SMA_PARAMS_DESC;
-    public static final String BOLLINGER_PARAMS_DESC = StrategyFactory.BOLLINGER_PARAMS_DESC;
-    public static final String MACD_PARAMS_DESC = StrategyFactory.MACD_PARAMS_DESC;
-    public static final String RSI_PARAMS_DESC = StrategyFactory.RSI_PARAMS_DESC;
-    public static final String STOCHASTIC_PARAMS_DESC = StrategyFactory.STOCHASTIC_PARAMS_DESC;
-    public static final String ADX_PARAMS_DESC = StrategyFactory.ADX_PARAMS_DESC;
-    public static final String CCI_PARAMS_DESC = StrategyFactory.CCI_PARAMS_DESC;
-    public static final String WILLIAMS_R_PARAMS_DESC = StrategyFactory.WILLIAMS_R_PARAMS_DESC;
-    public static final String TRIPLE_EMA_PARAMS_DESC = StrategyFactory.TRIPLE_EMA_PARAMS_DESC;
-    public static final String ICHIMOKU_PARAMS_DESC = StrategyFactory.ICHIMOKU_PARAMS_DESC;
-    public static final String PARABOLIC_SAR_PARAMS_DESC = StrategyFactory.PARABOLIC_SAR_PARAMS_DESC;
-    public static final String CHANDELIER_EXIT_PARAMS_DESC = StrategyFactory.CHANDELIER_EXIT_PARAMS_DESC;
-
     /**
      * 策略类型枚举 - 扩展以包含所有策略
      */
@@ -74,7 +47,10 @@ public class Ta4jBacktestService {
         TRIPLE_EMA,
         ICHIMOKU,
         PARABOLIC_SAR,
-        CHANDELIER_EXIT
+        CHANDELIER_EXIT,
+        MACD_WITH_BOLLINGER,
+        HANGING_MAN,
+        VWAP
     }
 
     @Autowired
@@ -83,15 +59,15 @@ public class Ta4jBacktestService {
     /**
      * 执行回测
      *
-     * @param candlesticks 历史K线数据
-     * @param strategyType 策略类型
+     * @param candlesticks  历史K线数据
+     * @param strategyType  策略类型
      * @param initialAmount 初始资金
-     * @param params 策略参数
-     * @param feeRatio 交易手续费率（例如0.001表示0.1%）
+     * @param params        策略参数
+     * @param feeRatio      交易手续费率（例如0.001表示0.1%）
      * @return 回测结果
      */
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
-                                    BigDecimal initialAmount, String params, BigDecimal feeRatio) {
+                                      BigDecimal initialAmount, String params, BigDecimal feeRatio) {
         if (candlesticks == null || candlesticks.isEmpty()) {
             BacktestResultDTO result = new BacktestResultDTO();
             result.setSuccess(false);
@@ -107,21 +83,18 @@ public class Ta4jBacktestService {
             // 使用转换器将蜡烛图实体转换为条形系列
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
-            // 使用策略工厂解析参数
-            Map<String, Object> paramMap = StrategyFactory.parseParams(strategyType, params);
+            // 使用策略工厂解析参数, 使用方法自带的
+            Map<String, Object> paramMap = new HashMap<>();
 
             // 使用策略工厂创建策略
             Strategy strategy = StrategyFactory.createStrategy(series, strategyType, paramMap);
-
-            // 构建策略描述
-            String strategyDescription = createStrategyDescription(strategyType, paramMap);
 
             // 执行回测
             BarSeriesManager seriesManager = new BarSeriesManager(series);
             TradingRecord tradingRecord = seriesManager.run(strategy);
 
             // 计算回测指标
-            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, strategyDescription, feeRatio);
+            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType.toString(), "", feeRatio);
         } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             BacktestResultDTO result = new BacktestResultDTO();
@@ -141,211 +114,15 @@ public class Ta4jBacktestService {
      * @return 回测结果
      */
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
-                                    BigDecimal initialAmount, String params) {
+                                      BigDecimal initialAmount, String params) {
         return backtest(candlesticks, strategyType, initialAmount, params, BigDecimal.ZERO);
-    }
-
-    /**
-     * 创建策略描述
-     *
-     * @param strategyType 策略类型
-     * @param params 参数映射
-     * @return 策略描述
-     */
-    private String createStrategyDescription(String strategyType, Map<String, Object> params) {
-        StringBuilder descBuilder = new StringBuilder();
-
-        switch (strategyType) {
-            case STRATEGY_SMA:
-                descBuilder.append("SMA Cross Strategy (")
-                        .append(params.get("shortPeriod"))
-                        .append(",")
-                        .append(params.get("longPeriod"))
-                        .append(")");
-                break;
-            case STRATEGY_BOLLINGER_BANDS:
-                descBuilder.append("Bollinger Bands Strategy (")
-                        .append(params.get("period"))
-                        .append(",")
-                        .append(params.get("deviation"))
-                        .append(")");
-                break;
-            case STRATEGY_MACD:
-                descBuilder.append("MACD Strategy (")
-                        .append(params.get("shortPeriod"))
-                        .append(",")
-                        .append(params.get("longPeriod"))
-                        .append(",")
-                        .append(params.get("signalPeriod"))
-                        .append(")");
-                break;
-            case STRATEGY_RSI:
-                descBuilder.append("RSI Strategy (")
-                        .append(params.get("period"))
-                        .append(",")
-                        .append(params.get("oversold"))
-                        .append(",")
-                        .append(params.get("overbought"))
-                        .append(")");
-                break;
-            case STRATEGY_STOCHASTIC:
-                descBuilder.append("Stochastic Oscillator Strategy (")
-                        .append(params.get("kPeriod"))
-                        .append(",")
-                        .append(params.get("kSmooth"))
-                        .append(",")
-                        .append(params.get("dSmooth"))
-                        .append(",")
-                        .append(params.get("oversold"))
-                        .append(",")
-                        .append(params.get("overbought"))
-                        .append(")");
-                break;
-            case STRATEGY_ADX:
-                descBuilder.append("ADX Strategy (")
-                        .append(params.get("adxPeriod"))
-                        .append(",")
-                        .append(params.get("diPeriod"))
-                        .append(",")
-                        .append(params.get("threshold"))
-                        .append(")");
-                break;
-            case STRATEGY_CCI:
-                descBuilder.append("CCI Strategy (")
-                        .append(params.get("period"))
-                        .append(",")
-                        .append(params.get("oversold"))
-                        .append(",")
-                        .append(params.get("overbought"))
-                        .append(")");
-                break;
-            case STRATEGY_WILLIAMS_R:
-                descBuilder.append("Williams %R Strategy (")
-                        .append(params.get("period"))
-                        .append(",")
-                        .append(params.get("oversold"))
-                        .append(",")
-                        .append(params.get("overbought"))
-                        .append(")");
-                break;
-            case STRATEGY_TRIPLE_EMA:
-                descBuilder.append("Triple EMA Strategy (")
-                        .append(params.get("shortPeriod"))
-                        .append(",")
-                        .append(params.get("middlePeriod"))
-                        .append(",")
-                        .append(params.get("longPeriod"))
-                        .append(")");
-                break;
-            case STRATEGY_ICHIMOKU:
-                descBuilder.append("Ichimoku Cloud Strategy (")
-                        .append(params.get("conversionPeriod"))
-                        .append(",")
-                        .append(params.get("basePeriod"))
-                        .append(",")
-                        .append(params.get("laggingSpan"))
-                        .append(")");
-                break;
-            case STRATEGY_PARABOLIC_SAR:
-                descBuilder.append("Parabolic SAR Strategy (")
-                        .append(params.get("step"))
-                        .append(",")
-                        .append(params.get("max"))
-                        .append(")");
-                break;
-            case STRATEGY_CHANDELIER_EXIT:
-                descBuilder.append("Chandelier Exit Strategy (")
-                        .append(params.get("period"))
-                        .append(",")
-                        .append(params.get("multiplier"))
-                        .append(")");
-                break;
-            default:
-                descBuilder.append(strategyType).append(" Strategy");
-                break;
-        }
-
-        return descBuilder.toString();
-    }
-
-    /**
-     * 执行回测（基于枚举和Map参数）
-     *
-     * @param candlesticks  历史K线数据
-     * @param strategyType  策略类型枚举
-     * @param params        策略参数
-     * @param initialAmount 初始资金
-     * @return 回测结果
-     */
-    public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, StrategyType strategyType,
-                                   Map<String, Object> params, double initialAmount) {
-        String strategyTypeStr;
-        String paramsStr;
-
-        switch (strategyType) {
-            case SMA:
-                strategyTypeStr = STRATEGY_SMA;
-                paramsStr = buildParamsString(params, "shortPeriod", "longPeriod");
-                break;
-            case BOLLINGER_BANDS:
-                strategyTypeStr = STRATEGY_BOLLINGER_BANDS;
-                paramsStr = buildParamsString(params, "period", "deviation");
-                break;
-            case MACD:
-                strategyTypeStr = STRATEGY_MACD;
-                paramsStr = buildParamsString(params, "shortPeriod", "longPeriod", "signalPeriod");
-                break;
-            case RSI:
-                strategyTypeStr = STRATEGY_RSI;
-                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
-                break;
-            case STOCHASTIC:
-                strategyTypeStr = STRATEGY_STOCHASTIC;
-                paramsStr = buildParamsString(params, "kPeriod", "kSmooth", "dSmooth", "oversold", "overbought");
-                break;
-            case ADX:
-                strategyTypeStr = STRATEGY_ADX;
-                paramsStr = buildParamsString(params, "adxPeriod", "diPeriod", "threshold");
-                break;
-            case CCI:
-                strategyTypeStr = STRATEGY_CCI;
-                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
-                break;
-            case WILLIAMS_R:
-                strategyTypeStr = STRATEGY_WILLIAMS_R;
-                paramsStr = buildParamsString(params, "period", "oversold", "overbought");
-                break;
-            case TRIPLE_EMA:
-                strategyTypeStr = STRATEGY_TRIPLE_EMA;
-                paramsStr = buildParamsString(params, "shortPeriod", "middlePeriod", "longPeriod");
-                break;
-            case ICHIMOKU:
-                strategyTypeStr = STRATEGY_ICHIMOKU;
-                paramsStr = buildParamsString(params, "conversionPeriod", "basePeriod", "laggingSpan");
-                break;
-            case PARABOLIC_SAR:
-                strategyTypeStr = STRATEGY_PARABOLIC_SAR;
-                paramsStr = buildParamsString(params, "step", "max");
-                break;
-            case CHANDELIER_EXIT:
-                strategyTypeStr = STRATEGY_CHANDELIER_EXIT;
-                paramsStr = buildParamsString(params, "period", "multiplier");
-                break;
-            default:
-                BacktestResultDTO result = new BacktestResultDTO();
-                result.setSuccess(false);
-                result.setErrorMessage("不支持的策略类型: " + strategyType);
-                return result;
-        }
-
-        return backtest(candlesticks, strategyTypeStr, new BigDecimal(initialAmount), paramsStr);
     }
 
     /**
      * 根据参数键构建参数字符串
      *
      * @param params 参数映射
-     * @param keys 参数键数组
+     * @param keys   参数键数组
      * @return 参数字符串
      */
     private String buildParamsString(Map<String, Object> params, String... keys) {
@@ -368,17 +145,17 @@ public class Ta4jBacktestService {
     /**
      * 计算回测指标
      *
-     * @param series BarSeries对象
-     * @param tradingRecord 交易记录
-     * @param initialAmount 初始资金
-     * @param strategyType 策略类型
+     * @param series           BarSeries对象
+     * @param tradingRecord    交易记录
+     * @param initialAmount    初始资金
+     * @param strategyType     策略类型
      * @param paramDescription 参数描述
-     * @param feeRatio 交易手续费率
+     * @param feeRatio         交易手续费率
      * @return 回测结果DTO
      */
     private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
-                                                     BigDecimal initialAmount, String strategyType,
-                                                     String paramDescription, BigDecimal feeRatio) {
+                                                       BigDecimal initialAmount, String strategyType,
+                                                       String paramDescription, BigDecimal feeRatio) {
         // 如果没有交易，返回简单结果
         if (tradingRecord.getPositionCount() == 0) {
             BacktestResultDTO result = new BacktestResultDTO();
@@ -420,11 +197,11 @@ public class Ta4jBacktestService {
 
         // 提取交易记录（考虑手续费）
         List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord, initialAmount, feeRatio);
-        
+
         // 计算总利润和总手续费
         BigDecimal totalProfit = BigDecimal.ZERO;
         BigDecimal totalFee = BigDecimal.ZERO;
-        
+
         for (TradeRecordDTO trade : tradeRecords) {
             if (trade.getProfit() != null) {
                 totalProfit = totalProfit.add(trade.getProfit());
@@ -441,14 +218,14 @@ public class Ta4jBacktestService {
         BigDecimal totalReturn = BigDecimal.ZERO;
         if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalReturn = finalAmount.subtract(initialAmount)
-                                   .divide(initialAmount, 4, RoundingMode.HALF_UP);
+                    .divide(initialAmount, 4, RoundingMode.HALF_UP);
         }
 
         // 计算胜率
         BigDecimal winRate = BigDecimal.ZERO;
         if (tradeCount > 0) {
             winRate = new BigDecimal(profitableTrades)
-                         .divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
+                    .divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
         // 平均利润
@@ -456,10 +233,10 @@ public class Ta4jBacktestService {
         if (tradeCount > 0) {
             averageProfit = totalProfit.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
-        
+
         // 计算最大回撤
         BigDecimal maxDrawdown = calculateMaxDrawdown(tradeRecords, initialAmount);
-        
+
         // 计算夏普比率
         BigDecimal sharpeRatio = calculateSharpeRatio(tradeRecords, initialAmount);
 
@@ -477,7 +254,7 @@ public class Ta4jBacktestService {
         result.setAverageProfit(averageProfit);
         result.setMaxDrawdown(maxDrawdown);
         result.setSharpeRatio(sharpeRatio);
-        result.setStrategyName(strategyType);
+        result.setStrategyName(strategyType.toString());
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
         result.setTotalFee(totalFee);
@@ -491,7 +268,7 @@ public class Ta4jBacktestService {
     /**
      * 计算最大回撤
      *
-     * @param trades 交易记录列表
+     * @param trades        交易记录列表
      * @param initialAmount 初始资金
      * @return 最大回撤（百分比）
      */
@@ -499,59 +276,59 @@ public class Ta4jBacktestService {
         if (trades == null || trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        
+
         BigDecimal highestValue = initialAmount;
         BigDecimal currentValue = initialAmount;
         BigDecimal maxDrawdown = BigDecimal.ZERO;
-        
+
         // 遍历每笔交易，计算每个时点的资产价值和最大回撤
         for (TradeRecordDTO trade : trades) {
             // 更新当前资产价值（考虑手续费）
             if (trade.getProfit() != null) {
                 currentValue = currentValue.add(trade.getProfit());
             }
-            
+
             // 更新历史最高资产价值
             if (currentValue.compareTo(highestValue) > 0) {
                 highestValue = currentValue;
             }
-            
+
             // 计算当前回撤
             if (highestValue.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal currentDrawdown = highestValue.subtract(currentValue)
                         .divide(highestValue, 4, RoundingMode.HALF_UP);
-                
+
                 // 更新最大回撤
                 if (currentDrawdown.compareTo(maxDrawdown) > 0) {
                     maxDrawdown = currentDrawdown;
                 }
             }
         }
-        
+
         return maxDrawdown;
     }
-    
+
     /**
      * 计算回测指标（不带手续费参数的重载方法）
      *
-     * @param series BarSeries对象
-     * @param tradingRecord 交易记录
-     * @param initialAmount 初始资金
-     * @param strategyType 策略类型
+     * @param series           BarSeries对象
+     * @param tradingRecord    交易记录
+     * @param initialAmount    初始资金
+     * @param strategyType     策略类型
      * @param paramDescription 参数描述
      * @return 回测结果DTO
      */
     private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
-                                                     BigDecimal initialAmount, String strategyType,
-                                                     String paramDescription) {
+                                                       BigDecimal initialAmount, String strategyType,
+                                                       String paramDescription) {
         return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType, paramDescription, BigDecimal.ZERO);
     }
-    
+
     /**
      * 计算夏普比率
      * 夏普比率 = (投资组合收益率 - 无风险收益率) / 投资组合标准差
      *
-     * @param trades 交易记录列表
+     * @param trades        交易记录列表
      * @param initialAmount 初始资金
      * @return 夏普比率
      */
@@ -559,40 +336,40 @@ public class Ta4jBacktestService {
         if (trades == null || trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        
+
         // 计算每笔交易的收益率
         List<BigDecimal> returns = new ArrayList<>();
-        
+
         for (TradeRecordDTO trade : trades) {
             if (trade.getProfitPercentage() != null) {
                 returns.add(trade.getProfitPercentage());
             }
         }
-        
+
         if (returns.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        
+
         // 计算平均收益率
         BigDecimal sumReturns = BigDecimal.ZERO;
         for (BigDecimal ret : returns) {
             sumReturns = sumReturns.add(ret);
         }
         BigDecimal avgReturn = sumReturns.divide(new BigDecimal(returns.size()), 8, RoundingMode.HALF_UP);
-        
+
         // 计算标准差
         BigDecimal sumSquaredDiff = BigDecimal.ZERO;
         for (BigDecimal ret : returns) {
             BigDecimal diff = ret.subtract(avgReturn);
             sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
         }
-        
+
         BigDecimal variance = sumSquaredDiff.divide(new BigDecimal(returns.size()), 8, RoundingMode.HALF_UP);
         BigDecimal stdDev = new BigDecimal(Math.sqrt(variance.doubleValue()));
-        
+
         // 无风险收益率（假设为0）
         BigDecimal riskFreeRate = BigDecimal.ZERO;
-        
+
         // 计算夏普比率
         if (stdDev.compareTo(BigDecimal.ZERO) > 0) {
             return avgReturn.subtract(riskFreeRate).divide(stdDev, 4, RoundingMode.HALF_UP);
@@ -604,19 +381,19 @@ public class Ta4jBacktestService {
     /**
      * 从交易记录中提取交易明细（带手续费计算）
      *
-     * @param series BarSeries对象
+     * @param series        BarSeries对象
      * @param tradingRecord 交易记录
      * @param initialAmount 初始资金
-     * @param feeRatio 交易手续费率
+     * @param feeRatio      交易手续费率
      * @return 交易记录DTO列表
      */
-    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord, 
-                                                   BigDecimal initialAmount, BigDecimal feeRatio) {
+    private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord,
+                                                     BigDecimal initialAmount, BigDecimal feeRatio) {
         List<TradeRecordDTO> records = new ArrayList<>();
 
         int index = 1;
         BigDecimal tradeAmount = initialAmount;
-        
+
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 // 获取入场和出场信息
@@ -634,7 +411,7 @@ public class Ta4jBacktestService {
 
                 // 计算入场手续费
                 BigDecimal entryFee = tradeAmount.multiply(feeRatio);
-                
+
                 // 扣除入场手续费后的实际交易金额
                 BigDecimal actualTradeAmount = tradeAmount.subtract(entryFee);
 
@@ -644,25 +421,25 @@ public class Ta4jBacktestService {
                 if (position.getEntry().isBuy()) {
                     // 如果是买入操作，盈亏百分比 = (卖出价 - 买入价) / 买入价
                     profitPercentage = exitPrice.subtract(entryPrice)
-                                       .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                            .divide(entryPrice, 4, RoundingMode.HALF_UP);
                 } else {
                     // 如果是卖出操作（做空），盈亏百分比 = (买入价 - 卖出价) / 买入价
                     profitPercentage = entryPrice.subtract(exitPrice)
-                                       .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                            .divide(entryPrice, 4, RoundingMode.HALF_UP);
                 }
 
                 // 计算出场金额（包含盈亏）
                 BigDecimal exitAmount = actualTradeAmount.add(actualTradeAmount.multiply(profitPercentage));
-                
+
                 // 计算出场手续费
                 BigDecimal exitFee = exitAmount.multiply(feeRatio);
-                
+
                 // 扣除出场手续费后的实际出场金额
                 BigDecimal actualExitAmount = exitAmount.subtract(exitFee);
-                
+
                 // 总手续费
                 BigDecimal totalFee = entryFee.add(exitFee);
-                
+
                 // 实际盈亏（考虑手续费）
                 BigDecimal actualProfit = actualExitAmount.subtract(tradeAmount);
 
@@ -682,7 +459,7 @@ public class Ta4jBacktestService {
                 recordDTO.setFee(totalFee);
 
                 records.add(recordDTO);
-                
+
                 // 更新下一次交易的资金（全仓交易）
                 tradeAmount = actualExitAmount;
             }
@@ -739,26 +516,5 @@ public class Ta4jBacktestService {
 
         // 输出汇总信息
         log.info(summaryBuilder.toString());
-    }
-
-    /**
-     * 获取策略参数说明
-     *
-     * @param strategyType 策略类型
-     * @return 策略参数说明
-     */
-    public static String getStrategyParamsDescription(String strategyType) {
-        return StrategyFactory.getStrategyParamsDescription(strategyType);
-    }
-
-    /**
-     * 验证策略参数是否合法
-     *
-     * @param strategyType 策略类型
-     * @param params 策略参数
-     * @return 是否合法
-     */
-    public static boolean validateStrategyParams(String strategyType, String params) {
-        return StrategyFactory.validateStrategyParams(strategyType, params);
     }
 }

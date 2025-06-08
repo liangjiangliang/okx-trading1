@@ -143,11 +143,6 @@ public class Ta4jBacktestController {
                 symbol, interval, startTime, endTime, strategyType, strategyParams, initialAmount, feeRatio);
 
         try {
-            // 如果策略参数为空，使用默认参数
-            if (strategyParams == null || strategyParams.trim().isEmpty()) {
-                strategyParams = getDefaultParams(strategyType);
-                log.info("使用默认参数: {}", strategyParams);
-            }
 
             // 获取历史数据
             List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
@@ -175,7 +170,7 @@ public class Ta4jBacktestController {
 
             // 打印总体执行信息
             if (result.isSuccess()) {
-                log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {:.2f}%，总手续费: {:.2f}",
+                log.info("回测执行成功 - {} {}，交易次数: {}，总收益率: {}%，总手续费: {}",
                         result.getStrategyName(),
                         result.getParameterDescription(),
                         result.getNumberOfTrades(),
@@ -189,145 +184,6 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             return ApiResponse.error(500, "回测过程中发生错误: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 验证策略类型是否有效
-     *
-     * @param strategyType 策略类型
-     * @return 是否有效
-     */
-    private boolean isValidStrategyType(String strategyType) {
-        return strategyType != null && (
-                strategyType.equals(StrategyFactory.STRATEGY_SMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BOLLINGER_BANDS) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_MACD) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_RSI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_STOCHASTIC) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ADX) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_CCI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_WILLIAMS_R) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_TRIPLE_EMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ICHIMOKU) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_PARABOLIC_SAR) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_CHANDELIER_EXIT) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_EMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_WMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_HMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_KAMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ZLEMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DEMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_TEMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_VWAP) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_STOCHASTIC_RSI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_CMO) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ROC) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_PPO) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DPO) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_TRIX) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_AWESOME_OSCILLATOR) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_AROON) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ICHIMOKU_CLOUD_BREAKOUT) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DMA) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DMI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_SUPERTREND) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_KELTNER_CHANNEL) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ULCER_INDEX) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_ATR) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_KDJ) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_OBV) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_MASS_INDEX) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DOJI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BULLISH_ENGULFING) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BEARISH_ENGULFING) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BULLISH_HARAMI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BEARISH_HARAMI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_THREE_WHITE_SOLDIERS) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_THREE_BLACK_CROWS) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DUAL_THRUST) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_TURTLE_TRADING) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_MEAN_REVERSION) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_TREND_FOLLOWING) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_BREAKOUT) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_GOLDEN_CROSS) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DEATH_CROSS) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_DUAL_MA_WITH_RSI) ||
-                        strategyType.equals(StrategyFactory.STRATEGY_MACD_WITH_BOLLINGER)
-        );
-    }
-
-    /**
-     * 验证策略参数是否合法
-     *
-     * @param strategyType 策略类型
-     * @param params       策略参数
-     * @return 是否合法
-     */
-    private boolean validateStrategyParams(String strategyType, String params) {
-        try {
-            // 使用策略工厂验证参数
-            Map<String, Object> paramMap = StrategyFactory.parseParams(strategyType, params);
-            return paramMap != null && !paramMap.isEmpty();
-        } catch (Exception e) {
-            log.warn("验证策略参数失败: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * 获取策略参数说明
-     *
-     * @param strategyType 策略类型
-     * @return 参数说明
-     */
-    private String getStrategyParamsDescription(String strategyType) {
-        return StrategyFactory.getStrategyParamsDescription(strategyType);
-    }
-
-    /**
-     * 获取策略的默认参数
-     *
-     * @param strategyType 策略类型
-     * @return 默认参数字符串
-     */
-    private String getDefaultParams(String strategyType) {
-        // 从数据库中获取策略的默认参数
-        String defaultParams = strategyInfoService.getDefaultParams(strategyType);
-        log.info("获取到策略[{}]的原始默认参数: {}", strategyType, defaultParams);
-
-        if (defaultParams != null && !defaultParams.isEmpty()) {
-            // 检查参数是否是JSON格式
-            if (defaultParams.startsWith("{") && defaultParams.endsWith("}")) {
-                try {
-                    // 使用FastJSON解析JSON字符串
-                    com.alibaba.fastjson.JSONObject jsonObject = com.alibaba.fastjson.JSON.parseObject(defaultParams);
-
-                    // 将JSON对象中的值提取出来，按照逗号分隔
-                    StringBuilder result = new StringBuilder();
-
-                    // 遍历JSON对象的所有键值对
-                    for (String key : jsonObject.keySet()) {
-                        Object value = jsonObject.get(key);
-                        if (value != null) {
-                            result.append(value).append(",");
-                        }
-                    }
-
-                    // 移除最后一个逗号（如果有）
-                    if (result.length() > 0 && result.charAt(result.length() - 1) == ',') {
-                        result.deleteCharAt(result.length() - 1);
-                    }
-
-                    defaultParams = result.toString();
-                    log.info("转换后的参数格式: {}", defaultParams);
-                } catch (Exception e) {
-                    log.error("转换参数格式失败: {}", e.getMessage(), e);
-                }
-            }
-            return defaultParams;
-        } else {
-            throw new IllegalArgumentException(strategyType + "策略没有获取到对应参数!");
         }
     }
 
@@ -462,4 +318,5 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "获取最佳表现回测信息出错: " + e.getMessage());
         }
     }
+
 }

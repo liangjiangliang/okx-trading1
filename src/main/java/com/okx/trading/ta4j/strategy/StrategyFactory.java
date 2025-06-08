@@ -11,6 +11,7 @@ import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
 import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.adx.ADXIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
@@ -22,6 +23,10 @@ import org.ta4j.core.indicators.candles.DojiIndicator;
 import org.ta4j.core.indicators.candles.ThreeBlackCrowsIndicator;
 import org.ta4j.core.indicators.candles.ThreeWhiteSoldiersIndicator;
 import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
+import org.ta4j.core.indicators.ichimoku.IchimokuSenkouSpanAIndicator;
+import org.ta4j.core.indicators.ichimoku.IchimokuSenkouSpanBIndicator;
+import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelLowerIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelMiddleIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelUpperIndicator;
@@ -31,9 +36,13 @@ import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.indicators.statistics.StandardErrorIndicator;
 import org.ta4j.core.indicators.statistics.VarianceIndicator;
 import org.ta4j.core.indicators.volume.OnBalanceVolumeIndicator;
+import org.ta4j.core.indicators.volume.VWAPIndicator;
+import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.DoubleNum;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
+
+import static com.okx.trading.constant.IndicatorInfo.*;
 
 /**
  * 策略工厂类
@@ -43,143 +52,6 @@ public class StrategyFactory {
 
     private static final Logger log = LoggerFactory.getLogger(StrategyFactory.class);
 
-    // 策略类型常量
-    // 移动平均线策略
-    public static final String STRATEGY_SMA = "SMA";
-    public static final String STRATEGY_EMA = "EMA";
-    public static final String STRATEGY_TRIPLE_EMA = "TRIPLE_EMA";
-    public static final String STRATEGY_WMA = "WMA";
-    public static final String STRATEGY_HMA = "HMA";
-    public static final String STRATEGY_KAMA = "KAMA";
-    public static final String STRATEGY_ZLEMA = "ZLEMA";
-    public static final String STRATEGY_DEMA = "DEMA";
-    public static final String STRATEGY_TEMA = "TEMA";
-    public static final String STRATEGY_VWAP = "VWAP";
-
-    // 震荡指标策略
-    public static final String STRATEGY_RSI = "RSI";
-    public static final String STRATEGY_STOCHASTIC = "STOCHASTIC";
-    public static final String STRATEGY_STOCHASTIC_RSI = "STOCHASTIC_RSI";
-    public static final String STRATEGY_WILLIAMS_R = "WILLIAMS_R";
-    public static final String STRATEGY_CCI = "CCI";
-    public static final String STRATEGY_CMO = "CMO";
-    public static final String STRATEGY_ROC = "ROC";
-    public static final String STRATEGY_MACD = "MACD";
-    public static final String STRATEGY_PPO = "PPO";
-    public static final String STRATEGY_DPO = "DPO";
-    public static final String STRATEGY_TRIX = "TRIX";
-    public static final String STRATEGY_AWESOME_OSCILLATOR = "AWESOME_OSCILLATOR";
-
-    // 趋势指标策略
-    public static final String STRATEGY_ADX = "ADX";
-    public static final String STRATEGY_AROON = "AROON";
-    public static final String STRATEGY_ICHIMOKU = "ICHIMOKU";
-    public static final String STRATEGY_ICHIMOKU_CLOUD_BREAKOUT = "ICHIMOKU_CLOUD_BREAKOUT";
-    public static final String STRATEGY_PARABOLIC_SAR = "PARABOLIC_SAR";
-    public static final String STRATEGY_DMA = "DMA";
-    public static final String STRATEGY_DMI = "DMI";
-    public static final String STRATEGY_SUPERTREND = "SUPERTREND";
-
-    // 波动指标策略
-    public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER";
-    public static final String STRATEGY_KELTNER_CHANNEL = "KELTNER";
-    public static final String STRATEGY_CHANDELIER_EXIT = "CHANDELIER_EXIT";
-    public static final String STRATEGY_ULCER_INDEX = "ULCER_INDEX";
-    public static final String STRATEGY_ATR = "ATR";
-    public static final String STRATEGY_KDJ = "KDJ";
-
-    // 成交量指标策略
-    public static final String STRATEGY_OBV = "OBV";
-    public static final String STRATEGY_MASS_INDEX = "MASS_INDEX";
-
-    // 蜡烛图形态策略
-    public static final String STRATEGY_DOJI = "DOJI";
-    public static final String STRATEGY_BULLISH_ENGULFING = "BULLISH_ENGULFING";
-    public static final String STRATEGY_BEARISH_ENGULFING = "BEARISH_ENGULFING";
-    public static final String STRATEGY_BULLISH_HARAMI = "BULLISH_HARAMI";
-    public static final String STRATEGY_BEARISH_HARAMI = "BEARISH_HARAMI";
-    public static final String STRATEGY_THREE_WHITE_SOLDIERS = "THREE_WHITE_SOLDIERS";
-    public static final String STRATEGY_THREE_BLACK_CROWS = "THREE_BLACK_CROWS";
-
-    // 组合策略
-    public static final String STRATEGY_DUAL_THRUST = "DUAL_THRUST";
-    public static final String STRATEGY_TURTLE_TRADING = "TURTLE_TRADING";
-    public static final String STRATEGY_MEAN_REVERSION = "MEAN_REVERSION";
-    public static final String STRATEGY_TREND_FOLLOWING = "TREND_FOLLOWING";
-    public static final String STRATEGY_BREAKOUT = "BREAKOUT";
-    public static final String STRATEGY_GOLDEN_CROSS = "GOLDEN_CROSS";
-    public static final String STRATEGY_DEATH_CROSS = "DEATH_CROSS";
-    public static final String STRATEGY_DUAL_MA_WITH_RSI = "DUAL_MA_WITH_RSI";
-    public static final String STRATEGY_MACD_WITH_BOLLINGER = "MACD_WITH_BOLLINGER";
-
-    // 策略参数说明
-    // 移动平均线策略参数
-    public static final String SMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String EMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String TRIPLE_EMA_PARAMS_DESC = "短期EMA,中期EMA,长期EMA (例如：5,10,20)";
-    public static final String WMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String HMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String KAMA_PARAMS_DESC = "周期,快速EMA周期,慢速EMA周期 (例如：10,2,30)";
-    public static final String ZLEMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String DEMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String TEMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：5,20)";
-    public static final String VWAP_PARAMS_DESC = "周期 (例如：14)";
-
-    // 震荡指标策略参数
-    public static final String RSI_PARAMS_DESC = "RSI周期,超卖阈值,超买阈值 (例如：14,30,70)";
-    public static final String STOCHASTIC_PARAMS_DESC = "K周期,%K平滑周期,%D平滑周期,超卖阈值,超买阈值 (例如：14,3,3,20,80)";
-    public static final String STOCHASTIC_RSI_PARAMS_DESC = "RSI周期,随机指标周期,K平滑周期,D平滑周期,超卖阈值,超买阈值 (例如：14,14,3,3,20,80)";
-    public static final String WILLIAMS_R_PARAMS_DESC = "周期,超卖阈值,超买阈值 (例如：14,-80,-20)";
-    public static final String CCI_PARAMS_DESC = "CCI周期,超卖阈值,超买阈值 (例如：20,-100,100)";
-    public static final String CMO_PARAMS_DESC = "周期,超卖阈值,超买阈值 (例如：14,-30,30)";
-    public static final String ROC_PARAMS_DESC = "周期,阈值 (例如：12,0)";
-    public static final String MACD_PARAMS_DESC = "短周期,长周期,信号周期 (例如：12,26,9)";
-    public static final String PPO_PARAMS_DESC = "短周期,长周期,信号周期 (例如：12,26,9)";
-    public static final String DPO_PARAMS_DESC = "周期 (例如：20)";
-    public static final String TRIX_PARAMS_DESC = "TRIX周期,信号周期 (例如：15,9)";
-    public static final String AWESOME_OSCILLATOR_PARAMS_DESC = "短周期,长周期 (例如：5,34)";
-
-    // 趋势指标策略参数
-    public static final String ADX_PARAMS_DESC = "ADX周期,DI周期,阈值 (例如：14,14,25)";
-    public static final String AROON_PARAMS_DESC = "周期,阈值 (例如：25,70)";
-    public static final String ICHIMOKU_PARAMS_DESC = "转换线周期,基准线周期,延迟跨度 (例如：9,26,52)";
-    public static final String ICHIMOKU_CLOUD_BREAKOUT_PARAMS_DESC = "转换线周期,基准线周期,延迟跨度 (例如：9,26,52)";
-    public static final String PARABOLIC_SAR_PARAMS_DESC = "步长,最大步长 (例如：0.02,0.2)";
-    public static final String DMA_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：10,50)";
-    public static final String DMI_PARAMS_DESC = "周期,ADX阈值 (例如：14,20)";
-    public static final String SUPERTREND_PARAMS_DESC = "ATR周期,乘数 (例如：10,3.0)";
-
-    // 波动指标策略参数
-    public static final String BOLLINGER_PARAMS_DESC = "周期,标准差倍数 (例如：20,2.0)";
-    public static final String KELTNER_CHANNEL_PARAMS_DESC = "EMA周期,ATR周期,乘数 (例如：20,10,2.0)";
-    public static final String CHANDELIER_EXIT_PARAMS_DESC = "周期,乘数 (例如：22,3.0)";
-    public static final String ULCER_INDEX_PARAMS_DESC = "周期,阈值 (例如：14,5.0)";
-    public static final String ATR_PARAMS_DESC = "周期,乘数 (例如：14,2.0)";
-    public static final String KDJ_PARAMS_DESC = "K周期,D周期,J周期,超卖阈值,超买阈值 (例如：9,3,3,20,80)";
-
-    // 成交量指标策略参数
-    public static final String OBV_PARAMS_DESC = "短期OBV周期,长期OBV周期 (例如：5,20)";
-    public static final String MASS_INDEX_PARAMS_DESC = "EMA周期,累积周期,阈值 (例如：9,25,27)";
-
-    // 蜡烛图形态策略参数
-    public static final String DOJI_PARAMS_DESC = "影线比例阈值 (例如：0.1)";
-    public static final String BULLISH_ENGULFING_PARAMS_DESC = "确认周期 (例如：1)";
-    public static final String BEARISH_ENGULFING_PARAMS_DESC = "确认周期 (例如：1)";
-    public static final String BULLISH_HARAMI_PARAMS_DESC = "确认周期 (例如：1)";
-    public static final String BEARISH_HARAMI_PARAMS_DESC = "确认周期 (例如：1)";
-    public static final String THREE_WHITE_SOLDIERS_PARAMS_DESC = "确认周期 (例如：3)";
-    public static final String THREE_BLACK_CROWS_PARAMS_DESC = "确认周期 (例如：3)";
-
-    // 组合策略参数
-    public static final String DUAL_THRUST_PARAMS_DESC = "周期,K1,K2 (例如：14,0.5,0.5)";
-    public static final String TURTLE_TRADING_PARAMS_DESC = "入场周期,出场周期,ATR周期,ATR乘数 (例如：20,10,14,2.0)";
-    public static final String MEAN_REVERSION_PARAMS_DESC = "均线周期,标准差倍数 (例如：20,2.0)";
-    public static final String TREND_FOLLOWING_PARAMS_DESC = "短期均线周期,长期均线周期,ADX周期,ADX阈值 (例如：5,20,14,25)";
-    public static final String BREAKOUT_PARAMS_DESC = "突破周期,确认周期 (例如：20,3)";
-    public static final String GOLDEN_CROSS_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：50,200)";
-    public static final String DEATH_CROSS_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：50,200)";
-    public static final String DUAL_MA_WITH_RSI_PARAMS_DESC = "短期均线周期,长期均线周期,RSI周期,RSI阈值 (例如：5,20,14,50)";
-    public static final String MACD_WITH_BOLLINGER_PARAMS_DESC = "MACD短周期,MACD长周期,MACD信号周期,布林带周期,布林带标准差倍数 (例如：12,26,9,20,2.0)";
 
     // 策略创建函数映射
     private static final Map<String, BiFunction<BarSeries, Map<String, Object>, Strategy>> strategyCreators = new HashMap<>();
@@ -196,6 +68,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_ZLEMA, StrategyFactory::createZLEMAStrategy);
         strategyCreators.put(STRATEGY_DEMA, StrategyFactory::createDEMAStrategy);
         strategyCreators.put(STRATEGY_TEMA, StrategyFactory::createTEMAStrategy);
+        strategyCreators.put(STRATEGY_VWAP, StrategyFactory::createVWAPStrategy);
 
         // 震荡指标策略
         strategyCreators.put(STRATEGY_RSI, StrategyFactory::createRSIStrategy);
@@ -216,15 +89,22 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_ICHIMOKU, StrategyFactory::createIchimokuStrategy);
         strategyCreators.put(STRATEGY_PARABOLIC_SAR, StrategyFactory::createParabolicSARStrategy);
         strategyCreators.put(STRATEGY_DMA, StrategyFactory::createDMAStrategy);
+        strategyCreators.put(STRATEGY_DMI, StrategyFactory::createDMIStrategy);
+        strategyCreators.put(STRATEGY_SUPERTREND, StrategyFactory::createSupertrendStrategy);
+        strategyCreators.put(STRATEGY_ICHIMOKU_CLOUD_BREAKOUT, StrategyFactory::createIchimokuCloudBreakoutStrategy);
+        strategyCreators.put(STRATEGY_AWESOME_OSCILLATOR, StrategyFactory::createAwesomeOscillatorStrategy);
 
         // 波动指标策略
         strategyCreators.put(STRATEGY_BOLLINGER_BANDS, StrategyFactory::createBollingerBandsStrategy);
         strategyCreators.put(STRATEGY_CHANDELIER_EXIT, StrategyFactory::createChandelierExitStrategy);
         strategyCreators.put(STRATEGY_ULCER_INDEX, StrategyFactory::createUlcerIndexStrategy);
+        strategyCreators.put(STRATEGY_KELTNER_CHANNEL, StrategyFactory::createKeltnerChannelStrategy);
+        strategyCreators.put(STRATEGY_ATR, StrategyFactory::createATRStrategy);
 
         // 成交量指标策略
         strategyCreators.put(STRATEGY_OBV, StrategyFactory::createOBVStrategy);
         strategyCreators.put(STRATEGY_MASS_INDEX, StrategyFactory::createMassIndexStrategy);
+        strategyCreators.put(STRATEGY_KDJ, StrategyFactory::createKDJStrategy);
 
         // 蜡烛图形态策略
         strategyCreators.put(STRATEGY_DOJI, StrategyFactory::createDojiStrategy);
@@ -234,6 +114,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_BEARISH_HARAMI, StrategyFactory::createBearishHaramiStrategy);
         strategyCreators.put(STRATEGY_THREE_WHITE_SOLDIERS, StrategyFactory::createThreeWhiteSoldiersStrategy);
         strategyCreators.put(STRATEGY_THREE_BLACK_CROWS, StrategyFactory::createThreeBlackCrowsStrategy);
+        strategyCreators.put(STRATEGY_HANGING_MAN, StrategyFactory::createHangingManStrategy);
 
         // 组合策略
         strategyCreators.put(STRATEGY_TURTLE_TRADING, StrategyFactory::createTurtleTradingStrategy);
@@ -242,6 +123,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_GOLDEN_CROSS, StrategyFactory::createGoldenCrossStrategy);
         strategyCreators.put(STRATEGY_DEATH_CROSS, StrategyFactory::createDeathCrossStrategy);
         strategyCreators.put(STRATEGY_DUAL_MA_WITH_RSI, StrategyFactory::createDualMAWithRSIStrategy);
+        strategyCreators.put(STRATEGY_MACD_WITH_BOLLINGER, StrategyFactory::createMACDWithBollingerStrategy);
     }
 
     /**
@@ -264,625 +146,6 @@ public class StrategyFactory {
         }
 
         return strategyCreator.apply(series, params);
-    }
-
-    /**
-     * 将字符串参数转换为参数映射
-     *
-     * @param strategyType 策略类型
-     * @param paramString  参数字符串 (以逗号分隔)
-     * @return 参数映射
-     */
-    public static Map<String, Object> parseParams(String strategyType, String paramString) {
-        if (paramString == null || paramString.trim().isEmpty()) {
-            throw new IllegalArgumentException("参数不能为空");
-        }
-
-        String[] params = paramString.split(",");
-        Map<String, Object> paramMap = new HashMap<>();
-
-        switch (strategyType) {
-            // 移动平均线策略
-            case STRATEGY_SMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("SMA策略需要至少2个参数: " + SMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_EMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("EMA策略需要至少2个参数: " + EMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_TRIPLE_EMA:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("三重EMA策略需要至少3个参数: " + TRIPLE_EMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("middlePeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_WMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("WMA策略需要至少2个参数: " + WMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_HMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("HMA策略需要至少2个参数: " + HMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_KAMA:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("KAMA策略需要至少3个参数: " + KAMA_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("fastEMA", Integer.parseInt(params[1].trim()));
-                paramMap.put("slowEMA", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_ZLEMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("ZLEMA策略需要至少2个参数: " + ZLEMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_DEMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("DEMA策略需要至少2个参数: " + DEMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_TEMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("TEMA策略需要至少2个参数: " + TEMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_VWAP:
-                if (params.length < 1) {
-                    throw new IllegalArgumentException("VWAP策略需要至少1个参数: " + VWAP_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                break;
-
-            // 震荡指标策略
-            case STRATEGY_RSI:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("RSI策略需要至少3个参数: " + RSI_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[1].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_STOCHASTIC:
-                if (params.length < 5) {
-                    throw new IllegalArgumentException("随机指标策略需要至少5个参数: " + STOCHASTIC_PARAMS_DESC);
-                }
-                paramMap.put("kPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("kSmooth", Integer.parseInt(params[1].trim()));
-                paramMap.put("dSmooth", Integer.parseInt(params[2].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[3].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[4].trim()));
-                break;
-
-            case STRATEGY_STOCHASTIC_RSI:
-                if (params.length < 6) {
-                    throw new IllegalArgumentException("随机RSI策略需要至少6个参数: " + STOCHASTIC_RSI_PARAMS_DESC);
-                }
-                paramMap.put("rsiPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("stochasticPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("kSmooth", Integer.parseInt(params[2].trim()));
-                paramMap.put("dSmooth", Integer.parseInt(params[3].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[4].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[5].trim()));
-                break;
-
-            case STRATEGY_WILLIAMS_R:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("威廉指标策略需要至少3个参数: " + WILLIAMS_R_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[1].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_CCI:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("CCI策略需要至少3个参数: " + CCI_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[1].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_CMO:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("CMO策略需要至少3个参数: " + CMO_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[1].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_ROC:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("ROC策略需要至少2个参数: " + ROC_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("threshold", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_MACD:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("MACD策略需要至少3个参数: " + MACD_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("signalPeriod", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_PPO:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("PPO策略需要至少3个参数: " + PPO_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("signalPeriod", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_DPO:
-                if (params.length < 1) {
-                    throw new IllegalArgumentException("DPO策略需要至少1个参数: " + DPO_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                break;
-
-            // 趋势指标策略
-            case STRATEGY_ADX:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("ADX策略需要至少3个参数: " + ADX_PARAMS_DESC);
-                }
-                paramMap.put("adxPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("diPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("threshold", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_AROON:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("Aroon策略需要至少2个参数: " + AROON_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("threshold", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_ICHIMOKU:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("一目均衡表策略需要至少3个参数: " + ICHIMOKU_PARAMS_DESC);
-                }
-                paramMap.put("conversionPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("basePeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("laggingSpan", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_PARABOLIC_SAR:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("抛物线SAR策略需要至少2个参数: " + PARABOLIC_SAR_PARAMS_DESC);
-                }
-                paramMap.put("step", Double.parseDouble(params[0].trim()));
-                paramMap.put("max", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_DMA:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("DMA策略需要至少2个参数: " + DMA_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            // 波动指标策略
-            case STRATEGY_BOLLINGER_BANDS:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("布林带策略需要至少2个参数: " + BOLLINGER_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("deviation", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_KELTNER_CHANNEL:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("肯特纳通道策略需要至少3个参数: " + KELTNER_CHANNEL_PARAMS_DESC);
-                }
-                paramMap.put("emaPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("atrPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("multiplier", Double.parseDouble(params[2].trim()));
-                break;
-
-            case STRATEGY_CHANDELIER_EXIT:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("吊灯线退出策略需要至少2个参数: " + CHANDELIER_EXIT_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("multiplier", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_ULCER_INDEX:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("溃疡指数策略需要至少2个参数: " + ULCER_INDEX_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("threshold", Double.parseDouble(params[1].trim()));
-                break;
-
-            // 成交量指标策略
-            case STRATEGY_OBV:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("OBV策略需要至少2个参数: " + OBV_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_MASS_INDEX:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("质量指数策略需要至少3个参数: " + MASS_INDEX_PARAMS_DESC);
-                }
-                paramMap.put("emaPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("sumPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("threshold", Integer.parseInt(params[2].trim()));
-                break;
-
-            // 蜡烛图形态策略
-            case STRATEGY_DOJI:
-                if (params.length < 1) {
-                    throw new IllegalArgumentException("十字星策略需要至少1个参数: " + DOJI_PARAMS_DESC);
-                }
-                paramMap.put("shadowRatio", Double.parseDouble(params[0].trim()));
-                break;
-
-            case STRATEGY_BULLISH_ENGULFING:
-            case STRATEGY_BEARISH_ENGULFING:
-            case STRATEGY_BULLISH_HARAMI:
-            case STRATEGY_BEARISH_HARAMI:
-                if (params.length < 1) {
-                    throw new IllegalArgumentException("吞没形态策略需要至少1个参数: 确认周期");
-                }
-                paramMap.put("confirmationPeriod", Integer.parseInt(params[0].trim()));
-                break;
-
-            case STRATEGY_THREE_WHITE_SOLDIERS:
-            case STRATEGY_THREE_BLACK_CROWS:
-                if (params.length < 1) {
-                    throw new IllegalArgumentException("三兵/三乌鸦策略需要至少1个参数: 确认周期");
-                }
-                paramMap.put("confirmationPeriod", Integer.parseInt(params[0].trim()));
-                break;
-
-            // 组合策略
-            case STRATEGY_DUAL_THRUST:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("双推策略需要至少3个参数: " + DUAL_THRUST_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("k1", Double.parseDouble(params[1].trim()));
-                paramMap.put("k2", Double.parseDouble(params[2].trim()));
-                break;
-
-            case STRATEGY_TURTLE_TRADING:
-                if (params.length < 4) {
-                    throw new IllegalArgumentException("海龟交易策略需要至少4个参数: " + TURTLE_TRADING_PARAMS_DESC);
-                }
-                paramMap.put("entryPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("exitPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("atrPeriod", Integer.parseInt(params[2].trim()));
-                paramMap.put("atrMultiplier", Double.parseDouble(params[3].trim()));
-                break;
-
-            case STRATEGY_MEAN_REVERSION:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("均值回归策略需要至少2个参数: " + MEAN_REVERSION_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("deviation", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_TREND_FOLLOWING:
-                if (params.length < 4) {
-                    throw new IllegalArgumentException("趋势跟踪策略需要至少4个参数: " + TREND_FOLLOWING_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("adxPeriod", Integer.parseInt(params[2].trim()));
-                paramMap.put("adxThreshold", Integer.parseInt(params[3].trim()));
-                break;
-
-            case STRATEGY_BREAKOUT:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("突破策略需要至少2个参数: " + BREAKOUT_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("confirmationPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_GOLDEN_CROSS:
-            case STRATEGY_DEATH_CROSS:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("金叉/死叉策略需要至少2个参数: 短期均线周期,长期均线周期");
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_DUAL_MA_WITH_RSI:
-                if (params.length < 4) {
-                    throw new IllegalArgumentException("双均线RSI策略需要至少4个参数: " + DUAL_MA_WITH_RSI_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("rsiPeriod", Integer.parseInt(params[2].trim()));
-                paramMap.put("rsiThreshold", Integer.parseInt(params[3].trim()));
-                break;
-
-            case STRATEGY_MACD_WITH_BOLLINGER:
-                if (params.length < 5) {
-                    throw new IllegalArgumentException("MACD与布林带组合策略需要至少5个参数: " + MACD_WITH_BOLLINGER_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("signalPeriod", Integer.parseInt(params[2].trim()));
-                paramMap.put("bollingerPeriod", Integer.parseInt(params[3].trim()));
-                paramMap.put("bollingerDeviation", Double.parseDouble(params[4].trim()));
-                break;
-
-            case STRATEGY_TRIX:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("TRIX策略需要至少2个参数: " + TRIX_PARAMS_DESC);
-                }
-                paramMap.put("trixPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("signalPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_AWESOME_OSCILLATOR:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("Awesome Oscillator策略需要至少2个参数: " + AWESOME_OSCILLATOR_PARAMS_DESC);
-                }
-                paramMap.put("shortPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("longPeriod", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_ICHIMOKU_CLOUD_BREAKOUT:
-                if (params.length < 3) {
-                    throw new IllegalArgumentException("一目均衡表云突破策略需要至少3个参数: " + ICHIMOKU_CLOUD_BREAKOUT_PARAMS_DESC);
-                }
-                paramMap.put("conversionPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("basePeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("laggingSpan", Integer.parseInt(params[2].trim()));
-                break;
-
-            case STRATEGY_DMI:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("DMI策略需要至少2个参数: " + DMI_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("adxThreshold", Integer.parseInt(params[1].trim()));
-                break;
-
-            case STRATEGY_SUPERTREND:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("SuperTrend策略需要至少2个参数: " + SUPERTREND_PARAMS_DESC);
-                }
-                paramMap.put("atrPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("multiplier", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_ATR:
-                if (params.length < 2) {
-                    throw new IllegalArgumentException("ATR策略需要至少2个参数: " + ATR_PARAMS_DESC);
-                }
-                paramMap.put("period", Integer.parseInt(params[0].trim()));
-                paramMap.put("multiplier", Double.parseDouble(params[1].trim()));
-                break;
-
-            case STRATEGY_KDJ:
-                if (params.length < 5) {
-                    throw new IllegalArgumentException("KDJ策略需要至少5个参数: " + KDJ_PARAMS_DESC);
-                }
-                paramMap.put("kPeriod", Integer.parseInt(params[0].trim()));
-                paramMap.put("dPeriod", Integer.parseInt(params[1].trim()));
-                paramMap.put("jPeriod", Integer.parseInt(params[2].trim()));
-                paramMap.put("oversold", Integer.parseInt(params[3].trim()));
-                paramMap.put("overbought", Integer.parseInt(params[4].trim()));
-                break;
-
-            default:
-                throw new IllegalArgumentException("不支持的策略类型: " + strategyType);
-        }
-
-        return paramMap;
-    }
-
-    /**
-     * 获取策略参数描述
-     *
-     * @param strategyType 策略类型
-     * @return 参数描述
-     */
-    public static String getStrategyParamsDescription(String strategyType) {
-        switch (strategyType) {
-            // 移动平均线策略
-            case STRATEGY_SMA:
-                return SMA_PARAMS_DESC;
-            case STRATEGY_EMA:
-                return EMA_PARAMS_DESC;
-            case STRATEGY_TRIPLE_EMA:
-                return TRIPLE_EMA_PARAMS_DESC;
-            case STRATEGY_WMA:
-                return WMA_PARAMS_DESC;
-            case STRATEGY_HMA:
-                return HMA_PARAMS_DESC;
-            case STRATEGY_KAMA:
-                return KAMA_PARAMS_DESC;
-            case STRATEGY_ZLEMA:
-                return ZLEMA_PARAMS_DESC;
-            case STRATEGY_DEMA:
-                return DEMA_PARAMS_DESC;
-            case STRATEGY_TEMA:
-                return TEMA_PARAMS_DESC;
-            case STRATEGY_VWAP:
-                return VWAP_PARAMS_DESC;
-
-            // 震荡指标策略
-            case STRATEGY_RSI:
-                return RSI_PARAMS_DESC;
-            case STRATEGY_STOCHASTIC:
-                return STOCHASTIC_PARAMS_DESC;
-            case STRATEGY_STOCHASTIC_RSI:
-                return STOCHASTIC_RSI_PARAMS_DESC;
-            case STRATEGY_WILLIAMS_R:
-                return WILLIAMS_R_PARAMS_DESC;
-            case STRATEGY_CCI:
-                return CCI_PARAMS_DESC;
-            case STRATEGY_CMO:
-                return CMO_PARAMS_DESC;
-            case STRATEGY_ROC:
-                return ROC_PARAMS_DESC;
-            case STRATEGY_MACD:
-                return MACD_PARAMS_DESC;
-            case STRATEGY_PPO:
-                return PPO_PARAMS_DESC;
-            case STRATEGY_DPO:
-                return DPO_PARAMS_DESC;
-
-            // 趋势指标策略
-            case STRATEGY_ADX:
-                return ADX_PARAMS_DESC;
-            case STRATEGY_AROON:
-                return AROON_PARAMS_DESC;
-            case STRATEGY_ICHIMOKU:
-                return ICHIMOKU_PARAMS_DESC;
-            case STRATEGY_PARABOLIC_SAR:
-                return PARABOLIC_SAR_PARAMS_DESC;
-            case STRATEGY_DMA:
-                return DMA_PARAMS_DESC;
-
-            // 波动指标策略
-            case STRATEGY_BOLLINGER_BANDS:
-                return BOLLINGER_PARAMS_DESC;
-            case STRATEGY_KELTNER_CHANNEL:
-                return KELTNER_CHANNEL_PARAMS_DESC;
-            case STRATEGY_CHANDELIER_EXIT:
-                return CHANDELIER_EXIT_PARAMS_DESC;
-            case STRATEGY_ULCER_INDEX:
-                return ULCER_INDEX_PARAMS_DESC;
-
-            // 成交量指标策略
-            case STRATEGY_OBV:
-                return OBV_PARAMS_DESC;
-            case STRATEGY_MASS_INDEX:
-                return MASS_INDEX_PARAMS_DESC;
-
-            // 蜡烛图形态策略
-            case STRATEGY_DOJI:
-                return DOJI_PARAMS_DESC;
-            case STRATEGY_BULLISH_ENGULFING:
-                return BULLISH_ENGULFING_PARAMS_DESC;
-            case STRATEGY_BEARISH_ENGULFING:
-                return BEARISH_ENGULFING_PARAMS_DESC;
-            case STRATEGY_BULLISH_HARAMI:
-                return BULLISH_HARAMI_PARAMS_DESC;
-            case STRATEGY_BEARISH_HARAMI:
-                return BEARISH_HARAMI_PARAMS_DESC;
-            case STRATEGY_THREE_WHITE_SOLDIERS:
-                return THREE_WHITE_SOLDIERS_PARAMS_DESC;
-            case STRATEGY_THREE_BLACK_CROWS:
-                return THREE_BLACK_CROWS_PARAMS_DESC;
-
-            // 组合策略
-            case STRATEGY_DUAL_THRUST:
-                return DUAL_THRUST_PARAMS_DESC;
-            case STRATEGY_TURTLE_TRADING:
-                return TURTLE_TRADING_PARAMS_DESC;
-            case STRATEGY_MEAN_REVERSION:
-                return MEAN_REVERSION_PARAMS_DESC;
-            case STRATEGY_TREND_FOLLOWING:
-                return TREND_FOLLOWING_PARAMS_DESC;
-            case STRATEGY_BREAKOUT:
-                return BREAKOUT_PARAMS_DESC;
-            case STRATEGY_GOLDEN_CROSS:
-                return GOLDEN_CROSS_PARAMS_DESC;
-            case STRATEGY_DEATH_CROSS:
-                return DEATH_CROSS_PARAMS_DESC;
-
-            // 新增震荡指标策略
-            case STRATEGY_TRIX:
-                return TRIX_PARAMS_DESC;
-            case STRATEGY_AWESOME_OSCILLATOR:
-                return AWESOME_OSCILLATOR_PARAMS_DESC;
-
-            // 新增趋势指标策略
-            case STRATEGY_ICHIMOKU_CLOUD_BREAKOUT:
-                return ICHIMOKU_CLOUD_BREAKOUT_PARAMS_DESC;
-            case STRATEGY_DMI:
-                return DMI_PARAMS_DESC;
-            case STRATEGY_SUPERTREND:
-                return SUPERTREND_PARAMS_DESC;
-
-            // 新增波动指标策略
-            case STRATEGY_ATR:
-                return ATR_PARAMS_DESC;
-            case STRATEGY_KDJ:
-                return KDJ_PARAMS_DESC;
-
-            // 新增组合策略
-            case STRATEGY_DUAL_MA_WITH_RSI:
-                return DUAL_MA_WITH_RSI_PARAMS_DESC;
-            case STRATEGY_MACD_WITH_BOLLINGER:
-                return MACD_WITH_BOLLINGER_PARAMS_DESC;
-
-            default:
-                return "未知策略类型";
-        }
-    }
-
-    /**
-     * 验证策略参数
-     *
-     * @param strategyType 策略类型
-     * @param params       参数字符串
-     * @return 是否有效
-     */
-    public static boolean validateStrategyParams(String strategyType, String params) {
-        if (params == null || params.trim().isEmpty()) {
-            return false;
-        }
-
-        try {
-            parseParams(strategyType, params);
-            return true;
-        } catch (Exception e) {
-            log.warn("策略参数验证失败: {}", e.getMessage());
-            return false;
-        }
     }
 
     /**
@@ -1646,7 +909,7 @@ public class StrategyFactory {
      * 创建三白兵策略
      */
     private static Strategy createThreeWhiteSoldiersStrategy(BarSeries series, Map<String, Object> params) {
-        ThreeWhiteSoldiersIndicator threeWhiteSoldiers = new ThreeWhiteSoldiersIndicator(series, 5, DoubleNum.valueOf(0.3));
+        ThreeWhiteSoldiersIndicator threeWhiteSoldiers = new ThreeWhiteSoldiersIndicator(series, 5, DecimalNum.valueOf(0.3));
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
 
@@ -2048,5 +1311,641 @@ public class StrategyFactory {
 
             return lowest;
         }
+    }
+
+    /**
+     * 创建MACD与布林带组合策略
+     */
+    private static Strategy createMACDWithBollingerStrategy(BarSeries series, Map<String, Object> params) {
+        // 获取MACD相关参数
+        int shortPeriod = (int) params.getOrDefault("shortPeriod", 12);
+        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
+        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+
+        // 获取布林带相关参数
+        int bollingerPeriod = (int) params.getOrDefault("bollingerPeriod", 20);
+        double bollingerDeviation = (double) params.getOrDefault("bollingerDeviation", 2.0);
+
+        // 验证数据点数量是否足够
+        if (series.getBarCount() <= Math.max(longPeriod + signalPeriod, bollingerPeriod)) {
+            throw new IllegalArgumentException("数据点不足以计算指标");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建MACD指标
+        MACDIndicator macd = new MACDIndicator(closePrice, shortPeriod, longPeriod);
+        EMAIndicator signal = new EMAIndicator(macd, signalPeriod);
+
+        // 创建布林带指标
+        SMAIndicator sma = new SMAIndicator(closePrice, bollingerPeriod);
+        StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, bollingerPeriod);
+
+        BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
+        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(bollingerDeviation));
+        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(bollingerDeviation));
+
+        // 创建组合规则
+        // 买入规则: MACD上穿信号线 且 价格位于布林带下轨以下
+        Rule entryRule = new CrossedUpIndicatorRule(macd, signal)
+                .and(new UnderIndicatorRule(closePrice, lowerBand));
+
+        // 卖出规则: MACD下穿信号线 或 价格位于布林带上轨以上
+        Rule exitRule = new CrossedDownIndicatorRule(macd, signal)
+                .or(new OverIndicatorRule(closePrice, upperBand));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建吊锤形态策略
+     */
+    private static Strategy createHangingManStrategy(BarSeries series, Map<String, Object> params) {
+        double upperShadowRatio = (double) params.getOrDefault("upperShadowRatio", 0.1);
+        double lowerShadowRatio = (double) params.getOrDefault("lowerShadowRatio", 2.0);
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+
+        // 创建自定义的吊锤形态指标
+        class HangingManIndicator extends CachedIndicator<Boolean> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final OpenPriceIndicator openPrice;
+            private final ClosePriceIndicator closePrice;
+            private final double upperShadowRatio;
+            private final double lowerShadowRatio;
+
+            public HangingManIndicator(BarSeries series, double upperShadowRatio, double lowerShadowRatio) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.openPrice = new OpenPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.upperShadowRatio = upperShadowRatio;
+                this.lowerShadowRatio = lowerShadowRatio;
+            }
+
+            @Override
+            protected Boolean calculate(int index) {
+                if (index <= 0) {
+                    return false;
+                }
+
+                Num open = openPrice.getValue(index);
+                Num close = closePrice.getValue(index);
+                Num high = highPrice.getValue(index);
+                Num low = lowPrice.getValue(index);
+
+                // 计算实体部分
+                Num body = open.isGreaterThan(close) ? open.minus(close) : close.minus(open);
+
+                // 如果实体太小，不符合吊锤特征
+                if (body.isEqual(series.numOf(0))) {
+                    return false;
+                }
+
+                // 计算上影线与下影线
+                Num upperShadow = high.minus(open.isGreaterThan(close) ? open : close);
+                Num lowerShadow = (open.isLessThan(close) ? open : close).minus(low);
+
+                // 上影线应该很短，下影线应该很长（至少是实体的2倍）
+                boolean isShortUpperShadow = upperShadow.dividedBy(body).isLessThanOrEqual(series.numOf(upperShadowRatio));
+                boolean isLongLowerShadow = lowerShadow.dividedBy(body).isGreaterThanOrEqual(series.numOf(lowerShadowRatio));
+
+                // 前一日收盘价趋势（可以确认是在上升趋势中出现）
+                boolean isUptrend = index > 5 && closePrice.getValue(index - 1).isGreaterThan(closePrice.getValue(index - 5));
+
+                // 满足吊锤形态的条件：短上影线，长下影线，在上升趋势中
+                return isShortUpperShadow && isLongLowerShadow && isUptrend;
+            }
+        }
+
+        // 创建吊锤形态指标
+        HangingManIndicator hangingMan = new HangingManIndicator(series, upperShadowRatio, lowerShadowRatio);
+
+        // 创建规则 - 当出现吊锤形态且价格高于20日均线时，视为顶部反转信号，卖出
+        Rule entryRule = new UnderIndicatorRule(closePrice, sma20);  // 价格低于均线时买入
+        Rule exitRule = new BooleanIndicatorRule(hangingMan)
+                .and(new OverIndicatorRule(closePrice, sma20));  // 出现吊锤形态且价格高于均线时卖出
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建VWAP策略
+     */
+    private static Strategy createVWAPStrategy(BarSeries series, Map<String, Object> params) {
+        int period = (int) params.getOrDefault("period", 14);
+
+        // 创建VWAP指标
+        VWAPIndicator vwap = new VWAPIndicator(series, period);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 买入规则：价格上穿VWAP
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, vwap);
+
+        // 卖出规则：价格下穿VWAP
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, vwap);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建肯特纳通道策略
+     */
+    private static Strategy createKeltnerChannelStrategy(BarSeries series, Map<String, Object> params) {
+        int emaPeriod = (int) params.getOrDefault("emaPeriod", 20);
+        int atrPeriod = (int) params.getOrDefault("atrPeriod", 10);
+        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 2.0).toString());
+
+        // 创建肯特纳通道指标
+        EMAIndicator ema = new EMAIndicator(new ClosePriceIndicator(series), emaPeriod);
+        ATRIndicator atr = new ATRIndicator(series, atrPeriod);
+
+        KeltnerChannelMiddleIndicator middle = new KeltnerChannelMiddleIndicator(ema, 20);
+        KeltnerChannelUpperIndicator upper = new KeltnerChannelUpperIndicator(middle, multiplier, 14);
+        KeltnerChannelLowerIndicator lower = new KeltnerChannelLowerIndicator(middle, multiplier, 14);
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 买入规则：价格跌破下轨
+        Rule entryRule = new CrossedDownIndicatorRule(closePrice, lower);
+
+        // 卖出规则：价格突破上轨
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, upper);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建ATR策略
+     */
+    private static Strategy createATRStrategy(BarSeries series, Map<String, Object> params) {
+        int period = (int) params.getOrDefault("period", 14);
+        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 2.0).toString());
+
+        // 创建ATR指标
+        ATRIndicator atr = new ATRIndicator(series, period);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建自定义指标 - 上轨 (收盘价 + ATR * multiplier)
+        class UpperBandIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final ATRIndicator atr;
+            private final Num multiplier;
+
+            public UpperBandIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.atr = atr;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return closePrice.getValue(index).plus(atr.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        // 创建自定义指标 - 下轨 (收盘价 - ATR * multiplier)
+        class LowerBandIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final ATRIndicator atr;
+            private final Num multiplier;
+
+            public LowerBandIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.atr = atr;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return closePrice.getValue(index).minus(atr.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, multiplier, series);
+        LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, multiplier, series);
+
+        // 买入规则：价格跌破下轨
+        Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+
+        // 卖出规则：价格突破上轨
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建KDJ策略
+     */
+    private static Strategy createKDJStrategy(BarSeries series, Map<String, Object> params) {
+        int kPeriod = (int) params.getOrDefault("kPeriod", 9);
+        int dPeriod = (int) params.getOrDefault("dPeriod", 3);
+        int jPeriod = (int) params.getOrDefault("jPeriod", 3);
+        int oversold = (int) params.getOrDefault("overSoldThreshold", 20);
+        int overbought = (int) params.getOrDefault("overBoughtThreshold", 80);
+
+        // 创建KDJ指标
+        StochasticOscillatorKIndicator k = new StochasticOscillatorKIndicator(series, kPeriod);
+        StochasticOscillatorDIndicator d = new StochasticOscillatorDIndicator(k);
+
+        // J = 3 * K - 2 * D
+        class JIndicator extends CachedIndicator<Num> {
+            private final StochasticOscillatorKIndicator k;
+            private final StochasticOscillatorDIndicator d;
+            private final Num three;
+            private final Num two;
+
+            public JIndicator(StochasticOscillatorKIndicator k, StochasticOscillatorDIndicator d, BarSeries series) {
+                super(series);
+                this.k = k;
+                this.d = d;
+                this.three = series.numOf(3);
+                this.two = series.numOf(2);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return k.getValue(index).multipliedBy(three).minus(d.getValue(index).multipliedBy(two));
+            }
+        }
+
+        JIndicator j = new JIndicator(k, d, series);
+
+        // 创建超买超卖阈值
+        Num overboughtThreshold = series.numOf(overbought);
+        Num oversoldThreshold = series.numOf(oversold);
+
+        // 买入规则：J值上穿超卖线
+        Rule entryRule = new CrossedUpIndicatorRule(j, oversoldThreshold);
+
+        // 卖出规则：J值下穿超买线
+        Rule exitRule = new CrossedDownIndicatorRule(j, overboughtThreshold);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建神奇震荡指标策略
+     */
+    private static Strategy createAwesomeOscillatorStrategy(BarSeries series, Map<String, Object> params) {
+        int shortPeriod = (int) params.getOrDefault("shortPeriod", 5);
+        int longPeriod = (int) params.getOrDefault("longPeriod", 34);
+
+        // 创建中间价指标 (high + low) / 2
+        MedianPriceIndicator medianPrice = new MedianPriceIndicator(series);
+
+        // 创建短期和长期SMA
+        SMAIndicator shortSma = new SMAIndicator(medianPrice, shortPeriod);
+        SMAIndicator longSma = new SMAIndicator(medianPrice, longPeriod);
+
+        // 创建神奇震荡指标 (短期SMA - 长期SMA)
+        class AwesomeOscillatorIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator shortSma;
+            private final SMAIndicator longSma;
+
+            public AwesomeOscillatorIndicator(SMAIndicator shortSma, SMAIndicator longSma, BarSeries series) {
+                super(series);
+                this.shortSma = shortSma;
+                this.longSma = longSma;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return shortSma.getValue(index).minus(longSma.getValue(index));
+            }
+        }
+
+        AwesomeOscillatorIndicator ao = new AwesomeOscillatorIndicator(shortSma, longSma, series);
+
+        // 创建零线指标
+        ConstantIndicator<Num> zeroLine = new ConstantIndicator<>(series, series.numOf(0));
+
+        // 买入规则：神奇震荡指标上穿零线
+        Rule entryRule = new CrossedUpIndicatorRule(ao, zeroLine);
+
+        // 卖出规则：神奇震荡指标下穿零线
+        Rule exitRule = new CrossedDownIndicatorRule(ao, zeroLine);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建方向运动指标策略
+     */
+    private static Strategy createDMIStrategy(BarSeries series, Map<String, Object> params) {
+        int period = (int) params.getOrDefault("period", 14);
+        int adxThreshold = (int) params.getOrDefault("adxThreshold", 20);
+
+        // 创建ADX指标
+        ADXIndicator adx = new ADXIndicator(series, period);
+        
+        // 自定义实现+DI和-DI指标
+        class DirectionalMovementPlusIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final ATRIndicator atr;
+            private final int period;
+            
+            public DirectionalMovementPlusIndicator(BarSeries series, int period) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.atr = new ATRIndicator(series, period);
+                this.period = period;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < 1) {
+                    return series.numOf(0);
+                }
+                
+                // +DM = 如果(当日最高价-前日最高价) > (前日最低价-当日最低价)，取较大值，否则为0
+                Num highDiff = highPrice.getValue(index).minus(highPrice.getValue(index - 1));
+                Num lowDiff = new LowPriceIndicator(series).getValue(index - 1).minus(new LowPriceIndicator(series).getValue(index));
+                
+                Num plusDM = series.numOf(0);
+                if (highDiff.isGreaterThan(series.numOf(0)) && highDiff.isGreaterThan(lowDiff)) {
+                    plusDM = highDiff;
+                }
+                
+                // +DI = 100 * EMA(+DM) / ATR
+                return plusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
+            }
+        }
+        
+        class DirectionalMovementMinusIndicator extends CachedIndicator<Num> {
+            private final LowPriceIndicator lowPrice;
+            private final ATRIndicator atr;
+            private final int period;
+            
+            public DirectionalMovementMinusIndicator(BarSeries series, int period) {
+                super(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.atr = new ATRIndicator(series, period);
+                this.period = period;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < 1) {
+                    return series.numOf(0);
+                }
+                
+                // -DM = 如果(前日最低价-当日最低价) > (当日最高价-前日最高价)，取较大值，否则为0
+                Num lowDiff = lowPrice.getValue(index - 1).minus(lowPrice.getValue(index));
+                Num highDiff = new HighPriceIndicator(series).getValue(index).minus(new HighPriceIndicator(series).getValue(index - 1));
+                
+                Num minusDM = series.numOf(0);
+                if (lowDiff.isGreaterThan(series.numOf(0)) && lowDiff.isGreaterThan(highDiff)) {
+                    minusDM = lowDiff;
+                }
+                
+                // -DI = 100 * EMA(-DM) / ATR
+                return minusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
+            }
+        }
+
+        // 创建自定义的+DI和-DI指标
+        DirectionalMovementPlusIndicator plusDI = new DirectionalMovementPlusIndicator(series, period);
+        DirectionalMovementMinusIndicator minusDI = new DirectionalMovementMinusIndicator(series, period);
+        
+        // 创建阈值指标
+        ConstantIndicator<Num> threshold = new ConstantIndicator<>(series, series.numOf(adxThreshold));
+
+        // 买入规则：+DI上穿-DI且ADX大于阈值
+        Rule entryRule = new CrossedUpIndicatorRule(plusDI, minusDI)
+                .and(new OverIndicatorRule(adx, threshold));
+
+        // 卖出规则：-DI上穿+DI且ADX大于阈值
+        Rule exitRule = new CrossedUpIndicatorRule(minusDI, plusDI)
+                .and(new OverIndicatorRule(adx, threshold));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建超级趋势指标策略
+     */
+    private static Strategy createSupertrendStrategy(BarSeries series, Map<String, Object> params) {
+        int period = (int) params.getOrDefault("period", 10);
+        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 3.0).toString());
+
+        // 创建ATR指标
+        ATRIndicator atr = new ATRIndicator(series, period);
+
+        // 创建中间价指标 (high + low) / 2
+        MedianPriceIndicator medianPrice = new MedianPriceIndicator(series);
+
+        // 创建上轨和下轨指标
+        class UpperBandIndicator extends CachedIndicator<Num> {
+            private final MedianPriceIndicator medianPrice;
+            private final ATRIndicator atr;
+            private final Num multiplier;
+
+            public UpperBandIndicator(MedianPriceIndicator medianPrice, ATRIndicator atr, double multiplier, BarSeries series) {
+                super(series);
+                this.medianPrice = medianPrice;
+                this.atr = atr;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return medianPrice.getValue(index).plus(atr.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        class LowerBandIndicator extends CachedIndicator<Num> {
+            private final MedianPriceIndicator medianPrice;
+            private final ATRIndicator atr;
+            private final Num multiplier;
+
+            public LowerBandIndicator(MedianPriceIndicator medianPrice, ATRIndicator atr, double multiplier, BarSeries series) {
+                super(series);
+                this.medianPrice = medianPrice;
+                this.atr = atr;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return medianPrice.getValue(index).minus(atr.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        UpperBandIndicator upperBand = new UpperBandIndicator(medianPrice, atr, multiplier, series);
+        LowerBandIndicator lowerBand = new LowerBandIndicator(medianPrice, atr, multiplier, series);
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 买入规则：收盘价上穿上轨
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+
+        // 卖出规则：收盘价下穿下轨
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建一目均衡表云突破策略
+     */
+    private static Strategy createIchimokuCloudBreakoutStrategy(BarSeries series, Map<String, Object> params) {
+        int conversionPeriod = (int) params.getOrDefault("conversionPeriod", 9);
+        int basePeriod = (int) params.getOrDefault("basePeriod", 26);
+        int spanPeriod = (int) params.getOrDefault("spanPeriod", 52);
+        int displacement = (int) params.getOrDefault("displacement", 26);
+
+        // 创建一目均衡表指标
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 转换线 (Conversion Line, Tenkan-sen) = (n日高点 + n日低点) / 2，一般n取9
+        class ConversionLineIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final int period;
+            private final Num two;
+
+            public ConversionLineIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, BarSeries series) {
+                super(series);
+                this.highPrice = highPrice;
+                this.lowPrice = lowPrice;
+                this.period = period;
+                this.two = series.numOf(2);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return series.numOf(0);
+                }
+
+                Num highest = highPrice.getValue(index);
+                Num lowest = lowPrice.getValue(index);
+
+                for (int i = index - period + 1; i < index; i++) {
+                    highest = highest.max(highPrice.getValue(i));
+                    lowest = lowest.min(lowPrice.getValue(i));
+                }
+
+                return highest.plus(lowest).dividedBy(two);
+            }
+        }
+
+        // 基准线 (Base Line, Kijun-sen) = (n日高点 + n日低点) / 2，一般n取26
+        class BaseLineIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final int period;
+            private final Num two;
+
+            public BaseLineIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, BarSeries series) {
+                super(series);
+                this.highPrice = highPrice;
+                this.lowPrice = lowPrice;
+                this.period = period;
+                this.two = series.numOf(2);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return series.numOf(0);
+                }
+
+                Num highest = highPrice.getValue(index);
+                Num lowest = lowPrice.getValue(index);
+
+                for (int i = index - period + 1; i < index; i++) {
+                    highest = highest.max(highPrice.getValue(i));
+                    lowest = lowest.min(lowPrice.getValue(i));
+                }
+
+                return highest.plus(lowest).dividedBy(two);
+            }
+        }
+
+        ConversionLineIndicator conversionLine = new ConversionLineIndicator(highPrice, lowPrice, conversionPeriod, series);
+        BaseLineIndicator baseLine = new BaseLineIndicator(highPrice, lowPrice, basePeriod, series);
+
+        // 先行带1号 (Leading Span A, Senkou Span A) = (转换线 + 基准线) / 2，向前平移26日
+        class LeadingSpanAIndicator extends CachedIndicator<Num> {
+            private final ConversionLineIndicator conversionLine;
+            private final BaseLineIndicator baseLine;
+            private final int displacement;
+            private final Num two;
+
+            public LeadingSpanAIndicator(ConversionLineIndicator conversionLine, BaseLineIndicator baseLine, int displacement, BarSeries series) {
+                super(series);
+                this.conversionLine = conversionLine;
+                this.baseLine = baseLine;
+                this.displacement = displacement;
+                this.two = series.numOf(2);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < 0) {
+                    return series.numOf(0);
+                }
+
+                return conversionLine.getValue(index).plus(baseLine.getValue(index)).dividedBy(two);
+            }
+        }
+
+        // 先行带2号 (Leading Span B, Senkou Span B) = (n日高点 + n日低点) / 2，一般n取52，向前平移26日
+        class LeadingSpanBIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final int period;
+            private final int displacement;
+            private final Num two;
+
+            public LeadingSpanBIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, int displacement, BarSeries series) {
+                super(series);
+                this.highPrice = highPrice;
+                this.lowPrice = lowPrice;
+                this.period = period;
+                this.displacement = displacement;
+                this.two = series.numOf(2);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return series.numOf(0);
+                }
+
+                Num highest = highPrice.getValue(index);
+                Num lowest = lowPrice.getValue(index);
+
+                for (int i = index - period + 1; i < index; i++) {
+                    highest = highest.max(highPrice.getValue(i));
+                    lowest = lowest.min(lowPrice.getValue(i));
+                }
+
+                return highest.plus(lowest).dividedBy(two);
+            }
+        }
+
+        LeadingSpanAIndicator leadingSpanA = new LeadingSpanAIndicator(conversionLine, baseLine, displacement, series);
+        LeadingSpanBIndicator leadingSpanB = new LeadingSpanBIndicator(highPrice, lowPrice, spanPeriod, displacement, series);
+
+        // 买入规则：收盘价上穿云带上轨(LeadingSpanA)，即价格突破云带
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, leadingSpanA);
+
+        // 卖出规则：收盘价下穿云带下轨(LeadingSpanB)，即价格跌破云带
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, leadingSpanB);
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 }

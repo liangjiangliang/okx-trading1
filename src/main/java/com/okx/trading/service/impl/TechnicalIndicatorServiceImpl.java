@@ -41,13 +41,13 @@ import static com.okx.trading.constant.IndicatorInfo.*;
  * 负责计算各种技术指标值
  */
 @Service
-public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
+public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService {
 
     private static final Logger log = LoggerFactory.getLogger(TechnicalIndicatorServiceImpl.class);
 
 
     @Autowired
-    private RedisTemplate<String,Object> redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     private KlineCacheService klineCacheService;
@@ -59,12 +59,12 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     private IndicatorCalculationService indicatorCalculationService;
 
     @Override
-    public IndicatorValueDTO calculateLastIndicator(String symbol, String interval, String indicatorType, String params){
+    public IndicatorValueDTO calculateLastIndicator(String symbol, String interval, String indicatorType, String params) {
         // 获取K线数据
         List<CandlestickEntity> klines = klineCacheService.getKlineData(symbol, interval, MIN_KLINE_COUNT);
 
         // 检查K线数据是否足够
-        if(klines == null || klines.size() < MIN_KLINE_COUNT){
+        if (klines == null || klines.size() < MIN_KLINE_COUNT) {
             IndicatorValueDTO result = new IndicatorValueDTO(symbol, interval, indicatorType);
             result.setErrorMessage("没有足够的K线数据进行计算, 需要至少" + MIN_KLINE_COUNT + "根K线");
             return result;
@@ -74,22 +74,22 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     }
 
     @Override
-    public Map<String,IndicatorValueDTO> calculateMultipleIndicators(String symbol, String interval, Map<String,String> indicators){
+    public Map<String, IndicatorValueDTO> calculateMultipleIndicators(String symbol, String interval, Map<String, String> indicators) {
         // 获取K线数据
         log.debug("计算技术指标: {} {}", symbol, interval);
         String sourceKey = SOURCE_KLINE_PREFIX + symbol + ":" + interval;
 
         // 获取所有K线数据
         Set<Object> klineSet = redisTemplate.opsForZSet().reverseRange(sourceKey, 0, MIN_KLINE_COUNT);
-        if(klineSet == null || klineSet.isEmpty()){
+        if (klineSet == null || klineSet.isEmpty()) {
             log.warn("未找到K线数据: {}", sourceKey);
             return new HashMap<>();
         }
 
-        List<Candlestick> candlestickList = klineSet.stream().map(x -> JSONObject.parseObject((String)x, Candlestick.class)).collect(Collectors.toList());
+        List<Candlestick> candlestickList = klineSet.stream().map(x -> JSONObject.parseObject((String) x, Candlestick.class)).collect(Collectors.toList());
         Collections.sort(candlestickList);
 
-        if(candlestickList.size() > MIN_KLINE_COUNT){
+        if (candlestickList.size() > MIN_KLINE_COUNT) {
             candlestickList = candlestickList.subList(candlestickList.size() - 1 - MIN_KLINE_COUNT, candlestickList.size() - 1);
         }
 
@@ -97,16 +97,16 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
 
         // 转换为List并按时间排序
         List<CandlestickEntity> klines = candlestickList.stream()
-            .map(JSONObject :: toJSONString)
-            .map(obj -> JSONObject.parseObject((String)obj, CandlestickEntity.class))
-            .sorted()
-            .collect(Collectors.toList());
+                .map(JSONObject::toJSONString)
+                .map(obj -> JSONObject.parseObject((String) obj, CandlestickEntity.class))
+                .sorted()
+                .collect(Collectors.toList());
 
-        Map<String,IndicatorValueDTO> result = new HashMap<>();
+        Map<String, IndicatorValueDTO> result = new HashMap<>();
 
         // 检查K线数据是否足够
-        if(klines == null || klines.size() < MIN_KLINE_COUNT){
-            for(String indicatorType: indicators.keySet()){
+        if (klines == null || klines.size() < MIN_KLINE_COUNT) {
+            for (String indicatorType : indicators.keySet()) {
                 IndicatorValueDTO dto = new IndicatorValueDTO(symbol, interval, indicatorType);
                 dto.setErrorMessage("没有足够的K线数据进行计算, 需要至少" + MIN_KLINE_COUNT + "根K线");
                 result.put(indicatorType, dto);
@@ -115,14 +115,14 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
         }
 
         // 计算每个指标的值
-        for(Map.Entry<String,String> entry: indicators.entrySet()){
+        for (Map.Entry<String, String> entry : indicators.entrySet()) {
             String indicatorType = entry.getKey();
             String params = entry.getValue();
 
-            try{
+            try {
                 IndicatorValueDTO dto = calculateIndicator(klines, indicatorType, params);
                 result.put(indicatorType, dto);
-            }catch(Exception e){
+            } catch (Exception e) {
                 log.error("计算指标 {} 出错: {}", indicatorType, e.getMessage(), e);
                 IndicatorValueDTO dto = new IndicatorValueDTO(symbol, interval, indicatorType);
                 dto.setErrorMessage("计算指标出错: " + e.getMessage());
@@ -134,8 +134,8 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     }
 
     @Override
-    public IndicatorValueDTO calculateIndicator(List<CandlestickEntity> candlesticks, String indicatorType, String params){
-        if(candlesticks == null || candlesticks.isEmpty()){
+    public IndicatorValueDTO calculateIndicator(List<CandlestickEntity> candlesticks, String indicatorType, String params) {
+        if (candlesticks == null || candlesticks.isEmpty()) {
             IndicatorValueDTO result = new IndicatorValueDTO();
             result.setIndicatorType(indicatorType);
             result.setErrorMessage("K线数据不能为空");
@@ -150,54 +150,17 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
         result.setKlineTime(lastCandle.getCloseTime());
         result.setParamDescription(params);
 
-        try{
+        try {
             // 将K线数据转换为Ta4j的BarSeries
             String seriesName = CandlestickBarSeriesConverter.createSeriesName(symbol, interval);
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
             // 检查是否有足够的数据
-            if(series.getBarCount() < 10){
+            if (series.getBarCount() < 10) {
                 result.setErrorMessage("没有足够的K线数据进行计算");
                 return result;
             }
-
-            // 根据不同指标计算值
-            switch(indicatorType.toUpperCase()){
-                case INDICATOR_SMA:
-                    calculateSMA(series, params, result);
-                    break;
-                case INDICATOR_EMA:
-                    calculateEMA(series, params, result);
-                    break;
-                case INDICATOR_BOLLINGER_BANDS:
-                    calculateBollingerBands(series, params, result);
-                    break;
-                case INDICATOR_MACD:
-                    calculateMACD(series, params, result);
-                    break;
-                case INDICATOR_RSI:
-                    calculateRSI(series, params, result);
-                    break;
-                case INDICATOR_STOCHASTIC:
-                    calculateStochastic(series, params, result);
-                    break;
-                case INDICATOR_WILLIAMS_R:
-                    calculateWilliamsR(series, params, result);
-                    break;
-                case INDICATOR_CCI:
-                    calculateCCI(series, params, result);
-                    break;
-                case INDICATOR_ATR:
-                    calculateATR(series, params, result);
-                    break;
-                case INDICATOR_PARABOLIC_SAR:
-                    calculateParabolicSAR(series, params, result);
-                    break;
-                default:
-                    result.setErrorMessage("不支持的指标类型: " + indicatorType);
-                    break;
-            }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("计算指标 {} 出错: {}", indicatorType, e.getMessage(), e);
             result.setErrorMessage("计算指标出错: " + e.getMessage());
         }
@@ -206,53 +169,20 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     }
 
     @Override
-    public List<String> getSupportedIndicators(){
+    public List<String> getSupportedIndicators() {
         return Arrays.asList(
-            INDICATOR_SMA,
-            INDICATOR_EMA,
-            INDICATOR_BOLLINGER_BANDS,
-            INDICATOR_MACD,
-            INDICATOR_RSI,
-            INDICATOR_STOCHASTIC,
-            INDICATOR_WILLIAMS_R,
-            INDICATOR_CCI,
-            INDICATOR_ATR,
-            INDICATOR_PARABOLIC_SAR
         );
     }
 
     @Override
-    public String getIndicatorParamsDescription(String indicatorType){
-        switch(indicatorType.toUpperCase()){
-            case INDICATOR_SMA:
-                return SMA_PARAMS_DESC;
-            case INDICATOR_EMA:
-                return EMA_PARAMS_DESC;
-            case INDICATOR_BOLLINGER_BANDS:
-                return BOLLINGER_PARAMS_DESC;
-            case INDICATOR_MACD:
-                return MACD_PARAMS_DESC;
-            case INDICATOR_RSI:
-                return RSI_PARAMS_DESC;
-            case INDICATOR_STOCHASTIC:
-                return STOCHASTIC_PARAMS_DESC;
-            case INDICATOR_WILLIAMS_R:
-                return WILLIAMS_R_PARAMS_DESC;
-            case INDICATOR_CCI:
-                return CCI_PARAMS_DESC;
-            case INDICATOR_ATR:
-                return ATR_PARAMS_DESC;
-            case INDICATOR_PARABOLIC_SAR:
-                return PARABOLIC_SAR_PARAMS_DESC;
-            default:
-                return "未知指标类型";
-        }
+    public String getIndicatorParamsDescription(String indicatorType) {
+        return "";
     }
 
     /**
      * 计算简单移动平均线(SMA)
      */
-    private void calculateSMA(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateSMA(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -267,7 +197,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算指数移动平均线(EMA)
      */
-    private void calculateEMA(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateEMA(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -282,7 +212,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算布林带(Bollinger Bands)
      */
-    private void calculateBollingerBands(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateBollingerBands(BarSeries series, String params, IndicatorValueDTO result) {
         String[] paramParts = params.split(",");
         int period = Integer.parseInt(paramParts[0].trim());
         double deviationMultiplier = Double.parseDouble(paramParts[1].trim());
@@ -305,7 +235,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算MACD
      */
-    private void calculateMACD(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateMACD(BarSeries series, String params, IndicatorValueDTO result) {
         String[] paramParts = params.split(",");
         int shortPeriod = Integer.parseInt(paramParts[0].trim());
         int longPeriod = Integer.parseInt(paramParts[1].trim());
@@ -328,7 +258,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算RSI
      */
-    private void calculateRSI(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateRSI(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -343,7 +273,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算随机指标(Stochastic Oscillator)
      */
-    private void calculateStochastic(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateStochastic(BarSeries series, String params, IndicatorValueDTO result) {
         String[] paramParts = params.split(",");
         int kPeriod = Integer.parseInt(paramParts[0].trim());
         int kSmooth = Integer.parseInt(paramParts[1].trim());
@@ -362,7 +292,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算威廉指标(Williams %R)
      */
-    private void calculateWilliamsR(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateWilliamsR(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         WilliamsRIndicator williamsR = new WilliamsRIndicator(series, period);
@@ -376,7 +306,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算商品通道指数(CCI)
      */
-    private void calculateCCI(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateCCI(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         CCIIndicator cci = new CCIIndicator(series, period);
@@ -390,7 +320,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算真实波动幅度均值(ATR)
      */
-    private void calculateATR(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateATR(BarSeries series, String params, IndicatorValueDTO result) {
         int period = Integer.parseInt(params.trim());
 
         ATRIndicator atr = new ATRIndicator(series, period);
@@ -404,7 +334,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService{
     /**
      * 计算抛物线转向指标(Parabolic SAR)
      */
-    private void calculateParabolicSAR(BarSeries series, String params, IndicatorValueDTO result){
+    private void calculateParabolicSAR(BarSeries series, String params, IndicatorValueDTO result) {
         String[] paramParts = params.split(",");
         double step = Double.parseDouble(paramParts[0].trim());
         double max = Double.parseDouble(paramParts[1].trim());
