@@ -32,27 +32,6 @@ public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
 
-    /**
-     * 策略类型枚举 - 扩展以包含所有策略
-     */
-    public enum StrategyType {
-        SMA,
-        BOLLINGER_BANDS,
-        MACD,
-        RSI,
-        STOCHASTIC,
-        ADX,
-        CCI,
-        WILLIAMS_R,
-        TRIPLE_EMA,
-        ICHIMOKU,
-        PARABOLIC_SAR,
-        CHANDELIER_EXIT,
-        MACD_WITH_BOLLINGER,
-        HANGING_MAN,
-        VWAP
-    }
-
     @Autowired
     private CandlestickBarSeriesConverter barSeriesConverter;
 
@@ -77,8 +56,7 @@ public class Ta4jBacktestService {
 
         try {
             // 生成唯一的系列名称
-            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" +
-                               CandlestickAdapter.getIntervalVal(candlesticks.get(0));
+            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
 
             // 使用转换器将蜡烛图实体转换为条形系列
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
@@ -116,30 +94,6 @@ public class Ta4jBacktestService {
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
                                       BigDecimal initialAmount, String params) {
         return backtest(candlesticks, strategyType, initialAmount, params, BigDecimal.ZERO);
-    }
-
-    /**
-     * 根据参数键构建参数字符串
-     *
-     * @param params 参数映射
-     * @param keys   参数键数组
-     * @return 参数字符串
-     */
-    private String buildParamsString(Map<String, Object> params, String... keys) {
-        StringBuilder paramsStr = new StringBuilder();
-        boolean firstParam = true;
-
-        for (String key : keys) {
-            if (params.containsKey(key)) {
-                if (!firstParam) {
-                    paramsStr.append(",");
-                }
-                paramsStr.append(params.get(key));
-                firstParam = false;
-            }
-        }
-
-        return paramsStr.toString();
     }
 
     /**
