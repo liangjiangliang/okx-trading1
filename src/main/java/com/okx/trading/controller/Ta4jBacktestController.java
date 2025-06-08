@@ -499,6 +499,7 @@ public class Ta4jBacktestController {
             @ApiParam(value = "批量回测ID", required = true, type = "string") @PathVariable String batchBacktestId) {
         try {
             List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesByBatchId(batchBacktestId);
+            Collections.sort(summaries);
             if (summaries.isEmpty()) {
                 return ApiResponse.error(404, "未找到该批次的回测汇总信息");
             }
