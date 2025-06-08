@@ -121,6 +121,19 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                                                    LocalDateTime startTime,
                                                    LocalDateTime endTime,
                                                    String backtestId) {
+        return saveBacktestSummary(backtestResult, strategyParams, symbol, interval, startTime, endTime, backtestId, null);
+    }
+    
+    @Override
+    @Transactional
+    public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
+                                                   String strategyParams,
+                                                   String symbol,
+                                                   String interval,
+                                                   LocalDateTime startTime,
+                                                   LocalDateTime endTime,
+                                                   String backtestId,
+                                                   String batchBacktestId) {
         if (backtestResult == null || !backtestResult.isSuccess()) {
             logger.warn("尝试保存无效的回测汇总结果");
             return null;
@@ -134,6 +147,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
         // 创建汇总实体
         BacktestSummaryEntity summaryEntity = BacktestSummaryEntity.builder()
                 .backtestId(backtestId)
+                .batchBacktestId(batchBacktestId)
                 .strategyName(backtestResult.getStrategyName())
                 .strategyParams(strategyParams)
                 .symbol(symbol)
@@ -156,7 +170,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
 
         // 保存汇总信息
         BacktestSummaryEntity savedEntity = backtestSummaryRepository.save(summaryEntity);
-        logger.info("成功保存回测汇总信息，回测ID: {}", backtestId);
+        logger.info("成功保存回测汇总信息，回测ID: {}, 批量回测ID: {}", backtestId, batchBacktestId);
 
         // 打印详细的汇总信息
         com.okx.trading.util.BacktestResultPrinter.printSummaryEntity(savedEntity);
@@ -216,5 +230,10 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     @Override
     public List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol) {
         return backtestSummaryRepository.findBestPerformingBacktests(strategyName, symbol);
+    }
+    
+    @Override
+    public List<BacktestSummaryEntity> getBacktestSummariesByBatchId(String batchBacktestId) {
+        return backtestSummaryRepository.findByBatchBacktestIdOrderByTotalReturnDesc(batchBacktestId);
     }
 }

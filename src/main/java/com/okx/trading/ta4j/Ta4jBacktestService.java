@@ -136,56 +136,63 @@ public class Ta4jBacktestService {
             return result;
         }
 
-        // 手动计算交易统计信息
-        int tradeCount = 0;
-        int profitableTrades = 0;
-
-        for (Position position : tradingRecord.getPositions()) {
-            if (position.isClosed()) {
-                tradeCount++;
-                if (position.getProfit().isGreaterThan(series.numOf(0))) {
-                    profitableTrades++;
-                }
-            }
-        }
-
-        // 提取交易记录（考虑手续费）
+        // 提取交易明细（包含手续费计算）
         List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord, initialAmount, feeRatio);
 
-        // 计算总利润和总手续费
+        // 计算交易指标
+        int tradeCount = tradeRecords.size();
+        int profitableTrades = 0;
         BigDecimal totalProfit = BigDecimal.ZERO;
         BigDecimal totalFee = BigDecimal.ZERO;
+        BigDecimal finalAmount = initialAmount;
+        BigDecimal totalGrossProfit = BigDecimal.ZERO;  // 总盈利
+        BigDecimal totalGrossLoss = BigDecimal.ZERO;    // 总亏损
 
         for (TradeRecordDTO trade : tradeRecords) {
-            if (trade.getProfit() != null) {
-                totalProfit = totalProfit.add(trade.getProfit());
+            BigDecimal profit = trade.getProfit();
+            
+            if (profit != null) {
+                totalProfit = totalProfit.add(profit);
+                
+                // 分别累计总盈利和总亏损
+                if (profit.compareTo(BigDecimal.ZERO) > 0) {
+                    profitableTrades++;
+                    totalGrossProfit = totalGrossProfit.add(profit);
+                } else {
+                    totalGrossLoss = totalGrossLoss.add(profit.abs());
+                }
             }
+            
             if (trade.getFee() != null) {
                 totalFee = totalFee.add(trade.getFee());
             }
         }
 
-        // 最终资金
-        BigDecimal finalAmount = initialAmount.add(totalProfit);
+        finalAmount = initialAmount.add(totalProfit);
 
-        // 计算其他指标
+        // 计算盈利因子 (Profit Factor)
+        BigDecimal profitFactor = BigDecimal.ONE;  // 默认为1
+        if (totalGrossLoss.compareTo(BigDecimal.ZERO) > 0) {
+            profitFactor = totalGrossProfit.divide(totalGrossLoss, 4, RoundingMode.HALF_UP);
+        } else if (totalGrossProfit.compareTo(BigDecimal.ZERO) > 0) {
+            // 如果没有亏损交易但有盈利交易，设置为较大值表示无穷大
+            profitFactor = new BigDecimal("999.9999");
+        }
+
+        // 计算各项指标
         BigDecimal totalReturn = BigDecimal.ZERO;
         if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
-            totalReturn = finalAmount.subtract(initialAmount)
-                    .divide(initialAmount, 4, RoundingMode.HALF_UP);
+            totalReturn = totalProfit.divide(initialAmount, 4, RoundingMode.HALF_UP);
         }
 
-        // 计算胜率
         BigDecimal winRate = BigDecimal.ZERO;
         if (tradeCount > 0) {
-            winRate = new BigDecimal(profitableTrades)
-                    .divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
+            winRate = new BigDecimal(profitableTrades).divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
-        // 平均利润
         BigDecimal averageProfit = BigDecimal.ZERO;
         if (tradeCount > 0) {
-            averageProfit = totalProfit.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
+            averageProfit = totalReturn.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
         // 计算最大回撤
@@ -208,7 +215,8 @@ public class Ta4jBacktestService {
         result.setAverageProfit(averageProfit);
         result.setMaxDrawdown(maxDrawdown);
         result.setSharpeRatio(sharpeRatio);
-        result.setStrategyName(strategyType.toString());
+        result.setProfitFactor(profitFactor);
+        result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
         result.setTotalFee(totalFee);

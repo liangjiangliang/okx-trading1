@@ -79,6 +79,11 @@ public class BacktestResultDTO {
     private BigDecimal sharpeRatio;
 
     /**
+     * 盈利因子（总盈利/总亏损）
+     */
+    private BigDecimal profitFactor;
+
+    /**
      * 策略名称
      */
     private String strategyName;
@@ -203,6 +208,14 @@ public class BacktestResultDTO {
 
     public void setSharpeRatio(BigDecimal sharpeRatio) {
         this.sharpeRatio = sharpeRatio;
+    }
+
+    public BigDecimal getProfitFactor() {
+        return profitFactor;
+    }
+
+    public void setProfitFactor(BigDecimal profitFactor) {
+        this.profitFactor = profitFactor;
     }
 
     public String getStrategyName() {

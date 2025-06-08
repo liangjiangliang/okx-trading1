@@ -25,6 +25,14 @@ public interface BacktestSummaryRepository extends JpaRepository<BacktestSummary
     Optional<BacktestSummaryEntity> findByBacktestId(String backtestId);
     
     /**
+     * 根据批量回测ID查询回测汇总信息列表
+     * 
+     * @param batchBacktestId 批量回测ID
+     * @return 回测汇总信息列表
+     */
+    List<BacktestSummaryEntity> findByBatchBacktestIdOrderByTotalReturnDesc(String batchBacktestId);
+    
+    /**
      * 根据策略名称查询回测汇总信息列表
      * 
      * @param strategyName 策略名称

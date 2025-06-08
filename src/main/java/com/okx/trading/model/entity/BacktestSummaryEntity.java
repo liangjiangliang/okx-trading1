@@ -32,6 +32,12 @@ public class BacktestSummaryEntity {
     private String backtestId;
     
     /**
+     * 批量回测ID，用于关联同一批次的所有回测
+     */
+    @Column(name = "batch_backtest_id")
+    private String batchBacktestId;
+    
+    /**
      * 策略名称
      */
     @Column(name = "strategy_name", nullable = false)

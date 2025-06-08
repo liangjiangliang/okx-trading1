@@ -41,6 +41,28 @@ public interface BacktestTradeService {
                                               LocalDateTime startTime,
                                               LocalDateTime endTime,
                                               String backtestId);
+    
+    /**
+     * 保存回测汇总信息(包含批量回测ID)
+     *
+     * @param backtestResult 回测结果
+     * @param strategyParams 策略参数
+     * @param symbol 交易对
+     * @param interval 时间间隔
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @param backtestId 回测ID (如果已经有ID则使用该ID)
+     * @param batchBacktestId 批量回测ID
+     * @return 保存的回测汇总信息
+     */
+    BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
+                                              String strategyParams,
+                                              String symbol,
+                                              String interval,
+                                              LocalDateTime startTime,
+                                              LocalDateTime endTime,
+                                              String backtestId,
+                                              String batchBacktestId);
 
     /**
      * 根据回测ID查询交易记录列表
@@ -111,4 +133,12 @@ public interface BacktestTradeService {
      * @return 回测汇总信息列表
      */
     List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol);
+    
+    /**
+     * 根据批量回测ID获取回测汇总信息列表
+     *
+     * @param batchBacktestId 批量回测ID
+     * @return 回测汇总信息列表
+     */
+    List<BacktestSummaryEntity> getBacktestSummariesByBatchId(String batchBacktestId);
 }

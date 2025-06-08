@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -187,6 +190,176 @@ public class Ta4jBacktestController {
         }
     }
 
+    @GetMapping("/run-all")
+    @ApiOperation(value = "执行所有策略的批量回测", notes = "获取所有支持的策略并对每个策略执行回测")
+    public ApiResponse<Map<String, Object>> runAllStrategiesBacktest(
+            @ApiParam(value = "交易对", defaultValue = "BTC-USDT", required = true, type = "string") @RequestParam String symbol,
+            @ApiParam(value = "时间间隔", defaultValue = "1h", required = true, type = "string") @RequestParam String interval,
+            @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
+                    defaultValue = "2023-01-01 00:00:00",
+                    example = "2023-01-01 00:00:00",
+                    required = true,
+                    type = "string")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
+                    defaultValue = "2023-12-31 23:59:59",
+                    example = "2023-12-31 23:59:59",
+                    required = true,
+                    type = "string")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
+            @ApiParam(value = "初始资金",
+                    defaultValue = "100000",
+                    required = true,
+                    type = "number",
+                    format = "decimal")
+            @RequestParam BigDecimal initialAmount,
+            @ApiParam(value = "交易手续费率",
+                    defaultValue = "0.001",
+                    required = false,
+                    type = "number",
+                    format = "decimal")
+            @RequestParam(required = false, defaultValue = "0.001") BigDecimal feeRatio,
+            @ApiParam(value = "是否保存结果",
+                    required = true,
+                    defaultValue = "true",
+                    type = "boolean")
+            @RequestParam(defaultValue = "true") boolean saveResult,
+            @ApiParam(value = "并行线程数",
+                    required = false,
+                    defaultValue = "4",
+                    type = "integer")
+            @RequestParam(required = false, defaultValue = "4") int threadCount) {
+
+        log.info("开始执行所有策略的批量回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 初始资金: {}, 手续费率: {}, 并行线程数: {}",
+                symbol, interval, startTime, endTime, initialAmount, feeRatio, threadCount);
+
+        try {
+            // 获取历史数据
+            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+            if (candlesticks == null || candlesticks.isEmpty()) {
+                return ApiResponse.error(404, "未找到指定条件的历史数据");
+            }
+
+            // 获取所有支持的策略
+            Map<String, Map<String, String>> strategiesInfo = strategyInfoService.getStrategiesInfo();
+            List<String> strategyCodes = new ArrayList<>(strategiesInfo.keySet());
+            
+            log.info("找到{}个策略，准备执行批量回测", strategyCodes.size());
+
+            // 创建线程池
+            ExecutorService executor = Executors.newFixedThreadPool(Math.min(threadCount, 10));
+            
+            // 生成唯一的批量回测ID
+            String batchBacktestId = UUID.randomUUID().toString();
+            log.info("生成批量回测ID: {}", batchBacktestId);
+            
+            // 存储所有回测结果
+            List<Map<String, Object>> allResults = Collections.synchronizedList(new ArrayList<>());
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            
+            // 创建回测任务
+            for (String strategyCode : strategyCodes) {
+                Map<String, String> strategyDetails = strategiesInfo.get(strategyCode);
+                String defaultParams = strategyDetails.get("default_params");
+                
+                // 创建异步任务
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        log.info("开始回测策略: {}", strategyCode);
+                        
+                        // 执行回测
+                        BacktestResultDTO result = ta4jBacktestService.backtest(
+                                candlesticks, strategyCode, initialAmount, defaultParams, feeRatio);
+                        
+                        // 如果需要保存结果到数据库
+                        if (saveResult && result.isSuccess()) {
+                            // 保存交易明细
+                            String backtestId = backtestTradeService.saveBacktestTrades(symbol, result, defaultParams);
+                            result.setBacktestId(backtestId);
+
+                            // 保存汇总信息，包含批量回测ID
+                            backtestTradeService.saveBacktestSummary(
+                                    result, defaultParams, symbol, interval, startTime, endTime, backtestId, batchBacktestId);
+
+                            result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ", BatchID: " + batchBacktestId + ")");
+                        }
+                        
+                        // 记录结果
+                        Map<String, Object> resultMap = new HashMap<>();
+                        resultMap.put("strategy_code", strategyCode);
+                        resultMap.put("strategy_name", strategyDetails.get("name"));
+                        resultMap.put("success", result.isSuccess());
+                        
+                        if (result.isSuccess()) {
+                            resultMap.put("total_return", result.getTotalReturn());
+                            resultMap.put("number_of_trades", result.getNumberOfTrades());
+                            resultMap.put("win_rate", result.getWinRate());
+                            resultMap.put("profit_factor", result.getProfitFactor());
+                            resultMap.put("sharpe_ratio", result.getSharpeRatio());
+                            resultMap.put("max_drawdown", result.getMaxDrawdown());
+                            resultMap.put("backtest_id", result.getBacktestId());
+                            
+                            log.info("策略 {} 回测成功 - 收益率: {}%, 交易次数: {}, 胜率: {}%",
+                                    strategyCode,
+                                    result.getTotalReturn().multiply(new BigDecimal("100")),
+                                    result.getNumberOfTrades(),
+                                    result.getWinRate().multiply(new BigDecimal("100")));
+                        } else {
+                            resultMap.put("error", result.getErrorMessage());
+                            log.warn("策略 {} 回测失败 - 错误信息: {}", strategyCode, result.getErrorMessage());
+                        }
+                        
+                        allResults.add(resultMap);
+                    } catch (Exception e) {
+                        log.error("策略 {} 回测过程中发生错误: {}", strategyCode, e.getMessage(), e);
+                        Map<String, Object> errorResult = new HashMap<>();
+                        errorResult.put("strategy_code", strategyCode);
+                        errorResult.put("strategy_name", strategyDetails.get("name"));
+                        errorResult.put("success", false);
+                        errorResult.put("error", e.getMessage());
+                        allResults.add(errorResult);
+                    }
+                }, executor);
+                
+                futures.add(future);
+            }
+            
+            // 等待所有任务完成
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            
+            // 关闭线程池
+            executor.shutdown();
+            
+            // 按收益率排序结果
+            allResults.sort((a, b) -> {
+                if (!(boolean)a.get("success")) return 1;
+                if (!(boolean)b.get("success")) return -1;
+                
+                BigDecimal returnA = (BigDecimal)a.get("total_return");
+                BigDecimal returnB = (BigDecimal)b.get("total_return");
+                return returnB.compareTo(returnA); // 降序排列
+            });
+            
+            // 构建响应结果
+            Map<String, Object> response = new HashMap<>();
+            response.put("batch_backtest_id", batchBacktestId);
+            response.put("total_strategies", strategyCodes.size());
+            response.put("successful_backtests", allResults.stream().filter(r -> (boolean)r.get("success")).count());
+            response.put("failed_backtests", allResults.stream().filter(r -> !(boolean)r.get("success")).count());
+            response.put("results", allResults);
+            
+            log.info("批量回测完成，批量ID: {}, 成功: {}, 失败: {}", 
+                    batchBacktestId,
+                    response.get("successful_backtests"), 
+                    response.get("failed_backtests"));
+            
+            return ApiResponse.success(response);
+        } catch (Exception e) {
+            log.error("批量回测过程中发生错误: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "批量回测过程中发生错误: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/strategies")
     @ApiOperation(value = "获取支持的策略类型和参数说明", notes = "返回系统支持的所有策略类型和对应的参数说明")
     public ApiResponse<Map<String, Map<String, String>>> getStrategies() {
@@ -316,6 +489,22 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("获取最佳表现回测信息出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取最佳表现回测信息出错: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/summaries/batch/{batchBacktestId}")
+    @ApiOperation(value = "根据批量回测ID获取回测汇总信息", notes = "获取同一批次执行的所有回测汇总信息")
+    public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesByBatchId(
+            @ApiParam(value = "批量回测ID", required = true, type = "string") @PathVariable String batchBacktestId) {
+        try {
+            List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesByBatchId(batchBacktestId);
+            if (summaries.isEmpty()) {
+                return ApiResponse.error(404, "未找到该批次的回测汇总信息");
+            }
+            return ApiResponse.success(summaries);
+        } catch (Exception e) {
+            log.error("获取批次回测汇总信息出错: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取批次回测汇总信息出错: " + e.getMessage());
         }
     }
 
