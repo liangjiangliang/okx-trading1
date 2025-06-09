@@ -74,8 +74,9 @@ public class DeepSeekApiService {
                         "2. strategyCode要求：\n" +
                         "   - lambda函数签名：(BarSeries series, Map<String, Object> params) -> Strategy\n" +
                         "   - 使用Ta4j库0.14版本的指标和规则\n" +
+                        "   - params参数是个空的map，直接使用默认值，不从里面拿数据\n" +
                         "   - 包含买入和卖出规则\n" +
-                        "   - 代码要简洁且可编译\n" +
+                        "   - 代码要简洁且可编译，尽量不引入过多的类\n" +
                         "   - 导入语句请使用完整包名\n" +
                         "   - 使用new org.ta4j.core.BaseStrategy(buyRule, sellRule)构造策略\n" +
                         "3. 只返回JSON，不要其他解释\n\n" +

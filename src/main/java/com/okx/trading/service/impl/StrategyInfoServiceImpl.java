@@ -79,6 +79,7 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
             strategyInfo.put("category", strategy.getCategory());
             strategyInfo.put("params", strategy.getParamsDesc());
             strategyInfo.put("strategy_code", strategy.getStrategyCode());
+            strategyInfo.put("update_time", String.valueOf(strategy.getUpdateTime()));
             result.put(strategy.getStrategyCode(), strategyInfo);
         }
 
