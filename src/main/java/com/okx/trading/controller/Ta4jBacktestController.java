@@ -594,30 +594,96 @@ public class Ta4jBacktestController {
         }
     }
 
+    /**
+     * 清理策略描述，去除异常字符，只保留中文内容
+     */
+    private String cleanDescription(String description) {
+        if (description == null || description.isEmpty()) {
+            return "";
+        }
+        
+        log.info("原始描述: {}", description);
+        
+        // 去除首尾的双引号
+        if (description.startsWith("\"") && description.endsWith("\"")) {
+            description = description.substring(1, description.length() - 1);
+        }
+        
+        // 去除反斜杠
+        description = description.replace("\\", "");
+        
+        // 去除多余空格并规范化空格
+        description = description.trim().replaceAll("\\s+", " ");
+        
+        log.info("预处理后描述: {}", description);
+        
+        // 只保留中文、数字、字母和基本标点
+        StringBuilder sb = new StringBuilder();
+        for (char c : description.toCharArray()) {
+            // 中文字符范围
+            boolean isChinese = (c >= '\u4e00' && c <= '\u9fff') || 
+                               (c >= '\u3400' && c <= '\u4dbf');
+            // 常用中文标点
+            boolean isChinesePunctuation = (c >= '\u3000' && c <= '\u303f') || 
+                                         (c >= '\uff00' && c <= '\uffef');
+            // 数字和字母
+            boolean isAlphaNumeric = Character.isLetterOrDigit(c);
+            // 常用英文标点
+            boolean isCommonPunctuation = ",.!?，。！？、；：（）【】《》".indexOf(c) >= 0;
+            // 空格
+            boolean isSpace = (c == ' ');
+            
+            if (isChinese || isChinesePunctuation || isAlphaNumeric || isCommonPunctuation || isSpace) {
+                sb.append(c);
+            }
+        }
+        
+        String result = sb.toString().trim();
+        log.info("清理后描述: {}", result);
+        
+        return result;
+    }
+    
     @PostMapping("/generate-strategy")
-    @ApiOperation(value = "生成AI策略", notes = "通过DeepSeek API生成交易策略并保存到数据库")
+    @ApiOperation(value = "生成AI策略", notes = "通过DeepSeek API根据策略描述生成完整的交易策略信息并保存到数据库")
     public ApiResponse<StrategyInfoEntity> generateStrategy(
-            @Valid @RequestBody StrategyGenerationRequestDTO request) {
+            @ApiParam(value = "策略描述", required = true, example = "基于双均线RSI组合的交易策略，使用9日和26日移动平均线交叉信号，结合RSI指标过滤信号")
+            @RequestBody String description) {
 
-        log.info("开始生成AI策略，策略代码: {}, 策略名称: {}", request.getStrategyCode(), request.getStrategyName());
+        log.info("开始生成AI策略，策略描述: {}", description);
 
         try {
-            // 检查策略代码是否已存在
-            if (strategyInfoService.getStrategyByCode(request.getStrategyCode()).isPresent()) {
-                return ApiResponse.error(400, "策略代码已存在: " + request.getStrategyCode());
+            // 清理description字段，去除异常字符
+            String cleanedDescription = cleanDescription(description);
+            log.info("清理后的策略描述: {}", cleanedDescription);
+            
+            // 生成唯一的策略代码
+            String strategyCode = "AI_" + System.currentTimeMillis();
+            
+            // 检查策略代码是否已存在（理论上不会重复，但为了安全起见）
+            while (strategyInfoService.getStrategyByCode(strategyCode).isPresent()) {
+                strategyCode = "AI_" + System.currentTimeMillis();
+                Thread.sleep(1); // 确保时间戳不同
             }
 
-            // 调用DeepSeek API生成策略代码
-            String generatedCode = deepSeekApiService.generateStrategyCode(request.getDescription());
+            // 调用DeepSeek API生成完整的策略信息
+            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(cleanedDescription);
+            
+            // 从AI返回的信息中提取各个字段
+            String strategyName = strategyInfo.getString("strategyName");
+            String category = strategyInfo.getString("category");
+            String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
+            String paramsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
+            String generatedCode = strategyInfo.getString("strategyCode");
 
             // 创建策略实体
             StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
-                    .strategyCode(request.getStrategyCode())
-                    .strategyName(request.getStrategyName())
-                    .description(request.getDescription())
-                    .category(request.getCategory())
-                    .paramsDesc(request.getParamsDesc())
-                    .defaultParams(request.getDefaultParams())
+                    .strategyCode(strategyCode)
+                    .strategyName(strategyName)
+                    .description(cleanedDescription)
+                    .category(category)
+                    .paramsDesc(paramsDesc)
+                    .defaultParams(defaultParams)
                     .sourceCode(generatedCode)
                     .build();
 
@@ -627,7 +693,7 @@ public class Ta4jBacktestController {
             // 编译并动态加载策略
             dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
 
-            log.info("AI策略生成成功，策略代码: {}", request.getStrategyCode());
+            log.info("AI策略生成成功，策略代码: {}, 策略名称: {}", strategyCode, strategyName);
             return ApiResponse.success(savedStrategy);
 
         } catch (Exception e) {
@@ -635,6 +701,8 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "生成AI策略失败: " + e.getMessage());
         }
     }
+
+
 
     @PutMapping("/update-strategy")
     @ApiOperation(value = "更新策略", notes = "更新策略信息和源代码，并重新加载到系统中")
@@ -657,23 +725,22 @@ public class Ta4jBacktestController {
                 return ApiResponse.error(400, "策略ID不匹配");
             }
 
-            // 生成新的策略代码
-            String newGeneratedCode = deepSeekApiService.generateStrategyCode(request.getDescription());
+            // 调用DeepSeek API生成完整的策略信息
+            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription());
+            
+            // 从AI返回的信息中提取各个字段
+            String aiStrategyName = strategyInfo.getString("strategyName");
+            String aiCategory = strategyInfo.getString("category");
+            String aiDefaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
+            String aiParamsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
+            String newGeneratedCode = strategyInfo.getString("strategyCode");
 
-            // 更新策略信息
-            if (request.getStrategyName() != null) {
-                existingStrategy.setStrategyName(request.getStrategyName());
-            }
+            // 更新策略信息（优先使用AI生成的信息，如果请求中有指定则使用请求中的）
+            existingStrategy.setStrategyName(request.getStrategyName() != null ? request.getStrategyName() : aiStrategyName);
             existingStrategy.setDescription(request.getDescription());
-            if (request.getCategory() != null) {
-                existingStrategy.setCategory(request.getCategory());
-            }
-            if (request.getParamsDesc() != null) {
-                existingStrategy.setParamsDesc(request.getParamsDesc());
-            }
-            if (request.getDefaultParams() != null) {
-                existingStrategy.setDefaultParams(request.getDefaultParams());
-            }
+            existingStrategy.setCategory(request.getCategory() != null ? request.getCategory() : aiCategory);
+            existingStrategy.setParamsDesc(request.getParamsDesc() != null ? request.getParamsDesc() : aiParamsDesc);
+            existingStrategy.setDefaultParams(request.getDefaultParams() != null ? request.getDefaultParams() : aiDefaultParams);
             existingStrategy.setSourceCode(newGeneratedCode);
 
             // 保存到数据库
