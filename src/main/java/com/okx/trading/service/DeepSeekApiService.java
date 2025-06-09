@@ -74,22 +74,35 @@ public class DeepSeekApiService {
                         "2. strategyCode要求：\n" +
                         "   - lambda函数签名：(BarSeries series, Map<String, Object> params) -> Strategy\n" +
                         "   - 使用Ta4j库0.14版本的指标和规则\n" +
+                        "   - 应用在加密货币领域进行回测\n" +
                         "   - params参数是个空的map，直接使用默认值，不从里面拿数据\n" +
                         "   - 包含买入和卖出规则\n" +
                         "   - 代码要简洁且可编译，尽量不引入过多的类\n" +
                         "   - 导入语句请使用完整包名\n" +
                         "   - 使用new org.ta4j.core.BaseStrategy(buyRule, sellRule)构造策略\n" +
+                        "   - 【重要】只能使用以下包的类：\n" +
+                        "     * org.ta4j.core.indicators.*\n" +
+                        "     * org.ta4j.core.rules.*\n" +
+                        "     * org.ta4j.core.BaseStrategy\n" +
+                        "   - 【严禁】使用以下内容：\n" +
+                        "     * multipliedBy、dividedBy等数学运算方法\n" +
+                        "     * helpers包或任何外部工具类\n" +
+                        "     * 复杂的数值计算\n" +
+                        "   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n" +
+                        "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n" +
+                        "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n" +
                         "3. 只返回JSON，不要其他解释\n\n" +
                         "示例格式：\n" +
                         "{\n" +
-                        "  \"strategyName\": \"双均线交叉策略\",\n" +
-                        "  \"strategyId\": \"BOLLINGER_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
-                        "  \"description\": \" 基于RSI超买超卖策略，当RSI低于30时买入，高于70时卖出\",\n" +
-                        "  \"category\": \"趋势策略\",\n" +
-                        "  \"defaultParams\": {\"shortPeriod\": 5, \"longPeriod\": 20},\n" +
-                        "  \"paramsDesc\": {\"shortPeriod\": \"短期均线周期\", \"longPeriod\": \"长期均线周期\"},\n" +
-                        "  \"strategyCode\": \"(series, params) -> { org.ta4j.core.indicators.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.ClosePriceIndicator(series); Integer shortPeriod = (Integer) params.get(\\\"shortPeriod\\\"); Integer longPeriod = (Integer) params.get(\\\"longPeriod\\\"); org.ta4j.core.indicators.SMAIndicator shortSma = new org.ta4j.core.indicators.SMAIndicator(closePrice, shortPeriod); org.ta4j.core.indicators.SMAIndicator longSma = new org.ta4j.core.indicators.SMAIndicator(closePrice, longPeriod); org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.CrossedUpIndicatorRule(shortSma, longSma); org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.CrossedDownIndicatorRule(shortSma, longSma); return new org.ta4j.core.BaseStrategy(buyRule, sellRule); }\"\n" +
-                        "}",
+                        "  \"strategyName\": \"成交量突破策略\",\n" +
+                        "  \"strategyId\": \"VOLUME_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
+                        "  \"description\": \"基于成交量突破策略，当成交量超过平均成交量时买入，低于平均成交量时卖出\",\n" +
+                        "  \"category\": \"突破策略\",\n" +
+                        "  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n" +
+                        "  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n" +
+                        "  \"strategyCode\": \"(series, params) -> { org.ta4j.core.indicators.VolumeIndicator volume = new org.ta4j.core.indicators.VolumeIndicator(series); org.ta4j.core.indicators.SMAIndicator avgVolume = new org.ta4j.core.indicators.SMAIndicator(volume, 20); org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.OverIndicatorRule(volume, avgVolume); org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.UnderIndicatorRule(volume, avgVolume); return new org.ta4j.core.BaseStrategy(buyRule, sellRule); }\"\n" +
+                        "}\n\n" +
+                        "注意：绝对不要使用multipliedBy方法！成交量倍数比较应该通过创建多个SMA指标来实现，或者直接比较指标值。",
                 strategyDescription
         );
     }
