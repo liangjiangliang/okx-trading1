@@ -33,31 +33,31 @@ public class StrategyInfoEntity {
     /**
      * 策略名称，如简单移动平均线策略
      */
-    @Column(name = "strategy_name", nullable = false)
+    @Column(name = "strategy_name", nullable = false, columnDefinition = "VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String strategyName;
     
     /**
      * 策略描述
      */
-    @Column(name = "description", columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String description;
     
     /**
      * 参数说明
      */
-    @Column(name = "params_desc", columnDefinition = "TEXT")
+    @Column(name = "params_desc", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String paramsDesc;
     
     /**
      * 默认参数值
      */
-    @Column(name = "default_params")
+    @Column(name = "default_params", columnDefinition = "VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String defaultParams;
     
     /**
      * 策略分类，如移动平均线、震荡指标等
      */
-    @Column(name = "category")
+    @Column(name = "category", columnDefinition = "VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String category;
     
     /**

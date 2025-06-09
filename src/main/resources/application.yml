@@ -12,7 +12,7 @@ spring:
     name: okx-trading
   # 数据库配�?
   datasource:
-    url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/okx_trading?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -29,6 +29,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        dialect:
+          storage_engine: innodb
     defer-datasource-initialization: true
   # Redis配置
   redis:
