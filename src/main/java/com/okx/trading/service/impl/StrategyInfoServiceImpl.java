@@ -6,6 +6,7 @@ import com.okx.trading.service.StrategyInfoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +51,12 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
     @Override
     public void deleteStrategy(Long id) {
         strategyInfoRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public void deleteStrategyByCode(String strategyCode) {
+        strategyInfoRepository.deleteByStrategyCode(strategyCode);
     }
 
     @Override

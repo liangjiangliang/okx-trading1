@@ -61,6 +61,12 @@ public class StrategyInfoEntity {
     private String category;
     
     /**
+     * 策略源代码，存储lambda函数的序列化字符串
+     */
+    @Column(name = "source_code", columnDefinition = "TEXT")
+    private String sourceCode;
+    
+    /**
      * 创建时间
      */
     @Column(name = "create_time", nullable = false, updatable = false)

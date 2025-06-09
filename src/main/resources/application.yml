@@ -98,7 +98,13 @@ okx:
   kline:
     update-interval-seconds: 30
 
+# DeepSeek API配置
+deepseek:
+  api:
+    key: ${DEEPSEEK_API_KEY:sk-a1d79a988f694e52a06d3b0ef97d1742}
+    url: https://api.deepseek.com/v1/chat/completions
 
+logging:
   level:
     root: INFO
     com.okx.trading: INFO

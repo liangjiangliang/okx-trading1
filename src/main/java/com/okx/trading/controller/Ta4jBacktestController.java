@@ -7,10 +7,14 @@ import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.StrategyInfoEntity;
+import com.okx.trading.model.dto.StrategyGenerationRequestDTO;
+import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.MarketDataService;
 import com.okx.trading.service.StrategyInfoService;
+import com.okx.trading.service.DeepSeekApiService;
+import com.okx.trading.service.DynamicStrategyService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
 import com.okx.trading.ta4j.strategy.StrategyFactory;
 import io.swagger.annotations.Api;
@@ -31,6 +35,8 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.math.RoundingMode;
 
+import javax.validation.Valid;
+
 /**
  * Ta4j回测控制器
  * 专门用于Ta4j库的回测及结果存储
@@ -47,6 +53,8 @@ public class Ta4jBacktestController {
     private final BacktestTradeService backtestTradeService;
     private final MarketDataService marketDataService;
     private final StrategyInfoService strategyInfoService;
+    private final DeepSeekApiService deepSeekApiService;
+    private final DynamicStrategyService dynamicStrategyService;
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
@@ -583,6 +591,150 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("获取批量回测统计信息出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取批量回测统计信息出错: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/generate-strategy")
+    @ApiOperation(value = "生成AI策略", notes = "通过DeepSeek API生成交易策略并保存到数据库")
+    public ApiResponse<StrategyInfoEntity> generateStrategy(
+            @Valid @RequestBody StrategyGenerationRequestDTO request) {
+        
+        log.info("开始生成AI策略，策略代码: {}, 策略名称: {}", request.getStrategyCode(), request.getStrategyName());
+        
+        try {
+            // 检查策略代码是否已存在
+            if (strategyInfoService.getStrategyByCode(request.getStrategyCode()).isPresent()) {
+                return ApiResponse.error(400, "策略代码已存在: " + request.getStrategyCode());
+            }
+            
+            // 调用DeepSeek API生成策略代码
+            String generatedCode = deepSeekApiService.generateStrategyCode(request.getDescription());
+            
+            // 创建策略实体
+            StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
+                    .strategyCode(request.getStrategyCode())
+                    .strategyName(request.getStrategyName())
+                    .description(request.getDescription())
+                    .category(request.getCategory())
+                    .paramsDesc(request.getParamsDesc())
+                    .defaultParams(request.getDefaultParams())
+                    .sourceCode(generatedCode)
+                    .build();
+            
+            // 保存到数据库
+            StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
+            
+            // 编译并动态加载策略
+            dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
+            
+            log.info("AI策略生成成功，策略代码: {}", request.getStrategyCode());
+            return ApiResponse.success(savedStrategy);
+            
+        } catch (Exception e) {
+            log.error("生成AI策略失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "生成AI策略失败: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/update-strategy")
+    @ApiOperation(value = "更新策略", notes = "更新策略信息和源代码，并重新加载到系统中")
+    public ApiResponse<StrategyInfoEntity> updateStrategy(
+            @Valid @RequestBody StrategyUpdateRequestDTO request) {
+        
+        log.info("开始更新策略，策略ID: {}, 策略代码: {}", request.getId(), request.getStrategyCode());
+        
+        try {
+            // 查找现有策略
+            Optional<StrategyInfoEntity> existingStrategyOpt = strategyInfoService.getStrategyByCode(request.getStrategyCode());
+            if (!existingStrategyOpt.isPresent()) {
+                return ApiResponse.error(404, "策略不存在: " + request.getStrategyCode());
+            }
+            
+            StrategyInfoEntity existingStrategy = existingStrategyOpt.get();
+            
+            // 检查ID是否匹配
+            if (!existingStrategy.getId().equals(request.getId())) {
+                return ApiResponse.error(400, "策略ID不匹配");
+            }
+            
+            // 生成新的策略代码
+            String newGeneratedCode = deepSeekApiService.generateStrategyCode(request.getDescription());
+            
+            // 更新策略信息
+            if (request.getStrategyName() != null) {
+                existingStrategy.setStrategyName(request.getStrategyName());
+            }
+            existingStrategy.setDescription(request.getDescription());
+            if (request.getCategory() != null) {
+                existingStrategy.setCategory(request.getCategory());
+            }
+            if (request.getParamsDesc() != null) {
+                existingStrategy.setParamsDesc(request.getParamsDesc());
+            }
+            if (request.getDefaultParams() != null) {
+                existingStrategy.setDefaultParams(request.getDefaultParams());
+            }
+            existingStrategy.setSourceCode(newGeneratedCode);
+            
+            // 保存到数据库
+            StrategyInfoEntity updatedStrategy = strategyInfoService.saveStrategy(existingStrategy);
+            
+            // 重新编译并加载策略
+            dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
+            
+            log.info("策略更新成功，策略代码: {}", request.getStrategyCode());
+            return ApiResponse.success(updatedStrategy);
+            
+        } catch (Exception e) {
+            log.error("更新策略失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "更新策略失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/reload-dynamic-strategies")
+    @ApiOperation(value = "重新加载动态策略", notes = "从数据库重新加载所有动态策略")
+    public ApiResponse<String> reloadDynamicStrategies() {
+        
+        log.info("开始重新加载动态策略");
+        
+        try {
+            dynamicStrategyService.loadAllDynamicStrategies();
+            log.info("动态策略重新加载成功");
+            return ApiResponse.success("动态策略重新加载成功");
+            
+        } catch (Exception e) {
+            log.error("重新加载动态策略失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "重新加载动态策略失败: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/delete-strategy/{strategyCode}")
+    @ApiOperation(value = "删除策略", notes = "根据策略代码删除策略，包括从数据库和动态策略缓存中移除")
+    public ApiResponse<String> deleteStrategy(
+            @ApiParam(value = "策略代码", required = true, example = "AI_SMA_009")
+            @PathVariable String strategyCode) {
+        
+        log.info("开始删除策略，策略代码: {}", strategyCode);
+        
+        try {
+            // 检查策略是否存在
+            Optional<StrategyInfoEntity> existingStrategyOpt = strategyInfoService.getStrategyByCode(strategyCode);
+            if (!existingStrategyOpt.isPresent()) {
+                return ApiResponse.error(404, "策略不存在: " + strategyCode);
+            }
+            
+            // 从动态策略缓存中移除
+            dynamicStrategyService.removeStrategy(strategyCode);
+            
+            // 从数据库中删除
+            strategyInfoService.deleteStrategyByCode(strategyCode);
+            
+            log.info("策略删除成功，策略代码: {}", strategyCode);
+            return ApiResponse.success("策略删除成功: " + strategyCode);
+            
+        } catch (Exception e) {
+            log.error("删除策略失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "删除策略失败: " + e.getMessage());
         }
     }
 

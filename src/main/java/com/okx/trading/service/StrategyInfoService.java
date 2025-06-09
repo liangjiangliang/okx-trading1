@@ -19,6 +19,15 @@ public interface StrategyInfoService {
     List<StrategyInfoEntity> getAllStrategies();
 
     /**
+     * 获取所有策略信息（别名方法）
+     *
+     * @return 策略信息列表
+     */
+    default List<StrategyInfoEntity> findAll() {
+        return getAllStrategies();
+    }
+
+    /**
      * 根据策略代码获取策略信息
      *
      * @param strategyCode 策略代码
@@ -56,6 +65,13 @@ public interface StrategyInfoService {
      * @param id 策略ID
      */
     void deleteStrategy(Long id);
+
+    /**
+     * 根据策略代码删除策略信息
+     *
+     * @param strategyCode 策略代码
+     */
+    void deleteStrategyByCode(String strategyCode);
 
     /**
      * 获取策略的默认参数

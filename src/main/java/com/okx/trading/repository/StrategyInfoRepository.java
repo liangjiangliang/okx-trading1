@@ -51,4 +51,11 @@ public interface StrategyInfoRepository extends JpaRepository<StrategyInfoEntity
      * @return 策略信息列表
      */
     List<StrategyInfoEntity> findByStrategyNameContaining(String strategyName);
+    
+    /**
+     * 根据策略代码删除策略信息
+     * 
+     * @param strategyCode 策略代码
+     */
+    void deleteByStrategyCode(String strategyCode);
 }
