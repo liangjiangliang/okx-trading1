@@ -601,49 +601,47 @@ public class Ta4jBacktestController {
         if (description == null || description.isEmpty()) {
             return "";
         }
-        
-        log.info("原始描述: {}", description);
-        
+
         // 去除首尾的双引号
         if (description.startsWith("\"") && description.endsWith("\"")) {
             description = description.substring(1, description.length() - 1);
         }
-        
+
         // 去除反斜杠
         description = description.replace("\\", "");
-        
+
         // 去除多余空格并规范化空格
         description = description.trim().replaceAll("\\s+", " ");
-        
+
         log.info("预处理后描述: {}", description);
-        
+
         // 只保留中文、数字、字母和基本标点
         StringBuilder sb = new StringBuilder();
         for (char c : description.toCharArray()) {
             // 中文字符范围
-            boolean isChinese = (c >= '\u4e00' && c <= '\u9fff') || 
-                               (c >= '\u3400' && c <= '\u4dbf');
+            boolean isChinese = (c >= '\u4e00' && c <= '\u9fff') ||
+                    (c >= '\u3400' && c <= '\u4dbf');
             // 常用中文标点
-            boolean isChinesePunctuation = (c >= '\u3000' && c <= '\u303f') || 
-                                         (c >= '\uff00' && c <= '\uffef');
+            boolean isChinesePunctuation = (c >= '\u3000' && c <= '\u303f') ||
+                    (c >= '\uff00' && c <= '\uffef');
             // 数字和字母
             boolean isAlphaNumeric = Character.isLetterOrDigit(c);
             // 常用英文标点
             boolean isCommonPunctuation = ",.!?，。！？、；：（）【】《》".indexOf(c) >= 0;
             // 空格
             boolean isSpace = (c == ' ');
-            
+
             if (isChinese || isChinesePunctuation || isAlphaNumeric || isCommonPunctuation || isSpace) {
                 sb.append(c);
             }
         }
-        
+
         String result = sb.toString().trim();
         log.info("清理后描述: {}", result);
-        
+
         return result;
     }
-    
+
     @PostMapping("/generate-strategy")
     @ApiOperation(value = "生成AI策略", notes = "通过DeepSeek API根据策略描述生成完整的交易策略信息并保存到数据库")
     public ApiResponse<StrategyInfoEntity> generateStrategy(
@@ -653,34 +651,23 @@ public class Ta4jBacktestController {
         log.info("开始生成AI策略，策略描述: {}", description);
 
         try {
-            // 清理description字段，去除异常字符
-            String cleanedDescription = cleanDescription(description);
-            log.info("清理后的策略描述: {}", cleanedDescription);
-            
-            // 生成唯一的策略代码
-            String strategyCode = "AI_" + System.currentTimeMillis();
-            
-            // 检查策略代码是否已存在（理论上不会重复，但为了安全起见）
-            while (strategyInfoService.getStrategyByCode(strategyCode).isPresent()) {
-                strategyCode = "AI_" + System.currentTimeMillis();
-                Thread.sleep(1); // 确保时间戳不同
-            }
-
             // 调用DeepSeek API生成完整的策略信息
-            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(cleanedDescription);
-            
+            JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description);
+
             // 从AI返回的信息中提取各个字段
             String strategyName = strategyInfo.getString("strategyName");
+            String strategyId = strategyInfo.getString("strategyId");
+            String strategyDescription = strategyInfo.getString("description");
             String category = strategyInfo.getString("category");
-            String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
             String paramsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
+            String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
             String generatedCode = strategyInfo.getString("strategyCode");
 
             // 创建策略实体
             StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
-                    .strategyCode(strategyCode)
+                    .strategyCode(strategyId)
                     .strategyName(strategyName)
-                    .description(cleanedDescription)
+                    .description(strategyDescription)
                     .category(category)
                     .paramsDesc(paramsDesc)
                     .defaultParams(defaultParams)
@@ -693,7 +680,7 @@ public class Ta4jBacktestController {
             // 编译并动态加载策略
             dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
 
-            log.info("AI策略生成成功，策略代码: {}, 策略名称: {}", strategyCode, strategyName);
+            log.info("AI策略生成成功，策略代码: {}, 策略名称: {}", strategyId, strategyName);
             return ApiResponse.success(savedStrategy);
 
         } catch (Exception e) {
@@ -701,7 +688,6 @@ public class Ta4jBacktestController {
             return ApiResponse.error(500, "生成AI策略失败: " + e.getMessage());
         }
     }
-
 
 
     @PutMapping("/update-strategy")
@@ -727,7 +713,7 @@ public class Ta4jBacktestController {
 
             // 调用DeepSeek API生成完整的策略信息
             com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription());
-            
+
             // 从AI返回的信息中提取各个字段
             String aiStrategyName = strategyInfo.getString("strategyName");
             String aiCategory = strategyInfo.getString("category");
