@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `strategy_info` (
   `params_desc` TEXT COMMENT '参数说明',
   `default_params` VARCHAR(255) COMMENT '默认参数值',
   `category` VARCHAR(50) COMMENT '策略分类，如移动平均线、震荡指标等',
+  `comments` TEXT COMMENT '策略介绍，比如优缺点，适用场景，胜率等，回测，短线还是长线使用等信息',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   UNIQUE KEY `idx_strategy_code` (`strategy_code`),

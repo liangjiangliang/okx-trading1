@@ -66,7 +66,8 @@ public class DeepSeekApiService {
                         "1. 返回JSON格式，包含以下字段：\n" +
                         "   - strategyName: 策略名称（中文，简洁明了）\n" +
                         "   - strategyId: 前面是大写英文名称，用下划线区分单词，后面用uuid标记防止重复\n" +
-                        "   - description: 对策略的简单介绍\n" +
+                        "   - description: 对策略逻辑的简单介绍，比如使用什么计算方式，使用的参数周期等信息\n" +
+                        "   - comments: 策略使用介绍，比如优缺点，适用场景，胜率，回测情况，短线还是长线使用等信息\n" +
                         "   - category: 策略分类（如：趋势策略、震荡策略、综合策略等）\n" +
                         "   - defaultParams: 默认参数（JSON对象格式）\n" +
                         "   - paramsDesc: 参数描述（JSON对象格式，key为参数名，value为中文描述）\n" +
@@ -85,9 +86,8 @@ public class DeepSeekApiService {
                         "     * org.ta4j.core.rules.*\n" +
                         "     * org.ta4j.core.BaseStrategy\n" +
                         "   - 【严禁】使用以下内容：\n" +
-                        "     * multipliedBy、dividedBy等数学运算方法\n" +
-                        "     * helpers包或任何外部工具类\n" +
-                        "     * 复杂的数值计算\n" +
+                        "     * multipliedBy、dividedBy等数学运算方法，可以使用其他方法代替\n" +
+                        "     * 尽量避免helpers包或任何外部工具类\n" +
                         "   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n" +
                         "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n" +
                         "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n" +
@@ -96,7 +96,8 @@ public class DeepSeekApiService {
                         "{\n" +
                         "  \"strategyName\": \"成交量突破策略\",\n" +
                         "  \"strategyId\": \"VOLUME_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
-                        "  \"description\": \"基于成交量突破策略，当成交量超过平均成交量时买入，低于平均成交量时卖出\",\n" +
+                        "  \"description\": \"策略逻辑介绍，基于成交量突破策略，当成交量超过平均成交量时买入，低于平均成交量时卖出\",\n" +
+                        "  \"comments\": \"策略使用介绍，比如优缺点，适用场景，胜率等，回测，短线还是长线使用等信息\",\n" +
                         "  \"category\": \"突破策略\",\n" +
                         "  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n" +
                         "  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n" +

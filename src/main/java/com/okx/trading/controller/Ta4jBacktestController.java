@@ -658,6 +658,7 @@ public class Ta4jBacktestController {
             String strategyName = strategyInfo.getString("strategyName");
             String strategyId = strategyInfo.getString("strategyId");
             String strategyDescription = strategyInfo.getString("description");
+            String strategyComments = strategyInfo.getString("comments");
             String category = strategyInfo.getString("category");
             String paramsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
             String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
@@ -668,6 +669,7 @@ public class Ta4jBacktestController {
                     .strategyCode(strategyId)
                     .strategyName(strategyName)
                     .description(strategyDescription)
+                    .comments(strategyComments)
                     .category(category)
                     .paramsDesc(paramsDesc)
                     .defaultParams(defaultParams)
