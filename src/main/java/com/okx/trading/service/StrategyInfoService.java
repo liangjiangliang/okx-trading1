@@ -35,6 +35,8 @@ public interface StrategyInfoService {
      */
     Optional<StrategyInfoEntity> getStrategyByCode(String strategyCode);
 
+
+    Optional<StrategyInfoEntity> getStrategyById(Long id);
     /**
      * 根据策略分类获取策略信息列表
      *
@@ -88,4 +90,12 @@ public interface StrategyInfoService {
      * @return 策略信息Map
      */
     Map<String, Map<String, String>> getStrategiesInfo();
+
+    /**
+     * 检查策略代码是否已存在
+     *
+     * @param strategyCode 策略代码
+     * @return 如果存在返回true，否则返回false
+     */
+    boolean existsByStrategyCode(String strategyCode);
 }

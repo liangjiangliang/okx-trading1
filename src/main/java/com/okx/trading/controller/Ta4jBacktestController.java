@@ -15,6 +15,7 @@ import com.okx.trading.service.MarketDataService;
 import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.service.DeepSeekApiService;
 import com.okx.trading.service.DynamicStrategyService;
+import com.okx.trading.service.StrategyConversationService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
 import com.okx.trading.ta4j.strategy.StrategyFactory;
 import io.swagger.annotations.Api;
@@ -55,6 +56,7 @@ public class Ta4jBacktestController {
     private final StrategyInfoService strategyInfoService;
     private final DeepSeekApiService deepSeekApiService;
     private final DynamicStrategyService dynamicStrategyService;
+    private final StrategyConversationService strategyConversationService;
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
@@ -651,8 +653,11 @@ public class Ta4jBacktestController {
         log.info("开始生成AI策略，策略描述: {}", description);
 
         try {
+            // 获取历史对话记录（暂时不传策略ID，因为策略还未创建）
+            String conversationContext = strategyConversationService.buildConversationContext(null);
+
             // 调用DeepSeek API生成完整的策略信息
-            JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description);
+            JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description, "", conversationContext);
 
             // 从AI返回的信息中提取各个字段
             String strategyName = strategyInfo.getString("strategyName");
@@ -664,9 +669,17 @@ public class Ta4jBacktestController {
             String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
             String generatedCode = strategyInfo.getString("strategyCode");
 
+            // 检查策略代码是否已存在，如果存在则添加时间戳后缀确保唯一性
+            String uniqueStrategyId = strategyId;
+            int counter = 1;
+            while (strategyInfoService.existsByStrategyCode(uniqueStrategyId)) {
+                uniqueStrategyId = strategyId + "_" + System.currentTimeMillis() + "_" + counter;
+                counter++;
+            }
+
             // 创建策略实体
             StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
-                    .strategyCode(strategyId)
+                    .strategyCode(uniqueStrategyId)
                     .strategyName(strategyName)
                     .description(strategyDescription)
                     .comments(strategyComments)
@@ -678,6 +691,16 @@ public class Ta4jBacktestController {
 
             // 保存到数据库
             StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
+
+            // 保存用户输入到对话记录
+            strategyConversationService.saveConversation(savedStrategy.getId().toString(), description, null, "USER_INPUT");
+
+            // 保存AI响应到对话记录
+            String aiResponse = String.format("策略已生成：%s\n描述：%s\n分类：%s",
+                    strategyName,
+                    strategyDescription,
+                    category);
+            strategyConversationService.saveConversation(savedStrategy.getId().toString(), null, aiResponse, "AI_RESPONSE");
 
             // 编译并动态加载策略
             dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
@@ -692,52 +715,70 @@ public class Ta4jBacktestController {
     }
 
 
-    @PutMapping("/update-strategy")
+    @PostMapping("/update-strategy")
     @ApiOperation(value = "更新策略", notes = "更新策略信息和源代码，并重新加载到系统中")
     public ApiResponse<StrategyInfoEntity> updateStrategy(
-            @Valid @RequestBody StrategyUpdateRequestDTO request) {
+            @ApiParam(value = "更新策略文字描述", required = true, example = "更新策略，提高胜率")
+            @RequestParam String description,
+            @ApiParam(value = "策略唯一ID", required = true, example = "2681")
+            @RequestParam Long id) {
 
-        log.info("开始更新策略，策略ID: {}, 策略代码: {}", request.getId(), request.getStrategyCode());
+        StrategyUpdateRequestDTO request = new StrategyUpdateRequestDTO();
+        request.setId(id);
+        request.setDescription(description);
+
+        log.info("开始更新策略，策略ID: {}", request.getId());
 
         try {
             // 查找现有策略
-            Optional<StrategyInfoEntity> existingStrategyOpt = strategyInfoService.getStrategyByCode(request.getStrategyCode());
+            Optional<StrategyInfoEntity> existingStrategyOpt = strategyInfoService.getStrategyById(request.getId());
             if (!existingStrategyOpt.isPresent()) {
-                return ApiResponse.error(404, "策略不存在: " + request.getStrategyCode());
+                return ApiResponse.error(404, "策略不存在: " + request.getId());
             }
 
             StrategyInfoEntity existingStrategy = existingStrategyOpt.get();
 
-            // 检查ID是否匹配
-            if (!existingStrategy.getId().equals(request.getId())) {
-                return ApiResponse.error(400, "策略ID不匹配");
-            }
+            // 获取历史对话记录
+            String conversationContext = strategyConversationService.buildConversationContext(existingStrategy.getId());
+
+            // 保存用户输入到对话记录
+            strategyConversationService.saveConversation(existingStrategy.getId().toString(), request.getDescription(), null, "USER_INPUT");
 
             // 调用DeepSeek API生成完整的策略信息
-            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription());
+            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription(), JSONObject.toJSONString(existingStrategy), conversationContext);
 
             // 从AI返回的信息中提取各个字段
             String aiStrategyName = strategyInfo.getString("strategyName");
             String aiCategory = strategyInfo.getString("category");
+            String aiDescription = strategyInfo.getString("description");
+            String aiComments = strategyInfo.getString("comments");
             String aiDefaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
             String aiParamsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
             String newGeneratedCode = strategyInfo.getString("strategyCode");
 
             // 更新策略信息（优先使用AI生成的信息，如果请求中有指定则使用请求中的）
-            existingStrategy.setStrategyName(request.getStrategyName() != null ? request.getStrategyName() : aiStrategyName);
-            existingStrategy.setDescription(request.getDescription());
-            existingStrategy.setCategory(request.getCategory() != null ? request.getCategory() : aiCategory);
-            existingStrategy.setParamsDesc(request.getParamsDesc() != null ? request.getParamsDesc() : aiParamsDesc);
-            existingStrategy.setDefaultParams(request.getDefaultParams() != null ? request.getDefaultParams() : aiDefaultParams);
+            existingStrategy.setDescription(aiDescription);
+            existingStrategy.setCategory(aiCategory);
+            existingStrategy.setComments(aiComments);
+            existingStrategy.setParamsDesc(aiParamsDesc);
+            existingStrategy.setDefaultParams(aiDefaultParams);
             existingStrategy.setSourceCode(newGeneratedCode);
+            existingStrategy.setUpdateTime(LocalDateTime.now());
 
             // 保存到数据库
             StrategyInfoEntity updatedStrategy = strategyInfoService.saveStrategy(existingStrategy);
 
+            // 保存AI响应到对话记录
+            String aiResponse = String.format("策略已更新：%s\n描述：%s\n分类：%s",
+                    updatedStrategy.getStrategyName(),
+                    updatedStrategy.getDescription(),
+                    updatedStrategy.getCategory());
+            strategyConversationService.saveConversation(existingStrategy.getId().toString(), null, aiResponse, "AI_RESPONSE");
+
             // 重新编译并加载策略
             dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
 
-            log.info("策略更新成功，策略代码: {}", request.getStrategyCode());
+            log.info("策略更新成功，策略代码: {}", existingStrategy.getStrategyCode());
             return ApiResponse.success(updatedStrategy);
 
         } catch (Exception e) {

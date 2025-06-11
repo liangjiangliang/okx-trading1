@@ -34,6 +34,11 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
     }
 
     @Override
+    public Optional<StrategyInfoEntity> getStrategyById(Long id) {
+        return strategyInfoRepository.findById(id);
+    }
+
+    @Override
     public List<StrategyInfoEntity> getStrategiesByCategory(String category) {
         return strategyInfoRepository.findByCategoryOrderByStrategyNameAsc(category);
     }
@@ -73,6 +78,7 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
 
         for (StrategyInfoEntity strategy : strategies) {
             Map<String, String> strategyInfo = new HashMap<>();
+            strategyInfo.put("id", String.valueOf(strategy.getId()));
             strategyInfo.put("name", strategy.getStrategyName());
             strategyInfo.put("description", strategy.getDescription());
             strategyInfo.put("comments", strategy.getComments());
@@ -85,5 +91,10 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
         }
 
         return result;
+    }
+
+    @Override
+    public boolean existsByStrategyCode(String strategyCode) {
+        return strategyInfoRepository.existsByStrategyCode(strategyCode);
     }
 }
