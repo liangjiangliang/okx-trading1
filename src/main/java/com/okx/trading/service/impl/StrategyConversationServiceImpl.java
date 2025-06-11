@@ -81,9 +81,6 @@ public class StrategyConversationServiceImpl implements StrategyConversationServ
 
             // 只显示AI响应的关键信息，避免过长
             String aiResponse = conv.getAiResponse();
-            if (aiResponse != null && aiResponse.length() > 500) {
-                aiResponse = aiResponse.substring(0, 1000) + "...[已截断]";
-            }
             context.append("AI响应: ").append(aiResponse).append("\n");
         }
 

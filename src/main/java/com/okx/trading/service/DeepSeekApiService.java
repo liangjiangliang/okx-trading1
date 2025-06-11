@@ -119,7 +119,13 @@ public class DeepSeekApiService {
         promptBuilder.append("  \"category\": \"突破策略\",\n");
         promptBuilder.append("  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n");
         promptBuilder.append("  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n");
-        promptBuilder.append("  \"strategyCode\": \"(series, params) -> { org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series); org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14); org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, series.numOf(30)); org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.OverIndicatorRule(rsi, series.numOf(70)); return new org.ta4j.core.BaseStrategy(buyRule, sellRule); }\"\n");
+        promptBuilder.append("  \"strategyCode\": \"(series, params) -> { " +
+                "org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series); \n" +
+                "org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14); \n" +
+                "org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, series.numOf(30)); \n" +
+                "org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.OverIndicatorRule(rsi, series.numOf(70)); \n" +
+                "return new org.ta4j.core.BaseStrategy(buyRule, sellRule); \n" +
+                "}\"\n");
         promptBuilder.append("}\n\n");
         promptBuilder.append("注意：绝对不要使用multipliedBy方法！成交量倍数比较应该通过创建多个SMA指标来实现，或者直接比较指标值。");
 

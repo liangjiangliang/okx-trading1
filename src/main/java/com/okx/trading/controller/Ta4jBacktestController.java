@@ -7,6 +7,7 @@ import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.StrategyInfoEntity;
+import com.okx.trading.model.entity.StrategyConversationEntity;
 import com.okx.trading.model.dto.StrategyGenerationRequestDTO;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
 import com.okx.trading.service.BacktestTradeService;
@@ -692,15 +693,14 @@ public class Ta4jBacktestController {
             // 保存到数据库
             StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
 
-            // 保存用户输入到对话记录
-            strategyConversationService.saveConversation(savedStrategy.getId().toString(), description, null, "USER_INPUT");
-
-            // 保存AI响应到对话记录
-            String aiResponse = String.format("策略已生成：%s\n描述：%s\n分类：%s",
-                    strategyName,
-                    strategyDescription,
-                    category);
-            strategyConversationService.saveConversation(savedStrategy.getId().toString(), null, aiResponse, "AI_RESPONSE");
+            // 保存完整的对话记录到strategy_conversation表
+            StrategyConversationEntity conversation = StrategyConversationEntity.builder()
+                    .strategyId(savedStrategy.getId())
+                    .userInput(description)
+                    .aiResponse(strategyInfo.toJSONString())
+                    .conversationType("generate")
+                    .build();
+            strategyConversationService.saveConversation(conversation);
 
             // 编译并动态加载策略
             dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
@@ -741,9 +741,6 @@ public class Ta4jBacktestController {
             // 获取历史对话记录
             String conversationContext = strategyConversationService.buildConversationContext(existingStrategy.getId());
 
-            // 保存用户输入到对话记录
-            strategyConversationService.saveConversation(existingStrategy.getId().toString(), request.getDescription(), null, "USER_INPUT");
-
             // 调用DeepSeek API生成完整的策略信息
             com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription(), JSONObject.toJSONString(existingStrategy), conversationContext);
 
@@ -768,12 +765,14 @@ public class Ta4jBacktestController {
             // 保存到数据库
             StrategyInfoEntity updatedStrategy = strategyInfoService.saveStrategy(existingStrategy);
 
-            // 保存AI响应到对话记录
-            String aiResponse = String.format("策略已更新：%s\n描述：%s\n分类：%s",
-                    updatedStrategy.getStrategyName(),
-                    updatedStrategy.getDescription(),
-                    updatedStrategy.getCategory());
-            strategyConversationService.saveConversation(existingStrategy.getId().toString(), null, aiResponse, "AI_RESPONSE");
+            // 保存完整的对话记录到strategy_conversation表
+            StrategyConversationEntity conversation = StrategyConversationEntity.builder()
+                    .strategyId(existingStrategy.getId())
+                    .userInput(request.getDescription())
+                    .aiResponse(strategyInfo.toJSONString())
+                    .conversationType("update")
+                    .build();
+            strategyConversationService.saveConversation(conversation);
 
             // 重新编译并加载策略
             dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
