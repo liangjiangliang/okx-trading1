@@ -90,6 +90,8 @@ public class DeepSeekApiService {
                         "     * 尽量避免helpers包或任何外部工具类\n" +
                         "   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n" +
                         "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n" +
+                        "   - 【重要】RSI等指标需要先创建ClosePriceIndicator：new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series)\n" +
+                        "   - RSI指标正确用法：new org.ta4j.core.indicators.RSIIndicator(closePrice, period)\n" +
                         "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n" +
                         "3. 只返回JSON，不要其他解释\n\n" +
                         "示例格式：\n" +
@@ -101,7 +103,7 @@ public class DeepSeekApiService {
                         "  \"category\": \"突破策略\",\n" +
                         "  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n" +
                         "  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n" +
-                        "  \"strategyCode\": \"(series, params) -> { org.ta4j.core.indicators.VolumeIndicator volume = new org.ta4j.core.indicators.VolumeIndicator(series); org.ta4j.core.indicators.SMAIndicator avgVolume = new org.ta4j.core.indicators.SMAIndicator(volume, 20); org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.OverIndicatorRule(volume, avgVolume); org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.UnderIndicatorRule(volume, avgVolume); return new org.ta4j.core.BaseStrategy(buyRule, sellRule); }\"\n" +
+                        "  \"strategyCode\": \"(series, params) -> { org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series); org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14); org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, series.numOf(30)); org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.OverIndicatorRule(rsi, series.numOf(70)); return new org.ta4j.core.BaseStrategy(buyRule, sellRule); }\"\n" +
                         "}\n\n" +
                         "注意：绝对不要使用multipliedBy方法！成交量倍数比较应该通过创建多个SMA指标来实现，或者直接比较指标值。",
                 strategyDescription
@@ -122,7 +124,7 @@ public class DeepSeekApiService {
         messages.add(message);
 
         requestBody.put("messages", messages);
-        requestBody.put("max_tokens", 2000);
+        requestBody.put("max_tokens", 4000);
         requestBody.put("temperature", 0.1);
 
         RequestBody body = RequestBody.create(

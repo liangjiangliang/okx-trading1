@@ -102,16 +102,27 @@ public class DynamicStrategyService {
             String paramsParam = paramNames.length > 1 ? paramNames[1].trim() : "params";
             
             // 移除方法体中的完全限定类名，使用简单类名
-            // 同时处理参数获取的类型转换问题
-            String cleanBody = body.replaceAll("org\\.ta4j\\.core\\.indicators\\.", "")
+            // 同时处理参数获取的类型转换问题和RSI指标的参数替换
+            String cleanBody = body.replaceAll("org\\.ta4j\\.core\\.indicators\\.helpers\\.", "")
+                                    .replaceAll("org\\.ta4j\\.core\\.indicators\\.", "")
                                     .replaceAll("org\\.ta4j\\.core\\.rules\\.", "")
                                     .replaceAll("org\\.ta4j\\.core\\.", "")
                                     .replaceAll("java\\.util\\.", "")
                                     .replaceAll("\\(Integer\\)\\s*" + paramsParam + "\\.get\\(", "getInt(" + paramsParam + ", ")
                                     .replaceAll("\\(int\\)\\s*" + paramsParam + "\\.get\\(", "getInt(" + paramsParam + ", ")
-                                    .replaceAll(paramsParam + "\\.get\\(([^)]+)\\)", "getInt(" + paramsParam + ", $1)");
+                                    .replaceAll(paramsParam + "\\.get\\(([^)]+)\\)", "getInt(" + paramsParam + ", $1)")
+                                    // 移除已有的ClosePriceIndicator定义，避免重复定义
+                                    .replaceAll("ClosePriceIndicator\\s+\\w+\\s*=\\s*new\\s+ClosePriceIndicator\\([^;]+;\\s*", "")
+                                    .replaceAll("ClosePriceIndicator\\s+closePrice\\s*=\\s*new\\s+ClosePriceIndicator\\([^;]+;\\s*", "")
+                                    // 替换需要ClosePriceIndicator的指标，使用更精确的匹配
+                                    .replaceAll("RSIIndicator\\(\\s*" + seriesParam + "\\s*,", "RSIIndicator(closePrice,")
+                                    .replaceAll("new RSIIndicator\\(\\s*" + seriesParam + "\\s*,", "new RSIIndicator(closePrice,")
+                                    .replaceAll("EMAIndicator\\(\\s*" + seriesParam + "\\s*,", "EMAIndicator(closePrice,")
+                                    .replaceAll("new EMAIndicator\\(\\s*" + seriesParam + "\\s*,", "new EMAIndicator(closePrice,")
+                                    .replaceAll("SMAIndicator\\(\\s*" + seriesParam + "\\s*,", "SMAIndicator(closePrice,")
+                                    .replaceAll("new SMAIndicator\\(\\s*" + seriesParam + "\\s*,", "new SMAIndicator(closePrice,");
              
-             // 构建apply方法，添加类型转换辅助方法
+             // 构建apply方法，添加类型转换辅助方法和ClosePriceIndicator
              methodBody = String.format(
                  "private Integer getInt(Map<String, Object> params, String key) {\n" +
                  "    Object value = params.get(key);\n" +
@@ -124,10 +135,11 @@ public class DynamicStrategyService {
                  "public Object apply(Object arg0, Object arg1) {\n" +
                  "    BarSeries %s = (BarSeries) arg0;\n" +
                  "    Map<String, Object> %s = (Map<String, Object>) arg1;\n" +
+                 "    ClosePriceIndicator closePrice = new ClosePriceIndicator(%s);\n" +
                  "    \n" +
                  "    %s\n" +
                  "}",
-                 seriesParam, paramsParam, cleanBody
+                 seriesParam, paramsParam, seriesParam, cleanBody
              );
         } else {
             // 如果不是lambda表达式，假设是完整的方法体
