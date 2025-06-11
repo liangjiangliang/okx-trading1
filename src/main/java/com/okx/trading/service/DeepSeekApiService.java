@@ -77,7 +77,7 @@ public class DeepSeekApiService {
             promptBuilder.append("以上是最新的策略信息，请基于请求继续优化。\n\n");
         }
 
-        promptBuilder.append("策略描述：").append(strategyDescription).append("\n\n");
+        promptBuilder.append("期望生成策略的描述：").append(strategyDescription).append("\n\n");
         promptBuilder.append("要求：\n");
         promptBuilder.append("1. 返回JSON格式，包含以下字段：\n");
         promptBuilder.append("   - strategyName: 策略名称（中文，简洁明了）\n");
@@ -95,6 +95,7 @@ public class DeepSeekApiService {
         promptBuilder.append("   - params参数是个空的map，直接使用默认值，不从里面拿数据\n");
         promptBuilder.append("   - 包含买入和卖出规则\n");
         promptBuilder.append("   - 代码要简洁且可编译，尽量不引入过多的类\n");
+        promptBuilder.append("   - 返回代码要格式化，换行，缩进便于阅读\n");
         promptBuilder.append("   - 导入语句请使用完整包名\n");
         promptBuilder.append("   - 使用new org.ta4j.core.BaseStrategy(buyRule, sellRule)构造策略\n");
         promptBuilder.append("   - 【重要】只能使用以下包的类：\n");
@@ -119,7 +120,7 @@ public class DeepSeekApiService {
         promptBuilder.append("  \"category\": \"突破策略\",\n");
         promptBuilder.append("  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n");
         promptBuilder.append("  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n");
-        promptBuilder.append("  \"strategyCode\": \"(series, params) -> { " +
+        promptBuilder.append("  \"strategyCode\": \"(series, params) -> { \n" +
                 "org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series); \n" +
                 "org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14); \n" +
                 "org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, series.numOf(30)); \n" +
