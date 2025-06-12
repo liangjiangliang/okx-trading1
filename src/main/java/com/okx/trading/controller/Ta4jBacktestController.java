@@ -352,7 +352,7 @@ public class Ta4jBacktestController {
                 // 首先按成功状态排序，失败的排在后面
                 boolean successA = (boolean) a.get("success");
                 boolean successB = (boolean) b.get("success");
-                
+
                 if (!successA && !successB) return 0; // 两个都失败，认为相等
                 if (!successA) return 1;  // a失败，b成功，a排后面
                 if (!successB) return -1; // a成功，b失败，a排前面
@@ -360,12 +360,12 @@ public class Ta4jBacktestController {
                 // 两个都成功，按收益率排序
                 BigDecimal returnA = (BigDecimal) a.get("total_return");
                 BigDecimal returnB = (BigDecimal) b.get("total_return");
-                
+
                 // 处理null值情况
                 if (returnA == null && returnB == null) return 0;
                 if (returnA == null) return 1;  // null值排后面
                 if (returnB == null) return -1; // null值排后面
-                
+
                 return returnB.compareTo(returnA); // 降序排列
             });
 
@@ -620,6 +620,7 @@ public class Ta4jBacktestController {
             @ApiParam(value = "策略描述", required = true, example = "基于双均线RSI组合的交易策略，使用9日和26日移动平均线交叉信号，结合RSI指标过滤信号")
             @RequestBody String description) {
 
+        description = JSONObject.parseObject(description).getString("description");
         log.info("开始生成AI策略，策略描述: {}", description);
 
         try {
