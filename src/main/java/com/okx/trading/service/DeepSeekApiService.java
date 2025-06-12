@@ -138,7 +138,8 @@ public class DeepSeekApiService {
      */
     private String callDeepSeekApi(String prompt) throws IOException {
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "deepseek-coder-2");
+        // 修复：添加必需的model参数，这是导致422错误的原因
+        requestBody.put("model", "deepseek-chat"); // deepseek-reasoner  deepseek-chat
 
         JSONArray messages = new JSONArray();
         JSONObject message = new JSONObject();
