@@ -138,7 +138,7 @@ public class DeepSeekApiService {
      */
     private String callDeepSeekApi(String prompt) throws IOException {
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "deepseek-chat");
+        requestBody.put("model", "deepseek-coder-2");
 
         JSONArray messages = new JSONArray();
         JSONObject message = new JSONObject();
