@@ -28,6 +28,12 @@ databaseChangeLog:
                     nullable: false
                   remarks: 策略名称
               - column:
+                  name: strategy_code
+                  type: varchar(150)
+                  constraints:
+                    nullable: false
+                  remarks: 策略代码
+              - column:
                   name: strategy_params
                   type: varchar(255)
                   remarks: 策略参数
@@ -125,4 +131,4 @@ databaseChangeLog:
               - column:
                   name: strategy_name
               - column:
-                  name: symbol 
+                  name: symbol

@@ -87,6 +87,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
             BacktestTradeEntity entity = BacktestTradeEntity.builder()
                     .backtestId(backtestId)
                     .strategyName(backtestResult.getStrategyName())
+                    .strategyCode(backtestResult.getStrategyCode())
                     .strategyParams(strategyParams)
                     .index(trade.getIndex())
                     .type(trade.getType())
@@ -123,7 +124,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                                                    String backtestId) {
         return saveBacktestSummary(backtestResult, strategyParams, symbol, interval, startTime, endTime, backtestId, null);
     }
-    
+
     @Override
     @Transactional
     public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
@@ -149,6 +150,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .backtestId(backtestId)
                 .batchBacktestId(batchBacktestId)
                 .strategyName(backtestResult.getStrategyName())
+                .strategyCode(backtestResult.getStrategyCode())
                 .strategyParams(strategyParams)
                 .symbol(symbol)
                 .intervalVal(interval)
@@ -231,7 +233,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     public List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol) {
         return backtestSummaryRepository.findBestPerformingBacktests(strategyName, symbol);
     }
-    
+
     @Override
     public List<BacktestSummaryEntity> getBacktestSummariesByBatchId(String batchBacktestId) {
         return backtestSummaryRepository.findByBatchBacktestIdOrderByTotalReturnDesc(batchBacktestId);

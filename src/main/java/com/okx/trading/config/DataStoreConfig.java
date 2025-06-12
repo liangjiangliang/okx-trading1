@@ -12,11 +12,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  */
 @Configuration
 @EnableTransactionManagement
-@EntityScan(basePackages = "com.okx.trading.model.entity")
-@EnableJpaRepositories(basePackages = "com.okx.trading.repository")
+@EntityScan(basePackages = {"com.okx.trading.model.entity"})
+@EnableJpaRepositories(basePackages = {"com.okx.trading.repository"})
 @EnableRedisRepositories(basePackages = "com.okx.trading.repository.redis")
 public class DataStoreConfig {
-    
+
     // 如果有特定的Redis或JPA配置，可以在这里添加
-    
-} 
+
+}

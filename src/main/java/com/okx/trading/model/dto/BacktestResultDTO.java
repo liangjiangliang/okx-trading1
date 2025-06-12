@@ -88,6 +88,8 @@ public class BacktestResultDTO {
      */
     private String strategyName;
 
+    private String strategyCode;
+
     /**
      * 参数描述
      */

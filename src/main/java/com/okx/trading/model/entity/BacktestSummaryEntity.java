@@ -45,6 +45,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private String strategyName;
 
     /**
+     * 策略名称
+     */
+    @Column(name = "strategy_code", nullable = false)
+    private String strategyCode;
+
+    /**
      * 策略参数
      */
     @Column(name = "strategy_params")

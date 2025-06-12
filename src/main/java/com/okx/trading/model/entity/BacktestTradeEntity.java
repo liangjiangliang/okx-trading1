@@ -1,6 +1,7 @@
 package com.okx.trading.model.entity;
 
 import javax.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,6 +37,9 @@ public class BacktestTradeEntity {
      */
     @Column(name = "strategy_name", nullable = false)
     private String strategyName;
+
+    @Column(name = "strategy_code", nullable = false)
+    private String strategyCode;
 
     /**
      * 策略参数
@@ -156,29 +160,30 @@ public class BacktestTradeEntity {
      */
     @Column(name = "create_time")
     private LocalDateTime createTime;
-    
+
     @PrePersist
     public void prePersist() {
         this.createTime = LocalDateTime.now();
     }
-    
+
     // 添加Lombok未生成的基本getter和setter方法
     public String getBacktestId() {
         return backtestId;
     }
-    
+
     public void setBacktestId(String backtestId) {
         this.backtestId = backtestId;
     }
-    
+
     public static BacktestTradeEntityBuilder builder() {
         return new BacktestTradeEntityBuilder();
     }
-    
+
     public static class BacktestTradeEntityBuilder {
         private Long id;
         private String backtestId;
         private String strategyName;
+        private String strategyCode;
         private String strategyParams;
         private Integer index;
         private String type;
@@ -199,130 +204,135 @@ public class BacktestTradeEntity {
         private BigDecimal fee;
         private String remark;
         private LocalDateTime createTime;
-        
+
         BacktestTradeEntityBuilder() {
         }
-        
+
         public BacktestTradeEntityBuilder id(Long id) {
             this.id = id;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder backtestId(String backtestId) {
             this.backtestId = backtestId;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder strategyName(String strategyName) {
             this.strategyName = strategyName;
             return this;
         }
-        
+
+        public BacktestTradeEntityBuilder strategyCode(String strategyCode) {
+            this.strategyCode = strategyCode;
+            return this;
+        }
+
         public BacktestTradeEntityBuilder strategyParams(String strategyParams) {
             this.strategyParams = strategyParams;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder index(Integer index) {
             this.index = index;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder type(String type) {
             this.type = type;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder symbol(String symbol) {
             this.symbol = symbol;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder entryTime(LocalDateTime entryTime) {
             this.entryTime = entryTime;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder entryPrice(BigDecimal entryPrice) {
             this.entryPrice = entryPrice;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder entryAmount(BigDecimal entryAmount) {
             this.entryAmount = entryAmount;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder entryPositionPercentage(BigDecimal entryPositionPercentage) {
             this.entryPositionPercentage = entryPositionPercentage;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder exitTime(LocalDateTime exitTime) {
             this.exitTime = exitTime;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder exitPrice(BigDecimal exitPrice) {
             this.exitPrice = exitPrice;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder exitAmount(BigDecimal exitAmount) {
             this.exitAmount = exitAmount;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder profit(BigDecimal profit) {
             this.profit = profit;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder profitPercentage(BigDecimal profitPercentage) {
             this.profitPercentage = profitPercentage;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder totalAssets(BigDecimal totalAssets) {
             this.totalAssets = totalAssets;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder maxDrawdown(BigDecimal maxDrawdown) {
             this.maxDrawdown = maxDrawdown;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder closed(Boolean closed) {
             this.closed = closed;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder volume(BigDecimal volume) {
             this.volume = volume;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder fee(BigDecimal fee) {
             this.fee = fee;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder remark(String remark) {
             this.remark = remark;
             return this;
         }
-        
+
         public BacktestTradeEntityBuilder createTime(LocalDateTime createTime) {
             this.createTime = createTime;
             return this;
         }
-        
+
         public BacktestTradeEntity build() {
-            return new BacktestTradeEntity(id, backtestId, strategyName, strategyParams, index, type, symbol, 
-                                       entryTime, entryPrice, entryAmount, entryPositionPercentage, exitTime, 
-                                       exitPrice, exitAmount, profit, profitPercentage, totalAssets, maxDrawdown, 
-                                       closed, volume, fee, remark, createTime);
+            return new BacktestTradeEntity(id, backtestId, strategyName, strategyCode, strategyParams, index, type, symbol,
+                    entryTime, entryPrice, entryAmount, entryPositionPercentage, exitTime,
+                    exitPrice, exitAmount, profit, profitPercentage, totalAssets, maxDrawdown,
+                    closed, volume, fee, remark, createTime);
         }
     }
-} 
+}

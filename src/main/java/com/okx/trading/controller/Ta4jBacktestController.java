@@ -165,8 +165,13 @@ public class Ta4jBacktestController {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
 
+            StrategyInfoEntity strategy = strategyInfoService.getStrategyByCode(strategyType).get();
+
             // 执行回测
             BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams, feeRatio);
+
+            result.setStrategyName(strategy.getStrategyName());
+            result.setStrategyCode(strategy.getStrategyCode());
 
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {
@@ -344,11 +349,23 @@ public class Ta4jBacktestController {
 
             // 按收益率排序结果
             allResults.sort((a, b) -> {
-                if (!(boolean) a.get("success")) return 1;
-                if (!(boolean) b.get("success")) return -1;
+                // 首先按成功状态排序，失败的排在后面
+                boolean successA = (boolean) a.get("success");
+                boolean successB = (boolean) b.get("success");
+                
+                if (!successA && !successB) return 0; // 两个都失败，认为相等
+                if (!successA) return 1;  // a失败，b成功，a排后面
+                if (!successB) return -1; // a成功，b失败，a排前面
 
+                // 两个都成功，按收益率排序
                 BigDecimal returnA = (BigDecimal) a.get("total_return");
                 BigDecimal returnB = (BigDecimal) b.get("total_return");
+                
+                // 处理null值情况
+                if (returnA == null && returnB == null) return 0;
+                if (returnA == null) return 1;  // null值排后面
+                if (returnB == null) return -1; // null值排后面
+                
                 return returnB.compareTo(returnA); // 降序排列
             });
 
@@ -595,54 +612,6 @@ public class Ta4jBacktestController {
             log.error("获取批量回测统计信息出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取批量回测统计信息出错: " + e.getMessage());
         }
-    }
-
-    /**
-     * 清理策略描述，去除异常字符，只保留中文内容
-     */
-    private String cleanDescription(String description) {
-        if (description == null || description.isEmpty()) {
-            return "";
-        }
-
-        // 去除首尾的双引号
-        if (description.startsWith("\"") && description.endsWith("\"")) {
-            description = description.substring(1, description.length() - 1);
-        }
-
-        // 去除反斜杠
-        description = description.replace("\\", "");
-
-        // 去除多余空格并规范化空格
-        description = description.trim().replaceAll("\\s+", " ");
-
-        log.info("预处理后描述: {}", description);
-
-        // 只保留中文、数字、字母和基本标点
-        StringBuilder sb = new StringBuilder();
-        for (char c : description.toCharArray()) {
-            // 中文字符范围
-            boolean isChinese = (c >= '\u4e00' && c <= '\u9fff') ||
-                    (c >= '\u3400' && c <= '\u4dbf');
-            // 常用中文标点
-            boolean isChinesePunctuation = (c >= '\u3000' && c <= '\u303f') ||
-                    (c >= '\uff00' && c <= '\uffef');
-            // 数字和字母
-            boolean isAlphaNumeric = Character.isLetterOrDigit(c);
-            // 常用英文标点
-            boolean isCommonPunctuation = ",.!?，。！？、；：（）【】《》".indexOf(c) >= 0;
-            // 空格
-            boolean isSpace = (c == ' ');
-
-            if (isChinese || isChinesePunctuation || isAlphaNumeric || isCommonPunctuation || isSpace) {
-                sb.append(c);
-            }
-        }
-
-        String result = sb.toString().trim();
-        log.info("清理后描述: {}", result);
-
-        return result;
     }
 
     @PostMapping("/generate-strategy")
