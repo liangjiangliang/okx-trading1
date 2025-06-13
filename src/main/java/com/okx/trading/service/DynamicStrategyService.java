@@ -63,7 +63,8 @@ public class DynamicStrategyService {
     @SuppressWarnings("unchecked")
     private Function<BarSeries, Strategy> compileStrategyCode(String strategyCode) throws Exception {
         // 检查是否是完整的类定义
-        if (strategyCode.trim().startsWith("public class") && strategyCode.contains("implements org.ta4j.core.Strategy")) {
+        if (strategyCode.trim().startsWith("public class") && 
+            (strategyCode.contains("implements org.ta4j.core.Strategy") || strategyCode.contains("implements Strategy"))) {
             // 编译完整的Strategy类
             return compileStrategyClass(strategyCode);
         } else {

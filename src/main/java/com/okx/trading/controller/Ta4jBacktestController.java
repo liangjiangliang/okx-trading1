@@ -8,7 +8,6 @@ import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.entity.StrategyConversationEntity;
-import com.okx.trading.model.dto.StrategyGenerationRequestDTO;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
@@ -18,14 +17,12 @@ import com.okx.trading.service.DeepSeekApiService;
 import com.okx.trading.service.DynamicStrategyService;
 import com.okx.trading.service.StrategyConversationService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
-import com.okx.trading.ta4j.strategy.StrategyFactory;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -36,8 +33,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.math.RoundingMode;
-
-import javax.validation.Valid;
 
 /**
  * Ta4j回测控制器
@@ -615,72 +610,132 @@ public class Ta4jBacktestController {
     }
 
     @PostMapping("/generate-strategy")
-    @ApiOperation(value = "生成AI策略", notes = "通过DeepSeek API根据策略描述生成完整的交易策略信息并保存到数据库")
-    public ApiResponse<StrategyInfoEntity> generateStrategy(
-            @ApiParam(value = "策略描述", required = true, example = "基于双均线RSI组合的交易策略，使用9日和26日移动平均线交叉信号，结合RSI指标过滤信号")
-            @RequestBody String description) {
+    @ApiOperation(value = "批量生成AI策略", notes = "通过DeepSeek API根据策略描述生成完整的交易策略信息并保存到数据库，支持批量生成，每行一个策略描述，AI一次性返回所有策略")
+    public ApiResponse<List<StrategyInfoEntity>> generateStrategy(
+            @ApiParam(value = "策略描述，支持多行，每行一个策略描述", required = true,
+                    example = "基于双均线RSI组合的交易策略，使用9日和26日移动平均线交叉信号，结合RSI指标过滤信号\n基于MACD和布林带的组合策略\n基于KDJ指标的超买超卖策略")
+            @RequestBody String descriptions) {
 
-        log.info("开始生成AI策略，策略描述: {}", description);
-        JSONObject strategyInfo = new JSONObject();
+        log.info("开始批量生成AI策略，策略描述: {}", descriptions);
+
+        // 按行分割策略描述
+        String[] descriptionLines = descriptions.split("\n");
+        // 过滤空行
+        List<String> validDescriptions = new ArrayList<>();
+        for (String desc : descriptionLines) {
+            String trimmed = desc.trim();
+            if (!trimmed.isEmpty()) {
+                validDescriptions.add(trimmed);
+            }
+        }
+
+        if (validDescriptions.isEmpty()) {
+            return ApiResponse.error(400, "策略描述不能为空");
+        }
+
+        List<StrategyInfoEntity> generatedStrategies = new ArrayList<>();
+        List<String> errorMessages = new ArrayList<>();
+
         try {
-            // 获取历史对话记录（暂时不传策略ID，因为策略还未创建）
-            String conversationContext = strategyConversationService.buildConversationContext(null);
 
-            // 调用DeepSeek API生成完整的策略信息
-            strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description, "", conversationContext);
+            // 一次性调用AI生成所有策略
+            log.info("调用AI一次性生成{}个策略", validDescriptions.size());
+            com.alibaba.fastjson.JSONArray batchStrategyInfos = deepSeekApiService.generateBatchCompleteStrategyInfo(validDescriptions.toArray(new String[0]));
 
-            // 从AI返回的信息中提取各个字段
-            String strategyName = strategyInfo.getString("strategyName");
-            String strategyId = strategyInfo.getString("strategyId");
-            String strategyDescription = strategyInfo.getString("description");
-            String strategyComments = strategyInfo.getString("comments");
-            String category = strategyInfo.getString("category");
-            String paramsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
-            String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
-            String generatedCode = strategyInfo.getString("strategyCode");
-
-            // 检查策略代码是否已存在，如果存在则添加时间戳后缀确保唯一性
-            String uniqueStrategyId = strategyId;
-            int counter = 1;
-            while (strategyInfoService.existsByStrategyCode(uniqueStrategyId)) {
-                uniqueStrategyId = strategyId + "_" + System.currentTimeMillis() + "_" + counter;
-                counter++;
+            if (batchStrategyInfos == null || batchStrategyInfos.size() == 0) {
+                return ApiResponse.error(500, "AI未返回任何策略信息");
             }
 
-            // 创建策略实体
-            StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
-                    .strategyCode(uniqueStrategyId)
-                    .strategyName(strategyName)
-                    .description(strategyDescription)
-                    .comments(strategyComments)
-                    .category(category)
-                    .paramsDesc(paramsDesc)
-                    .defaultParams(defaultParams)
-                    .sourceCode(generatedCode)
-                    .build();
+            log.info("AI返回了{}个策略信息，开始处理", batchStrategyInfos.size());
 
-            // 保存到数据库
-            StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
+            // 处理每个策略信息
+            for (int i = 0; i < batchStrategyInfos.size(); i++) {
+                try {
+                    JSONObject strategyInfo = batchStrategyInfos.getJSONObject(i);
+                    String originalDescription = i < validDescriptions.size() ? validDescriptions.get(i) : "未知描述";
 
-            // 保存完整的对话记录到strategy_conversation表
-            StrategyConversationEntity conversation = StrategyConversationEntity.builder()
-                    .strategyId(savedStrategy.getId())
-                    .userInput(description)
-                    .aiResponse(strategyInfo.toJSONString())
-                    .conversationType("generate")
-                    .build();
-            strategyConversationService.saveConversation(conversation);
+                    // 从AI返回的信息中提取各个字段
+                    String strategyName = strategyInfo.getString("strategyName");
+                    String strategyId = strategyInfo.getString("strategyId");
+                    String strategyDescription = strategyInfo.getString("description");
+                    String strategyComments = strategyInfo.getString("comments");
+                    String category = strategyInfo.getString("category");
+                    String paramsDesc = strategyInfo.getJSONObject("paramsDesc").toJSONString();
+                    String defaultParams = strategyInfo.getJSONObject("defaultParams").toJSONString();
+                    String generatedCode = strategyInfo.getString("strategyCode");
 
-            // 编译并动态加载策略
-            dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
+                    // 检查策略代码是否已存在，如果存在则添加时间戳后缀确保唯一性
+                    String uniqueStrategyId = strategyId;
+                    int counter = 1;
+                    while (strategyInfoService.existsByStrategyCode(uniqueStrategyId)) {
+                        uniqueStrategyId = strategyId + "_" + System.currentTimeMillis() + "_" + counter;
+                        counter++;
+                    }
 
-            log.info("AI策略生成成功，策略代码: {}, 策略名称: {}", strategyId, strategyName);
-            return ApiResponse.success(savedStrategy);
+                    // 创建策略实体
+                    StrategyInfoEntity strategyEntity = StrategyInfoEntity.builder()
+                            .strategyCode(uniqueStrategyId)
+                            .strategyName(strategyName)
+                            .description(strategyDescription)
+                            .comments(strategyComments)
+                            .category(category)
+                            .paramsDesc(paramsDesc)
+                            .defaultParams(defaultParams)
+                            .sourceCode(generatedCode)
+                            .build();
+
+                    // 保存到数据库
+                    StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
+
+                    // 保存完整的对话记录到strategy_conversation表
+                    StrategyConversationEntity conversation = StrategyConversationEntity.builder()
+                            .strategyId(savedStrategy.getId())
+                            .userInput(originalDescription)
+                            .aiResponse(strategyInfo.toJSONString())
+                            .conversationType("generate")
+                            .build();
+                    strategyConversationService.saveConversation(conversation);
+
+                    // 编译并动态加载策略
+                    dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
+
+                    generatedStrategies.add(savedStrategy);
+                    log.info("第{}个AI策略生成成功，策略代码: {}, 策略名称: {}", i + 1, uniqueStrategyId, strategyName);
+
+                } catch (Exception e) {
+                    String originalDescription = i < validDescriptions.size() ? validDescriptions.get(i) : "未知描述";
+                    String errorMsg = String.format("第%d个策略处理失败: %s, 描述: %s", i + 1, e.getMessage(), originalDescription);
+                    log.error(errorMsg, e);
+                    errorMessages.add(errorMsg);
+
+                    // 创建一个错误的策略实体用于返回
+                    StrategyInfoEntity errorStrategy = StrategyInfoEntity.builder()
+                            .strategyCode("ERROR_" + (i + 1))
+                            .strategyName("生成失败")
+                            .description(originalDescription)
+                            .comments("生成失败: " + e.getMessage())
+                            .category("错误")
+                            .paramsDesc("{}")
+                            .defaultParams("{}")
+                            .sourceCode("// 生成失败")
+                            .build();
+                    generatedStrategies.add(errorStrategy);
+                }
+            }
 
         } catch (Exception e) {
-            log.error("生成AI策略失败: {}", e.getMessage(), e);
-            return ApiResponse.error(500, "生成AI策略失败: , " + e.getMessage() + "\n调用DeepSeek返回信息: " + strategyInfo);
+            log.error("批量生成策略失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "批量生成策略失败: " + e.getMessage());
         }
+
+        log.info("批量策略生成完成，成功: {}, 失败: {}",
+                generatedStrategies.size() - errorMessages.size(), errorMessages.size());
+
+        if (!errorMessages.isEmpty()) {
+            log.warn("部分策略生成失败: {}", String.join("; ", errorMessages));
+        }
+
+        return ApiResponse.success(generatedStrategies);
     }
 
 
@@ -711,7 +766,7 @@ public class Ta4jBacktestController {
             String conversationContext = strategyConversationService.buildConversationContext(existingStrategy.getId());
 
             // 调用DeepSeek API生成完整的策略信息
-            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(request.getDescription(), JSONObject.toJSONString(existingStrategy), conversationContext);
+            com.alibaba.fastjson.JSONObject strategyInfo = deepSeekApiService.updateStrategyInfo(request.getDescription(), JSONObject.toJSONString(existingStrategy), conversationContext);
 
             // 从AI返回的信息中提取各个字段
             String aiStrategyName = strategyInfo.getString("strategyName");
