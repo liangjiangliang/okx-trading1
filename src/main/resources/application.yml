@@ -115,8 +115,8 @@ logging:
   level:
     root: INFO
     com.okx.trading: INFO
-    org.hibernate.SQL: ERROR
-    org.hibernate.type.descriptor.sql.BasicBinder: ERROR
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
     okhttp3.OkHttpClient: ERROR
     okhttp3.logging.HttpLoggingInterceptor: ERROR
 

@@ -3,6 +3,7 @@ package com.okx.trading.ta4j.strategy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public class StrategyFactory {
 
 
     // 策略创建函数映射
-    private static final Map<String, BiFunction<BarSeries, Map<String, Object>, Strategy>> strategyCreators = new HashMap<>();
+    private static final Map<String, Function<BarSeries,  Strategy>> strategyCreators = new HashMap<>();
 
     static {
         // 注册所有策略创建函数
@@ -134,8 +135,8 @@ public class StrategyFactory {
      * @param params       策略参数
      * @return 策略对象
      */
-    public static Strategy createStrategy(BarSeries series, String strategyType, Map<String, Object> params) {
-        BiFunction<BarSeries, Map<String, Object>, Strategy> strategyCreator = strategyCreators.get(strategyType);
+    public static Strategy createStrategy(BarSeries series, String strategyType) {
+        Function<BarSeries, Strategy> strategyCreator = strategyCreators.get(strategyType);
 
         if (strategyCreator == null) {
             throw new IllegalArgumentException("不支持的策略类型: " + strategyType);
@@ -145,15 +146,15 @@ public class StrategyFactory {
             throw new IllegalArgumentException("K线数据不能为空");
         }
 
-        return strategyCreator.apply(series, params);
+        return strategyCreator.apply(series);
     }
 
     /**
      * 创建SMA交叉策略
      */
-    private static Strategy createSMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createSMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
@@ -175,9 +176,9 @@ public class StrategyFactory {
     /**
      * 创建布林带策略
      */
-    private static Strategy createBollingerBandsStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 20);
-        double multiplier = (double) params.getOrDefault("deviation", 2.0);
+    private static Strategy createBollingerBandsStrategy(BarSeries series) {
+        int period = (int) ( 20);
+        double multiplier = (double) ( 2.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -203,10 +204,10 @@ public class StrategyFactory {
     /**
      * 创建MACD策略
      */
-    private static Strategy createMACDStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 12);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+    private static Strategy createMACDStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 12);
+        int longPeriod = (int) ( 26);
+        int signalPeriod = (int) ( 9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -230,10 +231,10 @@ public class StrategyFactory {
     /**
      * 创建RSI策略
      */
-    private static Strategy createRSIStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        int oversold = (int) params.getOrDefault("oversold", 30);
-        int overbought = (int) params.getOrDefault("overbought", 70);
+    private static Strategy createRSIStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        int oversold = (int) ( 30);
+        int overbought = (int) ( 70);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -254,12 +255,12 @@ public class StrategyFactory {
     /**
      * 创建随机指标策略
      */
-    private static Strategy createStochasticStrategy(BarSeries series, Map<String, Object> params) {
-        int kPeriod = (int) params.getOrDefault("kPeriod", 14);
-        int kSmooth = (int) params.getOrDefault("kSmooth", 3);
-        int dSmooth = (int) params.getOrDefault("dSmooth", 3);
-        int oversold = (int) params.getOrDefault("oversold", 20);
-        int overbought = (int) params.getOrDefault("overbought", 80);
+    private static Strategy createStochasticStrategy(BarSeries series) {
+        int kPeriod = (int) ( 14);
+        int kSmooth = (int) ( 3);
+        int dSmooth = (int) ( 3);
+        int oversold = (int) ( 20);
+        int overbought = (int) ( 80);
 
         if (series.getBarCount() <= kPeriod + kSmooth + dSmooth) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -282,10 +283,10 @@ public class StrategyFactory {
     /**
      * 创建ADX策略
      */
-    private static Strategy createADXStrategy(BarSeries series, Map<String, Object> params) {
-        int adxPeriod = (int) params.getOrDefault("adxPeriod", 14);
-        int diPeriod = (int) params.getOrDefault("diPeriod", 14);
-        int threshold = (int) params.getOrDefault("threshold", 25);
+    private static Strategy createADXStrategy(BarSeries series) {
+        int adxPeriod = (int) ( 14);
+        int diPeriod = (int) ( 14);
+        int threshold = (int) ( 25);
 
         if (series.getBarCount() <= Math.max(adxPeriod, diPeriod) + 1) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -315,10 +316,10 @@ public class StrategyFactory {
     /**
      * 创建CCI策略
      */
-    private static Strategy createCCIStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 20);
-        int oversold = (int) params.getOrDefault("oversold", -100);
-        int overbought = (int) params.getOrDefault("overbought", 100);
+    private static Strategy createCCIStrategy(BarSeries series) {
+        int period = (int) ( 20);
+        int oversold = (int) ( -100);
+        int overbought = (int) ( 100);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -337,10 +338,10 @@ public class StrategyFactory {
     /**
      * 创建威廉指标策略
      */
-    private static Strategy createWilliamsRStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        int oversold = (int) params.getOrDefault("oversold", -80);
-        int overbought = (int) params.getOrDefault("overbought", -20);
+    private static Strategy createWilliamsRStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        int oversold = (int) ( -80);
+        int overbought = (int) ( -20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -359,10 +360,10 @@ public class StrategyFactory {
     /**
      * 创建三重EMA策略
      */
-    private static Strategy createTripleEMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 5);
-        int middlePeriod = (int) params.getOrDefault("middlePeriod", 10);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 20);
+    private static Strategy createTripleEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 5);
+        int middlePeriod = (int) ( 10);
+        int longPeriod = (int) ( 20);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -388,10 +389,10 @@ public class StrategyFactory {
     /**
      * 创建一目均衡表策略
      */
-    private static Strategy createIchimokuStrategy(BarSeries series, Map<String, Object> params) {
-        int conversionPeriod = (int) params.getOrDefault("conversionPeriod", 9);
-        int basePeriod = (int) params.getOrDefault("basePeriod", 26);
-        int laggingSpan = (int) params.getOrDefault("laggingSpan", 52);
+    private static Strategy createIchimokuStrategy(BarSeries series) {
+        int conversionPeriod = (int) ( 9);
+        int basePeriod = (int) ( 26);
+        int laggingSpan = (int) ( 52);
 
         if (series.getBarCount() <= laggingSpan) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -424,9 +425,9 @@ public class StrategyFactory {
     /**
      * 创建EMA策略
      */
-    private static Strategy createEMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -448,9 +449,9 @@ public class StrategyFactory {
     /**
      * 创建WMA策略 (加权移动平均线)
      */
-    private static Strategy createWMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createWMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -472,9 +473,9 @@ public class StrategyFactory {
     /**
      * 创建HMA策略 (Hull移动平均线)
      */
-    private static Strategy createHMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createHMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -496,10 +497,10 @@ public class StrategyFactory {
     /**
      * 创建KAMA策略 (考夫曼自适应移动平均线)
      */
-    private static Strategy createKAMAStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 10);
-        int fastEMA = (int) params.getOrDefault("fastEMA", 2);
-        int slowEMA = (int) params.getOrDefault("slowEMA", 30);
+    private static Strategy createKAMAStrategy(BarSeries series) {
+        int period = (int) ( 10);
+        int fastEMA = (int) ( 2);
+        int slowEMA = (int) ( 30);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -521,9 +522,9 @@ public class StrategyFactory {
     /**
      * 创建ZLEMA策略 (零滞后指数移动平均线)
      */
-    private static Strategy createZLEMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createZLEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -545,9 +546,9 @@ public class StrategyFactory {
     /**
      * 创建DEMA策略 (双重指数移动平均线)
      */
-    private static Strategy createDEMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createDEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -569,9 +570,9 @@ public class StrategyFactory {
     /**
      * 创建TEMA策略 (三重指数移动平均线)
      */
-    private static Strategy createTEMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
+    private static Strategy createTEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -594,13 +595,13 @@ public class StrategyFactory {
     /**
      * 创建随机RSI策略
      */
-    private static Strategy createStochasticRSIStrategy(BarSeries series, Map<String, Object> params) {
-        int rsiPeriod = (int) params.getOrDefault("rsiPeriod", 14);
-        int stochasticPeriod = (int) params.getOrDefault("stochasticPeriod", 14);
-        int kPeriod = (int) params.getOrDefault("kPeriod", 3);
-        int dPeriod = (int) params.getOrDefault("dPeriod", 3);
-        int overbought = (int) params.getOrDefault("overbought", 80);
-        int oversold = (int) params.getOrDefault("oversold", 20);
+    private static Strategy createStochasticRSIStrategy(BarSeries series) {
+        int rsiPeriod = (int) ( 14);
+        int stochasticPeriod = (int) ( 14);
+        int kPeriod = (int) ( 3);
+        int dPeriod = (int) ( 3);
+        int overbought = (int) ( 80);
+        int oversold = (int) ( 20);
 
         if (series.getBarCount() <= rsiPeriod + stochasticPeriod + kPeriod + dPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -625,10 +626,10 @@ public class StrategyFactory {
     /**
      * 创建CMO策略 (钱德动量震荡指标)
      */
-    private static Strategy createCMOStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        int overbought = (int) params.getOrDefault("overbought", 50);
-        int oversold = (int) params.getOrDefault("oversold", -50);
+    private static Strategy createCMOStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        int overbought = (int) ( 50);
+        int oversold = (int) ( -50);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -647,9 +648,9 @@ public class StrategyFactory {
     /**
      * 创建ROC策略 (变动率指标)
      */
-    private static Strategy createROCStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 12);
-        double threshold = (double) params.getOrDefault("threshold", 0.0);
+    private static Strategy createROCStrategy(BarSeries series) {
+        int period = (int) ( 12);
+        double threshold = (double) ( 0.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -668,10 +669,10 @@ public class StrategyFactory {
     /**
      * 创建PPO策略 (百分比价格震荡指标)
      */
-    private static Strategy createPPOStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 12);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+    private static Strategy createPPOStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 12);
+        int longPeriod = (int) ( 26);
+        int signalPeriod = (int) ( 9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -691,8 +692,8 @@ public class StrategyFactory {
     /**
      * 创建DPO策略 (区间震荡指标)
      */
-    private static Strategy createDPOStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 20);
+    private static Strategy createDPOStrategy(BarSeries series) {
+        int period = (int) ( 20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -711,8 +712,8 @@ public class StrategyFactory {
     /**
      * 创建Aroon策略
      */
-    private static Strategy createAroonStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 25);
+    private static Strategy createAroonStrategy(BarSeries series) {
+        int period = (int) ( 25);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -731,10 +732,10 @@ public class StrategyFactory {
     /**
      * 创建DMA策略 (差异移动平均线)
      */
-    private static Strategy createDMAStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 10);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 50);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 10);
+    private static Strategy createDMAStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 10);
+        int longPeriod = (int) ( 50);
+        int signalPeriod = (int) ( 10);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -759,9 +760,9 @@ public class StrategyFactory {
     /**
      * 创建溃疡指数策略
      */
-    private static Strategy createUlcerIndexStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        double threshold = (double) params.getOrDefault("threshold", 5.0);
+    private static Strategy createUlcerIndexStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        double threshold = (double) ( 5.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -780,8 +781,8 @@ public class StrategyFactory {
     /**
      * 创建OBV策略 (能量潮指标)
      */
-    private static Strategy createOBVStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 20);
+    private static Strategy createOBVStrategy(BarSeries series) {
+        int period = (int) ( 20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -800,10 +801,10 @@ public class StrategyFactory {
     /**
      * 创建质量指数策略
      */
-    private static Strategy createMassIndexStrategy(BarSeries series, Map<String, Object> params) {
-        int emaPeriod = (int) params.getOrDefault("emaPeriod", 9);
-        int massIndexPeriod = (int) params.getOrDefault("massIndexPeriod", 25);
-        double threshold = (double) params.getOrDefault("threshold", 27.0);
+    private static Strategy createMassIndexStrategy(BarSeries series) {
+        int emaPeriod = (int) ( 9);
+        int massIndexPeriod = (int) ( 25);
+        double threshold = (double) ( 27.0);
 
         if (series.getBarCount() <= emaPeriod * 2 + massIndexPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -821,8 +822,8 @@ public class StrategyFactory {
     /**
      * 创建十字星策略
      */
-    private static Strategy createDojiStrategy(BarSeries series, Map<String, Object> params) {
-        double tolerance = (double) params.getOrDefault("tolerance", 0.05);
+    private static Strategy createDojiStrategy(BarSeries series) {
+        double tolerance = (double) ( 0.05);
 
         DojiIndicator doji = new DojiIndicator(series, 10, tolerance);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -840,7 +841,7 @@ public class StrategyFactory {
     /**
      * 创建看涨吞没策略
      */
-    private static Strategy createBullishEngulfingStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createBullishEngulfingStrategy(BarSeries series) {
         BullishEngulfingIndicator bullishEngulfing = new BullishEngulfingIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -857,7 +858,7 @@ public class StrategyFactory {
     /**
      * 创建看跌吞没策略
      */
-    private static Strategy createBearishEngulfingStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createBearishEngulfingStrategy(BarSeries series) {
         BearishEngulfingIndicator bearishEngulfing = new BearishEngulfingIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -874,7 +875,7 @@ public class StrategyFactory {
     /**
      * 创建看涨孕线策略
      */
-    private static Strategy createBullishHaramiStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createBullishHaramiStrategy(BarSeries series) {
         BullishHaramiIndicator bullishHarami = new BullishHaramiIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -891,7 +892,7 @@ public class StrategyFactory {
     /**
      * 创建看跌孕线策略
      */
-    private static Strategy createBearishHaramiStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createBearishHaramiStrategy(BarSeries series) {
         BearishHaramiIndicator bearishHarami = new BearishHaramiIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -908,7 +909,7 @@ public class StrategyFactory {
     /**
      * 创建三白兵策略
      */
-    private static Strategy createThreeWhiteSoldiersStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createThreeWhiteSoldiersStrategy(BarSeries series) {
         ThreeWhiteSoldiersIndicator threeWhiteSoldiers = new ThreeWhiteSoldiersIndicator(series, 5, DecimalNum.valueOf(0.3));
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -923,7 +924,7 @@ public class StrategyFactory {
     /**
      * 创建三黑乌鸦策略
      */
-    private static Strategy createThreeBlackCrowsStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createThreeBlackCrowsStrategy(BarSeries series) {
         ThreeBlackCrowsIndicator threeBlackCrows = new ThreeBlackCrowsIndicator(series, 5, 0.3);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -938,9 +939,9 @@ public class StrategyFactory {
     /**
      * 创建双推策略
      */
-    private static Strategy createDoublePushStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 5);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 20);
+    private static Strategy createDoublePushStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 5);
+        int longPeriod = (int) ( 20);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -964,9 +965,9 @@ public class StrategyFactory {
     /**
      * 创建海龟交易策略
      */
-    private static Strategy createTurtleTradingStrategy(BarSeries series, Map<String, Object> params) {
-        int entryPeriod = (int) params.getOrDefault("entryPeriod", 20);
-        int exitPeriod = (int) params.getOrDefault("exitPeriod", 10);
+    private static Strategy createTurtleTradingStrategy(BarSeries series) {
+        int entryPeriod = (int) ( 20);
+        int exitPeriod = (int) ( 10);
 
         if (series.getBarCount() <= entryPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -991,10 +992,10 @@ public class StrategyFactory {
     /**
      * 创建趋势跟踪策略
      */
-    private static Strategy createTrendFollowingStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+    private static Strategy createTrendFollowingStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 26);
+        int signalPeriod = (int) ( 9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1024,8 +1025,8 @@ public class StrategyFactory {
     /**
      * 创建突破策略
      */
-    private static Strategy createBreakoutStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 20);
+    private static Strategy createBreakoutStrategy(BarSeries series) {
+        int period = (int) ( 20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1045,9 +1046,9 @@ public class StrategyFactory {
     /**
      * 创建金叉策略
      */
-    private static Strategy createGoldenCrossStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
+    private static Strategy createGoldenCrossStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 26);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1067,9 +1068,9 @@ public class StrategyFactory {
     /**
      * 创建死叉策略
      */
-    private static Strategy createDeathCrossStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
+    private static Strategy createDeathCrossStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 26);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1090,9 +1091,9 @@ public class StrategyFactory {
     /**
      * 创建TRIX策略
      */
-    private static Strategy createTRIXStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 15);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+    private static Strategy createTRIXStrategy(BarSeries series) {
+        int period = (int) ( 15);
+        int signalPeriod = (int) ( 9);
 
         if (series.getBarCount() <= period * 3 + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1122,11 +1123,11 @@ public class StrategyFactory {
     /**
      * 创建双均线RSI策略
      */
-    private static Strategy createDualMAWithRSIStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 9);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 21);
-        int rsiPeriod = (int) params.getOrDefault("rsiPeriod", 14);
-        int rsiThreshold = (int) params.getOrDefault("rsiThreshold", 50);
+    private static Strategy createDualMAWithRSIStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
+        int rsiPeriod = (int) ( 14);
+        int rsiThreshold = (int) ( 50);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1150,9 +1151,9 @@ public class StrategyFactory {
     /**
      * 创建抛物线SAR策略
      */
-    private static Strategy createParabolicSARStrategy(BarSeries series, Map<String, Object> params) {
-        double step = (double) params.getOrDefault("step", 0.02);
-        double max = (double) params.getOrDefault("max", 0.2);
+    private static Strategy createParabolicSARStrategy(BarSeries series) {
+        double step = (double) ( 0.02);
+        double max = (double) ( 0.2);
 
         if (series.getBarCount() <= 2) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1172,10 +1173,10 @@ public class StrategyFactory {
     /**
      * 创建吊灯线退出策略
      */
-    private static Strategy createChandelierExitStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createChandelierExitStrategy(BarSeries series) {
         // 确保period参数至少为1，避免TimePeriod为null的错误
-        int period = Math.max(1, (int) params.getOrDefault("period", 22));
-        double multiplier = (double) params.getOrDefault("multiplier", 3.0);
+        int period = Math.max(1, (int) ( 22));
+        double multiplier = (double) ( 3.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1316,15 +1317,15 @@ public class StrategyFactory {
     /**
      * 创建MACD与布林带组合策略
      */
-    private static Strategy createMACDWithBollingerStrategy(BarSeries series, Map<String, Object> params) {
+    private static Strategy createMACDWithBollingerStrategy(BarSeries series) {
         // 获取MACD相关参数
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 12);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 26);
-        int signalPeriod = (int) params.getOrDefault("signalPeriod", 9);
+        int shortPeriod = (int) ( 12);
+        int longPeriod = (int) ( 26);
+        int signalPeriod = (int) ( 9);
 
         // 获取布林带相关参数
-        int bollingerPeriod = (int) params.getOrDefault("bollingerPeriod", 20);
-        double bollingerDeviation = (double) params.getOrDefault("bollingerDeviation", 2.0);
+        int bollingerPeriod = (int) ( 20);
+        double bollingerDeviation = (double) ( 2.0);
 
         // 验证数据点数量是否足够
         if (series.getBarCount() <= Math.max(longPeriod + signalPeriod, bollingerPeriod)) {
@@ -1360,9 +1361,9 @@ public class StrategyFactory {
     /**
      * 创建吊锤形态策略
      */
-    private static Strategy createHangingManStrategy(BarSeries series, Map<String, Object> params) {
-        double upperShadowRatio = (double) params.getOrDefault("upperShadowRatio", 0.1);
-        double lowerShadowRatio = (double) params.getOrDefault("lowerShadowRatio", 2.0);
+    private static Strategy createHangingManStrategy(BarSeries series) {
+        double upperShadowRatio = (double) ( 0.1);
+        double lowerShadowRatio = (double) ( 2.0);
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
@@ -1438,8 +1439,8 @@ public class StrategyFactory {
     /**
      * 创建VWAP策略
      */
-    private static Strategy createVWAPStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
+    private static Strategy createVWAPStrategy(BarSeries series) {
+        int period = (int) ( 14);
 
         // 创建VWAP指标
         VWAPIndicator vwap = new VWAPIndicator(series, period);
@@ -1457,10 +1458,10 @@ public class StrategyFactory {
     /**
      * 创建肯特纳通道策略
      */
-    private static Strategy createKeltnerChannelStrategy(BarSeries series, Map<String, Object> params) {
-        int emaPeriod = (int) params.getOrDefault("emaPeriod", 20);
-        int atrPeriod = (int) params.getOrDefault("atrPeriod", 10);
-        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 2.0).toString());
+    private static Strategy createKeltnerChannelStrategy(BarSeries series) {
+        int emaPeriod = (int) ( 20);
+        int atrPeriod = (int) ( 10);
+        double multiplier = 0.2;
 
         // 创建肯特纳通道指标
         EMAIndicator ema = new EMAIndicator(new ClosePriceIndicator(series), emaPeriod);
@@ -1484,9 +1485,9 @@ public class StrategyFactory {
     /**
      * 创建ATR策略
      */
-    private static Strategy createATRStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 2.0).toString());
+    private static Strategy createATRStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        double multiplier = 2.0;
 
         // 创建ATR指标
         ATRIndicator atr = new ATRIndicator(series, period);
@@ -1545,12 +1546,12 @@ public class StrategyFactory {
     /**
      * 创建KDJ策略
      */
-    private static Strategy createKDJStrategy(BarSeries series, Map<String, Object> params) {
-        int kPeriod = (int) params.getOrDefault("kPeriod", 9);
-        int dPeriod = (int) params.getOrDefault("dPeriod", 3);
-        int jPeriod = (int) params.getOrDefault("jPeriod", 3);
-        int oversold = (int) params.getOrDefault("overSoldThreshold", 20);
-        int overbought = (int) params.getOrDefault("overBoughtThreshold", 80);
+    private static Strategy createKDJStrategy(BarSeries series) {
+        int kPeriod = (int) ( 9);
+        int dPeriod = (int) ( 3);
+        int jPeriod = (int) ( 3);
+        int oversold = (int) ( 20);
+        int overbought = (int) ( 80);
 
         // 创建KDJ指标
         StochasticOscillatorKIndicator k = new StochasticOscillatorKIndicator(series, kPeriod);
@@ -1595,9 +1596,9 @@ public class StrategyFactory {
     /**
      * 创建神奇震荡指标策略
      */
-    private static Strategy createAwesomeOscillatorStrategy(BarSeries series, Map<String, Object> params) {
-        int shortPeriod = (int) params.getOrDefault("shortPeriod", 5);
-        int longPeriod = (int) params.getOrDefault("longPeriod", 34);
+    private static Strategy createAwesomeOscillatorStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 5);
+        int longPeriod = (int) ( 34);
 
         // 创建中间价指标 (high + low) / 2
         MedianPriceIndicator medianPrice = new MedianPriceIndicator(series);
@@ -1640,73 +1641,73 @@ public class StrategyFactory {
     /**
      * 创建方向运动指标策略
      */
-    private static Strategy createDMIStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 14);
-        int adxThreshold = (int) params.getOrDefault("adxThreshold", 20);
+    private static Strategy createDMIStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        int adxThreshold = (int) ( 20);
 
         // 创建ADX指标
         ADXIndicator adx = new ADXIndicator(series, period);
-        
+
         // 自定义实现+DI和-DI指标
         class DirectionalMovementPlusIndicator extends CachedIndicator<Num> {
             private final HighPriceIndicator highPrice;
             private final ATRIndicator atr;
             private final int period;
-            
+
             public DirectionalMovementPlusIndicator(BarSeries series, int period) {
                 super(series);
                 this.highPrice = new HighPriceIndicator(series);
                 this.atr = new ATRIndicator(series, period);
                 this.period = period;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
                     return series.numOf(0);
                 }
-                
+
                 // +DM = 如果(当日最高价-前日最高价) > (前日最低价-当日最低价)，取较大值，否则为0
                 Num highDiff = highPrice.getValue(index).minus(highPrice.getValue(index - 1));
                 Num lowDiff = new LowPriceIndicator(series).getValue(index - 1).minus(new LowPriceIndicator(series).getValue(index));
-                
+
                 Num plusDM = series.numOf(0);
                 if (highDiff.isGreaterThan(series.numOf(0)) && highDiff.isGreaterThan(lowDiff)) {
                     plusDM = highDiff;
                 }
-                
+
                 // +DI = 100 * EMA(+DM) / ATR
                 return plusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
             }
         }
-        
+
         class DirectionalMovementMinusIndicator extends CachedIndicator<Num> {
             private final LowPriceIndicator lowPrice;
             private final ATRIndicator atr;
             private final int period;
-            
+
             public DirectionalMovementMinusIndicator(BarSeries series, int period) {
                 super(series);
                 this.lowPrice = new LowPriceIndicator(series);
                 this.atr = new ATRIndicator(series, period);
                 this.period = period;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
                     return series.numOf(0);
                 }
-                
+
                 // -DM = 如果(前日最低价-当日最低价) > (当日最高价-前日最高价)，取较大值，否则为0
                 Num lowDiff = lowPrice.getValue(index - 1).minus(lowPrice.getValue(index));
                 Num highDiff = new HighPriceIndicator(series).getValue(index).minus(new HighPriceIndicator(series).getValue(index - 1));
-                
+
                 Num minusDM = series.numOf(0);
                 if (lowDiff.isGreaterThan(series.numOf(0)) && lowDiff.isGreaterThan(highDiff)) {
                     minusDM = lowDiff;
                 }
-                
+
                 // -DI = 100 * EMA(-DM) / ATR
                 return minusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
             }
@@ -1715,7 +1716,7 @@ public class StrategyFactory {
         // 创建自定义的+DI和-DI指标
         DirectionalMovementPlusIndicator plusDI = new DirectionalMovementPlusIndicator(series, period);
         DirectionalMovementMinusIndicator minusDI = new DirectionalMovementMinusIndicator(series, period);
-        
+
         // 创建阈值指标
         ConstantIndicator<Num> threshold = new ConstantIndicator<>(series, series.numOf(adxThreshold));
 
@@ -1733,9 +1734,9 @@ public class StrategyFactory {
     /**
      * 创建超级趋势指标策略
      */
-    private static Strategy createSupertrendStrategy(BarSeries series, Map<String, Object> params) {
-        int period = (int) params.getOrDefault("period", 10);
-        double multiplier = Double.parseDouble(params.getOrDefault("multiplier", 3.0).toString());
+    private static Strategy createSupertrendStrategy(BarSeries series) {
+        int period = (int) ( 10);
+        double multiplier = 3.0;
 
         // 创建ATR指标
         ATRIndicator atr = new ATRIndicator(series, period);
@@ -1797,11 +1798,11 @@ public class StrategyFactory {
     /**
      * 创建一目均衡表云突破策略
      */
-    private static Strategy createIchimokuCloudBreakoutStrategy(BarSeries series, Map<String, Object> params) {
-        int conversionPeriod = (int) params.getOrDefault("conversionPeriod", 9);
-        int basePeriod = (int) params.getOrDefault("basePeriod", 26);
-        int spanPeriod = (int) params.getOrDefault("spanPeriod", 52);
-        int displacement = (int) params.getOrDefault("displacement", 26);
+    private static Strategy createIchimokuCloudBreakoutStrategy(BarSeries series) {
+        int conversionPeriod = (int) ( 9);
+        int basePeriod = (int) ( 26);
+        int spanPeriod = (int) ( 52);
+        int displacement = (int) ( 26);
 
         // 创建一目均衡表指标
         HighPriceIndicator highPrice = new HighPriceIndicator(series);

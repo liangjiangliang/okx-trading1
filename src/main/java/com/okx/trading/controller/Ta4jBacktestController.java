@@ -620,15 +620,14 @@ public class Ta4jBacktestController {
             @ApiParam(value = "策略描述", required = true, example = "基于双均线RSI组合的交易策略，使用9日和26日移动平均线交叉信号，结合RSI指标过滤信号")
             @RequestBody String description) {
 
-        description = JSONObject.parseObject(description).getString("description");
         log.info("开始生成AI策略，策略描述: {}", description);
-
+        JSONObject strategyInfo = new JSONObject();
         try {
             // 获取历史对话记录（暂时不传策略ID，因为策略还未创建）
             String conversationContext = strategyConversationService.buildConversationContext(null);
 
             // 调用DeepSeek API生成完整的策略信息
-            JSONObject strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description, "", conversationContext);
+            strategyInfo = deepSeekApiService.generateCompleteStrategyInfo(description, "", conversationContext);
 
             // 从AI返回的信息中提取各个字段
             String strategyName = strategyInfo.getString("strategyName");
@@ -680,7 +679,7 @@ public class Ta4jBacktestController {
 
         } catch (Exception e) {
             log.error("生成AI策略失败: {}", e.getMessage(), e);
-            return ApiResponse.error(500, "生成AI策略失败: " + e.getMessage());
+            return ApiResponse.error(500, "生成AI策略失败: , " + e.getMessage() + "\n调用DeepSeek返回信息: " + strategyInfo);
         }
     }
 

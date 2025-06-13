@@ -31,9 +31,9 @@ public class DeepSeekApiService {
 
     public DeepSeekApiService() {
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
                 .build();
     }
 
@@ -89,46 +89,142 @@ public class DeepSeekApiService {
         promptBuilder.append("   - paramsDesc: 参数描述（JSON对象格式，key为参数名，value为中文描述）\n");
         promptBuilder.append("   - strategyCode: Ta4j策略lambda函数代码\n");
         promptBuilder.append("2. strategyCode要求：\n");
-        promptBuilder.append("   - lambda函数签名：(BarSeries series, Map<String, Object> params) -> Strategy\n");
+        promptBuilder.append("   - 生成一个完整的Java类，实现org.ta4j.core.Strategy接口\n");
+        promptBuilder.append("   - 类名格式：Generated + 策略英文名 + Strategy（如：GeneratedSmaStrategy）\n");
         promptBuilder.append("   - 使用Ta4j库0.14版本的指标和规则\n");
         promptBuilder.append("   - 应用在加密货币领域进行回测\n");
-        promptBuilder.append("   - params参数是个空的map，直接使用默认值，不从里面拿数据\n");
         promptBuilder.append("   - 包含买入和卖出规则\n");
         promptBuilder.append("   - 代码要简洁且可编译，尽量不引入过多的类\n");
         promptBuilder.append("   - 返回代码要格式化，换行，缩进便于阅读\n");
-        promptBuilder.append("   - 导入语句请使用完整包名\n");
-        promptBuilder.append("   - 使用new org.ta4j.core.BaseStrategy(buyRule, sellRule)构造策略\n");
+        promptBuilder.append("   - 不需要package声明和import语句，直接使用完整类名\n");
+        promptBuilder.append("   - 实现Strategy接口的所有方法：shouldEnter、shouldExit、and、or、opposite、getName、getEntryRule、getExitRule、setUnstablePeriod、isUnstableAt\n");
+        promptBuilder.append("   - getName方法返回策略的名称字符串\n");
+        promptBuilder.append("   - 在构造函数中初始化指标和规则\n");
+        promptBuilder.append("   - 使用org.ta4j.core.BaseStrategy作为内部实现\n");
         promptBuilder.append("   - 【重要】只能使用以下包的类：\n");
         promptBuilder.append("     * org.ta4j.core.indicators.*\n");
         promptBuilder.append("     * org.ta4j.core.rules.*\n");
         promptBuilder.append("     * org.ta4j.core.BaseStrategy\n");
         promptBuilder.append("   - 【严禁】使用以下内容：\n");
-        promptBuilder.append("     * multipliedBy、dividedBy等数学运算方法，可以使用其他方法代替\n");
         promptBuilder.append("     * 尽量避免helpers包或任何外部工具类\n");
+        promptBuilder.append("     * 不要使用lambda表达式(->)，使用传统的方法调用\n");
+        promptBuilder.append("   - 【数学运算辅助方法】如果需要使用multipliedBy、dividedBy、plus、minus等方法，请在策略类中实现这些辅助方法：\n");
+        promptBuilder.append("     * 例如：private double multipliedBy(double value, double multiplier) { return value * multiplier; }\n");
+        promptBuilder.append("     * 例如：private double dividedBy(double value, double divisor) { return value / divisor; }\n");
+        promptBuilder.append("     * 例如：private double plus(double value1, double value2) { return value1 + value2; }\n");
+        promptBuilder.append("     * 例如：private double minus(double value1, double value2) { return value1 - value2; }\n");
         promptBuilder.append("   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n");
         promptBuilder.append("   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n");
         promptBuilder.append("   - 【重要】RSI等指标需要先创建ClosePriceIndicator：new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series)\n");
         promptBuilder.append("   - RSI指标正确用法：new org.ta4j.core.indicators.RSIIndicator(closePrice, period)\n");
+        promptBuilder.append("   - ATR指标正确用法：new org.ta4j.core.indicators.ATRIndicator(series, period)\n");
+        promptBuilder.append("   - SMA指标正确用法：new org.ta4j.core.indicators.SMAIndicator(indicator, period)\n");
         promptBuilder.append("   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n");
         promptBuilder.append("3. 只返回JSON，不要其他解释\n\n");
         promptBuilder.append("示例格式：\n");
         promptBuilder.append("{\n");
-        promptBuilder.append("  \"strategyName\": \"成交量突破策略\",\n");
-        promptBuilder.append("  \"strategyId\": \"VOLUME_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n");
-        promptBuilder.append("  \"description\": \"策略逻辑介绍，基于成交量突破策略，当成交量超过平均成交量时买入，低于平均成交量时卖出\",\n");
-        promptBuilder.append("  \"comments\": \"策略使用介绍，比如优缺点，适用场景，胜率等，回测，短线还是长线使用等信息\",\n");
-        promptBuilder.append("  \"category\": \"突破策略\",\n");
-        promptBuilder.append("  \"defaultParams\": {\"volumePeriod\": 20, \"highThreshold\": 1.5, \"lowThreshold\": 0.8},\n");
-        promptBuilder.append("  \"paramsDesc\": {\"volumePeriod\": \"成交量平均周期\", \"highThreshold\": \"买入阈值倍数\", \"lowThreshold\": \"卖出阈值倍数\"},\n");
-        promptBuilder.append("  \"strategyCode\": \"(series, params) -> { \n" +
-                "org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series); \n" +
-                "org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14); \n" +
-                "org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, series.numOf(30)); \n" +
-                "org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.OverIndicatorRule(rsi, series.numOf(70)); \n" +
-                "return new org.ta4j.core.BaseStrategy(buyRule, sellRule); \n" +
+        promptBuilder.append("  \"strategyName\": \"RSI超买超卖策略\",\n");
+        promptBuilder.append("  \"strategyId\": \"RSI_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n");
+        promptBuilder.append("  \"description\": \"基于RSI指标的超买超卖策略，当RSI低于30时买入，高于70时卖出\",\n");
+        promptBuilder.append("  \"comments\": \"适用于震荡市场，短线交易策略，胜率较高但需要及时止损\",\n");
+        promptBuilder.append("  \"category\": \"震荡策略\",\n");
+        promptBuilder.append("  \"defaultParams\": {\"rsiPeriod\": 14, \"buyThreshold\": 30, \"sellThreshold\": 70},\n");
+        promptBuilder.append("  \"paramsDesc\": {\"rsiPeriod\": \"RSI计算周期\", \"buyThreshold\": \"买入阈值\", \"sellThreshold\": \"卖出阈值\"},\n");
+        promptBuilder.append("  \"strategyCode\": \"public class GeneratedRsiStrategy implements org.ta4j.core.Strategy {\n" +
+                "    private final org.ta4j.core.Strategy baseStrategy;\n" +
+                "    \n" +
+                "    public GeneratedRsiStrategy(org.ta4j.core.BarSeries series) {\n" +
+                "        org.ta4j.core.indicators.helpers.ClosePriceIndicator closePrice = new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series);\n" +
+                "        org.ta4j.core.indicators.RSIIndicator rsi = new org.ta4j.core.indicators.RSIIndicator(closePrice, 14);\n" +
+                "        org.ta4j.core.Rule buyRule = new org.ta4j.core.rules.UnderIndicatorRule(rsi, 30);\n" +
+                "        org.ta4j.core.Rule sellRule = new org.ta4j.core.rules.OverIndicatorRule(rsi, 70);\n" +
+                "        this.baseStrategy = new org.ta4j.core.BaseStrategy(buyRule, sellRule);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Rule getEntryRule() {\n" +
+                "        return baseStrategy.getEntryRule();\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Rule getExitRule() {\n" +
+                "        return baseStrategy.getExitRule();\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public boolean shouldEnter(int index) {\n" +
+                "        return baseStrategy.shouldEnter(index);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public boolean shouldEnter(int index, org.ta4j.core.TradingRecord tradingRecord) {\n" +
+                "        return baseStrategy.shouldEnter(index, tradingRecord);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public boolean shouldExit(int index) {\n" +
+                "        return baseStrategy.shouldExit(index);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public boolean shouldExit(int index, org.ta4j.core.TradingRecord tradingRecord) {\n" +
+                "        return baseStrategy.shouldExit(index, tradingRecord);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Strategy and(org.ta4j.core.Strategy strategy) {\n" +
+                "        return baseStrategy.and(strategy);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Strategy or(org.ta4j.core.Strategy strategy) {\n" +
+                "        return baseStrategy.or(strategy);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Strategy and(String name, org.ta4j.core.Strategy strategy, int unstableBars) {\n" +
+                "        return baseStrategy.and(name, strategy, unstableBars);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Strategy or(String name, org.ta4j.core.Strategy strategy, int unstableBars) {\n" +
+                "        return baseStrategy.or(name, strategy, unstableBars);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public org.ta4j.core.Strategy opposite() {\n" +
+                "        return baseStrategy.opposite();\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public String getName() {\n" +
+                "        return \"Generated RSI Strategy\";\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public void setUnstablePeriod(int unstablePeriod) {\n" +
+                "        baseStrategy.setUnstablePeriod(unstablePeriod);\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public int getUnstablePeriod() {\n" +
+                "        return baseStrategy.getUnstablePeriod();\n" +
+                "    }\n" +
+                "    \n" +
+                "    @Override\n" +
+                "    public boolean isUnstableAt(int index) {\n" +
+                "        return baseStrategy.isUnstableAt(index);\n" +
+                "    }\n" +
                 "}\"\n");
         promptBuilder.append("}\n\n");
-        promptBuilder.append("注意：绝对不要使用multipliedBy方法！成交量倍数比较应该通过创建多个SMA指标来实现，或者直接比较指标值。");
+        promptBuilder.append("\n\n【重要提醒】\n");
+        promptBuilder.append("1. 如果需要数学运算方法，请在策略类中自己实现辅助方法\n");
+        promptBuilder.append("2. 成交量倍数比较示例：\n");
+        promptBuilder.append("   方法1：使用自定义辅助方法 - private double multipliedBy(double value, double multiplier) { return value * multiplier; }\n");
+        promptBuilder.append("   方法2：直接使用运算符 - double result = volumeAvg * 1.5;\n");
+        promptBuilder.append("3. 数值运算优先使用基本运算符：+、-、*、/\n");
+        promptBuilder.append("4. 复杂运算可以实现辅助方法，但要确保方法名和参数类型正确\n");
+        promptBuilder.append("5. 所有辅助方法都应该是private的，避免与Ta4j库冲突\n");
 
         return promptBuilder.toString();
     }

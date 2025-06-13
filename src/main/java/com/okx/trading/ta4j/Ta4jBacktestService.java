@@ -61,11 +61,8 @@ public class Ta4jBacktestService {
             // 使用转换器将蜡烛图实体转换为条形系列
             BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
-            // 使用策略工厂解析参数, 使用方法自带的
-            Map<String, Object> paramMap = new HashMap<>();
-
             // 使用策略工厂创建策略
-            Strategy strategy = StrategyFactory.createStrategy(series, strategyType, paramMap);
+            Strategy strategy = StrategyFactory.createStrategy(series, strategyType);
 
             // 执行回测
             BarSeriesManager seriesManager = new BarSeriesManager(series);
@@ -150,10 +147,10 @@ public class Ta4jBacktestService {
 
         for (TradeRecordDTO trade : tradeRecords) {
             BigDecimal profit = trade.getProfit();
-            
+
             if (profit != null) {
                 totalProfit = totalProfit.add(profit);
-                
+
                 // 分别累计总盈利和总亏损
                 if (profit.compareTo(BigDecimal.ZERO) > 0) {
                     profitableTrades++;
@@ -162,7 +159,7 @@ public class Ta4jBacktestService {
                     totalGrossLoss = totalGrossLoss.add(profit.abs());
                 }
             }
-            
+
             if (trade.getFee() != null) {
                 totalFee = totalFee.add(trade.getFee());
             }
