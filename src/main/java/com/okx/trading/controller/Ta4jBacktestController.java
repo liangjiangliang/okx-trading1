@@ -163,7 +163,7 @@ public class Ta4jBacktestController {
             StrategyInfoEntity strategy = strategyInfoService.getStrategyByCode(strategyType).get();
 
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams, feeRatio);
+            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, feeRatio);
 
             result.setStrategyName(strategy.getStrategyName());
             result.setStrategyCode(strategy.getStrategyCode());
@@ -281,8 +281,9 @@ public class Ta4jBacktestController {
 
                         // 执行回测
                         BacktestResultDTO result = ta4jBacktestService.backtest(
-                                candlesticks, strategyCode, initialAmount, defaultParams, feeRatio);
-
+                                candlesticks, strategyCode, initialAmount, feeRatio);
+                        result.setStrategyName(strategyDetails.get("name"));
+                        result.setStrategyCode(strategyDetails.get("strategy_code"));
                         // 如果需要保存结果到数据库
                         if (saveResult && result.isSuccess()) {
                             // 保存交易明细

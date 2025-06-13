@@ -269,7 +269,7 @@ public class BacktestController {
             }
 
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, strategyParams);
+            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount);
 
             // 如果需要保存结果到数据库
             if (saveResult && result.isSuccess()) {

@@ -41,12 +41,11 @@ public class Ta4jBacktestService {
      * @param candlesticks  历史K线数据
      * @param strategyType  策略类型
      * @param initialAmount 初始资金
-     * @param params        策略参数
      * @param feeRatio      交易手续费率（例如0.001表示0.1%）
      * @return 回测结果
      */
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
-                                      BigDecimal initialAmount, String params, BigDecimal feeRatio) {
+                                      BigDecimal initialAmount,BigDecimal feeRatio) {
         if (candlesticks == null || candlesticks.isEmpty()) {
             BacktestResultDTO result = new BacktestResultDTO();
             result.setSuccess(false);
@@ -89,8 +88,8 @@ public class Ta4jBacktestService {
      * @return 回测结果
      */
     public BacktestResultDTO backtest(List<CandlestickEntity> candlesticks, String strategyType,
-                                      BigDecimal initialAmount, String params) {
-        return backtest(candlesticks, strategyType, initialAmount, params, BigDecimal.ZERO);
+                                      BigDecimal initialAmount) {
+        return backtest(candlesticks, strategyType, initialAmount, BigDecimal.ZERO);
     }
 
     /**
