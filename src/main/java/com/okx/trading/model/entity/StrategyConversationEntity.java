@@ -49,6 +49,12 @@ public class StrategyConversationEntity {
     private String conversationType;
 
     /**
+     * 策略编译错误信息
+     */
+    @Column(name = "compile_error", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+    private String compileError;
+
+    /**
      * 创建时间
      */
     @Column(name = "create_time", nullable = false, updatable = false)

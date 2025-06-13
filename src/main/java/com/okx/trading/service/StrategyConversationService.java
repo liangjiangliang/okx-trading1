@@ -27,6 +27,17 @@ public interface StrategyConversationService {
     StrategyConversationEntity saveConversation(String strategyId, String userInput, String aiResponse, String conversationType);
 
     /**
+     * 保存对话记录（包含编译错误信息）
+     * @param strategyId 策略ID
+     * @param userInput 用户输入
+     * @param aiResponse AI响应
+     * @param conversationType 对话类型
+     * @param compileError 编译错误信息
+     * @return 保存后的对话记录
+     */
+    StrategyConversationEntity saveConversation(String strategyId, String userInput, String aiResponse, String conversationType, String compileError);
+
+    /**
      * 根据策略ID获取对话历史
      * @param strategyId 策略ID
      * @return 对话记录列表

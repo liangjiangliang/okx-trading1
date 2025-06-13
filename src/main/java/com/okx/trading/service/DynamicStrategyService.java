@@ -1,5 +1,6 @@
 package com.okx.trading.service;
 
+
 import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.ta4j.strategy.StrategyFactory;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +53,7 @@ public class DynamicStrategyService {
             log.info("策略 {} 编译并加载成功", strategyEntity.getStrategyCode());
             return strategyFunction;
         } catch (Exception e) {
-            log.error("编译策略代码失败: {}", e.getMessage(), e);
+            log.error("编译策略代码失败: {}, 编译的代码: {}", e.getMessage(), strategyCode);
             throw new RuntimeException("编译策略代码失败: " + e.getMessage());
         }
     }
@@ -63,7 +64,7 @@ public class DynamicStrategyService {
     @SuppressWarnings("unchecked")
     private Function<BarSeries, Strategy> compileStrategyCode(String strategyCode) throws Exception {
         // 检查是否是完整的类定义
-        if (strategyCode.trim().startsWith("public class") && 
+        if (strategyCode.trim().startsWith("public class") &&
             (strategyCode.contains("implements org.ta4j.core.Strategy") || strategyCode.contains("implements Strategy"))) {
             // 编译完整的Strategy类
             return compileStrategyClass(strategyCode);

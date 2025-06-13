@@ -122,4 +122,5 @@ application-local.properties
 !/logs/
 /nul
 /.history/
-/test*
+/*test*
+/temp*

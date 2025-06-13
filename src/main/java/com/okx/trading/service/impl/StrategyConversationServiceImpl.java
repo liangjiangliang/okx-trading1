@@ -51,6 +51,31 @@ public class StrategyConversationServiceImpl implements StrategyConversationServ
     }
 
     @Override
+    public StrategyConversationEntity saveConversation(String strategyId, String userInput, String aiResponse, String conversationType, String compileError) {
+        StrategyConversationEntity conversation = new StrategyConversationEntity();
+
+        // 如果strategyId不为空，尝试转换为Long类型
+        if (strategyId != null && !strategyId.trim().isEmpty()) {
+            try {
+                // 首先尝试直接转换为Long（如果是数字ID）
+                conversation.setStrategyId(Long.parseLong(strategyId));
+            } catch (NumberFormatException e) {
+                // 如果不是数字，可能是策略代码，需要查询对应的ID
+                // 这里暂时设置为null，后续可以根据需要添加查询逻辑
+                conversation.setStrategyId(null);
+            }
+        }
+
+        conversation.setUserInput(userInput);
+        conversation.setAiResponse(aiResponse);
+        conversation.setConversationType(conversationType);
+        conversation.setCompileError(compileError);
+        conversation.setCreateTime(LocalDateTime.now());
+
+        return strategyConversationRepository.save(conversation);
+    }
+
+    @Override
     public List<StrategyConversationEntity> getConversationHistory(Long strategyId) {
         log.info("获取策略对话历史，策略ID: {}", strategyId);
         return strategyConversationRepository.findByStrategyIdOrderByCreateTimeAsc(strategyId);

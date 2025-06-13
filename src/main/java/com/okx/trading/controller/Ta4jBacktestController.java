@@ -687,17 +687,24 @@ public class Ta4jBacktestController {
                     // 保存到数据库
                     StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
 
-                    // 保存完整的对话记录到strategy_conversation表
+                    // 编译并动态加载策略
+                    String compileError = null;
+                    try {
+                        dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
+                    } catch (Exception compileException) {
+                        compileError = compileException.getMessage();
+                        log.warn("策略编译失败，但仍保存记录: {}", compileError);
+                    }
+
+                    // 保存完整的对话记录到strategy_conversation表（包含编译错误信息）
                     StrategyConversationEntity conversation = StrategyConversationEntity.builder()
                             .strategyId(savedStrategy.getId())
                             .userInput(originalDescription)
                             .aiResponse(strategyInfo.toJSONString())
                             .conversationType("generate")
+                            .compileError(compileError)
                             .build();
                     strategyConversationService.saveConversation(conversation);
-
-                    // 编译并动态加载策略
-                    dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
 
                     generatedStrategies.add(savedStrategy);
                     log.info("第{}个AI策略生成成功，策略代码: {}, 策略名称: {}", i + 1, uniqueStrategyId, strategyName);
@@ -789,17 +796,24 @@ public class Ta4jBacktestController {
             // 保存到数据库
             StrategyInfoEntity updatedStrategy = strategyInfoService.saveStrategy(existingStrategy);
 
-            // 保存完整的对话记录到strategy_conversation表
+            // 重新编译并加载策略
+            String compileError = null;
+            try {
+                dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
+            } catch (Exception compileException) {
+                compileError = compileException.getMessage();
+                log.warn("策略编译失败，但仍保存记录: {}", compileError);
+            }
+
+            // 保存完整的对话记录到strategy_conversation表（包含编译错误信息）
             StrategyConversationEntity conversation = StrategyConversationEntity.builder()
                     .strategyId(existingStrategy.getId())
                     .userInput(request.getDescription())
                     .aiResponse(strategyInfo.toJSONString())
                     .conversationType("update")
+                    .compileError(compileError)
                     .build();
             strategyConversationService.saveConversation(conversation);
-
-            // 重新编译并加载策略
-            dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
 
             log.info("策略更新成功，策略代码: {}", existingStrategy.getStrategyCode());
             return ApiResponse.success(updatedStrategy);
