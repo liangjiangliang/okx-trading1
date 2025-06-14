@@ -8,6 +8,7 @@ import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.ta4j.core.rules.OverIndicatorRule;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -144,28 +145,23 @@ public class DeepSeekApiService {
             + "   - strategyCode: Ta4j策略lambda函数代码\n"
             + "2. strategyCode要求：\n"
             + "   - 生成一个完整的Java类，实现org.ta4j.core.Strategy接口\n"
+            + "   - 需要显示导入使用的包，类信息，要导入直接使用的类，而不是父类、接口；严禁直接声明，使用接口、抽象类，要使用具体的类\n"
             + "   - 类名格式：Generated + 策略英文名 + Strategy（如：GeneratedSmaStrategy）\n"
-            + "   - 类的构造器只有一个参数，类型为org.ta4j.core.BarSeries\n"
             + "   - 使用Ta4j库0.14版本的指标和规则\n"
-            + "   - 应用在加密货币领域进行回测\n"
             + "   - 包含买入和卖出规则\n"
             + "   - 代码要简洁且可编译，尽量不引入过多的类\n"
             + "   - 返回代码要格式化，换行，缩进便于阅读\n"
-            + "   - 不需要package声明，但可以使用简化的类名（因为会自动添加import语句）\n"
             + "   - 实现Strategy接口的所有方法：shouldEnter、shouldExit、and、or、opposite、getName、getEntryRule、getExitRule、setUnstablePeriod、getUnstablePeriod、isUnstableAt\n"
             + "   - getName方法返回策略的名称字符串\n"
             + "   - 在构造函数中初始化指标和规则\n"
+            + "   - 类的构造器只有一个参数，类型为org.ta4j.core.BarSeries\n"
             + "   - 使用org.ta4j.core.BaseStrategy作为内部实现\n"
-            + "   - 【重要】只能使用以下包的类：\n"
-            + "     * org.ta4j.core.indicators.*\n"
-            + "     * org.ta4j.core.rules.*\n"
-            + "     * org.ta4j.core.BaseStrategy\n"
             + "   - 【严禁】使用以下内容：\n"
             + "     * 尽量避免helpers包或任何外部工具类\n"
             + "     * 不要使用lambda表达式(->)，使用传统的方法调用\n"
             + "   - 【严格禁止】不要创建任何名为multipliedBy、plus、minus、dividedBy的自定义方法！\n"
             + "   - 【严格禁止】不要使用基本运算符(+、-、*、/)操作Num类型！\n"
-            + "   - 数值运算使用Num类型内置方法：multipliedBy()、plus()、minus()、dividedBy()\n"
+            + "   - 数值运算使用org.ta4j.core.num.Num的子类，如DecimalNum，DoubleNum，严禁直接声明Num类型，内置方法：multipliedBy()、plus()、minus()、dividedBy()\n"
             + "   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n"
             + "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n"
             + "   - 【重要】RSI等指标需要先创建ClosePriceIndicator：new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series)\n"
@@ -178,6 +174,12 @@ public class DeepSeekApiService {
             + "     * BollingerBandsUpperIndicator bbu = new BollingerBandsUpperIndicator(bbm, sd);\n"
             + "     * BollingerBandsLowerIndicator bbl = new BollingerBandsLowerIndicator(bbm, sd);\n"
             + "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n"
+            + "   - 一些正确的包地址：\n"
+            + "     * import org.ta4j.core.indicators.helpers.VolumeIndicator;\n"
+            + "   - 一些错误的包地址：\n"
+            + "     * import org.ta4j.core.rules.Rule;  没有这个类，有org.ta4j.core.rules下面的各种累\n"
+            + "   - 必须显示导入的包，无论是否用到了：\n"
+            + "     * import org.ta4j.core.*;\n"
             + "   - 规则构造示例：\n"
             + "     * new CrossedUpIndicatorRule(indicator1, indicator2)\n"
             + "     * new OverIndicatorRule(indicator, series.numOf(70))\n"
@@ -197,11 +199,15 @@ public class DeepSeekApiService {
             + "2. 【严格禁止】不要创建任何名为multipliedBy、plus、minus、dividedBy的自定义方法\n"
             + "3. 【严格禁止】不要使用基本运算符(+、-、*、/)直接操作Num类型\n"
             + "4. 成交量倍数比较示例：\n"
-            + "   正确：Num threshold = volumeAvg.multipliedBy(numOf(1.5));\n"
+            + "   正确：DoubleNum threshold = volumeAvg.multipliedBy(numOf(1.5));\n"
             + "   正确：if (volume.isGreaterThan(threshold)) { ... }\n"
             + "   错误：private double multipliedBy(...) // 禁止创建此方法\n"
             + "5. 数值比较使用：isGreaterThan()、isLessThan()、isEqual()等方法\n"
-            + "6. 所有指标返回的都是Num类型，直接使用其内置方法进行运算\n";
+            + "6. 所有指标返回的都是DoubleNum, DecimalNum类型，直接使用其内置方法进行运算\n"
+            + "7. 【修复历史错误】注意历史对话中的代码编译报错内容和当前策略的loadError字段的错误信息，进行修复，并且在comments字段回复修复了哪些问题\n"
+            + "8. 【严格禁止】严禁直接声明、使用接口、抽象类，要使用具体的类\n"
+            + "9. 【严格禁止】Rule buyRule = new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 不准使用Rule，要声明具体的哪个子类 \n"
+            + "10.【允许使用】OverIndicatorRule buyRule = (OverIndicatorRule) new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 要注意类型转换 \n";
 
     /**
      * 更新策略（带对话上下文）
@@ -256,12 +262,14 @@ public class DeepSeekApiService {
         // 添加对话上下文（如果存在）
         if (conversationContext != null && !conversationContext.trim().isEmpty()) {
             promptBuilder.append(conversationContext).append("\n\n");
-            promptBuilder.append("基于以上历史对话记录，请继续优化和改进策略。\n\n");
+            promptBuilder.append("基于以上历史对话记录，请按照请求继续优化策略。\n\n");
         }
         // 添加最新策略信息
         if (StringUtils.isNotBlank(currentStrategy)) {
+            promptBuilder.append("\n\n=== 当前策略信息 ===\n");
             promptBuilder.append(currentStrategy).append("\n\n");
-            promptBuilder.append("以上是最新的策略信息，请基于请求继续优化。\n\n");
+            promptBuilder.append("\n\n=== 当前策略信息结束 ===\n");
+            promptBuilder.append("基于以上最新策略信息，请按照请求继续优化策略。\n\n");
         }
 
         promptBuilder.append("期望生成策略的描述：").append(strategyDescription).append("\n\n");

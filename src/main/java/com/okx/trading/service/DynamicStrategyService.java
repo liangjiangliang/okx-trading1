@@ -108,6 +108,10 @@ public class DynamicStrategyService {
     private String addImportsToCode(String strategyCode) {
         StringBuilder imports = new StringBuilder();
         imports.append("import org.ta4j.core.*;\n");
+        imports.append("import org.ta4j.core.aggregator.*;\n");
+        imports.append("import org.ta4j.core.analysis.*;\n");
+        imports.append("import org.ta4j.core.analysis.criteria.*;\n");
+        imports.append("import org.ta4j.core.cost.*;\n");
         imports.append("import org.ta4j.core.indicators.*;\n");
         imports.append("import org.ta4j.core.indicators.bollinger.*;\n");
         imports.append("import org.ta4j.core.indicators.keltner.*;\n");
@@ -337,9 +341,24 @@ public class DynamicStrategyService {
                     .forEach(strategy -> {
                         try {
                             compileAndLoadStrategy(strategy.getSourceCode(), strategy);
+                            // 加载成功，清除之前的错误信息
+                            if (strategy.getLoadError() != null) {
+                                strategy.setLoadError(null);
+                                strategyInfoService.saveStrategy(strategy);
+                            }
                             log.info("从数据库加载策略: {}", strategy.getStrategyCode());
                         } catch (Exception e) {
+                            String errorMessage = "加载策略失败: " + e.getMessage();
                             log.error("加载策略 {} 失败: {}", strategy.getStrategyCode(), e.getMessage());
+
+                            // 将错误信息保存到数据库
+                            try {
+                                strategy.setLoadError(errorMessage);
+                                strategyInfoService.saveStrategy(strategy);
+                                log.info("策略 {} 的错误信息已保存到数据库", strategy.getStrategyCode());
+                            } catch (Exception saveException) {
+                                log.error("保存策略 {} 的错误信息失败: {}", strategy.getStrategyCode(), saveException.getMessage());
+                            }
                         }
                     });
         } catch (Exception e) {

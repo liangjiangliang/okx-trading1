@@ -72,6 +72,12 @@ public class StrategyInfoEntity {
     private String sourceCode;
 
     /**
+     * 策略加载错误信息
+     */
+    @Column(name = "load_error", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+    private String loadError;
+
+    /**
      * 创建时间
      */
     @Column(name = "create_time", nullable = false, updatable = false)

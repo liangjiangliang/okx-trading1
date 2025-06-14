@@ -22,6 +22,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -272,7 +273,7 @@ public class Ta4jBacktestController {
             // 创建回测任务
             for (String strategyCode : strategyCodes) {
                 Map<String, Object> strategyDetails = strategiesInfo.get(strategyCode);
-                String defaultParams =(String) strategyDetails.get("default_params");
+                String defaultParams = (String) strategyDetails.get("default_params");
 
                 // 创建异步任务
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -396,6 +397,7 @@ public class Ta4jBacktestController {
             for (Map.Entry<String, Map<String, Object>> entry : strategies.entrySet()) {
                 Map<String, Object> strategyInfo = entry.getValue();
                 String strategyIdStr = (String) strategyInfo.get("id");
+                String loadError = (String) strategyInfo.get("load_error");
 
                 if (strategyIdStr != null && !strategyIdStr.isEmpty()) {
                     try {
@@ -406,6 +408,10 @@ public class Ta4jBacktestController {
                         // 根据compile_error字段设置available
                         boolean available = true;
                         if (lastConversation != null && lastConversation.getCompileError() != null && !lastConversation.getCompileError().trim().isEmpty()) {
+                            available = false;
+                        }
+                        //加载错误也设置false
+                        if (StringUtils.isNotBlank(loadError)) {
                             available = false;
                         }
                         strategyInfo.put("available", available);
