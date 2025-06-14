@@ -8,6 +8,7 @@ import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.OverIndicatorRule;
 
 import java.io.IOException;
@@ -207,7 +208,8 @@ public class DeepSeekApiService {
             + "7. 【修复历史错误】注意历史对话中的代码编译报错内容和当前策略的loadError字段的错误信息，进行修复，并且在comments字段回复修复了哪些问题\n"
             + "8. 【严格禁止】严禁直接声明、使用接口、抽象类，要使用具体的类\n"
             + "9. 【严格禁止】Rule buyRule = new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 不准使用Rule，要声明具体的哪个子类 \n"
-            + "10.【允许使用】OverIndicatorRule buyRule = (OverIndicatorRule) new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 要注意类型转换 \n";
+            + "10.【允许使用】DoubleNum threshold = (DoubleNum)volumeSma.getValue(series.getEndIndex()).multipliedBy(series.numOf(1.5));不准使用Num，要声明具体的哪个子类DoubleNum，DecimalNum \n"
+            + "11.【允许使用】OverIndicatorRule buyRule = (OverIndicatorRule) new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 要注意类型转换 \n";
 
     /**
      * 更新策略（带对话上下文）

@@ -29,7 +29,7 @@ public class DynamicStrategyService {
     private final StrategyInfoService strategyInfoService;
 
     // 缓存已编译的策略函数
-    private final Map<String, Function<BarSeries,Strategy>> compiledStrategies = new ConcurrentHashMap<>();
+    private final Map<String, Function<BarSeries, Strategy>> compiledStrategies = new ConcurrentHashMap<>();
 
     /**
      * 编译策略代码并加载到StrategyFactory
@@ -64,8 +64,7 @@ public class DynamicStrategyService {
     @SuppressWarnings("unchecked")
     private Function<BarSeries, Strategy> compileStrategyCode(String strategyCode) throws Exception {
         // 检查是否是完整的类定义
-        if (strategyCode.trim().startsWith("public class") &&
-            (strategyCode.contains("implements org.ta4j.core.Strategy") || strategyCode.contains("implements Strategy"))) {
+        if (strategyCode.trim().contains("public class") ) {
             // 编译完整的Strategy类
             return compileStrategyClass(strategyCode);
         } else {
@@ -317,7 +316,7 @@ public class DynamicStrategyService {
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
-            Map<String, Function<BarSeries,  Strategy>> strategyCreators =
+            Map<String, Function<BarSeries, Strategy>> strategyCreators =
                     (Map<String, Function<BarSeries, Strategy>>) strategyCreatorsField.get(null);
 
             // 添加新策略
@@ -394,7 +393,7 @@ public class DynamicStrategyService {
     /**
      * 获取已编译的策略函数
      */
-    public Function<BarSeries,  Strategy> getCompiledStrategy(String strategyCode) {
+    public Function<BarSeries, Strategy> getCompiledStrategy(String strategyCode) {
         return compiledStrategies.get(strategyCode);
     }
 
