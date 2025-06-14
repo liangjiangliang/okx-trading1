@@ -89,7 +89,7 @@ public interface StrategyInfoService {
      *
      * @return 策略信息Map
      */
-    Map<String, Map<String, String>> getStrategiesInfo();
+    Map<String, Map<String, Object>> getStrategiesInfo();
 
     /**
      * 检查策略代码是否已存在

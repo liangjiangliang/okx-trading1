@@ -33,9 +33,16 @@ public interface StrategyConversationRepository extends JpaRepository<StrategyCo
     /**
      * 根据策略ID查询最新的对话记录
      * @param strategyId 策略ID
-     * @param limit 限制数量
      * @return 对话记录列表
      */
     @Query("SELECT c FROM StrategyConversationEntity c WHERE c.strategyId = :strategyId ORDER BY c.createTime DESC")
     List<StrategyConversationEntity> findLatestByStrategyId(@Param("strategyId") Long strategyId);
+
+    /**
+     * 根据策略ID查询最后一次对话记录
+     * @param strategyId 策略ID
+     * @return 最后一次对话记录
+     */
+    @Query(value = "SELECT * FROM strategy_conversation WHERE strategy_id = :strategyId ORDER BY create_time DESC LIMIT 1", nativeQuery = true)
+    StrategyConversationEntity findLastConversationByStrategyId(@Param("strategyId") Long strategyId);
 }

@@ -145,6 +145,7 @@ public class DeepSeekApiService {
             + "2. strategyCode要求：\n"
             + "   - 生成一个完整的Java类，实现org.ta4j.core.Strategy接口\n"
             + "   - 类名格式：Generated + 策略英文名 + Strategy（如：GeneratedSmaStrategy）\n"
+            + "   - 类的构造器只有一个参数，类型为org.ta4j.core.BarSeries\n"
             + "   - 使用Ta4j库0.14版本的指标和规则\n"
             + "   - 应用在加密货币领域进行回测\n"
             + "   - 包含买入和卖出规则\n"
@@ -316,7 +317,7 @@ public class DeepSeekApiService {
         messages.add(message);
 
         requestBody.put("messages", messages);
-        requestBody.put("max_tokens", 4000);
+        requestBody.put("max_tokens", 8000);
         requestBody.put("temperature", 0.1);
 
         RequestBody body = RequestBody.create(

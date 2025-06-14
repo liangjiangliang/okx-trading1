@@ -58,4 +58,11 @@ public interface StrategyConversationService {
      * @return 格式化的对话上下文字符串
      */
     String buildConversationContext(Long strategyId);
+
+    /**
+     * 根据策略ID获取最后一次对话记录
+     * @param strategyId 策略ID
+     * @return 最后一次对话记录，如果没有则返回null
+     */
+    StrategyConversationEntity getLastConversation(Long strategyId);
 }

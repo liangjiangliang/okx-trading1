@@ -3,7 +3,9 @@ package com.okx.trading.service.impl;
 import com.okx.trading.model.entity.StrategyConversationEntity;
 import com.okx.trading.repository.StrategyConversationRepository;
 import com.okx.trading.service.StrategyConversationService;
+import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -88,6 +90,11 @@ public class StrategyConversationServiceImpl implements StrategyConversationServ
     }
 
     @Override
+    public StrategyConversationEntity getLastConversation(Long strategyId) {
+        return strategyConversationRepository.findLastConversationByStrategyId(strategyId);
+    }
+
+    @Override
     public String buildConversationContext(Long strategyId) {
         log.info("构建策略对话上下文，策略ID: {}", strategyId);
 
@@ -106,7 +113,11 @@ public class StrategyConversationServiceImpl implements StrategyConversationServ
 
             // 只显示AI响应的关键信息，避免过长
             String aiResponse = conv.getAiResponse();
+            String compileError = conv.getCompileError();
             context.append("AI响应: ").append(aiResponse).append("\n");
+            if (StringUtils.isNotBlank(compileError)) {
+                context.append("代码编译报错内容: ").append(compileError).append("\n");
+            }
         }
 
         context.append("\n=== 历史对话记录结束 ===\n\n");

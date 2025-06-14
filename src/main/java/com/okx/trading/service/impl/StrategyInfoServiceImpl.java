@@ -72,12 +72,12 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
     }
 
     @Override
-    public Map<String, Map<String, String>> getStrategiesInfo() {
+    public Map<String, Map<String, Object>> getStrategiesInfo() {
         List<StrategyInfoEntity> strategies = getAllStrategies();
-        Map<String, Map<String, String>> result = new HashMap<>();
+        Map<String, Map<String, Object>> result = new HashMap<>();
 
         for (StrategyInfoEntity strategy : strategies) {
-            Map<String, String> strategyInfo = new HashMap<>();
+            Map<String, Object> strategyInfo = new HashMap<>();
             strategyInfo.put("id", String.valueOf(strategy.getId()));
             strategyInfo.put("name", strategy.getStrategyName());
             strategyInfo.put("description", strategy.getDescription());

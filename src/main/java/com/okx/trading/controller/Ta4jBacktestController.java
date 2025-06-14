@@ -253,7 +253,7 @@ public class Ta4jBacktestController {
             }
 
             // 获取所有支持的策略
-            Map<String, Map<String, String>> strategiesInfo = strategyInfoService.getStrategiesInfo();
+            Map<String, Map<String, Object>> strategiesInfo = strategyInfoService.getStrategiesInfo();
             List<String> strategyCodes = new ArrayList<>(strategiesInfo.keySet());
 
             log.info("找到{}个策略，准备执行批量回测", strategyCodes.size());
@@ -271,8 +271,8 @@ public class Ta4jBacktestController {
 
             // 创建回测任务
             for (String strategyCode : strategyCodes) {
-                Map<String, String> strategyDetails = strategiesInfo.get(strategyCode);
-                String defaultParams = strategyDetails.get("default_params");
+                Map<String, Object> strategyDetails = strategiesInfo.get(strategyCode);
+                String defaultParams =(String) strategyDetails.get("default_params");
 
                 // 创建异步任务
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -282,8 +282,8 @@ public class Ta4jBacktestController {
                         // 执行回测
                         BacktestResultDTO result = ta4jBacktestService.backtest(
                                 candlesticks, strategyCode, initialAmount, feeRatio);
-                        result.setStrategyName(strategyDetails.get("name"));
-                        result.setStrategyCode(strategyDetails.get("strategy_code"));
+                        result.setStrategyName((String) strategyDetails.get("name"));
+                        result.setStrategyCode((String) strategyDetails.get("strategy_code"));
                         // 如果需要保存结果到数据库
                         if (saveResult && result.isSuccess()) {
                             // 保存交易明细
@@ -387,10 +387,37 @@ public class Ta4jBacktestController {
 
     @GetMapping("/strategies")
     @ApiOperation(value = "获取支持的策略类型和参数说明", notes = "返回系统支持的所有策略类型和对应的参数说明")
-    public ApiResponse<Map<String, Map<String, String>>> getStrategies() {
+    public ApiResponse<Map<String, Map<String, Object>>> getStrategies() {
         try {
             // 从数据库中获取所有策略信息
-            Map<String, Map<String, String>> strategies = strategyInfoService.getStrategiesInfo();
+            Map<String, Map<String, Object>> strategies = strategyInfoService.getStrategiesInfo();
+
+            // 为每个策略添加available字段，基于最后一次对话的compile_error字段
+            for (Map.Entry<String, Map<String, Object>> entry : strategies.entrySet()) {
+                Map<String, Object> strategyInfo = entry.getValue();
+                String strategyIdStr = (String) strategyInfo.get("id");
+
+                if (strategyIdStr != null && !strategyIdStr.isEmpty()) {
+                    try {
+                        Long strategyId = Long.valueOf(strategyIdStr);
+                        // 查询最后一次对话记录
+                        StrategyConversationEntity lastConversation = strategyConversationService.getLastConversation(strategyId);
+
+                        // 根据compile_error字段设置available
+                        boolean available = true;
+                        if (lastConversation != null && lastConversation.getCompileError() != null && !lastConversation.getCompileError().trim().isEmpty()) {
+                            available = false;
+                        }
+                        strategyInfo.put("available", available);
+                    } catch (NumberFormatException e) {
+                        log.warn("策略ID格式错误: {}", strategyIdStr);
+                        strategyInfo.put("available", "true"); // 默认为true
+                    }
+                } else {
+                    strategyInfo.put("available", "true"); // 默认为true
+                }
+            }
+
             return ApiResponse.success(strategies);
         } catch (Exception e) {
             log.error("获取策略信息出错: {}", e.getMessage(), e);
