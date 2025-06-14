@@ -137,6 +137,13 @@
             <version>3.1.9</version>
         </dependency>
 
+        <!-- Java Compiler API - 更好的动态编译方案 -->
+        <dependency>
+            <groupId>org.eclipse.jdt</groupId>
+            <artifactId>ecj</artifactId>
+            <version>3.32.0</version>
+        </dependency>
+
         <!-- Spring Boot DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

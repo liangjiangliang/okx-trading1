@@ -15,6 +15,8 @@ import com.okx.trading.service.MarketDataService;
 import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.service.DeepSeekApiService;
 import com.okx.trading.service.DynamicStrategyService;
+import com.okx.trading.service.JavaCompilerDynamicStrategyService;
+import com.okx.trading.service.SmartDynamicStrategyService;
 import com.okx.trading.service.StrategyConversationService;
 import com.okx.trading.ta4j.Ta4jBacktestService;
 import io.swagger.annotations.Api;
@@ -53,6 +55,8 @@ public class Ta4jBacktestController {
     private final StrategyInfoService strategyInfoService;
     private final DeepSeekApiService deepSeekApiService;
     private final DynamicStrategyService dynamicStrategyService;
+    private final JavaCompilerDynamicStrategyService javaCompilerDynamicStrategyService;
+    private final SmartDynamicStrategyService smartDynamicStrategyService;
     private final StrategyConversationService strategyConversationService;
 
     @GetMapping("/run")
@@ -721,13 +725,15 @@ public class Ta4jBacktestController {
                     // 保存到数据库
                     StrategyInfoEntity savedStrategy = strategyInfoService.saveStrategy(strategyEntity);
 
-                    // 编译并动态加载策略
+                    // 编译并动态加载策略 - 使用智能编译服务
                     String compileError = null;
                     try {
-                        dynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
+                        smartDynamicStrategyService.compileAndLoadStrategy(generatedCode, savedStrategy);
                     } catch (Exception compileException) {
                         compileError = compileException.getMessage();
-                        log.warn("策略编译失败，但仍保存记录: {}", compileError);
+                        savedStrategy.setLoadError(compileError);
+                        strategyInfoService.saveStrategy(savedStrategy);
+                        log.warn("智能编译服务失败，保存错误记录: {}", compileError);
                     }
 
                     // 保存完整的对话记录到strategy_conversation表（包含编译错误信息）
@@ -830,13 +836,13 @@ public class Ta4jBacktestController {
             // 保存到数据库
             StrategyInfoEntity updatedStrategy = strategyInfoService.saveStrategy(existingStrategy);
 
-            // 重新编译并加载策略
+            // 重新编译并加载策略 - 使用智能编译服务
             String compileError = null;
             try {
-                dynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
+                smartDynamicStrategyService.compileAndLoadStrategy(newGeneratedCode, updatedStrategy);
             } catch (Exception compileException) {
                 compileError = compileException.getMessage();
-                log.warn("策略编译失败，但仍保存记录: {}", compileError);
+                log.warn("智能编译服务失败，保存错误记录: {}", compileError);
             }
 
             // 保存完整的对话记录到strategy_conversation表（包含编译错误信息）
@@ -865,8 +871,8 @@ public class Ta4jBacktestController {
         log.info("开始重新加载动态策略");
 
         try {
-            dynamicStrategyService.loadAllDynamicStrategies();
-            log.info("动态策略重新加载成功");
+            smartDynamicStrategyService.loadAllDynamicStrategies();
+            log.info("使用智能编译服务重新加载动态策略成功");
             return ApiResponse.success("动态策略重新加载成功");
 
         } catch (Exception e) {

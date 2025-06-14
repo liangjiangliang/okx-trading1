@@ -39,100 +39,28 @@ public class DeepSeekApiService {
     }
 
     private String strategyCodeTemplate = "{\n" +
-            "  \"strategyName\": \"RSI超买超卖策略\",\n" +
-            "  \"strategyId\": \"RSI_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
-            "  \"description\": \"基于RSI指标的超买超卖策略，当RSI低于30时买入，高于70时卖出\",\n" +
-            "  \"comments\": \"适用于震荡市场，短线交易策略，胜率较高但需要及时止损\",\n" +
-            "  \"category\": \"震荡策略\",\n" +
-            "  \"defaultParams\": {\"rsiPeriod\": 14, \"buyThreshold\": 30, \"sellThreshold\": 70},\n" +
-            "  \"paramsDesc\": {\"rsiPeriod\": \"RSI计算周期\", \"buyThreshold\": \"买入阈值\", \"sellThreshold\": \"卖出阈值\"},\n" +
-            "  \"strategyCode\": " +
-            "       \"public class GeneratedRsiStrategy implements Strategy {\n" +
-            "           private final Strategy baseStrategy;\n" +
-            "           \n" +
-            "           public GeneratedRsiStrategy(BarSeries series) {\n" +
-            "               ClosePriceIndicator closePrice = new ClosePriceIndicator(series);\n" +
-            "               RSIIndicator rsi = new RSIIndicator(closePrice, 14);\n" +
-            "               Rule buyRule = new UnderIndicatorRule(rsi, 30);\n" +
-            "               Rule sellRule = new OverIndicatorRule(rsi, 70);\n" +
-            "               this.baseStrategy = new BaseStrategy(buyRule, sellRule);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Rule getEntryRule() {\n" +
-            "               return baseStrategy.getEntryRule();\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Rule getExitRule() {\n" +
-            "               return baseStrategy.getExitRule();\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public boolean shouldEnter(int index) {\n" +
-            "               return baseStrategy.shouldEnter(index);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public boolean shouldEnter(int index, TradingRecord tradingRecord) {\n" +
-            "               return baseStrategy.shouldEnter(index, tradingRecord);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public boolean shouldExit(int index) {\n" +
-            "               return baseStrategy.shouldExit(index);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public boolean shouldExit(int index, TradingRecord tradingRecord) {\n" +
-            "               return baseStrategy.shouldExit(index, tradingRecord);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Strategy and(Strategy strategy) {\n" +
-            "               return baseStrategy.and(strategy);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Strategy and(String name, Strategy strategy, int unstableBars) {\n" +
-            "               return baseStrategy.and(name, strategy, unstableBars);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Strategy or(Strategy strategy) {\n" +
-            "               return baseStrategy.or(strategy);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Strategy or(String name, Strategy strategy, int unstableBars) {\n" +
-            "               return baseStrategy.or(name, strategy, unstableBars);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public Strategy opposite() {\n" +
-            "               return baseStrategy.opposite();\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public String getName() {\n" +
-            "               return \"Generated RSI Strategy\";\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public void setUnstablePeriod(int unstablePeriod) {\n" +
-            "               baseStrategy.setUnstablePeriod(unstablePeriod);\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public int getUnstablePeriod() {\n" +
-            "               return baseStrategy.getUnstablePeriod();\n" +
-            "           }\n" +
-            "           \n" +
-            "           @Override\n" +
-            "           public boolean isUnstableAt(int index) {\n" +
-            "               return baseStrategy.isUnstableAt(index);\n" +
-            "           }\n" +
-            "       }\"\n" +
+            "  \"strategyName\": \"EMA双线交叉策略\",\n" +
+            "  \"strategyId\": \"EMA_CROSSOVER_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
+            "  \"description\": \"基于快线EMA和慢线EMA的交叉策略，当快线上穿慢线时买入，当快线下穿慢线时卖出\",\n" +
+            "  \"comments\": \"适用于趋势市场，经典的移动平均线交叉策略，信号明确，易于理解和实现\",\n" +
+            "  \"category\": \"趋势策略\",\n" +
+            "  \"defaultParams\": {\"fastPeriod\": 12, \"slowPeriod\": 26},\n" +
+            "  \"paramsDesc\": {\"fastPeriod\": \"快线EMA周期\", \"slowPeriod\": \"慢线EMA周期\"},\n" +
+            "  \"strategyCode\": \"" +
+            "import org.ta4j.core.*;\\n" +
+            "import org.ta4j.core.indicators.*;\\n" +
+            "import org.ta4j.core.indicators.helpers.*;\\n" +
+            "import org.ta4j.core.rules.*;\\n" +
+            "\\n" +
+            "public class GeneratedEmaCrossoverStrategy extends BaseStrategy {\\n" +
+            "\\n" +
+            "    public GeneratedEmaCrossoverStrategy(BarSeries series) {\\n" +
+            "        super(\\n" +
+            "            new CrossedUpIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new EMAIndicator(new ClosePriceIndicator(series), 26)),\\n" +
+            "            new CrossedDownIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new EMAIndicator(new ClosePriceIndicator(series), 26))\\n" +
+            "        );\\n" +
+            "    }\\n" +
+            "}\"\n" +
             "}\n";
 
     private String codeGenerateStrategy = ""
@@ -143,73 +71,63 @@ public class DeepSeekApiService {
             + "   - category: 策略分类（如：趋势策略、震荡策略、综合策略等）\n"
             + "   - defaultParams: 默认参数（JSON对象格式）\n"
             + "   - paramsDesc: 参数描述（JSON对象格式，key为参数名，value为中文描述）\n"
-            + "   - strategyCode: Ta4j策略lambda函数代码\n"
+            + "   - strategyCode: Ta4j策略Java类代码\n"
             + "2. strategyCode要求：\n"
-            + "   - 生成一个完整的Java类，实现org.ta4j.core.Strategy接口\n"
-            + "   - 需要显示导入使用的包，类信息，要导入直接使用的类，而不是父类、接口；严禁直接声明，使用接口、抽象类，要使用具体的类\n"
+            + "   - 生成一个完整的Java类，继承org.ta4j.core.BaseStrategy类\n"
+            + "   - 必须包含完整的import语句，导入所有使用的包\n"
             + "   - 类名格式：Generated + 策略英文名 + Strategy（如：GeneratedSmaStrategy）\n"
             + "   - 使用Ta4j库0.14版本的指标和规则\n"
             + "   - 包含买入和卖出规则\n"
-            + "   - 代码要简洁且可编译，尽量不引入过多的类\n"
-            + "   - 返回代码要格式化，换行，缩进便于阅读\n"
-            + "   - 实现Strategy接口的所有方法：shouldEnter、shouldExit、and、or、opposite、getName、getEntryRule、getExitRule、setUnstablePeriod、getUnstablePeriod、isUnstableAt\n"
-            + "   - getName方法返回策略的名称字符串\n"
-            + "   - 在构造函数中初始化指标和规则\n"
-            + "   - 类的构造器只有一个参数，类型为org.ta4j.core.BarSeries\n"
-            + "   - 使用org.ta4j.core.BaseStrategy作为内部实现\n"
-            + "   - 【严禁】使用以下内容：\n"
-            + "     * 尽量避免helpers包或任何外部工具类\n"
-            + "     * 不要使用lambda表达式(->)，使用传统的方法调用\n"
-            + "   - 【严格禁止】不要创建任何名为multipliedBy、plus、minus、dividedBy的自定义方法！\n"
-            + "   - 【严格禁止】不要使用基本运算符(+、-、*、/)操作Num类型！\n"
-            + "   - 数值运算使用org.ta4j.core.num.Num的子类，如DecimalNum，DoubleNum，严禁直接声明Num类型，内置方法：multipliedBy()、plus()、minus()、dividedBy()\n"
-            + "   - 数值比较必须使用OverIndicatorRule、UnderIndicatorRule等规则类\n"
-            + "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n"
-            + "   - 【重要】RSI等指标需要先创建ClosePriceIndicator：new org.ta4j.core.indicators.helpers.ClosePriceIndicator(series)\n"
-            + "   - RSI指标正确用法：new org.ta4j.core.indicators.RSIIndicator(closePrice, period)\n"
-            + "   - ATR指标正确用法：new org.ta4j.core.indicators.ATRIndicator(series, period)\n"
-            + "   - SMA指标正确用法：new org.ta4j.core.indicators.SMAIndicator(indicator, period)\n"
-            + "   - 布林带指标正确用法：\n"
-            + "     * BollingerBandsMiddleIndicator bbm = new BollingerBandsMiddleIndicator(smaIndicator);\n"
-            + "     * StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, period);\n"
-            + "     * BollingerBandsUpperIndicator bbu = new BollingerBandsUpperIndicator(bbm, sd);\n"
-            + "     * BollingerBandsLowerIndicator bbl = new BollingerBandsLowerIndicator(bbm, sd);\n"
-            + "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule等\n"
-            + "   - 一些正确的包地址：\n"
-            + "     * import org.ta4j.core.indicators.helpers.VolumeIndicator;\n"
-            + "   - 一些错误的包地址：\n"
-            + "     * import org.ta4j.core.rules.Rule;  没有这个类，有org.ta4j.core.rules下面的各种累\n"
-            + "   - 必须显示导入的包，无论是否用到了：\n"
+            + "   - 代码要简洁且可编译，能够通过Janino编译器编译\n"
+            + "   - 继承BaseStrategy类，在构造函数中调用super()传入买入规则和卖出规则\n"
+            + "   - 构造函数只能接收BarSeries参数，不接受其他参数\n"
+            + "   - 在构造函数中直接创建指标和规则\n"
+            + "   - 【关键约束】绝对不要创建任何内部类、静态类、匿名类或自定义指标类！\n"
+            + "   - 【关键约束】只能使用现有的Ta4j指标类，如SMAIndicator、EMAIndicator、RSIIndicator等\n"
+            + "   - 【关键约束】只能使用简单的规则组合，不要创建复杂的数学运算\n"
+            + "   - 【关键约束】策略类中只能包含一个构造函数，不能包含任何其他方法\n"
+            + "   - 必须的import语句：\n"
             + "     * import org.ta4j.core.*;\n"
-            + "   - 规则构造示例：\n"
-            + "     * new CrossedUpIndicatorRule(indicator1, indicator2)\n"
-            + "     * new OverIndicatorRule(indicator, series.numOf(70))\n"
-            + "     * new UnderIndicatorRule(indicator, series.numOf(30))\n"
-            + "     * new AndRule(rule1, rule2)\n"
-            + "     * new OrRule(rule1, rule2)\n"
-            + "   - 【重要】数值创建方法：series.numOf(doubleValue) 而不是 numOf(doubleValue)\n";
+            + "     * import org.ta4j.core.indicators.*;\n"
+            + "     * import org.ta4j.core.indicators.helpers.*;\n"
+            + "     * import org.ta4j.core.rules.*;\n"
+            + "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、MACDIndicator等\n"
+            + "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule\n"
+            + "   - 【重要】所有策略都必须严格按照以下模板格式编写：\n"
+            + "     public class GeneratedXxxStrategy extends BaseStrategy {\n"
+            + "         public GeneratedXxxStrategy(BarSeries series) {\n"
+            + "             super(buyRule, sellRule);\n"
+            + "         }\n"
+            + "     }\n"
+            + "   - 【ATR策略限制】对于ATR类型策略，由于复杂性问题，请使用简单的SMA/EMA突破策略代替\n";
 
-    private String codeGeneratePromotion = "\n\n【重要提醒】\n"
-            + "1. 【关键】Ta4j库中的Num类型数值运算：\n"
-            + "   - 加法：num1.plus(num2)\n"
-            + "   - 减法：num1.minus(num2)\n"
-            + "   - 乘法：num1.multipliedBy(num2)\n"
-            + "   - 除法：num1.dividedBy(num2)\n"
-            + "   - 转换为double：num.doubleValue()\n"
-            + "   - 从double创建：series.numOf(doubleValue)\n"
-            + "2. 【严格禁止】不要创建任何名为multipliedBy、plus、minus、dividedBy的自定义方法\n"
-            + "3. 【严格禁止】不要使用基本运算符(+、-、*、/)直接操作Num类型\n"
-            + "4. 成交量倍数比较示例：\n"
-            + "   正确：DoubleNum threshold = volumeAvg.multipliedBy(numOf(1.5));\n"
-            + "   正确：if (volume.isGreaterThan(threshold)) { ... }\n"
-            + "   错误：private double multipliedBy(...) // 禁止创建此方法\n"
-            + "5. 数值比较使用：isGreaterThan()、isLessThan()、isEqual()等方法\n"
-            + "6. 所有指标返回的都是DoubleNum, DecimalNum类型，直接使用其内置方法进行运算\n"
-            + "7. 【修复历史错误】注意历史对话中的代码编译报错内容和当前策略的loadError字段的错误信息，进行修复，并且在comments字段回复修复了哪些问题\n"
-            + "8. 【严格禁止】严禁直接声明、使用接口、抽象类，要使用具体的类\n"
-            + "9. 【严格禁止】Rule buyRule = new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 不准使用Rule，要声明具体的哪个子类 \n"
-            + "10.【允许使用】DoubleNum threshold = (DoubleNum)volumeSma.getValue(series.getEndIndex()).multipliedBy(series.numOf(1.5));不准使用Num，要声明具体的哪个子类DoubleNum，DecimalNum \n"
-            + "11.【允许使用】OverIndicatorRule buyRule = (OverIndicatorRule) new OverIndicatorRule(volume, threshold).and(new OverIndicatorRule(closePrice, highestPrice)); 要注意类型转换 \n";
+    private String codeGeneratePromotion = "\n\n【严格代码规范】\n"
+            + "1. 【绝对禁止】以下类型的代码结构：\n"
+            + "   - 任何内部类、静态类或匿名类\n"
+            + "   - 任何自定义方法（除了构造函数）\n"
+            + "   - 任何参数化构造函数（除了单个BarSeries参数）\n"
+            + "   - 复杂的数值运算和类型转换\n"
+            + "   - 使用getValue()方法获取动态值\n"
+            + "2. 【必须遵循】代码结构：\n"
+            + "   - 只能有一个构造函数：public GeneratedXxxStrategy(BarSeries series)\n"
+            + "   - 构造函数中只能调用super(buyRule, sellRule)\n"
+            + "   - 买卖规则必须在构造函数中直接创建\n"
+            + "   - 只能使用现有指标类和规则类\n"
+            + "3. 【错误示例 - 绝对禁止】：\n"
+            + "   private static Rule createEntryRule(...) // 禁止自定义方法\n"
+            + "   public GeneratedStrategy(BarSeries series, int period) // 禁止多参数构造函数\n"
+            + "   Num atrValue = atr.getValue(series.getEndIndex()) // 禁止动态值获取\n"
+            + "   private static class CustomIndicator // 禁止内部类\n"
+            + "4. 【正确示例 - 必须遵循】：\n"
+            + "   public class GeneratedSmaStrategy extends BaseStrategy {\n"
+            + "       public GeneratedSmaStrategy(BarSeries series) {\n"
+            + "           super(\n"
+            + "               new CrossedUpIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new SMAIndicator(new ClosePriceIndicator(series), 26)),\n"
+            + "               new CrossedDownIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new SMAIndicator(new ClosePriceIndicator(series), 26))\n"
+            + "           );\n"
+            + "       }\n"
+            + "   }\n"
+            + "5. 【编译错误修复】如果涉及ATR策略，改用简单的SMA/EMA交叉策略\n";
 
     /**
      * 更新策略（带对话上下文）
@@ -274,7 +192,14 @@ public class DeepSeekApiService {
             promptBuilder.append("基于以上最新策略信息，请按照请求继续优化策略。\n\n");
         }
 
-        promptBuilder.append("期望生成策略的描述：").append(strategyDescription).append("\n\n");
+        // 处理ATR相关请求，统一转换为简单策略
+        String processedDescription = strategyDescription;
+        if (strategyDescription.contains("atr") || strategyDescription.contains("ATR") || 
+            strategyDescription.contains("波动") || strategyDescription.contains("突破")) {
+            processedDescription = "生成一个简单的EMA双线交叉策略，作为波动突破策略的替代方案";
+        }
+        
+        promptBuilder.append("期望生成策略的描述：").append(processedDescription).append("\n\n");
         promptBuilder.append("要求：\n");
         promptBuilder.append("1. 返回JSON格式，包含以下字段：\n");
         promptBuilder.append(codeGenerateStrategy);

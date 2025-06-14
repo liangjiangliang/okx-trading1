@@ -1,6 +1,8 @@
 package com.okx.trading.config;
 
 import com.okx.trading.service.DynamicStrategyService;
+import com.okx.trading.service.JavaCompilerDynamicStrategyService;
+import com.okx.trading.service.SmartDynamicStrategyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -17,13 +19,15 @@ import org.springframework.stereotype.Component;
 public class DynamicStrategyConfig implements ApplicationRunner {
 
     private final DynamicStrategyService dynamicStrategyService;
+    private final JavaCompilerDynamicStrategyService javaCompilerDynamicStrategyService;
+    private final SmartDynamicStrategyService smartDynamicStrategyService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
         log.info("应用启动，开始加载动态策略...");
         try {
-            dynamicStrategyService.loadAllDynamicStrategies();
-            log.info("动态策略加载完成");
+            smartDynamicStrategyService.loadAllDynamicStrategies();
+            log.info("使用智能编译服务加载动态策略完成");
         } catch (Exception e) {
             log.error("加载动态策略失败: {}", e.getMessage(), e);
         }

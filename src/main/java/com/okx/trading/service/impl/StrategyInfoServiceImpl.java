@@ -88,6 +88,7 @@ public class StrategyInfoServiceImpl implements StrategyInfoService {
             strategyInfo.put("strategy_code", strategy.getStrategyCode());
             strategyInfo.put("load_error", strategy.getLoadError());
             strategyInfo.put("update_time", String.valueOf(strategy.getUpdateTime()));
+            strategyInfo.put("source_code",strategy.getSourceCode());
             result.put(strategy.getStrategyCode(), strategyInfo);
         }
 
