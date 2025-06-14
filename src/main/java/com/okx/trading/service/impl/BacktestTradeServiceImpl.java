@@ -12,13 +12,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.util.function.Tuple2;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +33,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
 
     @Autowired
     public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository,
-                                   BacktestSummaryRepository backtestSummaryRepository) {
+                                    BacktestSummaryRepository backtestSummaryRepository) {
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestSummaryRepository = backtestSummaryRepository;
     }
@@ -116,25 +115,25 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     @Override
     @Transactional
     public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
-                                                   String strategyParams,
-                                                   String symbol,
-                                                   String interval,
-                                                   LocalDateTime startTime,
-                                                   LocalDateTime endTime,
-                                                   String backtestId) {
+                                                     String strategyParams,
+                                                     String symbol,
+                                                     String interval,
+                                                     LocalDateTime startTime,
+                                                     LocalDateTime endTime,
+                                                     String backtestId) {
         return saveBacktestSummary(backtestResult, strategyParams, symbol, interval, startTime, endTime, backtestId, null);
     }
 
     @Override
     @Transactional
     public BacktestSummaryEntity saveBacktestSummary(BacktestResultDTO backtestResult,
-                                                   String strategyParams,
-                                                   String symbol,
-                                                   String interval,
-                                                   LocalDateTime startTime,
-                                                   LocalDateTime endTime,
-                                                   String backtestId,
-                                                   String batchBacktestId) {
+                                                     String strategyParams,
+                                                     String symbol,
+                                                     String interval,
+                                                     LocalDateTime startTime,
+                                                     LocalDateTime endTime,
+                                                     String backtestId,
+                                                     String batchBacktestId) {
         if (backtestResult == null || !backtestResult.isSuccess()) {
             logger.warn("尝试保存无效的回测汇总结果");
             return null;
@@ -230,8 +229,8 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     }
 
     @Override
-    public List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol) {
-        return backtestSummaryRepository.findBestPerformingBacktests(strategyName, symbol);
+    public List<BacktestSummaryEntity> getBestPerformingBacktests() {
+        return backtestSummaryRepository.findBestPerformingBacktests();
     }
 
     @Override

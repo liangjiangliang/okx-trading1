@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import reactor.util.function.Tuple2;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -396,12 +397,22 @@ public class Ta4jBacktestController {
         try {
             // 从数据库中获取所有策略信息
             Map<String, Map<String, Object>> strategies = strategyInfoService.getStrategiesInfo();
-
+            List<BacktestSummaryEntity> bestReturnList = backtestTradeService.getBestPerformingBacktests();
             // 为每个策略添加available字段，基于最后一次对话的compile_error字段
             for (Map.Entry<String, Map<String, Object>> entry : strategies.entrySet()) {
                 Map<String, Object> strategyInfo = entry.getValue();
+                String strategyCode = (String) strategyInfo.get("strategy_code");
+                List<BacktestSummaryEntity> summaryEntities = bestReturnList.stream().filter(x -> x.getStrategyCode().equals(strategyCode)).collect(Collectors.toList());
+
+                if (summaryEntities.size() > 0) {
+                    BigDecimal bestRetun = (BigDecimal) summaryEntities.get(0).getTotalReturn();
+                    strategyInfo.put("best_return", bestRetun.doubleValue());
+                } else {
+                    strategyInfo.put("best_return", 0.0);
+                }
                 String strategyIdStr = (String) strategyInfo.get("id");
                 String loadError = (String) strategyInfo.get("load_error");
+
 
                 if (strategyIdStr != null && !strategyIdStr.isEmpty()) {
                     try {
@@ -419,6 +430,7 @@ public class Ta4jBacktestController {
                             available = false;
                         }
                         strategyInfo.put("available", available);
+
                     } catch (NumberFormatException e) {
                         log.warn("策略ID格式错误: {}", strategyIdStr);
                         strategyInfo.put("available", "true"); // 默认为true
@@ -534,23 +546,6 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("获取交易对回测汇总信息出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取交易对回测汇总信息出错: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/summaries/best")
-    @ApiOperation(value = "获取最佳表现的回测", notes = "根据策略名称和交易对获取表现最好的回测")
-    public ApiResponse<List<BacktestSummaryEntity>> getBestPerformingBacktests(
-            @ApiParam(value = "策略名称", required = true, type = "string") @RequestParam String strategyName,
-            @ApiParam(value = "交易对", required = true, type = "string") @RequestParam String symbol) {
-        try {
-            List<BacktestSummaryEntity> summaries = backtestTradeService.getBestPerformingBacktests(strategyName, symbol);
-            if (summaries.isEmpty()) {
-                return ApiResponse.error(404, "未找到符合条件的回测汇总信息");
-            }
-            return ApiResponse.success(summaries);
-        } catch (Exception e) {
-            log.error("获取最佳表现回测信息出错: {}", e.getMessage(), e);
-            return ApiResponse.error(500, "获取最佳表现回测信息出错: " + e.getMessage());
         }
     }
 

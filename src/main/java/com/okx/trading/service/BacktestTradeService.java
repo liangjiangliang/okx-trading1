@@ -2,11 +2,14 @@ package com.okx.trading.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.BacktestTradeEntity;
+import reactor.util.function.Tuple2;
 
 /**
  * 回测交易服务接口
@@ -41,7 +44,7 @@ public interface BacktestTradeService {
                                               LocalDateTime startTime,
                                               LocalDateTime endTime,
                                               String backtestId);
-    
+
     /**
      * 保存回测汇总信息(包含批量回测ID)
      *
@@ -126,14 +129,12 @@ public interface BacktestTradeService {
     List<BacktestSummaryEntity> getBacktestSummariesBySymbol(String symbol);
 
     /**
-     * A获取特定策略和交易对的最优回测
-     *
-     * @param strategyName 策略名称
-     * @param symbol 交易对
-     * @return 回测汇总信息列表
+     * 获取每个策略代码的最高收益回测
+     * 
+     * @return 每个策略代码的最高收益回测信息列表
      */
-    List<BacktestSummaryEntity> getBestPerformingBacktests(String strategyName, String symbol);
-    
+    List<BacktestSummaryEntity> getBestPerformingBacktests();
+
     /**
      * 根据批量回测ID获取回测汇总信息列表
      *
