@@ -79,6 +79,21 @@ public class BacktestResultDTO {
     private BigDecimal sharpeRatio;
 
     /**
+     * Sortino比率（只考虑下行风险的风险调整收益指标）
+     */
+    private BigDecimal sortinoRatio;
+
+    /**
+     * Calmar比率（年化收益与最大回撤的比值）
+     */
+    private BigDecimal calmarRatio;
+
+    /**
+     * 最大损失（单笔交易中的最大亏损金额）
+     */
+    private BigDecimal maximumLoss;
+
+    /**
      * 盈利因子（总盈利/总亏损）
      */
     private BigDecimal profitFactor;
@@ -210,6 +225,30 @@ public class BacktestResultDTO {
 
     public void setSharpeRatio(BigDecimal sharpeRatio) {
         this.sharpeRatio = sharpeRatio;
+    }
+
+    public BigDecimal getSortinoRatio() {
+        return sortinoRatio;
+    }
+
+    public void setSortinoRatio(BigDecimal sortinoRatio) {
+        this.sortinoRatio = sortinoRatio;
+    }
+
+    public BigDecimal getCalmarRatio() {
+        return calmarRatio;
+    }
+
+    public void setCalmarRatio(BigDecimal calmarRatio) {
+        this.calmarRatio = calmarRatio;
+    }
+
+    public BigDecimal getMaximumLoss() {
+        return maximumLoss;
+    }
+
+    public void setMaximumLoss(BigDecimal maximumLoss) {
+        this.maximumLoss = maximumLoss;
     }
 
     public BigDecimal getProfitFactor() {

@@ -208,41 +208,13 @@ public class Ta4jBacktestService {
             averageProfit = totalReturn.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
-        // 计算最大回撤
-//        BigDecimal maxDrawdown = calculateMaxDrawdown(series, tradeRecords, initialAmount);
-        // 最大回撤
-        double maxiunDrawdown = new MaximumDrawdownCriterion().calculate(series, tradingRecord).doubleValue();
-//        double returnOverMaxDrawdown = new ReturnOverMaxDrawdownCriterion().calculate(series, tradingRecord).doubleValue();
-//        double buyAndHoldReturnCriterion = new BuyAndHoldReturnCriterion().calculate(series, tradingRecord).doubleValue();
-        //每根K线平均收益率（单位时间收益）
-//        double averageReturnPerBarCriterion = new AverageReturnPerBarCriterion().calculate(series, tradingRecord).doubleValue();
-        //连续盈利最大次数
-//        int numberOfConsecutiveWinningPositions = new NumberOfConsecutiveWinningPositionsCriterion().calculate(series, tradingRecord).intValue();
-//        double expectancyCriterion = new ExpectancyCriterion().calculate(series, tradingRecord).doubleValue();
-        //线性手续费损耗影响评估（成本）
-//        double linearTransactionCostCriterion = new LinearTransactionCostCriterion(initialAmount.doubleValue(),feeRatio.doubleValue()).calculate(series, tradingRecord).doubleValue();
-        //    | 类名                                 | 含义                        |
-        //    | ---------------------------------- | ------------------------- |
-        //    | **AverageReturnPerBarCriterion**   | 每根K线平均收益率（单位时间收益）         |
-        //    | **BuyAndHoldReturnCriterion**      | “买入并持有”策略的总收益率，用作基准       |
-        //    | **VersusBuyAndHoldCriterion**      | 当前策略相对于买入并持有的表现比值         |
-        //    | **ReturnOverMaxDrawdownCriterion** | 年化收益 / 最大回撤，比 Calmar 指标类似 |
-        //    | ---------------------------------- | ---------------------- |
-        //    | **MaximumDrawdownCriterion**       | 最大回撤（最大历史亏损）           |
-        //    | **ValueAtRiskCriterion**           | VaR：某置信水平下最大可能损失（统计风险） |
-        //    | **ExpectedShortfallCriterion**     | CVaR：条件在VaR之下的平均亏损     |
-        //    | **LinearTransactionCostCriterion** | 线性手续费损耗影响评估（成本）        |
-        //    | ---------------------------------- | ---------------------- |
-        //    | **NumberOfBarsCriterion**               | 使用的K线根数（活跃度） |
-        //    | **NumberOfPositionsCriterion**          | 总交易次数（开仓次数）  |
-        //    | **NumberOfBreakEvenPositionsCriterion** | 盈亏为零的平仓次数    |
-        //    | ----------------------------- | ------------------------------------------- |
-        //    | **ExpectancyCriterion**       | 期望收益率（考虑胜率和盈亏比）                             |
-        //    | **AbstractAnalysisCriterion** | 所有评估类的抽象基类                                  |
-
+        // 计算最大回撤（基于收盘价，不考虑手续费）
+        BigDecimal maxDrawdown = calculateMaxDrawdown(series);
+        
+        // 计算最大损失（基于收盘价，不考虑手续费）
+        BigDecimal maximumLoss = calculateMaximumLoss(series, tradingRecord);
 
         // 计算夏普比率
-//        BigDecimal sharpeRatio = calculateSharpeRatio(tradeRecords, initialAmount);
         ArrayList<BigDecimal> dailyPrice = new ArrayList<>();
         for (int i = 0; i <= series.getEndIndex(); i++) {
             double closePrice = series.getBar(i).getClosePrice().doubleValue();
@@ -250,7 +222,13 @@ public class Ta4jBacktestService {
         }
         List<BigDecimal> dailyReturns = computeDailyReturns(dailyPrice, true);
         BigDecimal sharpeRatio1 = calculateSharpeRatio(dailyReturns, BigDecimal.valueOf(0.0001), 252);
-
+        
+        // 计算Sortino比率
+        BigDecimal sortinoRatio = calculateSortinoRatio(dailyReturns, BigDecimal.valueOf(0.0001), 252);
+        
+        // 计算Calmar比率
+        BigDecimal calmarRatio = calculateCalmarRatio(totalReturn, maxDrawdown);
+        
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
         result.setSuccess(true);
@@ -263,8 +241,11 @@ public class Ta4jBacktestService {
         result.setUnprofitableTrades(tradeCount - profitableTrades);
         result.setWinRate(winRate);
         result.setAverageProfit(averageProfit);
-        result.setMaxDrawdown(BigDecimal.valueOf(maxiunDrawdown));
+        result.setMaxDrawdown(maxDrawdown);
         result.setSharpeRatio(sharpeRatio1);
+        result.setSortinoRatio(sortinoRatio);
+        result.setCalmarRatio(calmarRatio);
+        result.setMaximumLoss(maximumLoss);
         result.setProfitFactor(profitFactor);
         result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
@@ -278,240 +259,149 @@ public class Ta4jBacktestService {
     }
 
     /**
-     * 计算最大回撤
+     * 计算最大回撤（基于收盘价，不考虑手续费）
      *
-     * @param series        BarSeries对象
-     * @param trades        交易记录列表
-     * @param initialAmount 初始资金
+     * @param series BarSeries对象
      * @return 最大回撤（百分比）
      */
-    private BigDecimal calculateMaxDrawdown(BarSeries series, List<TradeRecordDTO> trades, BigDecimal initialAmount) {
-        if (trades == null || trades.isEmpty() || series == null || series.getBarCount() == 0) {
+    private BigDecimal calculateMaxDrawdown(BarSeries series) {
+        if (series == null || series.getBarCount() == 0) {
             return BigDecimal.ZERO;
         }
 
-        // 创建一个映射，用于存储每个时间点的资产价值
-        Map<ZonedDateTime, BigDecimal> equityCurve = new HashMap<>();
-
-        // 初始资产价值
-        BigDecimal currentValue = initialAmount;
-        equityCurve.put(series.getFirstBar().getEndTime(), currentValue);
-
-        // 遍历每笔交易，计算交易期间的资产价值变化
-        for (TradeRecordDTO trade : trades) {
-            // 获取交易的进场和出场时间
-            LocalDateTime entryLocalTime = trade.getEntryTime();
-            LocalDateTime exitLocalTime = trade.getExitTime();
-            if (entryLocalTime == null || exitLocalTime == null) {
-                continue;
-            }
-
-            // 转换为ZonedDateTime以匹配BarSeries中的时间格式
-            ZonedDateTime entryTime = entryLocalTime.atZone(ZoneId.systemDefault());
-            ZonedDateTime exitTime = exitLocalTime.atZone(ZoneId.systemDefault());
-
-            // 找到进场和出场时间对应的Bar索引
-            int entryIndex = -1;
-            int exitIndex = -1;
-
-            for (int i = 0; i < series.getBarCount(); i++) {
-                ZonedDateTime barTime = series.getBar(i).getEndTime();
-
-                // 找到最接近进场时间的Bar
-                if (entryIndex == -1 && (barTime.equals(entryTime) || barTime.isAfter(entryTime))) {
-                    entryIndex = i;
-                }
-
-                // 找到最接近出场时间的Bar
-                if (barTime.equals(exitTime) || barTime.isAfter(exitTime)) {
-                    exitIndex = i;
-                    break;
-                }
-            }
-
-            // 如果找不到对应的Bar，则继续下一笔交易
-            if (entryIndex == -1 || exitIndex == -1 || entryIndex >= exitIndex) {
-                continue;
-            }
-
-            // 计算交易期间的资产价值变化
-            BigDecimal entryAmount = trade.getEntryAmount();
-            BigDecimal profitPercentage = trade.getProfitPercentage();
-
-            // 记录进场时的资产价值
-            equityCurve.put(series.getBar(entryIndex).getEndTime(), currentValue);
-
-            // 计算交易期间每个Bar的资产价值
-            for (int i = entryIndex + 1; i <= exitIndex; i++) {
-                Bar bar = series.getBar(i);
-                ZonedDateTime barTime = bar.getEndTime();
-
-                // 计算当前Bar时的盈亏百分比
-                BigDecimal currentBarPrice = new BigDecimal(bar.getClosePrice().doubleValue());
-                BigDecimal entryPrice = trade.getEntryPrice();
-
-                BigDecimal currentProfitPercentage;
-                if ("BUY".equals(trade.getType())) {
-                    // 如果是买入操作，盈亏百分比 = (当前价 - 买入价) / 买入价
-                    currentProfitPercentage = currentBarPrice.subtract(entryPrice)
-                            .divide(entryPrice, 8, RoundingMode.HALF_UP);
-                } else {
-                    // 如果是卖出操作（做空），盈亏百分比 = (买入价 - 当前价) / 买入价
-                    currentProfitPercentage = entryPrice.subtract(currentBarPrice)
-                            .divide(entryPrice, 8, RoundingMode.HALF_UP);
-                }
-
-                // 计算手续费（如果有）
-                BigDecimal fee = BigDecimal.ZERO;
-                if (trade.getFee() != null) {
-                    // 假设手续费在交易期间平均分配
-                    fee = trade.getFee().divide(new BigDecimal(exitIndex - entryIndex + 1), 8, RoundingMode.HALF_UP);
-                }
-
-                // 计算当前Bar时的资产价值
-                BigDecimal barValue = entryAmount.add(entryAmount.multiply(currentProfitPercentage)).subtract(fee);
-
-                // 更新当前资产价值（考虑非交易资金）
-                BigDecimal nonTradingAmount = currentValue.subtract(entryAmount);
-                BigDecimal totalValue = nonTradingAmount.add(barValue);
-
-                // 记录当前Bar时的资产价值
-                equityCurve.put(barTime, totalValue);
-            }
-
-            // 更新当前资产价值（交易结束后）
-            if (trade.getExitAmount() != null) {
-                currentValue = trade.getExitAmount();
-                // 记录出场时的资产价值
-                equityCurve.put(series.getBar(exitIndex).getEndTime(), currentValue);
-            }
-        }
-
-        // 计算最大回撤
         BigDecimal highestValue = BigDecimal.ZERO;
         BigDecimal maxDrawdown = BigDecimal.ZERO;
 
-        // 按时间顺序排序所有时间点
-        List<ZonedDateTime> timePoints = new ArrayList<>(equityCurve.keySet());
-        timePoints.sort(Comparator.naturalOrder());
-
-        for (ZonedDateTime time : timePoints) {
-            BigDecimal value = equityCurve.get(time);
-
-            // 更新历史最高资产价值
-            if (value.compareTo(highestValue) > 0) {
-                highestValue = value;
+        // 遍历每个Bar，计算最大回撤
+        for (int i = 0; i < series.getBarCount(); i++) {
+            // 获取当前收盘价
+            BigDecimal currentValue = new BigDecimal(series.getBar(i).getClosePrice().doubleValue());
+            
+            // 更新历史最高价
+            if (currentValue.compareTo(highestValue) > 0) {
+                highestValue = currentValue;
             }
-
+            
             // 计算当前回撤
             if (highestValue.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal currentDrawdown = highestValue.subtract(value)
+                BigDecimal currentDrawdown = highestValue.subtract(currentValue)
                         .divide(highestValue, 8, RoundingMode.HALF_UP);
-
+                
                 // 更新最大回撤
                 if (currentDrawdown.compareTo(maxDrawdown) > 0) {
                     maxDrawdown = currentDrawdown;
                 }
             }
         }
-
+        
         return maxDrawdown;
     }
 
     /**
-     * 计算夏普比率
-     * 夏普比率 = (投资组合收益率 - 无风险收益率) / 投资组合标准差
+     * 计算最大损失（基于收盘价，不考虑手续费）
+     * 
+     * 最大损失是指单笔交易中的最大亏损百分比，用于评估策略的最坏情况风险。
+     * 它反映了策略在单次交易中可能遭受的最大损失，是风险管理的重要指标。
+     * 此方法直接基于K线收盘价计算，不考虑手续费等交易成本。
+     * 
+     * 使用场景：
+     * 1. 设置止损点位和风险控制阈值
+     * 2. 评估策略的极端风险暴露
+     * 3. 计算资金需求和风险承受能力
+     * 
+     * 解读：
+     * - 值越小越好（绝对值越小）
+     * - 应与账户规模相比较，评估其影响
+     * - 可用于设置每笔交易的最大风险敞口
      *
-     * @param trades        交易记录列表
-     * @param initialAmount 初始资金
-     * @return 夏普比率
+     * @param series BarSeries对象
+     * @param tradingRecord 交易记录
+     * @return 最大损失百分比（负值，表示亏损）
      */
-    private BigDecimal calculateSharpeRatio(List<TradeRecordDTO> trades, BigDecimal initialAmount) {
+    public static BigDecimal calculateMaximumLoss(BarSeries series, TradingRecord tradingRecord) {
+        if (series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal maxLoss = BigDecimal.ZERO;
+
+        // 遍历每个已关闭的交易
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
+                // 获取入场和出场信息
+                int entryIndex = position.getEntry().getIndex();
+                int exitIndex = position.getExit().getIndex();
+                
+                if (entryIndex < 0 || exitIndex < 0 || entryIndex >= series.getBarCount() || exitIndex >= series.getBarCount()) {
+                    continue;
+                }
+
+                // 获取入场和出场价格
+                BigDecimal entryPrice = new BigDecimal(series.getBar(entryIndex).getClosePrice().doubleValue());
+                BigDecimal exitPrice = new BigDecimal(series.getBar(exitIndex).getClosePrice().doubleValue());
+                
+                // 计算收益率
+                BigDecimal returnRate;
+                if (position.getEntry().isBuy()) {
+                    // 如果是买入操作，收益率 = (卖出价 - 买入价) / 买入价
+                    returnRate = exitPrice.subtract(entryPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
+                } else {
+                    // 如果是卖出操作（做空），收益率 = (买入价 - 卖出价) / 买入价
+                    returnRate = entryPrice.subtract(exitPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
+                }
+                
+                // 只关注亏损交易
+                if (returnRate.compareTo(BigDecimal.ZERO) < 0) {
+                    // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
+                    if (returnRate.compareTo(maxLoss) < 0) {
+                        maxLoss = returnRate;
+                    }
+                }
+            }
+        }
+
+        return maxLoss;
+    }
+
+    /**
+     * 计算最大损失
+     * 
+     * 最大损失是指单笔交易中的最大亏损金额，用于评估策略的最坏情况风险。
+     * 它反映了策略在单次交易中可能遭受的最大损失，是风险管理的重要指标。
+     * 
+     * 使用场景：
+     * 1. 设置止损点位和风险控制阈值
+     * 2. 评估策略的极端风险暴露
+     * 3. 计算资金需求和风险承受能力
+     * 
+     * 解读：
+     * - 值越小越好（绝对值越小）
+     * - 应与账户规模相比较，评估其影响
+     * - 可用于设置每笔交易的最大风险敞口
+     *
+     * @param trades 交易记录列表
+     * @return 最大损失金额（负值，表示亏损）
+     */
+    public static BigDecimal calculateMaximumLossFromTrades(List<TradeRecordDTO> trades) {
         if (trades == null || trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
-        // 计算每笔交易的收益率
-        List<BigDecimal> returns = new ArrayList<>();
+        BigDecimal maxLoss = BigDecimal.ZERO;
 
         for (TradeRecordDTO trade : trades) {
-            if (trade.getProfitPercentage() != null) {
-                returns.add(trade.getProfitPercentage());
+            BigDecimal profit = trade.getProfit();
+            
+            // 只考虑亏损交易
+            if (profit != null && profit.compareTo(BigDecimal.ZERO) < 0) {
+                // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
+                if (profit.compareTo(maxLoss) < 0) {
+                    maxLoss = profit;
+                }
             }
         }
 
-        if (returns.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        // 计算平均收益率
-        BigDecimal sumReturns = BigDecimal.ZERO;
-        for (BigDecimal ret : returns) {
-            sumReturns = sumReturns.add(ret);
-        }
-        BigDecimal avgReturn = sumReturns.divide(new BigDecimal(returns.size()), 8, RoundingMode.HALF_UP);
-
-        // 计算标准差
-        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
-        for (BigDecimal ret : returns) {
-            BigDecimal diff = ret.subtract(avgReturn);
-            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
-        }
-
-        BigDecimal variance = sumSquaredDiff.divide(new BigDecimal(returns.size()), 8, RoundingMode.HALF_UP);
-        BigDecimal stdDev = new BigDecimal(Math.sqrt(variance.doubleValue()));
-
-        // 无风险收益率（假设为0）
-        BigDecimal riskFreeRate = BigDecimal.ZERO;
-
-        // 计算夏普比率
-        if (stdDev.compareTo(BigDecimal.ZERO) > 0) {
-            return avgReturn.subtract(riskFreeRate).divide(stdDev, 4, RoundingMode.HALF_UP);
-        } else {
-            return BigDecimal.ZERO;
-        }
-    }
-
-    /**
-     * 计算年化 Sharpe 比率
-     *
-     * @param dailyReturns        每日收益率序列（建议为对数收益率），如 [0.0023, -0.0011, 0.0005, ...]
-     * @param riskFreeRate        无风险日收益率（例如设为 0.0001；或 0 表示忽略）
-     * @param annualizationFactor 年化因子（例如 252 表示按每日）
-     * @return Sharpe 比率（保留 6 位小数）
-     */
-    public static BigDecimal calculateSharpeRatio(List<BigDecimal> dailyReturns,
-                                                  BigDecimal riskFreeRate,
-                                                  int annualizationFactor) {
-        if (dailyReturns == null || dailyReturns.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        // 平均收益率
-        BigDecimal sum = BigDecimal.ZERO;
-        for (BigDecimal r : dailyReturns) {
-            sum = sum.add(r);
-        }
-        BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
-
-        // 收益率标准差（波动率）
-        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
-        for (BigDecimal r : dailyReturns) {
-            BigDecimal diff = r.subtract(avgReturn);
-            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
-        }
-        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
-        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
-
-        if (stdDev.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-
-        // Sharpe = (mean - riskFree) / stdDev × √annualizationFactor
-        BigDecimal sharpe = avgReturn.subtract(riskFreeRate).divide(stdDev, 10, RoundingMode.HALF_UP);
-        BigDecimal sqrtAnnualFactor = BigDecimal.valueOf(Math.sqrt(annualizationFactor));
-
-        return sharpe.multiply(sqrtAnnualFactor).setScale(6, RoundingMode.HALF_UP);
+        return maxLoss;
     }
 
     public static List<BigDecimal> computeDailyReturns(List<BigDecimal> prices, boolean useLogReturn) {
@@ -532,7 +422,6 @@ public class Ta4jBacktestService {
         }
         return returns;
     }
-
 
     /**
      * 从交易记录中提取交易明细（带手续费计算）
@@ -661,13 +550,23 @@ public class Ta4jBacktestService {
         // 交易指标
         String winRateFormatted = String.format("%.2f%%", result.getWinRate().multiply(new BigDecimal("100")));
         String maxDrawdownFormatted = String.format("%.2f%%", result.getMaxDrawdown().multiply(new BigDecimal("100")));
+        String maximumLossFormatted = String.format("%,.2f", result.getMaximumLoss() != null ? result.getMaximumLoss() : BigDecimal.ZERO);
 
         summaryBuilder.append("交易次数: ").append(result.getNumberOfTrades()).append("\n");
         summaryBuilder.append("盈利交易: ").append(result.getProfitableTrades()).append("\n");
         summaryBuilder.append("亏损交易: ").append(result.getUnprofitableTrades()).append("\n");
         summaryBuilder.append("胜率: ").append(winRateFormatted).append("\n");
+        
+        // 风险指标
+        summaryBuilder.append("------------------------------------------------------\n");
+        summaryBuilder.append("风险评估指标:\n");
         summaryBuilder.append("夏普比率: ").append(String.format("%.4f", result.getSharpeRatio())).append("\n");
+        summaryBuilder.append("索提诺比率: ").append(String.format("%.4f", result.getSortinoRatio() != null ? result.getSortinoRatio() : BigDecimal.ZERO)).append("\n");
+        summaryBuilder.append("卡玛比率: ").append(String.format("%.4f", result.getCalmarRatio() != null ? result.getCalmarRatio() : BigDecimal.ZERO)).append("\n");
         summaryBuilder.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
+        summaryBuilder.append("最大单笔亏损: ").append(maximumLossFormatted).append("\n");
+        summaryBuilder.append("盈亏比: ").append(String.format("%.4f", result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ONE)).append("\n");
+        
         summaryBuilder.append(separator).append("\n");
 
         // 输出汇总信息
@@ -693,5 +592,144 @@ public class Ta4jBacktestService {
         context.reset();
         JoranConfigurator configurator = new JoranConfigurator();
         configurator.setContext(context);
+    }
+
+    /**
+     * 计算年化 Sharpe 比率
+     *
+     * @param dailyReturns        每日收益率序列（建议为对数收益率），如 [0.0023, -0.0011, 0.0005, ...]
+     * @param riskFreeRate        无风险日收益率（例如设为 0.0001；或 0 表示忽略）
+     * @param annualizationFactor 年化因子（例如 252 表示按每日）
+     * @return Sharpe 比率（保留 6 位小数）
+     */
+    public static BigDecimal calculateSharpeRatio(List<BigDecimal> dailyReturns,
+                                                BigDecimal riskFreeRate,
+                                                int annualizationFactor) {
+        if (dailyReturns == null || dailyReturns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        // 平均收益率
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal r : dailyReturns) {
+            sum = sum.add(r);
+        }
+        BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 收益率标准差（波动率）
+        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
+        for (BigDecimal r : dailyReturns) {
+            BigDecimal diff = r.subtract(avgReturn);
+            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
+        }
+        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
+        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
+
+        if (stdDev.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        // Sharpe = (mean - riskFree) / stdDev × √annualizationFactor
+        BigDecimal sharpe = avgReturn.subtract(riskFreeRate).divide(stdDev, 10, RoundingMode.HALF_UP);
+        BigDecimal sqrtAnnualFactor = BigDecimal.valueOf(Math.sqrt(annualizationFactor));
+
+        return sharpe.multiply(sqrtAnnualFactor).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算年化 Sortino 比率
+     * 
+     * Sortino比率是对夏普比率的改进，只考虑下行风险（负收益），而不是总体波动率。
+     * 它衡量了投资组合的超额收益相对于下行风险的比率，更适合评估非对称收益分布的策略。
+     * 
+     * 使用场景：
+     * 1. 评估非对称收益分布的策略（如期权策略、对冲策略等）
+     * 2. 当投资者更关注亏损风险而非总体波动率时
+     * 3. 比较不同风险特性的策略时，提供比夏普比率更精确的风险调整收益指标
+     * 
+     * 解读：
+     * - 值越高越好，表示每单位下行风险获得的超额收益越多
+     * - 通常大于1被认为是良好的，大于2是优秀的
+     * - 负值表示策略表现不如无风险资产
+     *
+     * @param dailyReturns        每日收益率序列（建议为对数收益率）
+     * @param riskFreeRate        无风险日收益率
+     * @param annualizationFactor 年化因子（例如 252 表示按每日）
+     * @return Sortino 比率（保留 6 位小数）
+     */
+    public static BigDecimal calculateSortinoRatio(List<BigDecimal> dailyReturns,
+                                                 BigDecimal riskFreeRate,
+                                                 int annualizationFactor) {
+        if (dailyReturns == null || dailyReturns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        // 平均收益率
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal r : dailyReturns) {
+            sum = sum.add(r);
+        }
+        BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算下行方差（只考虑负收益）
+        BigDecimal sumSquaredDownsideDiff = BigDecimal.ZERO;
+        int downsideCount = 0;
+
+        for (BigDecimal r : dailyReturns) {
+            // 只考虑低于目标收益率（通常为0或无风险利率）的收益
+            if (r.compareTo(riskFreeRate) < 0) {
+                BigDecimal diff = r.subtract(riskFreeRate);
+                sumSquaredDownsideDiff = sumSquaredDownsideDiff.add(diff.multiply(diff));
+                downsideCount++;
+            }
+        }
+
+        // 如果没有下行偏差，返回一个较大值或零
+        if (downsideCount == 0) {
+            return new BigDecimal("999.999999"); // 表示极高的比率，因为没有下行风险
+        }
+
+        // 计算下行标准差
+        BigDecimal downsideVariance = sumSquaredDownsideDiff.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
+        BigDecimal downsideDeviation = BigDecimal.valueOf(Math.sqrt(downsideVariance.doubleValue()));
+
+        if (downsideDeviation.compareTo(BigDecimal.ZERO) == 0) {
+            return new BigDecimal("999.999999");
+        }
+
+        // Sortino = (mean - riskFree) / downsideDeviation × √annualizationFactor
+        BigDecimal sortino = avgReturn.subtract(riskFreeRate).divide(downsideDeviation, 10, RoundingMode.HALF_UP);
+        BigDecimal sqrtAnnualFactor = BigDecimal.valueOf(Math.sqrt(annualizationFactor));
+
+        return sortino.multiply(sqrtAnnualFactor).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算 Calmar 比率
+     * 
+     * Calmar比率是年化收益率与最大回撤的比值，用于评估风险调整后的收益表现。
+     * 它衡量了投资组合每承担一单位最大回撤风险所获得的超额收益。
+     * 
+     * 使用场景：
+     * 1. 评估长期投资策略的风险调整收益
+     * 2. 对比不同策略在极端市场条件下的表现
+     * 3. 适合风险厌恶型投资者，关注策略在最坏情况下的表现
+     * 
+     * 解读：
+     * - 值越高越好，通常大于0.5被认为是良好的，大于1是优秀的
+     * - 负值表示策略整体亏损
+     * - 相比夏普比率，Calmar比率更关注极端风险而非平均波动
+     *
+     * @param annualizedReturn 年化收益率
+     * @param maxDrawdown      最大回撤（正值，例如0.2表示20%的回撤）
+     * @return Calmar 比率（保留 6 位小数）
+     */
+    public static BigDecimal calculateCalmarRatio(BigDecimal annualizedReturn, BigDecimal maxDrawdown) {
+        if (maxDrawdown == null || maxDrawdown.compareTo(BigDecimal.ZERO) <= 0) {
+            return new BigDecimal("999.999999"); // 如果没有回撤，返回一个较大值
+        }
+
+        // Calmar = 年化收益率 / 最大回撤
+        return annualizedReturn.divide(maxDrawdown, 6, RoundingMode.HALF_UP);
     }
 }
