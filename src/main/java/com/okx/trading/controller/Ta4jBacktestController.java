@@ -603,6 +603,12 @@ public class Ta4jBacktestController {
                         .reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(new BigDecimal(backtestCount), 4, RoundingMode.HALF_UP);
 
+                // 计算年华平均收益率
+                BigDecimal avgAnnualReturn = batchSummaries.stream()
+                        .map(BacktestSummaryEntity::getAnnualizedReturn).filter(x -> x != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(new BigDecimal(backtestCount), 4, RoundingMode.HALF_UP);
+
                 // 平均交易次数
                 int avgTradeNum = batchSummaries.stream().map(x -> x.getNumberOfTrades()).reduce(Integer::sum).get() / backtestCount;
 
@@ -616,6 +622,7 @@ public class Ta4jBacktestController {
                 batchStat.put("batch_backtest_id", batchId);
                 batchStat.put("backtest_count", backtestCount);
                 batchStat.put("avg_return", avgReturn);
+                batchStat.put("avg_annual_return", avgAnnualReturn);
                 batchStat.put("avg_trade_num", avgTradeNum);
 
                 if (bestBacktest != null) {
