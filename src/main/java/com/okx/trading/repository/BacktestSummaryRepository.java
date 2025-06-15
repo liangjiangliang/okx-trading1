@@ -56,7 +56,7 @@ public interface BacktestSummaryRepository extends JpaRepository<BacktestSummary
      *
      * @return 每个策略代码的最高收益回测信息
      */
-    @Query("SELECT b FROM BacktestSummaryEntity b WHERE b.strategyCode IS NOT NULL AND b.strategyCode <> '' AND b.totalReturn = (SELECT MAX(b2.totalReturn) FROM BacktestSummaryEntity b2 WHERE b2.strategyCode = b.strategyCode)")
+    @Query("SELECT b FROM BacktestSummaryEntity b WHERE b.strategyCode IS NOT NULL AND b.strategyCode <> '' ")
     List<BacktestSummaryEntity> findBestPerformingBacktests();
 
     /**

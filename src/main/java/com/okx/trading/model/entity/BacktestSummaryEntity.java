@@ -105,6 +105,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal totalReturn;
 
     /**
+     * 年化收益率（百分比）
+     */
+    @Column(name = "annualized_return", precision = 10, scale = 4)
+    private BigDecimal annualizedReturn;
+
+    /**
      * 交易总次数
      */
     @Column(name = "number_of_trades")

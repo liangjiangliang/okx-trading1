@@ -370,13 +370,18 @@ public class Ta4jBacktestController {
 
                 return returnB.compareTo(returnA); // 降序排列
             });
+            long successCount = allResults.stream().filter(r -> (boolean) r.get("success")).count();
+            Double totalReturn = allResults.stream().filter(r -> (boolean) r.get("success")).map(x -> ((BigDecimal) x.get("total_return")).doubleValue()).reduce(Double::sum).orElseGet(() -> 0.0);
 
             // 构建响应结果
             Map<String, Object> response = new HashMap<>();
             response.put("batch_backtest_id", batchBacktestId);
             response.put("total_strategies", strategyCodes.size());
-            response.put("successful_backtests", allResults.stream().filter(r -> (boolean) r.get("success")).count());
-            response.put("failed_backtests", allResults.stream().filter(r -> !(boolean) r.get("success")).count());
+            response.put("successful_backtests", successCount);
+            response.put("failed_backtests", allResults.size() - successCount);
+            response.put("max_return", allResults.get(0).get("total_return"));
+            response.put("max_return_strategy", allResults.get(0).get("strategy_name"));
+            response.put("avg_return", totalReturn / successCount);
             response.put("results", allResults);
 
             log.info("批量回测完成，批量ID: {}, 成功: {}, 失败: {}",
@@ -402,7 +407,7 @@ public class Ta4jBacktestController {
             for (Map.Entry<String, Map<String, Object>> entry : strategies.entrySet()) {
                 Map<String, Object> strategyInfo = entry.getValue();
                 String strategyCode = (String) strategyInfo.get("strategy_code");
-                List<BacktestSummaryEntity> summaryEntities = bestReturnList.stream().filter(x -> x.getStrategyCode().equals(strategyCode)).collect(Collectors.toList());
+                List<BacktestSummaryEntity> summaryEntities = bestReturnList.stream().filter(x -> x.getStrategyCode().equals(strategyCode)).sorted().collect(Collectors.toList());
 
                 if (summaryEntities.size() > 0) {
                     BigDecimal bestRetun = (BigDecimal) summaryEntities.get(0).getTotalReturn();
