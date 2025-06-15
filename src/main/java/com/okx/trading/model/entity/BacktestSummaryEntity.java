@@ -153,6 +153,24 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal sharpeRatio;
 
     /**
+     * Sortino比率（只考虑下行风险的风险调整收益指标）
+     */
+    @Column(name = "sortino_ratio", precision = 10, scale = 4)
+    private BigDecimal sortinoRatio;
+
+    /**
+     * Calmar比率（年化收益与最大回撤的比值）
+     */
+    @Column(name = "calmar_ratio", precision = 10, scale = 4)
+    private BigDecimal calmarRatio;
+
+    /**
+     * 最大损失（单笔交易中的最大亏损金额）
+     */
+    @Column(name = "maximum_loss", precision = 20, scale = 8)
+    private BigDecimal maximumLoss;
+
+    /**
      * 总手续费
      */
     @Column(name = "total_fee", precision = 20, scale = 8)

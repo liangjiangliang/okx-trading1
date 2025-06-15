@@ -176,6 +176,9 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .averageProfit(backtestResult.getAverageProfit())
                 .maxDrawdown(backtestResult.getMaxDrawdown())
                 .sharpeRatio(backtestResult.getSharpeRatio())
+                .sortinoRatio(backtestResult.getSortinoRatio())
+                .calmarRatio(backtestResult.getCalmarRatio())
+                .maximumLoss(backtestResult.getMaximumLoss())
                 .totalFee(backtestResult.getTotalFee())
                 .build();
 

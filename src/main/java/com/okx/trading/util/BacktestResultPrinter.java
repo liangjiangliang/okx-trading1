@@ -65,8 +65,29 @@ public class BacktestResultPrinter {
         sb.append("盈利交易: ").append(result.getProfitableTrades()).append("\n");
         sb.append("亏损交易: ").append(result.getUnprofitableTrades()).append("\n");
         sb.append("胜率: ").append(winRateFormatted).append("\n");
+        sb.append("------------------------------------------------------\n");
+        
+        // 风险指标
+        sb.append("风险评估指标:\n");
         sb.append("夏普比率: ").append(String.format("%.4f", result.getSharpeRatio())).append("\n");
         sb.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
+        
+        // 新增风险指标
+        if (result.getSortinoRatio() != null) {
+            sb.append("索提诺比率: ").append(String.format("%.4f", result.getSortinoRatio())).append("\n");
+        }
+        if (result.getCalmarRatio() != null) {
+            sb.append("卡玛比率: ").append(String.format("%.4f", result.getCalmarRatio())).append("\n");
+        }
+        if (result.getMaximumLoss() != null) {
+            sb.append("最大单笔亏损: ").append(String.format("%,.2f", result.getMaximumLoss())).append("\n");
+        }
+        
+        // 费用信息
+        if (result.getTotalFee() != null) {
+            sb.append("总手续费: ").append(String.format("%,.2f", result.getTotalFee())).append("\n");
+        }
+        
         sb.append(separator).append("\n");
         
         log.info(sb.toString());
@@ -124,8 +145,27 @@ public class BacktestResultPrinter {
         sb.append("盈利交易: ").append(entity.getProfitableTrades()).append("\n");
         sb.append("亏损交易: ").append(entity.getUnprofitableTrades()).append("\n");
         sb.append("胜率: ").append(winRateFormatted).append("\n");
+        sb.append("------------------------------------------------------\n");
+        
+        // 风险指标
+        sb.append("风险评估指标:\n");
         sb.append("夏普比率: ").append(String.format("%.4f", entity.getSharpeRatio())).append("\n");
         sb.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
+        
+        // 新增风险指标
+        if (entity.getSortinoRatio() != null) {
+            sb.append("索提诺比率: ").append(String.format("%.4f", entity.getSortinoRatio())).append("\n");
+        }
+        if (entity.getCalmarRatio() != null) {
+            sb.append("卡玛比率: ").append(String.format("%.4f", entity.getCalmarRatio())).append("\n");
+        }
+        if (entity.getMaximumLoss() != null) {
+            sb.append("最大单笔亏损: ").append(String.format("%,.2f", entity.getMaximumLoss())).append("\n");
+        }
+        
+        // 费用信息
+        sb.append("总手续费: ").append(String.format("%,.2f", entity.getTotalFee())).append("\n");
+        
         sb.append(separator).append("\n");
         
         log.info(sb.toString());
@@ -215,8 +255,16 @@ public class BacktestResultPrinter {
         sb.append("交易次数: ").append(summary.getNumberOfTrades());
         sb.append(", 胜率: ").append(String.format("%.2f%%", summary.getWinRate().multiply(new BigDecimal("100"))));
         sb.append(", 最大回撤: ").append(String.format("%.2f%%", summary.getMaxDrawdown().multiply(new BigDecimal("100"))));
+        
+        // 风险指标
         if (summary.getSharpeRatio() != null) {
             sb.append(", 夏普比率: ").append(String.format("%.2f", summary.getSharpeRatio()));
+        }
+        if (summary.getSortinoRatio() != null) {
+            sb.append(", 索提诺比率: ").append(String.format("%.2f", summary.getSortinoRatio()));
+        }
+        if (summary.getCalmarRatio() != null) {
+            sb.append(", 卡玛比率: ").append(String.format("%.2f", summary.getCalmarRatio()));
         }
         sb.append("\n");
         

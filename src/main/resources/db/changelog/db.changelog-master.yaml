@@ -6,4 +6,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/add_batch_backtest_id.sql
   - include:
-      file: db/changelog/changes/add_annualized_return_column.sql 
+      file: db/changelog/changes/add_annualized_return_column.sql
+  - include:
+      file: db/changelog/changes/add_risk_metrics_columns.sql 
