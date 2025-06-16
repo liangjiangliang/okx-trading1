@@ -7,18 +7,16 @@ import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.repository.BacktestSummaryRepository;
 import com.okx.trading.repository.BacktestTradeRepository;
 import com.okx.trading.service.BacktestTradeService;
+import com.okx.trading.ta4j.Ta4jBacktestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import reactor.util.function.Tuple2;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +30,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
 
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestSummaryRepository backtestSummaryRepository;
+    private Ta4jBacktestService ta4jBacktestService;
 
     @Autowired
     public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository,
@@ -102,7 +101,8 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                     .profit(trade.getProfit())
                     .profitPercentage(trade.getProfitPercentage())
                     .totalAssets(currentValue)
-                    .maxDrawdown(maxDrawdown)
+                    .maxDrawdown(trade.getMaxDrowdown())
+                    .maxLoss(trade.getMaxLoss())
                     .closed(trade.isClosed())
                     .fee(trade.getFee())
                     .build();

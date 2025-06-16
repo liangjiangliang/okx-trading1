@@ -98,6 +98,10 @@ databaseChangeLog:
                   type: decimal(10,4)
                   remarks: 交易后最大回撤
               - column:
+                  name: max_loss
+                  type: decimal(10,4)
+                  remarks: 交易后最大亏损
+              - column:
                   name: closed
                   type: boolean
                   remarks: 交易是否已平仓

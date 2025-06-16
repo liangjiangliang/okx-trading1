@@ -132,6 +132,12 @@ public class BacktestTradeEntity {
     private BigDecimal maxDrawdown;
 
     /**
+     * 交易后的最大回撤
+     */
+    @Column(name = "max_loss", precision = 10, scale = 4)
+    private BigDecimal maxLoss;
+
+    /**
      * 交易是否已平仓
      */
     @Column(name = "closed")
@@ -199,6 +205,7 @@ public class BacktestTradeEntity {
         private BigDecimal profitPercentage;
         private BigDecimal totalAssets;
         private BigDecimal maxDrawdown;
+        private BigDecimal maxLoss;
         private Boolean closed;
         private BigDecimal volume;
         private BigDecimal fee;
@@ -303,6 +310,11 @@ public class BacktestTradeEntity {
             return this;
         }
 
+        public BacktestTradeEntityBuilder maxLoss(BigDecimal maxLoss) {
+            this.maxLoss = maxLoss;
+            return this;
+        }
+
         public BacktestTradeEntityBuilder closed(Boolean closed) {
             this.closed = closed;
             return this;
@@ -331,7 +343,7 @@ public class BacktestTradeEntity {
         public BacktestTradeEntity build() {
             return new BacktestTradeEntity(id, backtestId, strategyName, strategyCode, strategyParams, index, type, symbol,
                     entryTime, entryPrice, entryAmount, entryPositionPercentage, exitTime,
-                    exitPrice, exitAmount, profit, profitPercentage, totalAssets, maxDrawdown,
+                    exitPrice, exitAmount, profit, profitPercentage, totalAssets, maxDrawdown, maxLoss,
                     closed, volume, fee, remark, createTime);
         }
     }

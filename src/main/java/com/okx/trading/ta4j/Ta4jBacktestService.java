@@ -5,13 +5,8 @@ import java.math.RoundingMode;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 
 import ch.qos.logback.classic.LoggerContext;
@@ -20,26 +15,21 @@ import ch.qos.logback.core.joran.spi.JoranException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
-import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.ta4j.strategy.StrategyFactory;
-import org.ta4j.core.analysis.CashFlow;
-import org.ta4j.core.analysis.criteria.*;
-import org.ta4j.core.cost.CostModel;
-import org.ta4j.core.cost.LinearTransactionCostModel;
 import org.ta4j.core.cost.ZeroCostModel;
-import org.ta4j.core.num.DecimalNum;
-import org.ta4j.core.num.Num;
 import ta4jexamples.logging.StrategyExecutionLogging;
 
 /**
  * TA4J 回测服务类
  */
 @Service
+@Component
 public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
@@ -126,6 +116,9 @@ public class Ta4jBacktestService {
         // 提取交易明细（包含手续费计算）
         List<TradeRecordDTO> tradeRecords = extractTradeRecords(series, tradingRecord, initialAmount, feeRatio);
 
+        // 计算最大损失和最大回撤（基于收盘价，不考虑手续费）
+        List<ArrayList<BigDecimal>> list = calculateMaximumLossAndDrawdown(series, tradingRecord);
+
         // 计算交易指标
         int tradeCount = tradeRecords.size();
         int profitableTrades = 0;
@@ -135,7 +128,10 @@ public class Ta4jBacktestService {
         BigDecimal totalGrossProfit = BigDecimal.ZERO;  // 总盈利
         BigDecimal totalGrossLoss = BigDecimal.ZERO;    // 总亏损
 
-        for (TradeRecordDTO trade : tradeRecords) {
+
+        for (int i = 0; i < tradeRecords.size(); i++) {
+            TradeRecordDTO trade = tradeRecords.get(i);
+
             BigDecimal profit = trade.getProfit();
 
             if (profit != null) {
@@ -153,6 +149,8 @@ public class Ta4jBacktestService {
             if (trade.getFee() != null) {
                 totalFee = totalFee.add(trade.getFee());
             }
+            trade.setMaxLoss(list.get(0).get(i));
+            trade.setMaxDrowdown(list.get(1).get(i));
         }
 
         finalAmount = initialAmount.add(totalProfit);
@@ -179,11 +177,10 @@ public class Ta4jBacktestService {
                 series.getLastBar().getEndTime().toLocalDateTime()
         );
 
-        // 计算最大回撤（基于收盘价，不考虑手续费）
-        BigDecimal maxDrawdown = calculateMaxDrawdown(series);
 
-        // 计算最大损失（基于收盘价，不考虑手续费）
-        BigDecimal maximumLoss = calculateMaximumLoss(series, tradingRecord);
+        BigDecimal maximumLoss = list.get(0).stream().reduce(BigDecimal::min).get();
+        BigDecimal maxDrawdown = list.get(1).stream().reduce(BigDecimal::min).get();
+
 
         // 计算Calmar比率
         BigDecimal calmarRatio = calculateCalmarRatio(annualizedReturn, maxDrawdown);
@@ -246,45 +243,6 @@ public class Ta4jBacktestService {
     }
 
     /**
-     * 计算最大回撤（基于收盘价，不考虑手续费）
-     *
-     * @param series BarSeries对象
-     * @return 最大回撤（百分比）
-     */
-    private BigDecimal calculateMaxDrawdown(BarSeries series) {
-        if (series == null || series.getBarCount() == 0) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal highestValue = BigDecimal.ZERO;
-        BigDecimal maxDrawdown = BigDecimal.ZERO;
-
-        // 遍历每个Bar，计算最大回撤
-        for (int i = 0; i < series.getBarCount(); i++) {
-            // 获取当前收盘价
-            BigDecimal currentValue = new BigDecimal(series.getBar(i).getClosePrice().doubleValue());
-
-            // 更新历史最高价
-            if (currentValue.compareTo(highestValue) > 0) {
-                highestValue = currentValue;
-            }
-
-            // 计算当前回撤
-            if (highestValue.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal currentDrawdown = highestValue.subtract(currentValue)
-                        .divide(highestValue, 8, RoundingMode.HALF_UP);
-
-                // 更新最大回撤
-                if (currentDrawdown.compareTo(maxDrawdown) > 0) {
-                    maxDrawdown = currentDrawdown;
-                }
-            }
-        }
-
-        return maxDrawdown;
-    }
-
-    /**
      * 计算最大损失（基于收盘价，不考虑手续费）
      * <p>
      * 最大损失是指单笔交易中的最大亏损百分比，用于评估策略的最坏情况风险。
@@ -305,49 +263,76 @@ public class Ta4jBacktestService {
      * @param tradingRecord 交易记录
      * @return 最大损失百分比（负值，表示亏损）
      */
-    public static BigDecimal calculateMaximumLoss(BarSeries series, TradingRecord tradingRecord) {
-        if (series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0) {
-            return BigDecimal.ZERO;
-        }
+    public static List<ArrayList<BigDecimal>> calculateMaximumLossAndDrawdown(BarSeries series, TradingRecord tradingRecord) {
 
-        BigDecimal maxLoss = BigDecimal.ZERO;
+        if (series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0) {
+            return Arrays.asList();
+        }
+        ArrayList<BigDecimal> maxLossList = new ArrayList<>();
+        ArrayList<BigDecimal> drawdownList = new ArrayList<>();
 
         // 遍历每个已关闭的交易
         for (Position position : tradingRecord.getPositions()) {
+            BigDecimal maxLoss = BigDecimal.ZERO;
+            BigDecimal maxDrawdown = BigDecimal.ZERO;
+            // 计算收益率
+            BigDecimal lossRate = BigDecimal.ZERO;
+            // 计算亏损率
+            BigDecimal highestPrice = BigDecimal.ZERO;
+            BigDecimal lowestPrice = BigDecimal.valueOf(Long.MAX_VALUE);
+            BigDecimal drawDownRate = BigDecimal.ZERO;
             if (position.isClosed()) {
                 // 获取入场和出场信息
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
-
-                if (entryIndex < 0 || exitIndex < 0 || entryIndex >= series.getBarCount() || exitIndex >= series.getBarCount()) {
-                    continue;
-                }
+                BarSeries subSeries = series.getSubSeries(entryIndex, exitIndex);
 
                 // 获取入场和出场价格
-                BigDecimal entryPrice = new BigDecimal(series.getBar(entryIndex).getClosePrice().doubleValue());
-                BigDecimal exitPrice = new BigDecimal(series.getBar(exitIndex).getClosePrice().doubleValue());
+                BigDecimal entryPrice = new BigDecimal(subSeries.getFirstBar().getClosePrice().doubleValue());
+                BigDecimal exitPrice = new BigDecimal(subSeries.getLastBar().getClosePrice().doubleValue());
 
-                // 计算收益率
-                BigDecimal returnRate;
-                if (position.getEntry().isBuy()) {
-                    // 如果是买入操作，收益率 = (卖出价 - 买入价) / 买入价
-                    returnRate = exitPrice.subtract(entryPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
-                } else {
-                    // 如果是卖出操作（做空），收益率 = (买入价 - 卖出价) / 买入价
-                    returnRate = entryPrice.subtract(exitPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
-                }
+                for (int i = 0; i < subSeries.getBarCount(); i++) {
+                    BigDecimal closePrice = BigDecimal.valueOf(subSeries.getBar(i).getClosePrice().doubleValue());
 
-                // 只关注亏损交易
-                if (returnRate.compareTo(BigDecimal.ZERO) < 0) {
-                    // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
-                    if (returnRate.compareTo(maxLoss) < 0) {
-                        maxLoss = returnRate;
+                    if (closePrice.compareTo(highestPrice) > 0) {
+                        highestPrice = closePrice;
+                    }
+                    if (closePrice.compareTo(lowestPrice) <= 0) {
+                        lowestPrice = closePrice;
+                    }
+
+                    if (position.getEntry().isBuy()) {
+                        // 如果是买入操作，收益率 = (卖出价 - 买入价) / 买入价
+                        lossRate = closePrice.subtract(entryPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
+                        drawDownRate = closePrice.subtract(highestPrice).divide(highestPrice, 8, RoundingMode.HALF_UP);
+                    } else {
+                        // 如果是卖出操作（做空），收益率 = (买入价 - 卖出价) / 买入价
+                        lossRate = closePrice.subtract(exitPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
+                        drawDownRate = closePrice.subtract(lowestPrice).divide(lowestPrice, 8, RoundingMode.HALF_UP);
+                    }
+
+                    // 只关注亏损交易
+                    if (lossRate.compareTo(BigDecimal.ZERO) < 0) {
+                        // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
+                        if (lossRate.compareTo(maxLoss) < 0) {
+                            maxLoss = lossRate;
+                        }
+                    }
+                    if (drawDownRate.compareTo(BigDecimal.ZERO) < 0) {
+                        if (drawDownRate.compareTo(maxDrawdown) < 0) {
+                            maxDrawdown = drawDownRate;
+                        }
                     }
                 }
+                maxLossList.add(maxLoss);
+                drawdownList.add(maxDrawdown);
             }
         }
 
-        return maxLoss;
+        List<ArrayList<BigDecimal>> list = new ArrayList<>();
+        list.add(maxLossList);
+        list.add(drawdownList);
+        return list;
     }
 
     /**

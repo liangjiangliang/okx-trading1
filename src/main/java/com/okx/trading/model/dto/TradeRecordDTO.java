@@ -7,62 +7,68 @@ import java.time.LocalDateTime;
  * 交易记录数据传输对象
  */
 public class TradeRecordDTO {
-    
+
     /**
      * 交易序号
      */
     private int index;
-    
+
     /**
      * 交易类型（买入/卖出）
      */
     private String type;
-    
+
     /**
      * 进场时间
      */
     private LocalDateTime entryTime;
-    
+
     /**
      * 进场价格
      */
     private BigDecimal entryPrice;
-    
+
     /**
      * 进场金额
      */
     private BigDecimal entryAmount;
-    
+
     /**
      * 退出时间
      */
     private LocalDateTime exitTime;
-    
+
     /**
      * 退出价格
      */
     private BigDecimal exitPrice;
-    
+
     /**
      * 退出金额
      */
     private BigDecimal exitAmount;
-    
+
     /**
      * 盈亏金额
      */
     private BigDecimal profit;
-    
+
+    private BigDecimal maxDrowdown;
+
+    private BigDecimal maxLoss;
+
+
+
     /**
      * 盈亏百分比
      */
     private BigDecimal profitPercentage;
-    
+
     /**
      * 交易是否完成
      */
     private boolean closed;
-    
+
     /**
      * 交易手续费
      */
@@ -158,12 +164,28 @@ public class TradeRecordDTO {
     public void setClosed(boolean closed) {
         this.closed = closed;
     }
-    
+
     public BigDecimal getFee() {
         return fee;
     }
-    
+
     public void setFee(BigDecimal fee) {
         this.fee = fee;
     }
-} 
+
+    public BigDecimal getMaxDrowdown() {
+        return maxDrowdown;
+    }
+
+    public void setMaxDrowdown(BigDecimal maxDrowdown) {
+        this.maxDrowdown = maxDrowdown;
+    }
+
+    public BigDecimal getMaxLoss() {
+        return maxLoss;
+    }
+
+    public void setMaxLoss(BigDecimal maxLoss) {
+        this.maxLoss = maxLoss;
+    }
+}
