@@ -146,13 +146,6 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
             backtestId = UUID.randomUUID().toString();
         }
 
-        // 计算年化收益率
-        BigDecimal annualizedReturn = calculateAnnualizedReturn(
-            backtestResult.getTotalReturn(),
-            startTime,
-            endTime
-        );
-
         // 创建汇总实体
         BacktestSummaryEntity summaryEntity = BacktestSummaryEntity.builder()
                 .backtestId(backtestId)
@@ -168,7 +161,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .finalAmount(backtestResult.getFinalAmount())
                 .totalProfit(backtestResult.getTotalProfit())
                 .totalReturn(backtestResult.getTotalReturn())
-                .annualizedReturn(annualizedReturn)
+                .annualizedReturn(backtestResult.getAnnualizedReturn())
                 .numberOfTrades(backtestResult.getNumberOfTrades())
                 .profitableTrades(backtestResult.getProfitableTrades())
                 .unprofitableTrades(backtestResult.getUnprofitableTrades())
@@ -191,61 +184,6 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
         com.okx.trading.util.BacktestResultPrinter.printSummaryEntity(savedEntity);
 
         return savedEntity;
-    }
-
-    /**
-     * 计算年化收益率
-     *
-     * @param totalReturn 总收益率（百分比）
-     * @param startTime 开始时间
-     * @param endTime 结束时间
-     * @return 年化收益率（百分比）
-     */
-    private BigDecimal calculateAnnualizedReturn(BigDecimal totalReturn, LocalDateTime startTime, LocalDateTime endTime) {
-        if (totalReturn == null || startTime == null || endTime == null || startTime.isAfter(endTime)) {
-            logger.warn("计算年化收益率的参数无效");
-            return BigDecimal.ZERO;
-        }
-//        long days = ChronoUnit.DAYS.between(startDate, endDate);
-//        if (days <= 0 || totalReturn <= 0) return 0.0;
-//
-//        double ratio = 1 + totalReturn; // 总收益率 + 1
-//        double years = 365.0 / days;
-//        return Math.pow(ratio, years) - 1;
-
-        // 计算回测持续的天数
-        long daysBetween = ChronoUnit.DAYS.between(startTime, endTime);
-
-        // 避免除以零错误
-        if (daysBetween <= 0) {
-            return totalReturn; // 如果时间跨度小于1天，直接返回总收益率
-        }
-
-        // 计算年化收益率: (1 + totalReturn/100)^(365/daysBetween) - 1
-
-        // 计算(1 + returnRate)
-        BigDecimal base = BigDecimal.ONE.add(totalReturn);
-
-        // 计算指数(365/daysBetween)
-        BigDecimal exponent = new BigDecimal("365").divide(new BigDecimal(daysBetween), 8, RoundingMode.HALF_UP);
-
-        // 计算(1 + returnRate)^(365/daysBetween)
-        // 使用对数计算幂: exp(exponent * ln(base))
-        BigDecimal result;
-        try {
-            double baseDouble = base.doubleValue();
-            double exponentDouble = exponent.doubleValue();
-            double power = Math.pow(baseDouble, exponentDouble);
-
-            // 转换回BigDecimal并减去1
-            result = new BigDecimal(power).subtract(BigDecimal.ONE);
-
-        } catch (Exception e) {
-            logger.error("计算年化收益率时出错", e);
-            return BigDecimal.ZERO;
-        }
-
-        return result;
     }
 
     @Override

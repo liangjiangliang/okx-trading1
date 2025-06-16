@@ -18,6 +18,8 @@ import com.okx.trading.service.DynamicStrategyService;
 import com.okx.trading.service.JavaCompilerDynamicStrategyService;
 import com.okx.trading.service.SmartDynamicStrategyService;
 import com.okx.trading.service.StrategyConversationService;
+import com.okx.trading.ta4j.CandlestickAdapter;
+import com.okx.trading.ta4j.CandlestickBarSeriesConverter;
 import com.okx.trading.ta4j.Ta4jBacktestService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -25,8 +27,10 @@ import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import org.ta4j.core.BarSeries;
 import reactor.util.function.Tuple2;
 
 import java.math.BigDecimal;
@@ -59,6 +63,8 @@ public class Ta4jBacktestController {
     private final JavaCompilerDynamicStrategyService javaCompilerDynamicStrategyService;
     private final SmartDynamicStrategyService smartDynamicStrategyService;
     private final StrategyConversationService strategyConversationService;
+    private final CandlestickBarSeriesConverter barSeriesConverter;
+
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
@@ -162,14 +168,19 @@ public class Ta4jBacktestController {
 
             // 获取历史数据
             List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
+            // 生成唯一的系列名称
+            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
+            // 使用转换器将蜡烛图实体转换为条形系列
+            BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
             StrategyInfoEntity strategy = strategyInfoService.getStrategyByCode(strategyType).get();
 
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(candlesticks, strategyType, initialAmount, feeRatio);
+            BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyType, initialAmount, feeRatio);
 
             result.setStrategyName(strategy.getStrategyName());
             result.setStrategyCode(strategy.getStrategyCode());
@@ -257,6 +268,11 @@ public class Ta4jBacktestController {
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
+            // 生成唯一的系列名称
+            String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
+
+            // 使用转换器将蜡烛图实体转换为条形系列
+            BarSeries series = barSeriesConverter.convert(candlesticks, seriesName);
 
             // 获取所有支持的策略
             Map<String, Map<String, Object>> strategiesInfo = strategyInfoService.getStrategiesInfo();
@@ -287,7 +303,7 @@ public class Ta4jBacktestController {
 
                         // 执行回测
                         BacktestResultDTO result = ta4jBacktestService.backtest(
-                                candlesticks, strategyCode, initialAmount, feeRatio);
+                                series, strategyCode, initialAmount, feeRatio);
                         result.setStrategyName((String) strategyDetails.get("name"));
                         result.setStrategyCode((String) strategyDetails.get("strategy_code"));
                         // 如果需要保存结果到数据库

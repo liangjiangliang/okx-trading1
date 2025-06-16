@@ -4,6 +4,7 @@ import com.okx.trading.model.entity.CandlestickEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
  * 将CandlestickEntity列表转换为Ta4j的BarSeries
  */
 @Component
+@Service
 public class CandlestickBarSeriesConverter {
 
     private static final Logger log = LoggerFactory.getLogger(CandlestickBarSeriesConverter.class);

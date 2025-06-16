@@ -44,6 +44,11 @@ public class BacktestResultDTO {
     private BigDecimal totalReturn;
 
     /**
+     * 年化收益率（百分比）
+     */
+    private BigDecimal annualizedReturn;
+
+    /**
      * 交易总次数
      */
     private int numberOfTrades;
@@ -126,6 +131,30 @@ public class BacktestResultDTO {
     private BigDecimal totalFee;
 
     public BacktestResultDTO() {
+    }
+
+    public BigDecimal getAnnualizedReturn() {
+        return annualizedReturn;
+    }
+
+    public void setAnnualizedReturn(BigDecimal annualizedReturn) {
+        this.annualizedReturn = annualizedReturn;
+    }
+
+    public String getStrategyCode() {
+        return strategyCode;
+    }
+
+    public void setStrategyCode(String strategyCode) {
+        this.strategyCode = strategyCode;
+    }
+
+    public String getBacktestId() {
+        return backtestId;
+    }
+
+    public void setBacktestId(String backtestId) {
+        this.backtestId = backtestId;
     }
 
     public boolean isSuccess() {
