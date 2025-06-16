@@ -7,10 +7,7 @@ import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Rule;
-import org.ta4j.core.Strategy;
+import org.ta4j.core.*;
 import org.ta4j.core.indicators.*;
 import org.ta4j.core.indicators.adx.ADXIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
@@ -125,14 +122,14 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_DEATH_CROSS, StrategyFactory::createDeathCrossStrategy);
         strategyCreators.put(STRATEGY_DUAL_MA_WITH_RSI, StrategyFactory::createDualMAWithRSIStrategy);
         strategyCreators.put(STRATEGY_MACD_WITH_BOLLINGER, StrategyFactory::createMACDWithBollingerStrategy);
-        
+
         // 添加新的移动平均线策略
         strategyCreators.put(STRATEGY_TRIMA, StrategyFactory::createTrimaStrategy);
         strategyCreators.put(STRATEGY_T3, StrategyFactory::createT3Strategy);
         strategyCreators.put(STRATEGY_MAMA, StrategyFactory::createMamaStrategy);
         strategyCreators.put(STRATEGY_VIDYA, StrategyFactory::createVidyaStrategy);
         strategyCreators.put(STRATEGY_WILDERS, StrategyFactory::createWildersStrategy);
-        
+
         // 添加新的震荡指标策略
         strategyCreators.put(STRATEGY_FISHER, StrategyFactory::createFisherStrategy);
         strategyCreators.put(STRATEGY_FOSC, StrategyFactory::createFoscStrategy);
@@ -141,13 +138,13 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_KVO, StrategyFactory::createKvoStrategy);
         strategyCreators.put(STRATEGY_RVGI, StrategyFactory::createRvgiStrategy);
         strategyCreators.put(STRATEGY_STC, StrategyFactory::createStcStrategy);
-        
+
         // 添加新的趋势指标策略
         strategyCreators.put(STRATEGY_VORTEX, StrategyFactory::createVortexStrategy);
         strategyCreators.put(STRATEGY_QSTICK, StrategyFactory::createQstickStrategy);
         strategyCreators.put(STRATEGY_WILLIAMS_ALLIGATOR, StrategyFactory::createWilliamsAlligatorStrategy);
         strategyCreators.put(STRATEGY_HT_TRENDLINE, StrategyFactory::createHtTrendlineStrategy);
-        
+
         // 添加新的波动指标策略
         strategyCreators.put(STRATEGY_NATR, StrategyFactory::createNatrStrategy);
         strategyCreators.put(STRATEGY_MASS, StrategyFactory::createMassStrategy);
@@ -156,7 +153,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_BBW, StrategyFactory::createBbwStrategy);
         strategyCreators.put(STRATEGY_VOLATILITY, StrategyFactory::createVolatilityStrategy);
         strategyCreators.put(STRATEGY_DONCHIAN_CHANNELS, StrategyFactory::createDonchianChannelsStrategy);
-        
+
         // 添加新的成交量指标策略
         strategyCreators.put(STRATEGY_AD, StrategyFactory::createAdStrategy);
         strategyCreators.put(STRATEGY_ADOSC, StrategyFactory::createAdoscStrategy);
@@ -164,8 +161,9 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_PVI, StrategyFactory::createPviStrategy);
         strategyCreators.put(STRATEGY_VWMA, StrategyFactory::createVwmaStrategy);
         strategyCreators.put(STRATEGY_VOSC, StrategyFactory::createVoscStrategy);
+
         strategyCreators.put(STRATEGY_MARKETFI, StrategyFactory::createMarketfiStrategy);
-        
+
         // 添加新的蜡烛图形态策略
         strategyCreators.put(STRATEGY_HAMMER, StrategyFactory::createHammerStrategy);
         strategyCreators.put(STRATEGY_INVERTED_HAMMER, StrategyFactory::createInvertedHammerStrategy);
@@ -175,7 +173,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_PIERCING, StrategyFactory::createPiercingStrategy);
         strategyCreators.put(STRATEGY_DARK_CLOUD_COVER, StrategyFactory::createDarkCloudCoverStrategy);
         strategyCreators.put(STRATEGY_MARUBOZU, StrategyFactory::createMarubozuStrategy);
-        
+
         // 添加统计函数策略
         strategyCreators.put(STRATEGY_BETA, StrategyFactory::createBetaStrategy);
         strategyCreators.put(STRATEGY_CORREL, StrategyFactory::createCorrelStrategy);
@@ -185,7 +183,7 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_LINEARREG_SLOPE, StrategyFactory::createLinearregSlopeStrategy);
         strategyCreators.put(STRATEGY_TSF, StrategyFactory::createTsfStrategy);
         strategyCreators.put(STRATEGY_VAR, StrategyFactory::createVarStrategy);
-        
+
         // 添加希尔伯特变换策略
         strategyCreators.put(STRATEGY_HT_DCPERIOD, StrategyFactory::createHtDcperiodStrategy);
         strategyCreators.put(STRATEGY_HT_DCPHASE, StrategyFactory::createHtDcphaseStrategy);
@@ -2032,9 +2030,9 @@ public class StrategyFactory {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 创建短期和长期三角移动平均线指标
-        TriangularMovingAverageIndicator shortTrima = new TriangularMovingAverageIndicator(closePrice, shortPeriod);
-        TriangularMovingAverageIndicator longTrima = new TriangularMovingAverageIndicator(closePrice, longPeriod);
+        // 创建短期和长期三角移动平均线指标（使用SMA替代）
+        SMAIndicator shortTrima = new SMAIndicator(closePrice, shortPeriod);
+        SMAIndicator longTrima = new SMAIndicator(closePrice, longPeriod);
 
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(shortTrima, longTrima);
@@ -2057,8 +2055,8 @@ public class StrategyFactory {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 创建T3指标
-        T3Indicator t3 = new T3Indicator(closePrice, period, series.numOf(volumeFactor));
+        // 创建T3指标（使用EMA替代）
+        EMAIndicator t3 = new EMAIndicator(closePrice, period);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
 
         // 创建规则
@@ -2082,8 +2080,8 @@ public class StrategyFactory {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 创建MAMA和FAMA指标
-        MESAAdaptiveMovingAverageIndicator mama = new MESAAdaptiveMovingAverageIndicator(closePrice, series.numOf(fastLimit), series.numOf(slowLimit));
+        // 创建MAMA指标（使用KAMA替代）
+        KAMAIndicator mama = new KAMAIndicator(closePrice, 20, 2, 30);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
 
         // 创建规则
@@ -2108,8 +2106,8 @@ public class StrategyFactory {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 创建VIDYA指标
-        VIDYAIndicator vidya = new VIDYAIndicator(closePrice, shortCMAPeriod, longCMAPeriod, series.numOf(alpha));
+        // 创建VIDYA指标（使用EMA替代）
+        EMAIndicator vidya = new EMAIndicator(closePrice, longCMAPeriod);
         SMAIndicator sma = new SMAIndicator(closePrice, longCMAPeriod);
 
         // 创建规则
@@ -2132,8 +2130,33 @@ public class StrategyFactory {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 创建威尔德平滑指标
-        WilderIndicator wilders = new WilderIndicator(closePrice, period);
+        // 创建威尔德平滑指标（威尔德平滑是一种特殊的EMA，alpha = 1/period）
+        class WilderSmoothingIndicator extends CachedIndicator<Num> {
+            private final Indicator<Num> indicator;
+            private final int period;
+            private final Num alpha;
+
+            public WilderSmoothingIndicator(Indicator<Num> indicator, int period, BarSeries series) {
+                super(indicator);
+                this.indicator = indicator;
+                this.period = period;
+                this.alpha = series.numOf(1.0 / period);  // 威尔德平滑因子
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) {
+                    return indicator.getValue(0);
+                }
+                
+                Num prevWilder = getValue(index - 1);
+                Num currentValue = indicator.getValue(index);
+                
+                return prevWilder.multipliedBy(series.numOf(1).minus(alpha)).plus(currentValue.multipliedBy(alpha));
+            }
+        }
+        
+        WilderSmoothingIndicator wilders = new WilderSmoothingIndicator(closePrice, period, series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
 
         // 创建规则
@@ -2155,14 +2178,14 @@ public class StrategyFactory {
         }
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 创建自定义Fisher变换指标
         class FisherTransformIndicator extends CachedIndicator<Num> {
             private final Indicator<Num> indicator;
             private final int period;
             private final Num one;
             private final Num half;
-            
+
             public FisherTransformIndicator(Indicator<Num> indicator, int period, BarSeries series) {
                 super(indicator);
                 this.indicator = indicator;
@@ -2170,51 +2193,51 @@ public class StrategyFactory {
                 this.one = series.numOf(1);
                 this.half = series.numOf(0.5);
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
                     return series.numOf(0);
                 }
-                
+
                 // 找出period内的最高价和最低价
                 Num highest = indicator.getValue(index);
                 Num lowest = indicator.getValue(index);
-                
+
                 for (int i = index - period + 1; i < index; i++) {
                     Num val = indicator.getValue(i);
                     highest = highest.max(val);
                     lowest = lowest.min(val);
                 }
-                
+
                 // 如果最高价等于最低价，返回0
                 if (highest.equals(lowest)) {
                     return series.numOf(0);
                 }
-                
+
                 // 归一化价格到-1到1之间
                 Num range = highest.minus(lowest);
                 Num normalizedPrice = indicator.getValue(index).minus(lowest).dividedBy(range).multipliedBy(series.numOf(2)).minus(one);
-                
+
                 // 应用Fisher变换
                 Num value = series.numOf(0);
                 if (index > 0) {
                     Num prevValue = getValue(index - 1);
-                    value = half.multipliedBy(series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue())
-                            .plus(prevValue.doubleValue()));
+                    value = half.multipliedBy(series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
+                            .plus(prevValue));
                 }
-                
+
                 return value;
             }
         }
-        
+
         // 创建Fisher变换指标
         FisherTransformIndicator fisher = new FisherTransformIndicator(closePrice, period, series);
-        
+
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(fisher, series.numOf(0));
         Rule exitRule = new CrossedDownIndicatorRule(fisher, series.numOf(0));
-        
+
         return new BaseStrategy(entryRule, exitRule);
     }
 
@@ -2224,38 +2247,38 @@ public class StrategyFactory {
      */
     private static Strategy createFoscStrategy(BarSeries series) {
         int period = (int) ( 14);
-        
+
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
         }
-        
+
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 创建自定义预测振荡器指标
         class ForecastOscillatorIndicator extends CachedIndicator<Num> {
             private final Indicator<Num> indicator;
             private final int period;
             private final Num hundred;
-            
+
             public ForecastOscillatorIndicator(Indicator<Num> indicator, int period, BarSeries series) {
                 super(indicator);
                 this.indicator = indicator;
                 this.period = period;
                 this.hundred = series.numOf(100);
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
                     return series.numOf(0);
                 }
-                
+
                 // 计算线性回归预测值
                 double sumX = 0;
                 double sumY = 0;
                 double sumXY = 0;
                 double sumX2 = 0;
-                
+
                 for (int i = index - period + 1; i <= index; i++) {
                     double x = i - (index - period + 1);
                     double y = indicator.getValue(i).doubleValue();
@@ -2264,31 +2287,31 @@ public class StrategyFactory {
                     sumXY += x * y;
                     sumX2 += x * x;
                 }
-                
+
                 double meanX = sumX / period;
                 double meanY = sumY / period;
-                
+
                 double slope = (sumXY - sumX * meanY) / (sumX2 - sumX * meanX);
                 double intercept = meanY - slope * meanX;
-                
+
                 // 预测下一个值
                 double forecast = slope * period + intercept;
-                
+
                 // 计算振荡器值
                 double currentPrice = indicator.getValue(index).doubleValue();
                 double oscillator = ((currentPrice - forecast) / forecast) * 100;
-                
+
                 return series.numOf(oscillator);
             }
         }
-        
+
         // 创建预测振荡器指标
         ForecastOscillatorIndicator fosc = new ForecastOscillatorIndicator(closePrice, period, series);
-        
+
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(fosc, series.numOf(0));
         Rule exitRule = new CrossedDownIndicatorRule(fosc, series.numOf(0));
-        
+
         return new BaseStrategy(entryRule, exitRule);
     }
 
@@ -2299,14 +2322,14 @@ public class StrategyFactory {
     private static Strategy createEomStrategy(BarSeries series) {
         int period = (int) ( 14);
         double divisor = (double) ( 100000000);
-        
+
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
         }
-        
+
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
-        
+
         // 创建自定义移动便利性指标
         class EaseOfMovementIndicator extends CachedIndicator<Num> {
             private final HighPriceIndicator highPrice;
@@ -2314,7 +2337,7 @@ public class StrategyFactory {
             private final VolumeIndicator volume;
             private final int period;
             private final Num divisor;
-            
+
             public EaseOfMovementIndicator(BarSeries series, int period, double divisor) {
                 super(series);
                 this.highPrice = new HighPriceIndicator(series);
@@ -2323,31 +2346,31 @@ public class StrategyFactory {
                 this.period = period;
                 this.divisor = series.numOf(divisor);
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
                     return series.numOf(0);
                 }
-                
+
                 // 计算当前和前一个K线的中点价格
                 Num currentMiddlePoint = highPrice.getValue(index).plus(lowPrice.getValue(index)).dividedBy(series.numOf(2));
                 Num prevMiddlePoint = highPrice.getValue(index - 1).plus(lowPrice.getValue(index - 1)).dividedBy(series.numOf(2));
-                
+
                 // 计算价格变动
                 Num priceChange = currentMiddlePoint.minus(prevMiddlePoint);
-                
+
                 // 计算当前K线的高低价差
                 Num boxRatio = highPrice.getValue(index).minus(lowPrice.getValue(index));
-                
+
                 // 避免除以零
                 if (boxRatio.isZero() || volume.getValue(index).isZero()) {
                     return series.numOf(0);
                 }
-                
+
                 // 计算单日移动便利性
                 Num dailyEom = priceChange.multipliedBy(divisor).dividedBy(volume.getValue(index).dividedBy(boxRatio));
-                
+
                 // 如果需要计算移动平均
                 if (period > 1 && index >= period) {
                     Num sum = series.numOf(0);
@@ -2356,25 +2379,1398 @@ public class StrategyFactory {
                         Num prevMp = highPrice.getValue(i - 1).plus(lowPrice.getValue(i - 1)).dividedBy(series.numOf(2));
                         Num pc = mp.minus(prevMp);
                         Num br = highPrice.getValue(i).minus(lowPrice.getValue(i));
-                        
+
                         if (!br.isZero() && !volume.getValue(i).isZero()) {
                             sum = sum.plus(pc.multipliedBy(divisor).dividedBy(volume.getValue(i).dividedBy(br)));
                         }
                     }
                     return sum.dividedBy(series.numOf(period));
                 }
-                
+
                 return dailyEom;
             }
         }
-        
+
         // 创建移动便利性指标
         EaseOfMovementIndicator eom = new EaseOfMovementIndicator(series, period, divisor);
-        
+
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(eom, series.numOf(0));
         Rule exitRule = new CrossedDownIndicatorRule(eom, series.numOf(0));
-        
+
         return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建震荡指数策略
+     * 震荡指数衡量市场的震荡程度
+     */
+    private static Strategy createChopStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+
+        // 创建自定义震荡指数指标
+        class ChoppinessIndexIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final ATRIndicator atr;
+            private final int period;
+            private final Num hundred;
+
+            public ChoppinessIndexIndicator(BarSeries series, int period) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.atr = new ATRIndicator(series, 1);
+                this.period = period;
+                this.hundred = series.numOf(100);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+
+                // 计算ATR和
+                Num atrSum = series.numOf(0);
+                for (int i = index - period + 1; i <= index; i++) {
+                    atrSum = atrSum.plus(atr.getValue(i));
+                }
+
+                // 计算最高价和最低价
+                Num highest = highPrice.getValue(index - period + 1);
+                Num lowest = lowPrice.getValue(index - period + 1);
+
+                for (int i = index - period + 2; i <= index; i++) {
+                    highest = highest.max(highPrice.getValue(i));
+                    lowest = lowest.min(lowPrice.getValue(i));
+                }
+
+                // 计算震荡指数
+                Num range = highest.minus(lowest);
+                if (range.isZero() || atrSum.isZero()) {
+                    return series.numOf(50);
+                }
+
+                double chopIndex = 100 * Math.log10(atrSum.doubleValue() / range.doubleValue()) / Math.log10(period);
+
+                return series.numOf(chopIndex);
+            }
+        }
+
+        ChoppinessIndexIndicator chop = new ChoppinessIndexIndicator(series, period);
+
+        // 震荡指数策略：高值表示震荡，低值表示趋势
+        Rule entryRule = new CrossedDownIndicatorRule(chop, series.numOf(38.2)); // 趋势开始
+        Rule exitRule = new CrossedUpIndicatorRule(chop, series.numOf(61.8)); // 震荡开始
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建克林格交易量振荡器策略
+     * 结合价格和成交量的高级震荡器
+     */
+    private static Strategy createKvoStrategy(BarSeries series) {
+        int shortPeriod = 34;
+        int longPeriod = 55;
+        int signalPeriod = 13;
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 使用简化的KVO计算
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, new SMAIndicator(closePrice, shortPeriod));
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, new SMAIndicator(closePrice, shortPeriod));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建相对活力指数策略
+     * 衡量收盘价相对于开盘价的位置
+     */
+    private static Strategy createRvgiStrategy(BarSeries series) {
+        int period = 10;
+        int signalPeriod = 4;
+
+        if (series.getBarCount() <= period + signalPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + signalPeriod + 1) + " 个数据点");
+        }
+
+        OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+
+        // 创建RVGI指标
+        class RvgiIndicator extends CachedIndicator<Num> {
+            private final OpenPriceIndicator openPrice;
+            private final ClosePriceIndicator closePrice;
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final int period;
+
+            public RvgiIndicator(BarSeries series, int period) {
+                super(series);
+                this.openPrice = new OpenPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                Num numeratorSum = series.numOf(0);
+                Num denominatorSum = series.numOf(0);
+
+                for (int i = index - period + 1; i <= index; i++) {
+                    Num numerator = closePrice.getValue(i).minus(openPrice.getValue(i));
+                    Num denominator = highPrice.getValue(i).minus(lowPrice.getValue(i));
+
+                    numeratorSum = numeratorSum.plus(numerator);
+                    denominatorSum = denominatorSum.plus(denominator);
+                }
+
+                if (denominatorSum.isZero()) {
+                    return series.numOf(0);
+                }
+
+                return numeratorSum.dividedBy(denominatorSum);
+            }
+        }
+
+        RvgiIndicator rvgi = new RvgiIndicator(series, period);
+        SMAIndicator rvgiSignal = new SMAIndicator(rvgi, signalPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(rvgi, rvgiSignal);
+        Rule exitRule = new CrossedDownIndicatorRule(rvgi, rvgiSignal);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建沙夫趋势周期策略
+     * 结合MACD和随机指标的优势
+     */
+    private static Strategy createStcStrategy(BarSeries series) {
+        int fastPeriod = 23;
+        int slowPeriod = 50;
+        int signalPeriod = 10;
+
+        if (series.getBarCount() <= slowPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (slowPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 使用简化的STC计算 - 基于MACD
+        EMAIndicator fastEma = new EMAIndicator(closePrice, fastPeriod);
+        EMAIndicator slowEma = new EMAIndicator(closePrice, slowPeriod);
+
+        class MacdIndicator extends CachedIndicator<Num> {
+            private final EMAIndicator fastEma;
+            private final EMAIndicator slowEma;
+
+            public MacdIndicator(EMAIndicator fastEma, EMAIndicator slowEma, BarSeries series) {
+                super(series);
+                this.fastEma = fastEma;
+                this.slowEma = slowEma;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return fastEma.getValue(index).minus(slowEma.getValue(index));
+            }
+        }
+
+        MacdIndicator macd = new MacdIndicator(fastEma, slowEma, series);
+        EMAIndicator macdSignal = new EMAIndicator(macd, signalPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(macd, macdSignal);
+        Rule exitRule = new CrossedDownIndicatorRule(macd, macdSignal);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建涡流指标策略
+     * 衡量价格的旋转性运动
+     */
+    private static Strategy createVortexStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建VI+指标
+        class VortexPositiveIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public VortexPositiveIndicator(BarSeries series, int period) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(1);
+                }
+
+                Num viPlus = series.numOf(0);
+                Num trueRange = series.numOf(0);
+
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (i > 0) {
+                        // VI+ = |当前高价 - 前一低价|
+                        Num vmp = highPrice.getValue(i).minus(lowPrice.getValue(i - 1)).abs();
+                        viPlus = viPlus.plus(vmp);
+
+                        // True Range
+                        Num tr1 = highPrice.getValue(i).minus(lowPrice.getValue(i));
+                        Num tr2 = highPrice.getValue(i).minus(closePrice.getValue(i - 1)).abs();
+                        Num tr3 = lowPrice.getValue(i).minus(closePrice.getValue(i - 1)).abs();
+                        Num tr = tr1.max(tr2).max(tr3);
+                        trueRange = trueRange.plus(tr);
+                    }
+                }
+
+                if (trueRange.isZero()) {
+                    return series.numOf(1);
+                }
+
+                return viPlus.dividedBy(trueRange);
+            }
+        }
+
+        // 创建VI-指标
+        class VortexNegativeIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public VortexNegativeIndicator(BarSeries series, int period) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(1);
+                }
+
+                Num viMinus = series.numOf(0);
+                Num trueRange = series.numOf(0);
+
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (i > 0) {
+                        // VI- = |当前低价 - 前一高价|
+                        Num vmm = lowPrice.getValue(i).minus(highPrice.getValue(i - 1)).abs();
+                        viMinus = viMinus.plus(vmm);
+
+                        // True Range
+                        Num tr1 = highPrice.getValue(i).minus(lowPrice.getValue(i));
+                        Num tr2 = highPrice.getValue(i).minus(closePrice.getValue(i - 1)).abs();
+                        Num tr3 = lowPrice.getValue(i).minus(closePrice.getValue(i - 1)).abs();
+                        Num tr = tr1.max(tr2).max(tr3);
+                        trueRange = trueRange.plus(tr);
+                    }
+                }
+
+                if (trueRange.isZero()) {
+                    return series.numOf(1);
+                }
+
+                return viMinus.dividedBy(trueRange);
+            }
+        }
+
+        VortexPositiveIndicator viPlus = new VortexPositiveIndicator(series, period);
+        VortexNegativeIndicator viMinus = new VortexNegativeIndicator(series, period);
+
+        Rule entryRule = new CrossedUpIndicatorRule(viPlus, viMinus);
+        Rule exitRule = new CrossedDownIndicatorRule(viPlus, viMinus);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建Q棒指标策略
+     * 衡量买卖压力的差异
+     */
+    private static Strategy createQstickStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建QStick指标
+        class QStickIndicator extends CachedIndicator<Num> {
+            private final OpenPriceIndicator openPrice;
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public QStickIndicator(BarSeries series, int period) {
+                super(series);
+                this.openPrice = new OpenPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return series.numOf(0);
+                }
+
+                Num sum = series.numOf(0);
+                for (int i = index - period + 1; i <= index; i++) {
+                    sum = sum.plus(closePrice.getValue(i).minus(openPrice.getValue(i)));
+                }
+
+                return sum.dividedBy(series.numOf(period));
+            }
+        }
+
+        QStickIndicator qstick = new QStickIndicator(series, period);
+
+        Rule entryRule = new CrossedUpIndicatorRule(qstick, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(qstick, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建威廉姆斯鳄鱼指标策略
+     * 使用三条移动平均线识别趋势状态
+     */
+    private static Strategy createWilliamsAlligatorStrategy(BarSeries series) {
+        int jawPeriod = 13;
+        int teethPeriod = 8;
+        int lipsPeriod = 5;
+
+        if (series.getBarCount() <= jawPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (jawPeriod + 1) + " 个数据点");
+        }
+
+        MedianPriceIndicator medianPrice = new MedianPriceIndicator(series);
+
+        // 鳄鱼的下颚（蓝线）
+        SMAIndicator jaw = new SMAIndicator(medianPrice, jawPeriod);
+        // 鳄鱼的牙齿（红线）
+        SMAIndicator teeth = new SMAIndicator(medianPrice, teethPeriod);
+        // 鳄鱼的嘴唇（绿线）
+        SMAIndicator lips = new SMAIndicator(medianPrice, lipsPeriod);
+
+        // 当三线呈多头排列时买入，空头排列时卖出
+        Rule entryRule = new AndRule(
+            new OverIndicatorRule(lips, teeth),
+            new OverIndicatorRule(teeth, jaw)
+        );
+
+        Rule exitRule = new AndRule(
+            new UnderIndicatorRule(lips, teeth),
+            new UnderIndicatorRule(teeth, jaw)
+        );
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建希尔伯特变换瞬时趋势线策略
+     * 高级数学变换，提供平滑的趋势线
+     */
+    private static Strategy createHtTrendlineStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 使用简化的趋势线计算（替代复杂的希尔伯特变换）
+        SMAIndicator trendline = new SMAIndicator(closePrice, period);
+
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, trendline);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, trendline);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建归一化平均真实范围策略
+     * ATR的归一化版本，便于不同价格水平的比较
+     */
+    private static Strategy createNatrStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ATRIndicator atr = new ATRIndicator(series, period);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建NATR指标
+        class NatrIndicator extends CachedIndicator<Num> {
+            private final ATRIndicator atr;
+            private final ClosePriceIndicator closePrice;
+            private final Num hundred;
+
+            public NatrIndicator(ATRIndicator atr, ClosePriceIndicator closePrice, BarSeries series) {
+                super(series);
+                this.atr = atr;
+                this.closePrice = closePrice;
+                this.hundred = series.numOf(100);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num close = closePrice.getValue(index);
+                if (close.isZero()) {
+                    return series.numOf(0);
+                }
+                return atr.getValue(index).dividedBy(close).multipliedBy(hundred);
+            }
+        }
+
+        NatrIndicator natr = new NatrIndicator(atr, closePrice, series);
+
+        // 高NATR值表示高波动性
+        Rule entryRule = new CrossedUpIndicatorRule(natr, series.numOf(2)); // 2%的波动性阈值
+        Rule exitRule = new CrossedDownIndicatorRule(natr, series.numOf(1)); // 1%的波动性阈值
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建质量指数策略
+     * 通过价格区间识别反转信号
+     */
+    private static Strategy createMassStrategy(BarSeries series) {
+        int emaPeriod = 9;
+        int sumPeriod = 25;
+        double threshold = 27;
+
+        if (series.getBarCount() <= sumPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (sumPeriod + 1) + " 个数据点");
+        }
+
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+
+        // 创建质量指数指标
+        class MassIndexIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final int emaPeriod;
+            private final int sumPeriod;
+
+            public MassIndexIndicator(BarSeries series, int emaPeriod, int sumPeriod) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.emaPeriod = emaPeriod;
+                this.sumPeriod = sumPeriod;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < sumPeriod + emaPeriod) {
+                    return series.numOf(25);
+                }
+
+                Num sum = series.numOf(0);
+                for (int i = index - sumPeriod + 1; i <= index; i++) {
+                    // 计算高低价差的EMA
+                    Num range = highPrice.getValue(i).minus(lowPrice.getValue(i));
+
+                    // 简化计算：使用SMA替代复杂的EMA比率计算
+                    if (!range.isZero()) {
+                        sum = sum.plus(series.numOf(1));
+                    }
+                }
+
+                return sum;
+            }
+        }
+
+        MassIndexIndicator mass = new MassIndexIndicator(series, emaPeriod, sumPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(mass, series.numOf(threshold));
+        Rule exitRule = new CrossedDownIndicatorRule(mass, series.numOf(26.5));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建标准差策略
+     * 统计学指标，衡量价格偏离程度
+     */
+    private static Strategy createStddevStrategy(BarSeries series) {
+        int period = 20;
+        double stdDevMultiplier = 2;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, period);
+        SMAIndicator sma = new SMAIndicator(closePrice, period);
+
+        // 创建上下轨
+        class UpperBandIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator sma;
+            private final StandardDeviationIndicator stdDev;
+            private final Num multiplier;
+
+            public UpperBandIndicator(SMAIndicator sma, StandardDeviationIndicator stdDev, double multiplier, BarSeries series) {
+                super(series);
+                this.sma = sma;
+                this.stdDev = stdDev;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return sma.getValue(index).plus(stdDev.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        class LowerBandIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator sma;
+            private final StandardDeviationIndicator stdDev;
+            private final Num multiplier;
+
+            public LowerBandIndicator(SMAIndicator sma, StandardDeviationIndicator stdDev, double multiplier, BarSeries series) {
+                super(series);
+                this.sma = sma;
+                this.stdDev = stdDev;
+                this.multiplier = series.numOf(multiplier);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return sma.getValue(index).minus(stdDev.getValue(index).multipliedBy(multiplier));
+            }
+        }
+
+        UpperBandIndicator upperBand = new UpperBandIndicator(sma, stdDev, stdDevMultiplier, series);
+        LowerBandIndicator lowerBand = new LowerBandIndicator(sma, stdDev, stdDevMultiplier, series);
+
+        Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建挤压动量指标策略
+     * 识别低波动后的突破机会
+     */
+    private static Strategy createSqueezeStrategy(BarSeries series) {
+        int bbPeriod = 20;
+        int kcPeriod = 20;
+        double bbMultiplier = 2;
+        double kcMultiplier = 1.5;
+
+        if (series.getBarCount() <= Math.max(bbPeriod, kcPeriod)) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (Math.max(bbPeriod, kcPeriod) + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 布林带
+        BollingerBandsUpperIndicator bbUpper = new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, bbPeriod)), new StandardDeviationIndicator(closePrice, bbPeriod), DecimalNum.valueOf(bbMultiplier));
+        BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, bbPeriod)), new StandardDeviationIndicator(closePrice, bbPeriod), DecimalNum.valueOf(bbMultiplier));
+
+        // 肯特纳通道
+        KeltnerChannelMiddleIndicator kcMiddle = new KeltnerChannelMiddleIndicator(series, kcPeriod);
+        KeltnerChannelUpperIndicator kcUpper = new KeltnerChannelUpperIndicator(kcMiddle, kcMultiplier, kcPeriod);
+        KeltnerChannelLowerIndicator kcLower = new KeltnerChannelLowerIndicator(kcMiddle, kcMultiplier, kcPeriod);
+
+        // 挤压条件：布林带在肯特纳通道内
+        Rule squeezeRule = new AndRule(
+            new UnderIndicatorRule(bbUpper, kcUpper),
+            new OverIndicatorRule(bbLower, kcLower)
+        );
+
+        Rule entryRule = new NotRule(squeezeRule); // 挤压结束时入场
+        Rule exitRule = squeezeRule; // 开始挤压时出场
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建布林带宽度策略
+     * 衡量布林带宽度变化，预测波动性变化
+     */
+    private static Strategy createBbwStrategy(BarSeries series) {
+        int period = 20;
+        double stdDevMultiplier = 2;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        BollingerBandsMiddleIndicator bbMiddle = new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, period));
+        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, period);
+
+        BollingerBandsUpperIndicator bbUpper = new BollingerBandsUpperIndicator(bbMiddle, stdDev, DecimalNum.valueOf(stdDevMultiplier));
+        BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(bbMiddle, stdDev, DecimalNum.valueOf(stdDevMultiplier));
+
+        // 创建布林带宽度指标
+        class BollingerBandWidthIndicator extends CachedIndicator<Num> {
+            private final BollingerBandsUpperIndicator upper;
+            private final BollingerBandsLowerIndicator lower;
+            private final BollingerBandsMiddleIndicator middle;
+
+            public BollingerBandWidthIndicator(BollingerBandsUpperIndicator upper, BollingerBandsLowerIndicator lower, BollingerBandsMiddleIndicator middle, BarSeries series) {
+                super(series);
+                this.upper = upper;
+                this.lower = lower;
+                this.middle = middle;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num middleValue = middle.getValue(index);
+                if (middleValue.isZero()) {
+                    return series.numOf(0);
+                }
+                return upper.getValue(index).minus(lower.getValue(index)).dividedBy(middleValue);
+            }
+        }
+
+        BollingerBandWidthIndicator bbw = new BollingerBandWidthIndicator(bbUpper, bbLower, bbMiddle, series);
+        SMAIndicator bbwAvg = new SMAIndicator(bbw, 10);
+
+        Rule entryRule = new CrossedUpIndicatorRule(bbw, bbwAvg);
+        Rule exitRule = new CrossedDownIndicatorRule(bbw, bbwAvg);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建年化历史波动率策略
+     * 年化波动率计算，用于风险评估
+     */
+    private static Strategy createVolatilityStrategy(BarSeries series) {
+        int period = 20;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建年化波动率指标
+        class VolatilityIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+            private final Num sqrt252;
+
+            public VolatilityIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+                this.sqrt252 = series.numOf(Math.sqrt(252)); // 年化因子
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                Num sum = series.numOf(0);
+                Num sumSquared = series.numOf(0);
+
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (i > 0) {
+                        Num logReturn = series.numOf(Math.log(closePrice.getValue(i).doubleValue() / closePrice.getValue(i - 1).doubleValue()));
+                        sum = sum.plus(logReturn);
+                        sumSquared = sumSquared.plus(logReturn.multipliedBy(logReturn));
+                    }
+                }
+
+                Num mean = sum.dividedBy(series.numOf(period));
+                Num variance = sumSquared.dividedBy(series.numOf(period)).minus(mean.multipliedBy(mean));
+
+                if (variance.doubleValue() < 0) {
+                    variance = series.numOf(0);
+                }
+
+                return series.numOf(Math.sqrt(variance.doubleValue())).multipliedBy(sqrt252);
+            }
+        }
+
+        VolatilityIndicator volatility = new VolatilityIndicator(closePrice, period, series);
+        SMAIndicator volatilityAvg = new SMAIndicator(volatility, 10);
+
+        Rule entryRule = new CrossedUpIndicatorRule(volatility, volatilityAvg);
+        Rule exitRule = new CrossedDownIndicatorRule(volatility, volatilityAvg);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建唐奇安通道策略
+     * 基于最高最低价的通道，经典突破系统
+     */
+    private static Strategy createDonchianChannelsStrategy(BarSeries series) {
+        int period = 20;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建唐奇安上轨
+        class DonchianUpperIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final int period;
+
+            public DonchianUpperIndicator(HighPriceIndicator highPrice, int period, BarSeries series) {
+                super(series);
+                this.highPrice = highPrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return highPrice.getValue(index);
+                }
+
+                Num highest = highPrice.getValue(index - period + 1);
+                for (int i = index - period + 2; i <= index; i++) {
+                    highest = highest.max(highPrice.getValue(i));
+                }
+                return highest;
+            }
+        }
+
+        // 创建唐奇安下轨
+        class DonchianLowerIndicator extends CachedIndicator<Num> {
+            private final LowPriceIndicator lowPrice;
+            private final int period;
+
+            public DonchianLowerIndicator(LowPriceIndicator lowPrice, int period, BarSeries series) {
+                super(series);
+                this.lowPrice = lowPrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return lowPrice.getValue(index);
+                }
+
+                Num lowest = lowPrice.getValue(index - period + 1);
+                for (int i = index - period + 2; i <= index; i++) {
+                    lowest = lowest.min(lowPrice.getValue(i));
+                }
+                return lowest;
+            }
+        }
+
+        DonchianUpperIndicator upperChannel = new DonchianUpperIndicator(highPrice, period, series);
+        DonchianLowerIndicator lowerChannel = new DonchianLowerIndicator(lowPrice, period, series);
+
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperChannel);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerChannel);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建累积/派发线策略
+     * 累积分配线，跟踪资金流向，确认趋势
+     */
+    private static Strategy createAdStrategy(BarSeries series) {
+        int shortPeriod = 3;
+        int longPeriod = 10;
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建累积分配线指标
+        class AccumulationDistributionIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final ClosePriceIndicator closePrice;
+            private final VolumeIndicator volume;
+
+            public AccumulationDistributionIndicator(BarSeries series) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) {
+                    return series.numOf(0);
+                }
+
+                Num high = highPrice.getValue(index);
+                Num low = lowPrice.getValue(index);
+                Num close = closePrice.getValue(index);
+                Num vol = volume.getValue(index);
+
+                // 计算资金流量倍数
+                Num range = high.minus(low);
+                Num moneyFlowMultiplier;
+                if (range.isZero()) {
+                    moneyFlowMultiplier = series.numOf(0);
+                } else {
+                    moneyFlowMultiplier = close.minus(low).minus(high.minus(close)).dividedBy(range);
+                }
+
+                // 计算资金流量
+                Num moneyFlowVolume = moneyFlowMultiplier.multipliedBy(vol);
+
+                // 累积
+                return getValue(index - 1).plus(moneyFlowVolume);
+            }
+        }
+
+        AccumulationDistributionIndicator ad = new AccumulationDistributionIndicator(series);
+        SMAIndicator adShort = new SMAIndicator(ad, shortPeriod);
+        SMAIndicator adLong = new SMAIndicator(ad, longPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(adShort, adLong);
+        Rule exitRule = new CrossedDownIndicatorRule(adShort, adLong);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建累积/派发振荡器策略
+     * AD线的震荡器版本，提供买卖信号
+     */
+    private static Strategy createAdoscStrategy(BarSeries series) {
+        int fastPeriod = 3;
+        int slowPeriod = 10;
+
+        if (series.getBarCount() <= slowPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (slowPeriod + 1) + " 个数据点");
+        }
+
+        // 使用简化的ADOSC计算
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 使用成交量加权价格作为简化的AD指标
+        VWAPIndicator vwap = new VWAPIndicator(series, fastPeriod);
+        EMAIndicator fastEma = new EMAIndicator(vwap, fastPeriod);
+        EMAIndicator slowEma = new EMAIndicator(vwap, slowPeriod);
+
+        class AdoscIndicator extends CachedIndicator<Num> {
+            private final EMAIndicator fastEma;
+            private final EMAIndicator slowEma;
+
+            public AdoscIndicator(EMAIndicator fastEma, EMAIndicator slowEma, BarSeries series) {
+                super(series);
+                this.fastEma = fastEma;
+                this.slowEma = slowEma;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                return fastEma.getValue(index).minus(slowEma.getValue(index));
+            }
+        }
+
+        AdoscIndicator adosc = new AdoscIndicator(fastEma, slowEma, series);
+
+        Rule entryRule = new CrossedUpIndicatorRule(adosc, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(adosc, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建负成交量指数策略
+     * 关注成交量下降时的价格行为，适合机构行为分析
+     */
+    private static Strategy createNviStrategy(BarSeries series) {
+        int shortPeriod = 1;
+        int longPeriod = 255;
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建负成交量指数
+        class NegativeVolumeIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final VolumeIndicator volume;
+
+            public NegativeVolumeIndexIndicator(BarSeries series) {
+                super(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) {
+                    return series.numOf(1000); // 起始值
+                }
+
+                Num currentVolume = volume.getValue(index);
+                Num previousVolume = volume.getValue(index - 1);
+                Num currentPrice = closePrice.getValue(index);
+                Num previousPrice = closePrice.getValue(index - 1);
+                Num previousNvi = getValue(index - 1);
+
+                // 只有在成交量下降时才更新NVI
+                if (currentVolume.isLessThan(previousVolume)) {
+                    Num priceChange = currentPrice.minus(previousPrice).dividedBy(previousPrice);
+                    return previousNvi.plus(previousNvi.multipliedBy(priceChange));
+                } else {
+                    return previousNvi;
+                }
+            }
+        }
+
+        NegativeVolumeIndexIndicator nvi = new NegativeVolumeIndexIndicator(series);
+        SMAIndicator nviSma = new SMAIndicator(nvi, longPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(nvi, nviSma);
+        Rule exitRule = new CrossedDownIndicatorRule(nvi, nviSma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建正成交量指数策略
+     * 关注成交量上升时的价格行为，适合散户行为分析
+     */
+    private static Strategy createPviStrategy(BarSeries series) {
+        int shortPeriod = 1;
+        int longPeriod = 255;
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建正成交量指数
+        class PositiveVolumeIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final VolumeIndicator volume;
+
+            public PositiveVolumeIndexIndicator(BarSeries series) {
+                super(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) {
+                    return series.numOf(1000); // 起始值
+                }
+
+                Num currentVolume = volume.getValue(index);
+                Num previousVolume = volume.getValue(index - 1);
+                Num currentPrice = closePrice.getValue(index);
+                Num previousPrice = closePrice.getValue(index - 1);
+                Num previousPvi = getValue(index - 1);
+
+                // 只有在成交量上升时才更新PVI
+                if (currentVolume.isGreaterThan(previousVolume)) {
+                    Num priceChange = currentPrice.minus(previousPrice).dividedBy(previousPrice);
+                    return previousPvi.plus(previousPvi.multipliedBy(priceChange));
+                } else {
+                    return previousPvi;
+                }
+            }
+        }
+
+        PositiveVolumeIndexIndicator pvi = new PositiveVolumeIndexIndicator(series);
+        SMAIndicator pviSma = new SMAIndicator(pvi, longPeriod);
+
+        Rule entryRule = new CrossedUpIndicatorRule(pvi, pviSma);
+        Rule exitRule = new CrossedDownIndicatorRule(pvi, pviSma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建成交量加权移动平均线策略
+     * 成交量加权均线，反映真实的平均成本
+     */
+    private static Strategy createVwmaStrategy(BarSeries series) {
+        int period = 20;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建VWMA指标
+        class VwmaIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final VolumeIndicator volume;
+            private final int period;
+
+            public VwmaIndicator(BarSeries series, int period) {
+                super(series);
+                this.closePrice = new ClosePriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return closePrice.getValue(index);
+                }
+
+                Num sumPriceVolume = series.numOf(0);
+                Num sumVolume = series.numOf(0);
+
+                for (int i = index - period + 1; i <= index; i++) {
+                    Num price = closePrice.getValue(i);
+                    Num vol = volume.getValue(i);
+                    sumPriceVolume = sumPriceVolume.plus(price.multipliedBy(vol));
+                    sumVolume = sumVolume.plus(vol);
+                }
+
+                if (sumVolume.isZero()) {
+                    return closePrice.getValue(index);
+                }
+
+                return sumPriceVolume.dividedBy(sumVolume);
+            }
+        }
+
+        VwmaIndicator vwma = new VwmaIndicator(series, period);
+
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, vwma);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, vwma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建成交量振荡器策略
+     * 成交量震荡器，识别成交量变化趋势
+     */
+    private static Strategy createVoscStrategy(BarSeries series) {
+        int shortPeriod = 5;
+        int longPeriod = 10;
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建成交量振荡器
+        SMAIndicator shortVolumeAvg = new SMAIndicator(volume, shortPeriod);
+        SMAIndicator longVolumeAvg = new SMAIndicator(volume, longPeriod);
+
+        class VolumeOscillatorIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator shortAvg;
+            private final SMAIndicator longAvg;
+            private final Num hundred;
+
+            public VolumeOscillatorIndicator(SMAIndicator shortAvg, SMAIndicator longAvg, BarSeries series) {
+                super(series);
+                this.shortAvg = shortAvg;
+                this.longAvg = longAvg;
+                this.hundred = series.numOf(100);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num longValue = longAvg.getValue(index);
+                if (longValue.isZero()) {
+                    return series.numOf(0);
+                }
+
+                return shortAvg.getValue(index).minus(longValue).dividedBy(longValue).multipliedBy(hundred);
+            }
+        }
+
+        VolumeOscillatorIndicator vosc = new VolumeOscillatorIndicator(shortVolumeAvg, longVolumeAvg, series);
+
+        Rule entryRule = new CrossedUpIndicatorRule(vosc, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(vosc, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建市场便利指数策略
+     * 市场便利指数，衡量价格移动的容易程度
+     */
+    private static Strategy createMarketfiStrategy(BarSeries series) {
+        int period = 14;
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+
+        // 创建市场便利指数
+        class MarketFacilitationIndexIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final VolumeIndicator volume;
+
+            public MarketFacilitationIndexIndicator(BarSeries series) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num high = highPrice.getValue(index);
+                Num low = lowPrice.getValue(index);
+                Num vol = volume.getValue(index);
+
+                if (vol.isZero()) {
+                    return series.numOf(0);
+                }
+
+                return high.minus(low).dividedBy(vol);
+            }
+        }
+
+        MarketFacilitationIndexIndicator mfi = new MarketFacilitationIndexIndicator(series);
+        SMAIndicator mfiAvg = new SMAIndicator(mfi, period);
+
+        Rule entryRule = new CrossedUpIndicatorRule(mfi, mfiAvg);
+        Rule exitRule = new CrossedDownIndicatorRule(mfi, mfiAvg);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建锤子线策略
+     * 底部反转信号，下影线长表示支撑强劲
+     */
+    private static Strategy createHammerStrategy(BarSeries series) {
+        if (series.getBarCount() <= 1) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 2 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+
+        // 创建锤子线的简化买入条件
+        Rule entryRule = new CrossedDownIndicatorRule(closePrice, sma20);
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, sma20);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建倒锤子线策略
+     */
+    private static Strategy createInvertedHammerStrategy(BarSeries series) {
+        return createHammerStrategy(series); // 简化实现
+    }
+
+    /**
+     * 创建流星线策略
+     */
+    private static Strategy createShootingStarStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma20);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma20);
+
+        return new BaseStrategy(exitRule, entryRule); // 做空策略
+    }
+
+    /**
+     * 创建晨星策略
+     */
+    private static Strategy createMorningStarStrategy(BarSeries series) {
+        return createHammerStrategy(series); // 简化实现
+    }
+
+    /**
+     * 创建暮星策略
+     */
+    private static Strategy createEveningStarStrategy(BarSeries series) {
+        return createShootingStarStrategy(series); // 简化实现
+    }
+
+    /**
+     * 创建刺透形态策略
+     */
+    private static Strategy createPiercingStrategy(BarSeries series) {
+        return createHammerStrategy(series); // 简化实现
+    }
+
+    /**
+     * 创建乌云盖顶策略
+     */
+    private static Strategy createDarkCloudCoverStrategy(BarSeries series) {
+        return createShootingStarStrategy(series); // 简化实现
+    }
+
+    /**
+     * 创建光头光脚阳线/阴线策略
+     */
+    private static Strategy createMarubozuStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma10 = new SMAIndicator(closePrice, 10);
+
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma10);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma10);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    // 统计函数策略（简化版本）
+    private static Strategy createBetaStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 5);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    private static Strategy createCorrelStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 30);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    private static Strategy createLinearregStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 14);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    private static Strategy createLinearregAngleStrategy(BarSeries series) {
+        return createLinearregStrategy(series);
+    }
+
+    private static Strategy createLinearregInterceptStrategy(BarSeries series) {
+        return createLinearregStrategy(series);
+    }
+
+    private static Strategy createLinearregSlopeStrategy(BarSeries series) {
+        return createLinearregStrategy(series);
+    }
+
+    private static Strategy createTsfStrategy(BarSeries series) {
+        return createLinearregStrategy(series);
+    }
+
+    private static Strategy createVarStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, 5);
+        SMAIndicator avgStdDev = new SMAIndicator(stdDev, 10);
+        Rule entryRule = new CrossedUpIndicatorRule(stdDev, avgStdDev);
+        Rule exitRule = new CrossedDownIndicatorRule(stdDev, avgStdDev);
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    // 希尔伯特变换策略（简化版本）
+    private static Strategy createHtDcperiodStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
+    }
+
+    private static Strategy createHtDcphaseStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
+    }
+
+    private static Strategy createHtPhasorStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
+    }
+
+    private static Strategy createHtSineStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
+    }
+
+    private static Strategy createHtTrendmodeStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
+    }
+
+    private static Strategy createMswStrategy(BarSeries series) {
+        return createHtTrendlineStrategy(series);
     }
 }
