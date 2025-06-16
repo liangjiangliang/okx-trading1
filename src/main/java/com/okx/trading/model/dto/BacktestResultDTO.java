@@ -94,6 +94,11 @@ public class BacktestResultDTO {
     private BigDecimal maximumLoss;
 
     /**
+     * 波动率（收盘价标准差）
+     */
+    private BigDecimal volatility;
+
+    /**
      * 盈利因子（总盈利/总亏损）
      */
     private BigDecimal profitFactor;
@@ -249,6 +254,14 @@ public class BacktestResultDTO {
 
     public void setMaximumLoss(BigDecimal maximumLoss) {
         this.maximumLoss = maximumLoss;
+    }
+
+    public BigDecimal getVolatility() {
+        return volatility;
+    }
+
+    public void setVolatility(BigDecimal volatility) {
+        this.volatility = volatility;
     }
 
     public BigDecimal getProfitFactor() {

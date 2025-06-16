@@ -82,6 +82,9 @@ public class BacktestResultPrinter {
         if (result.getMaximumLoss() != null) {
             sb.append("最大单笔亏损: ").append(String.format("%,.2f", result.getMaximumLoss())).append("\n");
         }
+        if (result.getVolatility() != null) {
+            sb.append("波动率: ").append(String.format("%.4f", result.getVolatility())).append("\n");
+        }
         
         // 费用信息
         if (result.getTotalFee() != null) {
@@ -161,6 +164,9 @@ public class BacktestResultPrinter {
         }
         if (entity.getMaximumLoss() != null) {
             sb.append("最大单笔亏损: ").append(String.format("%,.2f", entity.getMaximumLoss())).append("\n");
+        }
+        if (entity.getVolatility() != null) {
+            sb.append("波动率: ").append(String.format("%.4f", entity.getVolatility())).append("\n");
         }
         
         // 费用信息
@@ -265,6 +271,9 @@ public class BacktestResultPrinter {
         }
         if (summary.getCalmarRatio() != null) {
             sb.append(", 卡玛比率: ").append(String.format("%.2f", summary.getCalmarRatio()));
+        }
+        if (summary.getVolatility() != null) {
+            sb.append(", 波动率: ").append(String.format("%.2f", summary.getVolatility()));
         }
         sb.append("\n");
         

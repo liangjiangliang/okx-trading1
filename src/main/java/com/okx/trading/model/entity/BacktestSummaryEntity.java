@@ -171,6 +171,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal maximumLoss;
 
     /**
+     * 波动率（收盘价标准差）
+     */
+    @Column(name = "volatility", precision = 10, scale = 4)
+    private BigDecimal volatility;
+
+    /**
      * 总手续费
      */
     @Column(name = "total_fee", precision = 20, scale = 8)

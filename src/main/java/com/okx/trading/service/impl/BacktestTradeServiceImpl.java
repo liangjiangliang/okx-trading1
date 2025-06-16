@@ -179,6 +179,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .sortinoRatio(backtestResult.getSortinoRatio())
                 .calmarRatio(backtestResult.getCalmarRatio())
                 .maximumLoss(backtestResult.getMaximumLoss())
+                .volatility(backtestResult.getVolatility())
                 .totalFee(backtestResult.getTotalFee())
                 .build();
 

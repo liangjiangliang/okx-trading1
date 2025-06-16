@@ -125,6 +125,74 @@ public class StrategyFactory {
         strategyCreators.put(STRATEGY_DEATH_CROSS, StrategyFactory::createDeathCrossStrategy);
         strategyCreators.put(STRATEGY_DUAL_MA_WITH_RSI, StrategyFactory::createDualMAWithRSIStrategy);
         strategyCreators.put(STRATEGY_MACD_WITH_BOLLINGER, StrategyFactory::createMACDWithBollingerStrategy);
+        
+        // 添加新的移动平均线策略
+        strategyCreators.put(STRATEGY_TRIMA, StrategyFactory::createTrimaStrategy);
+        strategyCreators.put(STRATEGY_T3, StrategyFactory::createT3Strategy);
+        strategyCreators.put(STRATEGY_MAMA, StrategyFactory::createMamaStrategy);
+        strategyCreators.put(STRATEGY_VIDYA, StrategyFactory::createVidyaStrategy);
+        strategyCreators.put(STRATEGY_WILDERS, StrategyFactory::createWildersStrategy);
+        
+        // 添加新的震荡指标策略
+        strategyCreators.put(STRATEGY_FISHER, StrategyFactory::createFisherStrategy);
+        strategyCreators.put(STRATEGY_FOSC, StrategyFactory::createFoscStrategy);
+        strategyCreators.put(STRATEGY_EOM, StrategyFactory::createEomStrategy);
+        strategyCreators.put(STRATEGY_CHOP, StrategyFactory::createChopStrategy);
+        strategyCreators.put(STRATEGY_KVO, StrategyFactory::createKvoStrategy);
+        strategyCreators.put(STRATEGY_RVGI, StrategyFactory::createRvgiStrategy);
+        strategyCreators.put(STRATEGY_STC, StrategyFactory::createStcStrategy);
+        
+        // 添加新的趋势指标策略
+        strategyCreators.put(STRATEGY_VORTEX, StrategyFactory::createVortexStrategy);
+        strategyCreators.put(STRATEGY_QSTICK, StrategyFactory::createQstickStrategy);
+        strategyCreators.put(STRATEGY_WILLIAMS_ALLIGATOR, StrategyFactory::createWilliamsAlligatorStrategy);
+        strategyCreators.put(STRATEGY_HT_TRENDLINE, StrategyFactory::createHtTrendlineStrategy);
+        
+        // 添加新的波动指标策略
+        strategyCreators.put(STRATEGY_NATR, StrategyFactory::createNatrStrategy);
+        strategyCreators.put(STRATEGY_MASS, StrategyFactory::createMassStrategy);
+        strategyCreators.put(STRATEGY_STDDEV, StrategyFactory::createStddevStrategy);
+        strategyCreators.put(STRATEGY_SQUEEZE, StrategyFactory::createSqueezeStrategy);
+        strategyCreators.put(STRATEGY_BBW, StrategyFactory::createBbwStrategy);
+        strategyCreators.put(STRATEGY_VOLATILITY, StrategyFactory::createVolatilityStrategy);
+        strategyCreators.put(STRATEGY_DONCHIAN_CHANNELS, StrategyFactory::createDonchianChannelsStrategy);
+        
+        // 添加新的成交量指标策略
+        strategyCreators.put(STRATEGY_AD, StrategyFactory::createAdStrategy);
+        strategyCreators.put(STRATEGY_ADOSC, StrategyFactory::createAdoscStrategy);
+        strategyCreators.put(STRATEGY_NVI, StrategyFactory::createNviStrategy);
+        strategyCreators.put(STRATEGY_PVI, StrategyFactory::createPviStrategy);
+        strategyCreators.put(STRATEGY_VWMA, StrategyFactory::createVwmaStrategy);
+        strategyCreators.put(STRATEGY_VOSC, StrategyFactory::createVoscStrategy);
+        strategyCreators.put(STRATEGY_MARKETFI, StrategyFactory::createMarketfiStrategy);
+        
+        // 添加新的蜡烛图形态策略
+        strategyCreators.put(STRATEGY_HAMMER, StrategyFactory::createHammerStrategy);
+        strategyCreators.put(STRATEGY_INVERTED_HAMMER, StrategyFactory::createInvertedHammerStrategy);
+        strategyCreators.put(STRATEGY_SHOOTING_STAR, StrategyFactory::createShootingStarStrategy);
+        strategyCreators.put(STRATEGY_MORNING_STAR, StrategyFactory::createMorningStarStrategy);
+        strategyCreators.put(STRATEGY_EVENING_STAR, StrategyFactory::createEveningStarStrategy);
+        strategyCreators.put(STRATEGY_PIERCING, StrategyFactory::createPiercingStrategy);
+        strategyCreators.put(STRATEGY_DARK_CLOUD_COVER, StrategyFactory::createDarkCloudCoverStrategy);
+        strategyCreators.put(STRATEGY_MARUBOZU, StrategyFactory::createMarubozuStrategy);
+        
+        // 添加统计函数策略
+        strategyCreators.put(STRATEGY_BETA, StrategyFactory::createBetaStrategy);
+        strategyCreators.put(STRATEGY_CORREL, StrategyFactory::createCorrelStrategy);
+        strategyCreators.put(STRATEGY_LINEARREG, StrategyFactory::createLinearregStrategy);
+        strategyCreators.put(STRATEGY_LINEARREG_ANGLE, StrategyFactory::createLinearregAngleStrategy);
+        strategyCreators.put(STRATEGY_LINEARREG_INTERCEPT, StrategyFactory::createLinearregInterceptStrategy);
+        strategyCreators.put(STRATEGY_LINEARREG_SLOPE, StrategyFactory::createLinearregSlopeStrategy);
+        strategyCreators.put(STRATEGY_TSF, StrategyFactory::createTsfStrategy);
+        strategyCreators.put(STRATEGY_VAR, StrategyFactory::createVarStrategy);
+        
+        // 添加希尔伯特变换策略
+        strategyCreators.put(STRATEGY_HT_DCPERIOD, StrategyFactory::createHtDcperiodStrategy);
+        strategyCreators.put(STRATEGY_HT_DCPHASE, StrategyFactory::createHtDcphaseStrategy);
+        strategyCreators.put(STRATEGY_HT_PHASOR, StrategyFactory::createHtPhasorStrategy);
+        strategyCreators.put(STRATEGY_HT_SINE, StrategyFactory::createHtSineStrategy);
+        strategyCreators.put(STRATEGY_HT_TRENDMODE, StrategyFactory::createHtTrendmodeStrategy);
+        strategyCreators.put(STRATEGY_MSW, StrategyFactory::createMswStrategy);
     }
 
     /**
@@ -1947,6 +2015,366 @@ public class StrategyFactory {
         // 卖出规则：收盘价下穿云带下轨(LeadingSpanB)，即价格跌破云带
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, leadingSpanB);
 
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建三角移动平均线策略
+     * 三角移动平均线是一种平滑的移动平均线，它对价格变化的反应比简单移动平均线更平滑
+     */
+    private static Strategy createTrimaStrategy(BarSeries series) {
+        int shortPeriod = (int) ( 9);
+        int longPeriod = (int) ( 21);
+
+        if (series.getBarCount() <= longPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建短期和长期三角移动平均线指标
+        TriangularMovingAverageIndicator shortTrima = new TriangularMovingAverageIndicator(closePrice, shortPeriod);
+        TriangularMovingAverageIndicator longTrima = new TriangularMovingAverageIndicator(closePrice, longPeriod);
+
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(shortTrima, longTrima);
+        Rule exitRule = new CrossedDownIndicatorRule(shortTrima, longTrima);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建T3移动平均线策略
+     * T3是一种三重指数平滑移动平均线，提供更平滑的价格曲线
+     */
+    private static Strategy createT3Strategy(BarSeries series) {
+        int period = (int) ( 10);
+        double volumeFactor = (double) ( 0.7); // 体积因子，一般在0.5-0.9之间
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建T3指标
+        T3Indicator t3 = new T3Indicator(closePrice, period, series.numOf(volumeFactor));
+        SMAIndicator sma = new SMAIndicator(closePrice, period);
+
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(t3, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(t3, sma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建MESA自适应移动平均线策略
+     * MAMA是一种自适应移动平均线，能够根据市场条件自动调整
+     */
+    private static Strategy createMamaStrategy(BarSeries series) {
+        double fastLimit = (double) ( 0.5);
+        double slowLimit = (double) ( 0.05);
+
+        if (series.getBarCount() <= 30) { // MAMA需要足够的数据点
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 31 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建MAMA和FAMA指标
+        MESAAdaptiveMovingAverageIndicator mama = new MESAAdaptiveMovingAverageIndicator(closePrice, series.numOf(fastLimit), series.numOf(slowLimit));
+        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(mama, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(mama, sma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建可变指数动态平均线策略
+     * VIDYA是一种基于波动率的移动平均线，在波动较大时反应更快
+     */
+    private static Strategy createVidyaStrategy(BarSeries series) {
+        int shortCMAPeriod = (int) ( 9);
+        int longCMAPeriod = (int) ( 12);
+        double alpha = (double) ( 0.2);
+
+        if (series.getBarCount() <= longCMAPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longCMAPeriod + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建VIDYA指标
+        VIDYAIndicator vidya = new VIDYAIndicator(closePrice, shortCMAPeriod, longCMAPeriod, series.numOf(alpha));
+        SMAIndicator sma = new SMAIndicator(closePrice, longCMAPeriod);
+
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(vidya, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(vidya, sma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建威尔德平滑移动平均线策略
+     * 威尔德平滑是一种特殊的指数移动平均线，用于计算RSI等指标
+     */
+    private static Strategy createWildersStrategy(BarSeries series) {
+        int period = (int) ( 14);
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 创建威尔德平滑指标
+        WilderIndicator wilders = new WilderIndicator(closePrice, period);
+        SMAIndicator sma = new SMAIndicator(closePrice, period);
+
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(wilders, sma);
+        Rule exitRule = new CrossedDownIndicatorRule(wilders, sma);
+
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建Fisher变换策略
+     * Fisher变换是一种将价格转换为正态分布的指标，有助于识别超买超卖状态
+     */
+    private static Strategy createFisherStrategy(BarSeries series) {
+        int period = (int) ( 10);
+
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 创建自定义Fisher变换指标
+        class FisherTransformIndicator extends CachedIndicator<Num> {
+            private final Indicator<Num> indicator;
+            private final int period;
+            private final Num one;
+            private final Num half;
+            
+            public FisherTransformIndicator(Indicator<Num> indicator, int period, BarSeries series) {
+                super(indicator);
+                this.indicator = indicator;
+                this.period = period;
+                this.one = series.numOf(1);
+                this.half = series.numOf(0.5);
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+                
+                // 找出period内的最高价和最低价
+                Num highest = indicator.getValue(index);
+                Num lowest = indicator.getValue(index);
+                
+                for (int i = index - period + 1; i < index; i++) {
+                    Num val = indicator.getValue(i);
+                    highest = highest.max(val);
+                    lowest = lowest.min(val);
+                }
+                
+                // 如果最高价等于最低价，返回0
+                if (highest.equals(lowest)) {
+                    return series.numOf(0);
+                }
+                
+                // 归一化价格到-1到1之间
+                Num range = highest.minus(lowest);
+                Num normalizedPrice = indicator.getValue(index).minus(lowest).dividedBy(range).multipliedBy(series.numOf(2)).minus(one);
+                
+                // 应用Fisher变换
+                Num value = series.numOf(0);
+                if (index > 0) {
+                    Num prevValue = getValue(index - 1);
+                    value = half.multipliedBy(series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue())
+                            .plus(prevValue.doubleValue()));
+                }
+                
+                return value;
+            }
+        }
+        
+        // 创建Fisher变换指标
+        FisherTransformIndicator fisher = new FisherTransformIndicator(closePrice, period, series);
+        
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(fisher, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(fisher, series.numOf(0));
+        
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建预测振荡器策略
+     * 预测振荡器衡量当前价格与线性回归预测价格的偏差
+     */
+    private static Strategy createFoscStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+        
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 创建自定义预测振荡器指标
+        class ForecastOscillatorIndicator extends CachedIndicator<Num> {
+            private final Indicator<Num> indicator;
+            private final int period;
+            private final Num hundred;
+            
+            public ForecastOscillatorIndicator(Indicator<Num> indicator, int period, BarSeries series) {
+                super(indicator);
+                this.indicator = indicator;
+                this.period = period;
+                this.hundred = series.numOf(100);
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+                
+                // 计算线性回归预测值
+                double sumX = 0;
+                double sumY = 0;
+                double sumXY = 0;
+                double sumX2 = 0;
+                
+                for (int i = index - period + 1; i <= index; i++) {
+                    double x = i - (index - period + 1);
+                    double y = indicator.getValue(i).doubleValue();
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+                
+                double meanX = sumX / period;
+                double meanY = sumY / period;
+                
+                double slope = (sumXY - sumX * meanY) / (sumX2 - sumX * meanX);
+                double intercept = meanY - slope * meanX;
+                
+                // 预测下一个值
+                double forecast = slope * period + intercept;
+                
+                // 计算振荡器值
+                double currentPrice = indicator.getValue(index).doubleValue();
+                double oscillator = ((currentPrice - forecast) / forecast) * 100;
+                
+                return series.numOf(oscillator);
+            }
+        }
+        
+        // 创建预测振荡器指标
+        ForecastOscillatorIndicator fosc = new ForecastOscillatorIndicator(closePrice, period, series);
+        
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(fosc, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(fosc, series.numOf(0));
+        
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建移动便利性指标策略
+     * 移动便利性指标衡量价格变动的难易程度
+     */
+    private static Strategy createEomStrategy(BarSeries series) {
+        int period = (int) ( 14);
+        double divisor = (double) ( 100000000);
+        
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+        
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        
+        // 创建自定义移动便利性指标
+        class EaseOfMovementIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator highPrice;
+            private final LowPriceIndicator lowPrice;
+            private final VolumeIndicator volume;
+            private final int period;
+            private final Num divisor;
+            
+            public EaseOfMovementIndicator(BarSeries series, int period, double divisor) {
+                super(series);
+                this.highPrice = new HighPriceIndicator(series);
+                this.lowPrice = new LowPriceIndicator(series);
+                this.volume = new VolumeIndicator(series);
+                this.period = period;
+                this.divisor = series.numOf(divisor);
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < 1) {
+                    return series.numOf(0);
+                }
+                
+                // 计算当前和前一个K线的中点价格
+                Num currentMiddlePoint = highPrice.getValue(index).plus(lowPrice.getValue(index)).dividedBy(series.numOf(2));
+                Num prevMiddlePoint = highPrice.getValue(index - 1).plus(lowPrice.getValue(index - 1)).dividedBy(series.numOf(2));
+                
+                // 计算价格变动
+                Num priceChange = currentMiddlePoint.minus(prevMiddlePoint);
+                
+                // 计算当前K线的高低价差
+                Num boxRatio = highPrice.getValue(index).minus(lowPrice.getValue(index));
+                
+                // 避免除以零
+                if (boxRatio.isZero() || volume.getValue(index).isZero()) {
+                    return series.numOf(0);
+                }
+                
+                // 计算单日移动便利性
+                Num dailyEom = priceChange.multipliedBy(divisor).dividedBy(volume.getValue(index).dividedBy(boxRatio));
+                
+                // 如果需要计算移动平均
+                if (period > 1 && index >= period) {
+                    Num sum = series.numOf(0);
+                    for (int i = index - period + 1; i <= index; i++) {
+                        Num mp = highPrice.getValue(i).plus(lowPrice.getValue(i)).dividedBy(series.numOf(2));
+                        Num prevMp = highPrice.getValue(i - 1).plus(lowPrice.getValue(i - 1)).dividedBy(series.numOf(2));
+                        Num pc = mp.minus(prevMp);
+                        Num br = highPrice.getValue(i).minus(lowPrice.getValue(i));
+                        
+                        if (!br.isZero() && !volume.getValue(i).isZero()) {
+                            sum = sum.plus(pc.multipliedBy(divisor).dividedBy(volume.getValue(i).dividedBy(br)));
+                        }
+                    }
+                    return sum.dividedBy(series.numOf(period));
+                }
+                
+                return dailyEom;
+            }
+        }
+        
+        // 创建移动便利性指标
+        EaseOfMovementIndicator eom = new EaseOfMovementIndicator(series, period, divisor);
+        
+        // 创建规则
+        Rule entryRule = new CrossedUpIndicatorRule(eom, series.numOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(eom, series.numOf(0));
+        
         return new BaseStrategy(entryRule, exitRule);
     }
 }

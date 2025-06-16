@@ -229,6 +229,9 @@ public class Ta4jBacktestService {
         // 计算Calmar比率
         BigDecimal calmarRatio = calculateCalmarRatio(totalReturn, maxDrawdown);
         
+        // 计算波动率（基于收盘价）
+        BigDecimal volatility = calculateVolatility(series);
+        
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
         result.setSuccess(true);
@@ -246,6 +249,7 @@ public class Ta4jBacktestService {
         result.setSortinoRatio(sortinoRatio);
         result.setCalmarRatio(calmarRatio);
         result.setMaximumLoss(maximumLoss);
+        result.setVolatility(volatility);
         result.setProfitFactor(profitFactor);
         result.setStrategyName(strategyType);
         result.setParameterDescription(paramDescription);
@@ -731,5 +735,78 @@ public class Ta4jBacktestService {
 
         // Calmar = 年化收益率 / 最大回撤
         return annualizedReturn.divide(maxDrawdown, 6, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算波动率（基于收盘价）
+     * 
+     * 波动率是衡量价格变动幅度的指标，通常用收盘价的标准差来计算。
+     * 它反映了资产价格的不稳定性，是风险评估的重要指标。
+     * 
+     * 使用场景：
+     * 1. 评估市场或资产的风险水平
+     * 2. 构建风险管理模型和止损策略
+     * 3. 比较不同资产或策略的风险特性
+     * 
+     * 解读：
+     * - 值越小表示价格波动越小，相对稳定
+     * - 值越大表示价格波动越大，风险越高
+     * - 通常与收益率结合评估风险调整后的收益
+     *
+     * @param series BarSeries对象
+     * @return 波动率（收盘价的标准差）
+     */
+    private BigDecimal calculateVolatility(BarSeries series) {
+        if (series == null || series.getBarCount() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        // 收集所有收盘价
+        List<BigDecimal> closePrices = new ArrayList<>();
+        for (int i = 0; i < series.getBarCount(); i++) {
+            double closePrice = series.getBar(i).getClosePrice().doubleValue();
+            closePrices.add(BigDecimal.valueOf(closePrice));
+        }
+
+        // 计算收盘价的对数收益率
+        List<BigDecimal> logReturns = new ArrayList<>();
+        for (int i = 1; i < closePrices.size(); i++) {
+            BigDecimal today = closePrices.get(i);
+            BigDecimal yesterday = closePrices.get(i - 1);
+            
+            if (yesterday.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            
+            double logReturn = Math.log(today.doubleValue() / yesterday.doubleValue());
+            logReturns.add(BigDecimal.valueOf(logReturn));
+        }
+        
+        if (logReturns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        // 计算对数收益率的平均值
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal r : logReturns) {
+            sum = sum.add(r);
+        }
+        BigDecimal mean = sum.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算对数收益率的方差
+        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
+        for (BigDecimal r : logReturns) {
+            BigDecimal diff = r.subtract(mean);
+            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
+        }
+        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算标准差（波动率）
+        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
+        
+        // 年化波动率（假设252个交易日）
+        BigDecimal annualizedVolatility = stdDev.multiply(BigDecimal.valueOf(Math.sqrt(252)));
+        
+        return annualizedVolatility.setScale(4, RoundingMode.HALF_UP);
     }
 }
