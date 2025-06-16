@@ -285,7 +285,7 @@ public class Ta4jBacktestService {
                 // 获取入场和出场信息
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
-                BarSeries subSeries = series.getSubSeries(entryIndex, exitIndex);
+                BarSeries subSeries = series.getSubSeries(entryIndex, exitIndex + 1);
 
                 // 获取入场和出场价格
                 BigDecimal entryPrice = new BigDecimal(subSeries.getFirstBar().getClosePrice().doubleValue());
