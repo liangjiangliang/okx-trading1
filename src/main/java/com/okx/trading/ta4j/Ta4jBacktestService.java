@@ -183,7 +183,7 @@ public class Ta4jBacktestService {
 
 
         // 计算Calmar比率
-        BigDecimal calmarRatio = calculateCalmarRatio(annualizedReturn, maxDrawdown);
+        BigDecimal calmarRatio = calculateCalmarRatio(annualizedReturn, maxDrawdown.abs());
 
 
         BigDecimal winRate = BigDecimal.ZERO;
