@@ -132,9 +132,8 @@ INSERT IGNORE INTO `strategy_info` (`strategy_code`, `strategy_name`, `descripti
 ('MACD_WITH_BOLLINGER', N'MACD与布林带组合策略', N'结合MACD和布林带的组合策略生成买卖决策', N'{"shortPeriod":"短期EMA周期","longPeriod":"长期EMA周期","signalPeriod":"信号线周期","bollingerPeriod":"布林带周期","stdDev":"标准差倍数"}', '{"shortPeriod":12,"longPeriod":26,"signalPeriod":9,"bollingerPeriod":20,"stdDev":2}', N'组合策略', NOW(), NOW(), N'【使用场景】趋势与震荡结合，复杂市场。【优点】适应不同市场环境，灵活性强。【缺点】策略复杂，参数较多。【历史表现】夏普比率1.0-1.4，最大回撤12-20%。【适用性】适合专业交易者。'),
 ('ICHIMOKU', N'一目均衡表策略', N'基于一目均衡表的综合信号生成买卖决策', N'{"conversionPeriod":"转换线周期","basePeriod":"基准线周期","spanPeriod":"先行跨度周期","displacement":"延迟周期"}', '{"conversionPeriod":9,"basePeriod":26,"spanPeriod":52,"displacement":26}', N'组合策略', NOW(), NOW(), N'【使用场景】综合趋势分析，多时间框架交易，全方位市场解读。【优点】日本传统技术分析集大成者，提供完整的市场视角，包含趋势、支撑阻力、动量等全面信息。【缺点】学习曲线极其陡峭，参数众多，需要深入理解。【历史表现】夏普比率1.1-1.6，最大回撤8-15%。【评级】大师级分析工具，专业交易者的终极选择。'),
 
--- 高级策略数据插入脚本
--- 50个新的高级交易策略
-INSERT IGNORE INTO `strategy_info` (`strategy_code`, `strategy_name`, `description`, `params_desc`, `default_params`, `category`, `create_time`, `update_time`, `comments`) VALUES
+
+-- ==================== 高级策略第一批 ====================
 -- 高级自适应策略 (10个)
 ('ADAPTIVE_BOLLINGER', N'自适应布林带策略', N'根据市场波动性动态调整布林带参数的高级策略', N'{"period":"计算周期","baseStdDev":"基础标准差倍数","minMultiplier":"最小倍数","maxMultiplier":"最大倍数"}', '{"period":20,"baseStdDev":2.0,"minMultiplier":1.5,"maxMultiplier":3.0}', N'高级策略', NOW(), NOW(), N'【使用场景】复杂多变的市场环境，需要动态适应波动性变化。【优点】根据市场波动性自动调整参数，在不同波动环境下都能保持良好表现，避免固定参数的局限性。【缺点】计算复杂，参数较多，需要充足的历史数据。【历史表现】夏普比率1.3-1.8，最大回撤6-12%。【评级】顶级自适应策略，适合专业投资者。'),
 ('MULTI_TIMEFRAME_MACD', N'多时间框架MACD策略', N'结合不同时间框架MACD信号的综合策略', N'{"shortPeriod1":"短期MACD快线","longPeriod1":"短期MACD慢线","signalPeriod1":"短期信号线","shortPeriod2":"长期MACD快线","longPeriod2":"长期MACD慢线","signalPeriod2":"长期信号线"}', '{"shortPeriod1":12,"longPeriod1":26,"signalPeriod1":9,"shortPeriod2":24,"longPeriod2":52,"signalPeriod2":18}', N'高级策略', NOW(), NOW(), N'【使用场景】多时间框架分析，提高信号可靠性。【优点】多重确认减少假信号，提高胜率，适合不同交易周期。【缺点】信号产生较慢，可能错过快速机会。【历史表现】夏普比率1.2-1.6，最大回撤8-15%。【特色】机构级多时间框架分析工具。'),
@@ -195,49 +194,49 @@ INSERT IGNORE INTO `strategy_info` (`strategy_code`, `strategy_name`, `descripti
 
 -- ==================== 高级策略第二批 (策略 51-90) ====================
 -- 动量和反转指标策略 (51-60)
-('RSI_REVERSAL_STRATEGY_51', N'RSI反转策略', N'基于RSI指标的反转策略，当RSI超买时卖出，超卖时买入', N'{"rsiPeriod":"RSI计算周期","oversoldLevel":"超卖阈值","overboughtLevel":"超买阈值"}', '{"rsiPeriod":14,"oversoldLevel":30,"overboughtLevel":70}', N'反转策略', NOW(), NOW(), N'经典的RSI反转策略，适用于震荡市场。在超卖区域买入，超买区域卖出。'),
-('WILLIAMS_R_STRATEGY_52', N'威廉指标策略', N'基于威廉指标的反转策略', N'{"period":"威廉指标计算周期","oversoldLevel":"超卖阈值","overboughtLevel":"超买阈值"}', '{"period":14,"oversoldLevel":-80,"overboughtLevel":-20}', N'反转策略', NOW(), NOW(), N'威廉指标反转策略，当指标低于-80时买入，高于-20时卖出。'),
-('MOMENTUM_STRATEGY_53', N'动量指标策略', N'基于价格动量的趋势跟踪策略', N'{"period":"动量计算周期"}', '{"period":10}', N'趋势策略', NOW(), NOW(), N'动量策略，当价格动量为正时买入，为负时卖出。'),
-('ROC_STRATEGY_54', N'变动率策略', N'基于价格变动率的策略', N'{"period":"ROC计算周期"}', '{"period":12}', N'趋势策略', NOW(), NOW(), N'变动率策略，当ROC大于0时买入，小于0时卖出。'),
-('TRIX_STRATEGY_55', N'TRIX策略', N'基于TRIX指标的趋势策略', N'{"period":"TRIX计算周期"}', '{"period":14}', N'趋势策略', NOW(), NOW(), N'TRIX趋势策略，基于三重指数平滑移动平均线。'),
-('PARABOLIC_SAR_STRATEGY_56', N'抛物线SAR策略', N'基于抛物线SAR的趋势跟踪策略', N'{"accelerationFactor":"加速因子","maxAcceleration":"最大加速度"}', '{"accelerationFactor":0.02,"maxAcceleration":0.2}', N'趋势策略', NOW(), NOW(), N'抛物线SAR策略，当价格突破SAR线时产生交易信号。'),
-('ATR_BREAKOUT_STRATEGY_57', N'ATR突破策略', N'基于ATR的突破策略', N'{"smaPeriod":"SMA周期","atrPeriod":"ATR周期","atrMultiplier":"ATR倍数"}', '{"smaPeriod":20,"atrPeriod":14,"atrMultiplier":2}', N'突破策略', NOW(), NOW(), N'ATR突破策略，当价格突破SMA±ATR*倍数时产生信号。'),
-('DONCHIAN_CHANNEL_STRATEGY_58', N'唐奇安通道策略', N'基于唐奇安通道的突破策略', N'{"period":"通道周期"}', '{"period":20}', N'突破策略', NOW(), NOW(), N'唐奇安通道策略，当价格突破最高价或最低价时产生信号。'),
-('KELTNER_CHANNEL_STRATEGY_59', N'肯特纳通道策略', N'基于肯特纳通道的策略', N'{"emaPeriod":"EMA周期","atrPeriod":"ATR周期","multiplier":"乘数"}', '{"emaPeriod":20,"atrPeriod":10,"multiplier":2}', N'通道策略', NOW(), NOW(), N'肯特纳通道策略，基于EMA和ATR构建的价格通道。'),
-('PRICE_CHANNEL_STRATEGY_60', N'价格通道策略', N'基于价格通道的策略', N'{"period":"通道周期"}', '{"period":20}', N'通道策略', NOW(), NOW(), N'价格通道策略，基于最高价和最低价的简单移动平均。'),
+('RSI_REVERSAL', N'RSI反转策略', N'基于RSI指标的反转策略，当RSI超买时卖出，超卖时买入', N'{"rsiPeriod":"RSI计算周期","oversoldLevel":"超卖阈值","overboughtLevel":"超买阈值"}', '{"rsiPeriod":14,"oversoldLevel":30,"overboughtLevel":70}', N'反转策略', NOW(), NOW(), N'经典的RSI反转策略，适用于震荡市场。在超卖区域买入，超买区域卖出。'),
+('WILLIAMS_R_REVERSAL', N'威廉指标策略', N'基于威廉指标的反转策略', N'{"period":"威廉指标计算周期","oversoldLevel":"超卖阈值","overboughtLevel":"超买阈值"}', '{"period":14,"oversoldLevel":-80,"overboughtLevel":-20}', N'反转策略', NOW(), NOW(), N'威廉指标反转策略，当指标低于-80时买入，高于-20时卖出。'),
+('MOMENTUM_OSCILLATOR', N'动量指标策略', N'基于价格动量的趋势跟踪策略', N'{"period":"动量计算周期"}', '{"period":10}', N'趋势策略', NOW(), NOW(), N'动量策略，当价格动量为正时买入，为负时卖出。'),
+('ROC_DIVERGENCE', N'变动率策略', N'基于价格变动率的策略', N'{"period":"ROC计算周期"}', '{"period":12}', N'趋势策略', NOW(), NOW(), N'变动率策略，当ROC大于0时买入，小于0时卖出。'),
+('TRIX_SIGNAL', N'TRIX策略', N'基于TRIX指标的趋势策略', N'{"period":"TRIX计算周期"}', '{"period":14}', N'趋势策略', NOW(), NOW(), N'TRIX趋势策略，基于三重指数平滑移动平均线。'),
+('PARABOLIC_SAR_REVERSAL', N'抛物线SAR策略', N'基于抛物线SAR的趋势跟踪策略', N'{"accelerationFactor":"加速因子","maxAcceleration":"最大加速度"}', '{"accelerationFactor":0.02,"maxAcceleration":0.2}', N'趋势策略', NOW(), NOW(), N'抛物线SAR策略，当价格突破SAR线时产生交易信号。'),
+('ATR_BREAKOUT', N'ATR突破策略', N'基于ATR的突破策略', N'{"smaPeriod":"SMA周期","atrPeriod":"ATR周期","atrMultiplier":"ATR倍数"}', '{"smaPeriod":20,"atrPeriod":14,"atrMultiplier":2}', N'突破策略', NOW(), NOW(), N'ATR突破策略，当价格突破SMA±ATR*倍数时产生信号。'),
+('DONCHIAN_BREAKOUT', N'唐奇安通道策略', N'基于唐奇安通道的突破策略', N'{"period":"通道周期"}', '{"period":20}', N'突破策略', NOW(), NOW(), N'唐奇安通道策略，当价格突破最高价或最低价时产生信号。'),
+('KELTNER_BREAKOUT', N'肯特纳通道策略', N'基于肯特纳通道的策略', N'{"emaPeriod":"EMA周期","atrPeriod":"ATR周期","multiplier":"乘数"}', '{"emaPeriod":20,"atrPeriod":10,"multiplier":2}', N'通道策略', NOW(), NOW(), N'肯特纳通道策略，基于EMA和ATR构建的价格通道。'),
+('PRICE_CHANNEL', N'价格通道策略', N'基于价格通道的策略', N'{"period":"通道周期"}', '{"period":20}', N'通道策略', NOW(), NOW(), N'价格通道策略，基于最高价和最低价的简单移动平均。'),
 
 -- 成交量和价格关系策略 (61-70)
-('VWMA_STRATEGY_61', N'VWMA策略', N'基于成交量加权移动平均的策略', N'{"period":"计算周期"}', '{"period":20}', N'成交量策略', NOW(), NOW(), N'VWMA策略，结合成交量和价格的加权移动平均。'),
-('AD_LINE_STRATEGY_62', N'累积分布线策略', N'基于累积分布线的策略', N'{"period":"计算周期"}', '{"period":14}', N'成交量策略', NOW(), NOW(), N'累积分布线策略，分析资金流入流出。'),
-('OBV_STRATEGY_63', N'能量潮策略', N'基于能量潮指标的策略', N'{"period":"计算周期"}', '{"period":10}', N'成交量策略', NOW(), NOW(), N'能量潮策略，通过成交量变化预测价格趋势。'),
-('PRICE_VOLUME_CONFIRMATION_STRATEGY_64', N'价量确认策略', N'基于价格和成交量确认的策略', N'{"pricePeriod":"价格周期","volumePeriod":"成交量周期"}', '{"pricePeriod":20,"volumePeriod":20}', N'成交量策略', NOW(), NOW(), N'价量确认策略，价格突破需要成交量确认。'),
-('VOLUME_OSCILLATOR_STRATEGY_65', N'成交量震荡器策略', N'基于成交量震荡器的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期"}', '{"shortPeriod":5,"longPeriod":20}', N'成交量策略', NOW(), NOW(), N'成交量震荡器策略，分析成交量的动量变化。'),
-('PVI_STRATEGY_66', N'正成交量指标策略', N'基于正成交量指标的策略', N'{"period":"计算周期"}', '{"period":255}', N'成交量策略', NOW(), NOW(), N'正成交量指标策略，关注成交量上升时的价格变化。'),
-('NVI_STRATEGY_67', N'负成交量指标策略', N'基于负成交量指标的策略', N'{"period":"计算周期"}', '{"period":255}', N'成交量策略', NOW(), NOW(), N'负成交量指标策略，关注成交量下降时的价格变化。'),
-('VRSI_STRATEGY_68', N'成交量RSI策略', N'基于成交量RSI的策略', N'{"period":"计算周期","overboughtLevel":"超买水平","oversoldLevel":"超卖水平"}', '{"period":14,"overboughtLevel":70,"oversoldLevel":30}', N'成交量策略', NOW(), NOW(), N'成交量RSI策略，将RSI应用于成交量数据。'),
-('VOLUME_WEIGHTED_RSI_STRATEGY_69', N'成交量加权RSI策略', N'基于成交量加权RSI的策略', N'{"rsiPeriod":"RSI周期","volumePeriod":"成交量周期","overboughtLevel":"超买水平","oversoldLevel":"超卖水平"}', '{"rsiPeriod":14,"volumePeriod":20,"overboughtLevel":70,"oversoldLevel":30}', N'成交量策略', NOW(), NOW(), N'成交量加权RSI策略，结合RSI和成交量分析。'),
-('VOLUME_BREAKOUT_CONFIRMATION_STRATEGY_70', N'成交量突破确认策略', N'基于成交量确认的突破策略', N'{"pricePeriod":"价格周期","volumePeriod":"成交量周期","volumeMultiplier":"成交量倍数"}', '{"pricePeriod":20,"volumePeriod":20,"volumeMultiplier":1.5}', N'突破策略', NOW(), NOW(), N'成交量突破确认策略，突破需要异常成交量确认。'),
+('VWMA_CROSSOVER', N'VWMA策略', N'基于成交量加权移动平均的策略', N'{"period":"计算周期"}', '{"period":20}', N'成交量策略', NOW(), NOW(), N'VWMA策略，结合成交量和价格的加权移动平均。'),
+('ACCUMULATION_DISTRIBUTION_DIVERGENCE', N'累积分布线策略', N'基于累积分布线的策略', N'{"period":"计算周期"}', '{"period":14}', N'成交量策略', NOW(), NOW(), N'累积分布线策略，分析资金流入流出。'),
+('OBV_DIVERGENCE', N'能量潮策略', N'基于能量潮指标的策略', N'{"period":"计算周期"}', '{"period":10}', N'成交量策略', NOW(), NOW(), N'能量潮策略，通过成交量变化预测价格趋势。'),
+('PRICE_VOLUME_CONFIRMATION', N'价量确认策略', N'基于价格和成交量确认的策略', N'{"pricePeriod":"价格周期","volumePeriod":"成交量周期"}', '{"pricePeriod":20,"volumePeriod":20}', N'成交量策略', NOW(), NOW(), N'价量确认策略，价格突破需要成交量确认。'),
+('VOLUME_OSCILLATOR_SIGNAL', N'成交量震荡器策略', N'基于成交量震荡器的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期"}', '{"shortPeriod":5,"longPeriod":20}', N'成交量策略', NOW(), NOW(), N'成交量震荡器策略，分析成交量的动量变化。'),
+('POSITIVE_VOLUME_INDEX_SIGNAL', N'正成交量指标策略', N'基于正成交量指标的策略', N'{"period":"计算周期"}', '{"period":255}', N'成交量策略', NOW(), NOW(), N'正成交量指标策略，关注成交量上升时的价格变化。'),
+('NEGATIVE_VOLUME_INDEX_SIGNAL', N'负成交量指标策略', N'基于负成交量指标的策略', N'{"period":"计算周期"}', '{"period":255}', N'成交量策略', NOW(), NOW(), N'负成交量指标策略，关注成交量下降时的价格变化。'),
+('VOLUME_RSI', N'成交量RSI策略', N'基于成交量RSI的策略', N'{"period":"计算周期","overboughtLevel":"超买水平","oversoldLevel":"超卖水平"}', '{"period":14,"overboughtLevel":70,"oversoldLevel":30}', N'成交量策略', NOW(), NOW(), N'成交量RSI策略，将RSI应用于成交量数据。'),
+('VOLUME_WEIGHTED_RSI_SIGNAL', N'成交量加权RSI策略', N'基于成交量加权RSI的策略', N'{"rsiPeriod":"RSI周期","volumePeriod":"成交量周期","overboughtLevel":"超买水平","oversoldLevel":"超卖水平"}', '{"rsiPeriod":14,"volumePeriod":20,"overboughtLevel":70,"oversoldLevel":30}', N'成交量策略', NOW(), NOW(), N'成交量加权RSI策略，结合RSI和成交量分析。'),
+('VOLUME_BREAKOUT_CONFIRMATION', N'成交量突破确认策略', N'基于成交量确认的突破策略', N'{"pricePeriod":"价格周期","volumePeriod":"成交量周期","volumeMultiplier":"成交量倍数"}', '{"pricePeriod":20,"volumePeriod":20,"volumeMultiplier":1.5}', N'突破策略', NOW(), NOW(), N'成交量突破确认策略，突破需要异常成交量确认。'),
 
 -- 波动率和统计分析策略 (71-80)
-('HISTORICAL_VOLATILITY_STRATEGY_71', N'历史波动率策略', N'基于历史波动率的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":0.02}', N'波动率策略', NOW(), NOW(), N'历史波动率策略，基于价格波动率的变化。'),
-('STANDARD_DEVIATION_CHANNEL_STRATEGY_72', N'标准差通道策略', N'基于标准差通道的策略', N'{"period":"计算周期","multiplier":"倍数"}', '{"period":20,"multiplier":2}', N'通道策略', NOW(), NOW(), N'标准差通道策略，类似布林带但使用标准差。'),
-('COEFFICIENT_OF_VARIATION_STRATEGY_73', N'变异系数策略', N'基于变异系数的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0.05}', N'统计策略', NOW(), NOW(), N'变异系数策略，衡量相对波动性。'),
-('SKEWNESS_STRATEGY_74', N'偏度策略', N'基于偏度的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":0}', N'统计策略', NOW(), NOW(), N'偏度策略，分析价格分布的偏斜程度。'),
-('KURTOSIS_STRATEGY_75', N'峰度策略', N'基于峰度的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":3}', N'统计策略', NOW(), NOW(), N'峰度策略，分析价格分布的尖峭程度。'),
-('Z_SCORE_STRATEGY_76', N'Z分数策略', N'基于Z分数的均值回归策略', N'{"period":"计算周期","buyThreshold":"买入阈值","sellThreshold":"卖出阈值"}', '{"period":20,"buyThreshold":-2,"sellThreshold":2}', N'均值回归策略', NOW(), NOW(), N'Z分数策略，当价格偏离均值过多时交易。'),
-('PERCENTILE_STRATEGY_77', N'百分位数策略', N'基于百分位数的策略', N'{"period":"计算周期","lowerPercentile":"下百分位","upperPercentile":"上百分位"}', '{"period":50,"lowerPercentile":10,"upperPercentile":90}', N'统计策略', NOW(), NOW(), N'百分位数策略，基于价格在历史分布中的位置。'),
-('LINEAR_REGRESSION_STRATEGY_78', N'线性回归策略', N'基于线性回归的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0}', N'趋势策略', NOW(), NOW(), N'线性回归策略，基于价格的线性回归分析。'),
-('LINEAR_REGRESSION_SLOPE_STRATEGY_79', N'线性回归斜率策略', N'基于线性回归斜率的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0}', N'趋势策略', NOW(), NOW(), N'线性回归斜率策略，分析价格变化的速度。'),
-('R_SQUARED_STRATEGY_80', N'R平方策略', N'基于R平方的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0.5}', N'统计策略', NOW(), NOW(), N'R平方策略，衡量线性回归的拟合程度。'),
+('HISTORICAL_VOLATILITY', N'历史波动率策略', N'基于历史波动率的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":0.02}', N'波动率策略', NOW(), NOW(), N'历史波动率策略，基于价格波动率的变化。'),
+('STANDARD_DEVIATION_CHANNEL', N'标准差通道策略', N'基于标准差通道的策略', N'{"period":"计算周期","multiplier":"倍数"}', '{"period":20,"multiplier":2}', N'通道策略', NOW(), NOW(), N'标准差通道策略，类似布林带但使用标准差。'),
+('COEFFICIENT_OF_VARIATION', N'变异系数策略', N'基于变异系数的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0.05}', N'统计策略', NOW(), NOW(), N'变异系数策略，衡量相对波动性。'),
+('SKEWNESS', N'偏度策略', N'基于偏度的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":0}', N'统计策略', NOW(), NOW(), N'偏度策略，分析价格分布的偏斜程度。'),
+('KURTOSIS', N'峰度策略', N'基于峰度的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":20,"threshold":3}', N'统计策略', NOW(), NOW(), N'峰度策略，分析价格分布的尖峭程度。'),
+('Z_SCORE', N'Z分数策略', N'基于Z分数的均值回归策略', N'{"period":"计算周期","buyThreshold":"买入阈值","sellThreshold":"卖出阈值"}', '{"period":20,"buyThreshold":-2,"sellThreshold":2}', N'均值回归策略', NOW(), NOW(), N'Z分数策略，当价格偏离均值过多时交易。'),
+('PERCENTILE', N'百分位数策略', N'基于百分位数的策略', N'{"period":"计算周期","lowerPercentile":"下百分位","upperPercentile":"上百分位"}', '{"period":50,"lowerPercentile":10,"upperPercentile":90}', N'统计策略', NOW(), NOW(), N'百分位数策略，基于价格在历史分布中的位置。'),
+('LINEAR_REGRESSION', N'线性回归策略', N'基于线性回归的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0}', N'趋势策略', NOW(), NOW(), N'线性回归策略，基于价格的线性回归分析。'),
+('LINEAR_REGRESSION_SLOPE', N'线性回归斜率策略', N'基于线性回归斜率的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0}', N'趋势策略', NOW(), NOW(), N'线性回归斜率策略，分析价格变化的速度。'),
+('R_SQUARED', N'R平方策略', N'基于R平方的策略', N'{"period":"计算周期","threshold":"阈值"}', '{"period":14,"threshold":0.5}', N'统计策略', NOW(), NOW(), N'R平方策略，衡量线性回归的拟合程度。'),
 
 -- 复合指标和多重确认策略 (81-90)
-('MULTIPLE_MA_CONFIRMATION_STRATEGY_81', N'多重移动平均确认策略', N'基于多重移动平均确认的策略', N'{"shortPeriod":"短期周期","mediumPeriod":"中期周期","longPeriod":"长期周期"}', '{"shortPeriod":10,"mediumPeriod":20,"longPeriod":50}', N'趋势策略', NOW(), NOW(), N'多重移动平均确认策略，需要多条均线同向排列。'),
-('RSI_MACD_CONFIRMATION_STRATEGY_82', N'RSI-MACD确认策略', N'基于RSI和MACD双重确认的策略', N'{"rsiPeriod":"RSI周期","macdShort":"MACD短周期","macdLong":"MACD长周期","macdSignal":"MACD信号周期"}', '{"rsiPeriod":14,"macdShort":12,"macdLong":26,"macdSignal":9}', N'组合策略', NOW(), NOW(), N'RSI-MACD确认策略，结合动量和趋势指标。'),
-('BOLLINGER_RSI_COMBO_STRATEGY_83', N'布林带RSI组合策略', N'基于布林带和RSI组合的策略', N'{"bollingerPeriod":"布林带周期","bollingerStdDev":"布林带标准差","rsiPeriod":"RSI周期"}', '{"bollingerPeriod":20,"bollingerStdDev":2,"rsiPeriod":14}', N'组合策略', NOW(), NOW(), N'布林带RSI组合策略，结合价格通道和动量指标。'),
-('TRIPLE_INDICATOR_CONFIRMATION_STRATEGY_84', N'三重指标确认策略', N'基于三重指标确认的策略', N'{"maPeriod":"均线周期","rsiPeriod":"RSI周期","volumePeriod":"成交量周期"}', '{"maPeriod":20,"rsiPeriod":14,"volumePeriod":20}', N'组合策略', NOW(), NOW(), N'三重指标确认策略，需要价格、动量、成交量三重确认。'),
-('MOMENTUM_BREAKOUT_STRATEGY_85', N'动量突破策略', N'基于动量突破的策略', N'{"pricePeriod":"价格周期","momentumPeriod":"动量周期"}', '{"pricePeriod":20,"momentumPeriod":10}', N'突破策略', NOW(), NOW(), N'动量突破策略，突破需要动量确认。'),
-('VOLATILITY_BREAKOUT_STRATEGY_86', N'波动率突破策略', N'基于波动率突破的策略', N'{"pricePeriod":"价格周期","volatilityPeriod":"波动率周期","atrPeriod":"ATR周期"}', '{"pricePeriod":20,"volatilityPeriod":10,"atrPeriod":14}', N'突破策略', NOW(), NOW(), N'波动率突破策略，在波动率扩张时交易突破。'),
-('TREND_STRENGTH_STRATEGY_87', N'趋势强度策略', N'基于趋势强度的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期","threshold":"强度阈值"}', '{"shortPeriod":12,"longPeriod":50,"threshold":0.02}', N'趋势策略', NOW(), NOW(), N'趋势强度策略，只在强趋势中交易。'),
-('SUPPORT_RESISTANCE_BREAKOUT_STRATEGY_88', N'支撑阻力突破策略', N'基于支撑阻力突破的策略', N'{"period":"计算周期","volumeMultiplier":"成交量倍数"}', '{"period":20,"volumeMultiplier":1.5}', N'突破策略', NOW(), NOW(), N'支撑阻力突破策略，突破关键位需要成交量确认。'),
-('PRICE_PATTERN_RECOGNITION_STRATEGY_89', N'价格形态识别策略', N'基于价格形态识别的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期"}', '{"shortPeriod":5,"longPeriod":20}', N'形态策略', NOW(), NOW(), N'价格形态识别策略，识别简单的价格形态。'),
-('COMPREHENSIVE_SCORING_STRATEGY_90', N'综合评分策略', N'基于多指标综合评分的策略', N'{"maPeriod":"均线周期","rsiPeriod":"RSI周期","volumePeriod":"成交量周期","momentumPeriod":"动量周期"}', '{"maPeriod":20,"rsiPeriod":14,"volumePeriod":20,"momentumPeriod":10}', N'组合策略', NOW(), NOW(), N'综合评分策略，综合多个指标进行评分决策。');
+('MULTIPLE_MA_CONFIRMATION', N'多重移动平均确认策略', N'基于多重移动平均确认的策略', N'{"shortPeriod":"短期周期","mediumPeriod":"中期周期","longPeriod":"长期周期"}', '{"shortPeriod":10,"mediumPeriod":20,"longPeriod":50}', N'趋势策略', NOW(), NOW(), N'多重移动平均确认策略，需要多条均线同向排列。'),
+('RSI_MACD_CONFIRMATION', N'RSI-MACD确认策略', N'基于RSI和MACD双重确认的策略', N'{"rsiPeriod":"RSI周期","macdShort":"MACD短周期","macdLong":"MACD长周期","macdSignal":"MACD信号周期"}', '{"rsiPeriod":14,"macdShort":12,"macdLong":26,"macdSignal":9}', N'组合策略', NOW(), NOW(), N'RSI-MACD确认策略，结合动量和趋势指标。'),
+('BOLLINGER_RSI_COMBO', N'布林带RSI组合策略', N'基于布林带和RSI组合的策略', N'{"bollingerPeriod":"布林带周期","bollingerStdDev":"布林带标准差","rsiPeriod":"RSI周期"}', '{"bollingerPeriod":20,"bollingerStdDev":2,"rsiPeriod":14}', N'组合策略', NOW(), NOW(), N'布林带RSI组合策略，结合价格通道和动量指标。'),
+('TRIPLE_INDICATOR_CONFIRMATION', N'三重指标确认策略', N'基于三重指标确认的策略', N'{"maPeriod":"均线周期","rsiPeriod":"RSI周期","volumePeriod":"成交量周期"}', '{"maPeriod":20,"rsiPeriod":14,"volumePeriod":20}', N'组合策略', NOW(), NOW(), N'三重指标确认策略，需要价格、动量、成交量三重确认。'),
+('MOMENTUM_BREAKOUT', N'动量突破策略', N'基于动量突破的策略', N'{"pricePeriod":"价格周期","momentumPeriod":"动量周期"}', '{"pricePeriod":20,"momentumPeriod":10}', N'突破策略', NOW(), NOW(), N'动量突破策略，突破需要动量确认。'),
+('VOLATILITY_BREAKOUT_SYSTEM', N'波动率突破策略', N'基于波动率突破的策略', N'{"pricePeriod":"价格周期","volatilityPeriod":"波动率周期","atrPeriod":"ATR周期"}', '{"pricePeriod":20,"volatilityPeriod":10,"atrPeriod":14}', N'突破策略', NOW(), NOW(), N'波动率突破策略，在波动率扩张时交易突破。'),
+('TREND_STRENGTH', N'趋势强度策略', N'基于趋势强度的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期","threshold":"强度阈值"}', '{"shortPeriod":12,"longPeriod":50,"threshold":0.02}', N'趋势策略', NOW(), NOW(), N'趋势强度策略，只在强趋势中交易。'),
+('SUPPORT_RESISTANCE_BREAKOUT', N'支撑阻力突破策略', N'基于支撑阻力突破的策略', N'{"period":"计算周期","volumeMultiplier":"成交量倍数"}', '{"period":20,"volumeMultiplier":1.5}', N'突破策略', NOW(), NOW(), N'支撑阻力突破策略，突破关键位需要成交量确认。'),
+('PRICE_PATTERN_RECOGNITION', N'价格形态识别策略', N'基于价格形态识别的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期"}', '{"shortPeriod":5,"longPeriod":20}', N'形态策略', NOW(), NOW(), N'价格形态识别策略，识别简单的价格形态。'),
+('COMPREHENSIVE_SCORING', N'综合评分策略', N'基于多指标综合评分的策略', N'{"maPeriod":"均线周期","rsiPeriod":"RSI周期","volumePeriod":"成交量周期","momentumPeriod":"动量周期"}', '{"maPeriod":20,"rsiPeriod":14,"volumePeriod":20,"momentumPeriod":10}', N'组合策略', NOW(), NOW(), N'综合评分策略，综合多个指标进行评分决策。');

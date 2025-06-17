@@ -110,31 +110,31 @@ public class StrategyFactory3 {
         return new CoefficientOfVariationStrategy(series);
     }
 
-    public static Strategy createSkewnessAnalysisStrategy(BarSeries series) {
+    public static Strategy createSkewnessStrategy(BarSeries series) {
         return new SkewnessStrategy(series);
     }
 
-    public static Strategy createKurtosisAnalysisStrategy(BarSeries series) {
+    public static Strategy createKurtosisStrategy(BarSeries series) {
         return new KurtosisStrategy(series);
     }
 
-    public static Strategy createZScoreAnalysisStrategy(BarSeries series) {
+    public static Strategy createZScoreStrategy(BarSeries series) {
         return new ZScoreStrategy(series);
     }
 
-    public static Strategy createPercentileAnalysisStrategy(BarSeries series) {
+    public static Strategy createPercentileStrategy(BarSeries series) {
         return new PercentileStrategy(series);
     }
 
-    public static Strategy createLinearRegressionAnalysisStrategy(BarSeries series) {
+    public static Strategy createLinearRegressionStrategy(BarSeries series) {
         return new LinearRegressionStrategy(series);
     }
 
-    public static Strategy createLinearRegressionSlopeAnalysisStrategy(BarSeries series) {
+    public static Strategy createLinearRegressionSlopeStrategy(BarSeries series) {
         return new LinearRegressionSlopeStrategy(series);
     }
 
-    public static Strategy createRSquaredAnalysisStrategy(BarSeries series) {
+    public static Strategy createRSquaredStrategy(BarSeries series) {
         return new RSquaredStrategy(series);
     }
 
@@ -155,15 +155,15 @@ public class StrategyFactory3 {
         return new TripleIndicatorConfirmationStrategy(series);
     }
 
-    public static Strategy createMomentumBreakoutComboStrategy(BarSeries series) {
+    public static Strategy createMomentumBreakoutStrategy(BarSeries series) {
         return new MomentumBreakoutStrategy(series);
     }
 
-    public static Strategy createVolatilityBreakoutComboStrategy(BarSeries series) {
+    public static Strategy createVolatilityBreakoutSystemStrategy(BarSeries series) {
         return new VolatilityBreakoutStrategy(series);
     }
 
-    public static Strategy createTrendStrengthAnalysisStrategy(BarSeries series) {
+    public static Strategy createTrendStrengthStrategy(BarSeries series) {
         return new TrendStrengthStrategy(series);
     }
 

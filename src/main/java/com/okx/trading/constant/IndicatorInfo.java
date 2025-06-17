@@ -72,7 +72,7 @@ public class IndicatorInfo {
 
     // 波动指标策略
     public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER";
-    public static final String STRATEGY_KELTNER_CHANNEL = "KELTNER";
+    public static final String STRATEGY_KELTNER_CHANNEL = "KELTNER_CHANNEL";
     public static final String STRATEGY_CHANDELIER_EXIT = "CHANDELIER_EXIT";
     public static final String STRATEGY_ULCER_INDEX = "ULCER_INDEX";
     public static final String STRATEGY_ATR = "ATR";
@@ -352,22 +352,22 @@ public class IndicatorInfo {
     public static final String STRATEGY_HISTORICAL_VOLATILITY = "HISTORICAL_VOLATILITY";
     public static final String STRATEGY_STANDARD_DEVIATION_CHANNEL = "STANDARD_DEVIATION_CHANNEL";
     public static final String STRATEGY_COEFFICIENT_OF_VARIATION = "COEFFICIENT_OF_VARIATION";
-    public static final String STRATEGY_SKEWNESS_ANALYSIS = "SKEWNESS_ANALYSIS";
-    public static final String STRATEGY_KURTOSIS_ANALYSIS = "KURTOSIS_ANALYSIS";
-    public static final String STRATEGY_Z_SCORE_ANALYSIS = "Z_SCORE_ANALYSIS";
-    public static final String STRATEGY_PERCENTILE_ANALYSIS = "PERCENTILE_ANALYSIS";
-    public static final String STRATEGY_LINEAR_REGRESSION_ANALYSIS = "LINEAR_REGRESSION_ANALYSIS";
-    public static final String STRATEGY_LINEAR_REGRESSION_SLOPE_ANALYSIS = "LINEAR_REGRESSION_SLOPE_ANALYSIS";
-    public static final String STRATEGY_R_SQUARED_ANALYSIS = "R_SQUARED_ANALYSIS";
+    public static final String STRATEGY_SKEWNESS = "SKEWNESS";
+    public static final String STRATEGY_KURTOSIS = "KURTOSIS";
+    public static final String STRATEGY_Z_SCORE = "Z_SCORE";
+    public static final String STRATEGY_PERCENTILE = "PERCENTILE";
+    public static final String STRATEGY_LINEAR_REGRESSION = "LINEAR_REGRESSION";
+    public static final String STRATEGY_LINEAR_REGRESSION_SLOPE = "LINEAR_REGRESSION_SLOPE";
+    public static final String STRATEGY_R_SQUARED = "R_SQUARED";
 
-    // 复合指标策略 (81-90)
+    // 复合指标和多重确认策略 (81-90)
     public static final String STRATEGY_MULTIPLE_MA_CONFIRMATION = "MULTIPLE_MA_CONFIRMATION";
     public static final String STRATEGY_RSI_MACD_CONFIRMATION = "RSI_MACD_CONFIRMATION";
     public static final String STRATEGY_BOLLINGER_RSI_COMBO = "BOLLINGER_RSI_COMBO";
     public static final String STRATEGY_TRIPLE_INDICATOR_CONFIRMATION = "TRIPLE_INDICATOR_CONFIRMATION";
-    public static final String STRATEGY_MOMENTUM_BREAKOUT_COMBO = "MOMENTUM_BREAKOUT_COMBO";
-    public static final String STRATEGY_VOLATILITY_BREAKOUT_COMBO = "VOLATILITY_BREAKOUT_COMBO";
-    public static final String STRATEGY_TREND_STRENGTH_ANALYSIS = "TREND_STRENGTH_ANALYSIS";
+    public static final String STRATEGY_MOMENTUM_BREAKOUT = "MOMENTUM_BREAKOUT";
+    public static final String STRATEGY_VOLATILITY_BREAKOUT_SYSTEM = "VOLATILITY_BREAKOUT_SYSTEM";
+    public static final String STRATEGY_TREND_STRENGTH = "TREND_STRENGTH";
     public static final String STRATEGY_SUPPORT_RESISTANCE_BREAKOUT = "SUPPORT_RESISTANCE_BREAKOUT";
     public static final String STRATEGY_PRICE_PATTERN_RECOGNITION = "PRICE_PATTERN_RECOGNITION";
     public static final String STRATEGY_COMPREHENSIVE_SCORING = "COMPREHENSIVE_SCORING";

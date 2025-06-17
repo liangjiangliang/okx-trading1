@@ -1,4 +1,4 @@
-﻿package com.okx.trading.ta4j.strategy;
+package com.okx.trading.ta4j.strategy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,7 +148,6 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_PVI, StrategyFactory1::createPviStrategy);
         strategyCreators.put(STRATEGY_VWMA, StrategyFactory1::createVwmaStrategy);
         strategyCreators.put(STRATEGY_VOSC, StrategyFactory1::createVoscStrategy);
-
         strategyCreators.put(STRATEGY_MARKETFI, StrategyFactory1::createMarketfiStrategy);
 
         // 添加新的蜡烛图形态策略
@@ -233,7 +232,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_RELATIVE_MOMENTUM_INDEX, StrategyFactory2::createRelativeMomentumIndexStrategy);
         strategyCreators.put(STRATEGY_INTRADAY_MOMENTUM_INDEX, StrategyFactory2::createIntradayMomentumIndexStrategy);
         strategyCreators.put(STRATEGY_RANDOM_WALK_INDEX, StrategyFactory2::createRandomWalkIndexStrategy);
-
+        
         // 注册 Batch 2 策略 (策略 51-90)
         // 动量反转策略 (51-60)
         strategyCreators.put(STRATEGY_RSI_REVERSAL, StrategyFactory3::createRSIReversalStrategy);
@@ -246,7 +245,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_DONCHIAN_BREAKOUT, StrategyFactory3::createDonchianBreakoutStrategy);
         strategyCreators.put(STRATEGY_KELTNER_BREAKOUT, StrategyFactory3::createKeltnerBreakoutStrategy);
         strategyCreators.put(STRATEGY_PRICE_CHANNEL, StrategyFactory3::createPriceChannelStrategy);
-
+        
         // 成交量价格关系策略 (61-70)
         strategyCreators.put(STRATEGY_VWMA_CROSSOVER, StrategyFactory3::createVWMACrossoverStrategy);
         strategyCreators.put(STRATEGY_ACCUMULATION_DISTRIBUTION_DIVERGENCE, StrategyFactory3::createAccumulationDistributionDivergenceStrategy);
@@ -258,27 +257,27 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_VOLUME_RSI, StrategyFactory3::createVolumeRSIStrategy);
         strategyCreators.put(STRATEGY_VOLUME_WEIGHTED_RSI_SIGNAL, StrategyFactory3::createVolumeWeightedRSISignalStrategy);
         strategyCreators.put(STRATEGY_VOLUME_BREAKOUT_CONFIRMATION, StrategyFactory3::createVolumeBreakoutConfirmationStrategy);
-
-        // 波动性统计分析策略 (71-80)
+        
+        // 波动率统计分析策略 (71-80)
         strategyCreators.put(STRATEGY_HISTORICAL_VOLATILITY, StrategyFactory3::createHistoricalVolatilityStrategy);
         strategyCreators.put(STRATEGY_STANDARD_DEVIATION_CHANNEL, StrategyFactory3::createStandardDeviationChannelStrategy);
         strategyCreators.put(STRATEGY_COEFFICIENT_OF_VARIATION, StrategyFactory3::createCoefficientOfVariationStrategy);
-        strategyCreators.put(STRATEGY_SKEWNESS_ANALYSIS, StrategyFactory3::createSkewnessAnalysisStrategy);
-        strategyCreators.put(STRATEGY_KURTOSIS_ANALYSIS, StrategyFactory3::createKurtosisAnalysisStrategy);
-        strategyCreators.put(STRATEGY_Z_SCORE_ANALYSIS, StrategyFactory3::createZScoreAnalysisStrategy);
-        strategyCreators.put(STRATEGY_PERCENTILE_ANALYSIS, StrategyFactory3::createPercentileAnalysisStrategy);
-        strategyCreators.put(STRATEGY_LINEAR_REGRESSION_ANALYSIS, StrategyFactory3::createLinearRegressionAnalysisStrategy);
-        strategyCreators.put(STRATEGY_LINEAR_REGRESSION_SLOPE_ANALYSIS, StrategyFactory3::createLinearRegressionSlopeAnalysisStrategy);
-        strategyCreators.put(STRATEGY_R_SQUARED_ANALYSIS, StrategyFactory3::createRSquaredAnalysisStrategy);
-
-        // 复合指标策略 (81-90)
+        strategyCreators.put(STRATEGY_SKEWNESS, StrategyFactory3::createSkewnessStrategy);
+        strategyCreators.put(STRATEGY_KURTOSIS, StrategyFactory3::createKurtosisStrategy);
+        strategyCreators.put(STRATEGY_Z_SCORE, StrategyFactory3::createZScoreStrategy);
+        strategyCreators.put(STRATEGY_PERCENTILE, StrategyFactory3::createPercentileStrategy);
+        strategyCreators.put(STRATEGY_LINEAR_REGRESSION, StrategyFactory3::createLinearRegressionStrategy);
+        strategyCreators.put(STRATEGY_LINEAR_REGRESSION_SLOPE, StrategyFactory3::createLinearRegressionSlopeStrategy);
+        strategyCreators.put(STRATEGY_R_SQUARED, StrategyFactory3::createRSquaredStrategy);
+        
+        // 复合指标和多重确认策略 (81-90)
         strategyCreators.put(STRATEGY_MULTIPLE_MA_CONFIRMATION, StrategyFactory3::createMultipleMAConfirmationStrategy);
         strategyCreators.put(STRATEGY_RSI_MACD_CONFIRMATION, StrategyFactory3::createRSIMACDConfirmationStrategy);
         strategyCreators.put(STRATEGY_BOLLINGER_RSI_COMBO, StrategyFactory3::createBollingerRSIComboStrategy);
         strategyCreators.put(STRATEGY_TRIPLE_INDICATOR_CONFIRMATION, StrategyFactory3::createTripleIndicatorConfirmationStrategy);
-        strategyCreators.put(STRATEGY_MOMENTUM_BREAKOUT_COMBO, StrategyFactory3::createMomentumBreakoutComboStrategy);
-        strategyCreators.put(STRATEGY_VOLATILITY_BREAKOUT_COMBO, StrategyFactory3::createVolatilityBreakoutComboStrategy);
-        strategyCreators.put(STRATEGY_TREND_STRENGTH_ANALYSIS, StrategyFactory3::createTrendStrengthAnalysisStrategy);
+        strategyCreators.put(STRATEGY_MOMENTUM_BREAKOUT, StrategyFactory3::createMomentumBreakoutStrategy);
+        strategyCreators.put(STRATEGY_VOLATILITY_BREAKOUT_SYSTEM, StrategyFactory3::createVolatilityBreakoutSystemStrategy);
+        strategyCreators.put(STRATEGY_TREND_STRENGTH, StrategyFactory3::createTrendStrengthStrategy);
         strategyCreators.put(STRATEGY_SUPPORT_RESISTANCE_BREAKOUT, StrategyFactory3::createSupportResistanceBreakoutStrategy);
         strategyCreators.put(STRATEGY_PRICE_PATTERN_RECOGNITION, StrategyFactory3::createPricePatternRecognitionStrategy);
         strategyCreators.put(STRATEGY_COMPREHENSIVE_SCORING, StrategyFactory3::createComprehensiveScoringStrategy);
