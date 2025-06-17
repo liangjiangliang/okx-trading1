@@ -300,8 +300,7 @@ public class Ta4jBacktestController {
                         log.info("开始回测策略: {}", strategyCode);
 
                         // 执行回测
-                        BacktestResultDTO result = ta4jBacktestService.backtest(
-                                series, strategyCode, initialAmount, feeRatio);
+                        BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyCode, initialAmount, feeRatio);
                         result.setStrategyName((String) strategyDetails.get("name"));
                         result.setStrategyCode((String) strategyDetails.get("strategy_code"));
                         // 如果需要保存结果到数据库
@@ -826,6 +825,10 @@ public class Ta4jBacktestController {
             Optional<StrategyInfoEntity> existingStrategyOpt = strategyInfoService.getStrategyById(request.getId());
             if (!existingStrategyOpt.isPresent()) {
                 return ApiResponse.error(404, "策略不存在: " + request.getId());
+            }
+
+            if (existingStrategyOpt.get().getSourceCode().isEmpty()) {
+                return ApiResponse.error(405, "预添加策略不支持更新: " + request.getId());
             }
 
             StrategyInfoEntity existingStrategy = existingStrategyOpt.get();

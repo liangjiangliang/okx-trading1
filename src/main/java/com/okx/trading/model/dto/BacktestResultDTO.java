@@ -21,7 +21,7 @@ public class BacktestResultDTO {
      */
     private String errorMessage;
 
-    private String  backtestId;
+    private String backtestId;
 
     /**
      * 初始资金
@@ -82,6 +82,9 @@ public class BacktestResultDTO {
      * 夏普比率
      */
     private BigDecimal sharpeRatio;
+
+
+    private BigDecimal omega;
 
     /**
      * Sortino比率（只考虑下行风险的风险调整收益指标）
@@ -331,5 +334,13 @@ public class BacktestResultDTO {
 
     public void setTotalFee(BigDecimal totalFee) {
         this.totalFee = totalFee;
+    }
+
+    public BigDecimal getOmega() {
+        return omega;
+    }
+
+    public void setOmega(BigDecimal omega) {
+        this.omega = omega;
     }
 }
