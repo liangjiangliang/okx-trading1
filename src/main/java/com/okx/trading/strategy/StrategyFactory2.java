@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j.strategy;
+package com.okx.trading.strategy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,10 +8,6 @@ import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
 
 /**
  * 高级策略工厂类

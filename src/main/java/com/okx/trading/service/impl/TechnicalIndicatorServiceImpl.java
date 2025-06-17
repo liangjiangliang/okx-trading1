@@ -7,7 +7,7 @@ import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.IndicatorCalculationService;
 import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.service.TechnicalIndicatorService;
-import com.okx.trading.ta4j.CandlestickBarSeriesConverter;
+import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

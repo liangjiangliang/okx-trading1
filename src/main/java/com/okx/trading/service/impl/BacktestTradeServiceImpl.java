@@ -7,7 +7,6 @@ import com.okx.trading.model.entity.BacktestTradeEntity;
 import com.okx.trading.repository.BacktestSummaryRepository;
 import com.okx.trading.repository.BacktestTradeRepository;
 import com.okx.trading.service.BacktestTradeService;
-import com.okx.trading.ta4j.Ta4jBacktestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

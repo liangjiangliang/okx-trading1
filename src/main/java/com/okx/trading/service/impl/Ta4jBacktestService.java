@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j;
+package com.okx.trading.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -12,7 +12,8 @@ import java.util.logging.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
-import com.okx.trading.ta4j.strategy.StrategyRegisterCenter;
+import com.okx.trading.strategy.StrategyRegisterCenter;
+import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

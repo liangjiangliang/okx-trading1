@@ -1,5 +1,6 @@
 package com.okx.trading.ta4j;
 
+import com.okx.trading.adapter.CandlestickBarSeriesAdapter;
 import com.okx.trading.model.entity.CandlestickEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,15 +39,15 @@ public class CandlestickBarSeriesAdapterTest {
         assertEquals(20, series.getBarCount());
 
         // 验证价格转换正确
-        assertEquals(mockCandlesticks.get(0).getOpen().doubleValue(), 
+        assertEquals(mockCandlesticks.get(0).getOpen().doubleValue(),
                      series.getBar(0).getOpenPrice().doubleValue(), 0.001);
-        assertEquals(mockCandlesticks.get(0).getHigh().doubleValue(), 
+        assertEquals(mockCandlesticks.get(0).getHigh().doubleValue(),
                      series.getBar(0).getHighPrice().doubleValue(), 0.001);
-        assertEquals(mockCandlesticks.get(0).getLow().doubleValue(), 
+        assertEquals(mockCandlesticks.get(0).getLow().doubleValue(),
                      series.getBar(0).getLowPrice().doubleValue(), 0.001);
-        assertEquals(mockCandlesticks.get(0).getClose().doubleValue(), 
+        assertEquals(mockCandlesticks.get(0).getClose().doubleValue(),
                      series.getBar(0).getClosePrice().doubleValue(), 0.001);
-        assertEquals(mockCandlesticks.get(0).getVolume().doubleValue(), 
+        assertEquals(mockCandlesticks.get(0).getVolume().doubleValue(),
                      series.getBar(0).getVolume().doubleValue(), 0.001);
     }
 
@@ -76,13 +77,13 @@ public class CandlestickBarSeriesAdapterTest {
         CandlestickEntity invalidCandle = mock(CandlestickEntity.class);
         when(invalidCandle.getOpenTime()).thenReturn(LocalDateTime.now());
         when(invalidCandle.getOpen()).thenReturn(null);
-        
+
         List<CandlestickEntity> candlesWithNull = new ArrayList<>(mockCandlesticks);
         candlesWithNull.add(0, invalidCandle); // 添加到列表开头
-        
+
         // 执行
         BarSeries series = adapter.convert(candlesWithNull, "BTC-USDT_1H");
-        
+
         // 验证 - 应该跳过无效的K线
         assertEquals(20, series.getBarCount());
     }
@@ -92,17 +93,17 @@ public class CandlestickBarSeriesAdapterTest {
      */
     private List<CandlestickEntity> createMockCandlesticks() {
         List<CandlestickEntity> candlesticks = new ArrayList<>();
-        
+
         // 创建20条模拟K线数据
         LocalDateTime startTime = LocalDateTime.of(2023, 1, 1, 0, 0);
         BigDecimal basePrice = new BigDecimal("30000.00");
-        
+
         for (int i = 0; i < 20; i++) {
             // 创建模拟的K线数据
             CandlestickEntity mockCandle = mock(CandlestickEntity.class);
-            
+
             LocalDateTime openTime = startTime.plusHours(i);
-            
+
             // 模拟价格波动
             double variation = Math.sin(i * 0.1) * 500 + (Math.random() - 0.5) * 200;
             BigDecimal open = basePrice.add(new BigDecimal(variation));
@@ -110,7 +111,7 @@ public class CandlestickBarSeriesAdapterTest {
             BigDecimal low = open.subtract(new BigDecimal(Math.random() * 100));
             BigDecimal close = high.add(low).divide(new BigDecimal("2"));
             BigDecimal volume = new BigDecimal(Math.random() * 100 + 10);
-            
+
             // 设置mock的返回值
             when(mockCandle.getOpenTime()).thenReturn(openTime);
             when(mockCandle.getOpen()).thenReturn(open);
@@ -118,10 +119,10 @@ public class CandlestickBarSeriesAdapterTest {
             when(mockCandle.getLow()).thenReturn(low);
             when(mockCandle.getClose()).thenReturn(close);
             when(mockCandle.getVolume()).thenReturn(volume);
-            
+
             candlesticks.add(mockCandle);
         }
-        
+
         return candlesticks;
     }
-} 
+}

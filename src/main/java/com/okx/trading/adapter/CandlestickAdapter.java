@@ -1,25 +1,15 @@
-package com.okx.trading.ta4j;
+package com.okx.trading.adapter;
 
 import com.okx.trading.model.entity.CandlestickEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.ta4j.core.Bar;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBar;
-import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
 
 import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 蜡烛图数据适配器，用于解决CandlestickEntity和Ta4j之间的字段名不匹配问题
@@ -136,4 +126,4 @@ public class CandlestickAdapter {
     public static void setInterval(CandlestickEntity candle, String interval) {
         candle.setIntervalVal(interval);
     }
-} 
+}

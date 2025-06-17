@@ -1,9 +1,7 @@
 package com.okx.trading.controller;
 
-import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.service.HistoricalDataService;
-import com.okx.trading.ta4j.CandlestickBarSeriesConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -150,25 +148,25 @@ public class Ta4jBacktestControllerTest {
      */
     private List<CandlestickEntity> createMockCandlesticks() {
         List<CandlestickEntity> candlesticks = new ArrayList<>();
-        
+
         // 创建60条模拟K线数据 - 足够计算SMA和布林带
         LocalDateTime startTime = LocalDateTime.of(2023, 1, 1, 0, 0);
         BigDecimal basePrice = new BigDecimal("30000.00");
-        
+
         for (int i = 0; i < 60; i++) {
             // 创建模拟的K线数据，使用mock
             CandlestickEntity mockCandle = org.mockito.Mockito.mock(CandlestickEntity.class);
-            
+
             LocalDateTime openTime = startTime.plusHours(i);
             LocalDateTime closeTime = openTime.plusHours(1);
-            
+
             // 模拟价格波动
             double variation = Math.sin(i * 0.1) * 500 + (Math.random() - 0.5) * 200;
             BigDecimal open = basePrice.add(new BigDecimal(variation));
             BigDecimal high = open.add(new BigDecimal(Math.random() * 100));
             BigDecimal low = open.subtract(new BigDecimal(Math.random() * 100));
             BigDecimal close = high.add(low).divide(new BigDecimal("2"));
-            
+
             // 设置mock的返回值
             when(mockCandle.getSymbol()).thenReturn("BTC-USDT");
             when(mockCandle.getIntervalVal()).thenReturn("1H");
@@ -179,10 +177,10 @@ public class Ta4jBacktestControllerTest {
             when(mockCandle.getLow()).thenReturn(low);
             when(mockCandle.getClose()).thenReturn(close);
             when(mockCandle.getVolume()).thenReturn(new BigDecimal(Math.random() * 100 + 10));
-            
+
             candlesticks.add(mockCandle);
         }
-        
+
         return candlesticks;
     }
-} 
+}

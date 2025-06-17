@@ -1,4 +1,4 @@
-package com.okx.trading.runner;
+package com.okx.trading.component;
 
 import com.okx.trading.service.IndicatorCalculationService;
 import org.slf4j.Logger;

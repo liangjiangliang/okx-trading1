@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j;
+package com.okx.trading.adapter;
 
 import com.okx.trading.model.entity.CandlestickEntity;
 import org.springframework.stereotype.Component;
@@ -12,7 +12,6 @@ import org.ta4j.core.num.Num;
 import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,16 +43,16 @@ public class CandlestickBarSeriesAdapter {
 
         for (CandlestickEntity candle : sortedCandles) {
             // 检查价格是否为空
-            if (candle == null || candle.getOpen() == null || 
-                candle.getHigh() == null || 
-                candle.getLow() == null || 
+            if (candle == null || candle.getOpen() == null ||
+                candle.getHigh() == null ||
+                candle.getLow() == null ||
                 candle.getClose() == null) {
                 continue;
             }
 
             // 获取时间
             ZonedDateTime dateTime = ZonedDateTime.of(
-                candle.getOpenTime(), 
+                candle.getOpenTime(),
                 ZoneId.systemDefault()
             );
 
@@ -62,10 +61,10 @@ public class CandlestickBarSeriesAdapter {
             Num highPrice = DecimalNum.valueOf(candle.getHigh());
             Num lowPrice = DecimalNum.valueOf(candle.getLow());
             Num closePrice = DecimalNum.valueOf(candle.getClose());
-            
+
             // 处理交易量，如果为空则使用0
-            Num volume = candle.getVolume() != null ? 
-                DecimalNum.valueOf(candle.getVolume()) : 
+            Num volume = candle.getVolume() != null ?
+                DecimalNum.valueOf(candle.getVolume()) :
                 DecimalNum.valueOf(BigDecimal.ZERO);
 
             // 创建Bar对象
@@ -83,4 +82,4 @@ public class CandlestickBarSeriesAdapter {
 
         return series;
     }
-} 
+}

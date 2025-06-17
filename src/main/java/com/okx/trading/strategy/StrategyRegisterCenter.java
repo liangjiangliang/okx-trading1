@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j.strategy;
+package com.okx.trading.strategy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -232,7 +232,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_RELATIVE_MOMENTUM_INDEX, StrategyFactory2::createRelativeMomentumIndexStrategy);
         strategyCreators.put(STRATEGY_INTRADAY_MOMENTUM_INDEX, StrategyFactory2::createIntradayMomentumIndexStrategy);
         strategyCreators.put(STRATEGY_RANDOM_WALK_INDEX, StrategyFactory2::createRandomWalkIndexStrategy);
-        
+
         // 注册 Batch 2 策略 (策略 51-90)
         // 动量反转策略 (51-60)
         strategyCreators.put(STRATEGY_RSI_REVERSAL, StrategyFactory3::createRSIReversalStrategy);
@@ -245,7 +245,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_DONCHIAN_BREAKOUT, StrategyFactory3::createDonchianBreakoutStrategy);
         strategyCreators.put(STRATEGY_KELTNER_BREAKOUT, StrategyFactory3::createKeltnerBreakoutStrategy);
         strategyCreators.put(STRATEGY_PRICE_CHANNEL, StrategyFactory3::createPriceChannelStrategy);
-        
+
         // 成交量价格关系策略 (61-70)
         strategyCreators.put(STRATEGY_VWMA_CROSSOVER, StrategyFactory3::createVWMACrossoverStrategy);
         strategyCreators.put(STRATEGY_ACCUMULATION_DISTRIBUTION_DIVERGENCE, StrategyFactory3::createAccumulationDistributionDivergenceStrategy);
@@ -257,7 +257,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_VOLUME_RSI, StrategyFactory3::createVolumeRSIStrategy);
         strategyCreators.put(STRATEGY_VOLUME_WEIGHTED_RSI_SIGNAL, StrategyFactory3::createVolumeWeightedRSISignalStrategy);
         strategyCreators.put(STRATEGY_VOLUME_BREAKOUT_CONFIRMATION, StrategyFactory3::createVolumeBreakoutConfirmationStrategy);
-        
+
         // 波动率统计分析策略 (71-80)
         strategyCreators.put(STRATEGY_HISTORICAL_VOLATILITY, StrategyFactory3::createHistoricalVolatilityStrategy);
         strategyCreators.put(STRATEGY_STANDARD_DEVIATION_CHANNEL, StrategyFactory3::createStandardDeviationChannelStrategy);
@@ -269,7 +269,7 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_LINEAR_REGRESSION, StrategyFactory3::createLinearRegressionStrategy);
         strategyCreators.put(STRATEGY_LINEAR_REGRESSION_SLOPE, StrategyFactory3::createLinearRegressionSlopeStrategy);
         strategyCreators.put(STRATEGY_R_SQUARED, StrategyFactory3::createRSquaredStrategy);
-        
+
         // 复合指标和多重确认策略 (81-90)
         strategyCreators.put(STRATEGY_MULTIPLE_MA_CONFIRMATION, StrategyFactory3::createMultipleMAConfirmationStrategy);
         strategyCreators.put(STRATEGY_RSI_MACD_CONFIRMATION, StrategyFactory3::createRSIMACDConfirmationStrategy);

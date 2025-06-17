@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j;
+package com.okx.trading.adapter;
 
 import com.okx.trading.model.entity.CandlestickEntity;
 import org.slf4j.Logger;
@@ -16,11 +16,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.time.temporal.ChronoUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**

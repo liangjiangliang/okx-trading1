@@ -1,8 +1,8 @@
 package com.okx.trading.config;
 
-import com.okx.trading.service.DynamicStrategyService;
-import com.okx.trading.service.JavaCompilerDynamicStrategyService;
-import com.okx.trading.service.SmartDynamicStrategyService;
+import com.okx.trading.service.impl.DynamicStrategyService;
+import com.okx.trading.service.impl.JavaCompilerDynamicStrategyService;
+import com.okx.trading.service.impl.SmartDynamicStrategyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;

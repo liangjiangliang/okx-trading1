@@ -1,4 +1,4 @@
-package com.okx.trading.ta4j.strategy;
+package com.okx.trading.strategy;
 
 import org.ta4j.core.*;
 import org.ta4j.core.indicators.*;

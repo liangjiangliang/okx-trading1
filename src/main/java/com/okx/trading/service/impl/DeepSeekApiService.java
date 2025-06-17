@@ -1,4 +1,4 @@
-package com.okx.trading.service;
+package com.okx.trading.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -8,8 +8,6 @@ import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.OverIndicatorRule;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -194,11 +192,11 @@ public class DeepSeekApiService {
 
         // 处理ATR相关请求，统一转换为简单策略
         String processedDescription = strategyDescription;
-        if (strategyDescription.contains("atr") || strategyDescription.contains("ATR") || 
+        if (strategyDescription.contains("atr") || strategyDescription.contains("ATR") ||
             strategyDescription.contains("波动") || strategyDescription.contains("突破")) {
             processedDescription = "生成一个简单的EMA双线交叉策略，作为波动突破策略的替代方案";
         }
-        
+
         promptBuilder.append("期望生成策略的描述：").append(processedDescription).append("\n\n");
         promptBuilder.append("要求：\n");
         promptBuilder.append("1. 返回JSON格式，包含以下字段：\n");
