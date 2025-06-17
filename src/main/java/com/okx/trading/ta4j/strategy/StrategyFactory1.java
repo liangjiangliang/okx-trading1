@@ -1,12 +1,5 @@
 package com.okx.trading.ta4j.strategy;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.ta4j.core.*;
 import org.ta4j.core.indicators.*;
 import org.ta4j.core.indicators.adx.ADXIndicator;
@@ -21,206 +14,28 @@ import org.ta4j.core.indicators.candles.DojiIndicator;
 import org.ta4j.core.indicators.candles.ThreeBlackCrowsIndicator;
 import org.ta4j.core.indicators.candles.ThreeWhiteSoldiersIndicator;
 import org.ta4j.core.indicators.helpers.*;
-import org.ta4j.core.indicators.ichimoku.IchimokuKijunSenIndicator;
-import org.ta4j.core.indicators.ichimoku.IchimokuSenkouSpanAIndicator;
-import org.ta4j.core.indicators.ichimoku.IchimokuSenkouSpanBIndicator;
-import org.ta4j.core.indicators.ichimoku.IchimokuTenkanSenIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelLowerIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelMiddleIndicator;
 import org.ta4j.core.indicators.keltner.KeltnerChannelUpperIndicator;
-import org.ta4j.core.indicators.statistics.CovarianceIndicator;
-import org.ta4j.core.indicators.statistics.PearsonCorrelationIndicator;
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
-import org.ta4j.core.indicators.statistics.StandardErrorIndicator;
-import org.ta4j.core.indicators.statistics.VarianceIndicator;
 import org.ta4j.core.indicators.volume.OnBalanceVolumeIndicator;
 import org.ta4j.core.indicators.volume.VWAPIndicator;
 import org.ta4j.core.num.DecimalNum;
-import org.ta4j.core.num.DoubleNum;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
-
-import static com.okx.trading.constant.IndicatorInfo.*;
 
 /**
  * 策略工厂类
  * 用于创建和管理各种交易策略
  */
-public class StrategyFactory {
-
-    private static final Logger log = LoggerFactory.getLogger(StrategyFactory.class);
-
-
-    // 策略创建函数映射
-    private static final Map<String, Function<BarSeries,  Strategy>> strategyCreators = new HashMap<>();
-
-    static {
-        // 注册所有策略创建函数
-        // 移动平均线策略
-        strategyCreators.put(STRATEGY_SMA, StrategyFactory::createSMAStrategy);
-        strategyCreators.put(STRATEGY_EMA, StrategyFactory::createEMAStrategy);
-        strategyCreators.put(STRATEGY_TRIPLE_EMA, StrategyFactory::createTripleEMAStrategy);
-        strategyCreators.put(STRATEGY_WMA, StrategyFactory::createWMAStrategy);
-        strategyCreators.put(STRATEGY_HMA, StrategyFactory::createHMAStrategy);
-        strategyCreators.put(STRATEGY_KAMA, StrategyFactory::createKAMAStrategy);
-        strategyCreators.put(STRATEGY_ZLEMA, StrategyFactory::createZLEMAStrategy);
-        strategyCreators.put(STRATEGY_DEMA, StrategyFactory::createDEMAStrategy);
-        strategyCreators.put(STRATEGY_TEMA, StrategyFactory::createTEMAStrategy);
-        strategyCreators.put(STRATEGY_VWAP, StrategyFactory::createVWAPStrategy);
-
-        // 震荡指标策略
-        strategyCreators.put(STRATEGY_RSI, StrategyFactory::createRSIStrategy);
-        strategyCreators.put(STRATEGY_STOCHASTIC, StrategyFactory::createStochasticStrategy);
-        strategyCreators.put(STRATEGY_STOCHASTIC_RSI, StrategyFactory::createStochasticRSIStrategy);
-        strategyCreators.put(STRATEGY_WILLIAMS_R, StrategyFactory::createWilliamsRStrategy);
-        strategyCreators.put(STRATEGY_CCI, StrategyFactory::createCCIStrategy);
-        strategyCreators.put(STRATEGY_CMO, StrategyFactory::createCMOStrategy);
-        strategyCreators.put(STRATEGY_ROC, StrategyFactory::createROCStrategy);
-        strategyCreators.put(STRATEGY_MACD, StrategyFactory::createMACDStrategy);
-        strategyCreators.put(STRATEGY_PPO, StrategyFactory::createPPOStrategy);
-        strategyCreators.put(STRATEGY_DPO, StrategyFactory::createDPOStrategy);
-        strategyCreators.put(STRATEGY_TRIX, StrategyFactory::createTRIXStrategy);
-
-        // 趋势指标策略
-        strategyCreators.put(STRATEGY_ADX, StrategyFactory::createADXStrategy);
-        strategyCreators.put(STRATEGY_AROON, StrategyFactory::createAroonStrategy);
-        strategyCreators.put(STRATEGY_ICHIMOKU, StrategyFactory::createIchimokuStrategy);
-        strategyCreators.put(STRATEGY_PARABOLIC_SAR, StrategyFactory::createParabolicSARStrategy);
-        strategyCreators.put(STRATEGY_DMA, StrategyFactory::createDMAStrategy);
-        strategyCreators.put(STRATEGY_DMI, StrategyFactory::createDMIStrategy);
-        strategyCreators.put(STRATEGY_SUPERTREND, StrategyFactory::createSupertrendStrategy);
-        strategyCreators.put(STRATEGY_ICHIMOKU_CLOUD_BREAKOUT, StrategyFactory::createIchimokuCloudBreakoutStrategy);
-        strategyCreators.put(STRATEGY_AWESOME_OSCILLATOR, StrategyFactory::createAwesomeOscillatorStrategy);
-
-        // 波动指标策略
-        strategyCreators.put(STRATEGY_BOLLINGER_BANDS, StrategyFactory::createBollingerBandsStrategy);
-        strategyCreators.put(STRATEGY_CHANDELIER_EXIT, StrategyFactory::createChandelierExitStrategy);
-        strategyCreators.put(STRATEGY_ULCER_INDEX, StrategyFactory::createUlcerIndexStrategy);
-        strategyCreators.put(STRATEGY_KELTNER_CHANNEL, StrategyFactory::createKeltnerChannelStrategy);
-        strategyCreators.put(STRATEGY_ATR, StrategyFactory::createATRStrategy);
-
-        // 成交量指标策略
-        strategyCreators.put(STRATEGY_OBV, StrategyFactory::createOBVStrategy);
-        strategyCreators.put(STRATEGY_MASS_INDEX, StrategyFactory::createMassIndexStrategy);
-        strategyCreators.put(STRATEGY_KDJ, StrategyFactory::createKDJStrategy);
-
-        // 蜡烛图形态策略
-        strategyCreators.put(STRATEGY_DOJI, StrategyFactory::createDojiStrategy);
-        strategyCreators.put(STRATEGY_BULLISH_ENGULFING, StrategyFactory::createBullishEngulfingStrategy);
-        strategyCreators.put(STRATEGY_BEARISH_ENGULFING, StrategyFactory::createBearishEngulfingStrategy);
-        strategyCreators.put(STRATEGY_BULLISH_HARAMI, StrategyFactory::createBullishHaramiStrategy);
-        strategyCreators.put(STRATEGY_BEARISH_HARAMI, StrategyFactory::createBearishHaramiStrategy);
-        strategyCreators.put(STRATEGY_THREE_WHITE_SOLDIERS, StrategyFactory::createThreeWhiteSoldiersStrategy);
-        strategyCreators.put(STRATEGY_THREE_BLACK_CROWS, StrategyFactory::createThreeBlackCrowsStrategy);
-        strategyCreators.put(STRATEGY_HANGING_MAN, StrategyFactory::createHangingManStrategy);
-
-        // 组合策略
-        strategyCreators.put(STRATEGY_TURTLE_TRADING, StrategyFactory::createTurtleTradingStrategy);
-        strategyCreators.put(STRATEGY_TREND_FOLLOWING, StrategyFactory::createTrendFollowingStrategy);
-        strategyCreators.put(STRATEGY_BREAKOUT, StrategyFactory::createBreakoutStrategy);
-        strategyCreators.put(STRATEGY_GOLDEN_CROSS, StrategyFactory::createGoldenCrossStrategy);
-        strategyCreators.put(STRATEGY_DEATH_CROSS, StrategyFactory::createDeathCrossStrategy);
-        strategyCreators.put(STRATEGY_DUAL_MA_WITH_RSI, StrategyFactory::createDualMAWithRSIStrategy);
-        strategyCreators.put(STRATEGY_MACD_WITH_BOLLINGER, StrategyFactory::createMACDWithBollingerStrategy);
-
-        // 添加新的移动平均线策略
-        strategyCreators.put(STRATEGY_TRIMA, StrategyFactory::createTrimaStrategy);
-        strategyCreators.put(STRATEGY_T3, StrategyFactory::createT3Strategy);
-        strategyCreators.put(STRATEGY_MAMA, StrategyFactory::createMamaStrategy);
-        strategyCreators.put(STRATEGY_VIDYA, StrategyFactory::createVidyaStrategy);
-        strategyCreators.put(STRATEGY_WILDERS, StrategyFactory::createWildersStrategy);
-
-        // 添加新的震荡指标策略
-        strategyCreators.put(STRATEGY_FISHER, StrategyFactory::createFisherStrategy);
-        strategyCreators.put(STRATEGY_FOSC, StrategyFactory::createFoscStrategy);
-        strategyCreators.put(STRATEGY_EOM, StrategyFactory::createEomStrategy);
-        strategyCreators.put(STRATEGY_CHOP, StrategyFactory::createChopStrategy);
-        strategyCreators.put(STRATEGY_KVO, StrategyFactory::createKvoStrategy);
-        strategyCreators.put(STRATEGY_RVGI, StrategyFactory::createRvgiStrategy);
-        strategyCreators.put(STRATEGY_STC, StrategyFactory::createStcStrategy);
-
-        // 添加新的趋势指标策略
-        strategyCreators.put(STRATEGY_VORTEX, StrategyFactory::createVortexStrategy);
-        strategyCreators.put(STRATEGY_QSTICK, StrategyFactory::createQstickStrategy);
-        strategyCreators.put(STRATEGY_WILLIAMS_ALLIGATOR, StrategyFactory::createWilliamsAlligatorStrategy);
-        strategyCreators.put(STRATEGY_HT_TRENDLINE, StrategyFactory::createHtTrendlineStrategy);
-
-        // 添加新的波动指标策略
-        strategyCreators.put(STRATEGY_NATR, StrategyFactory::createNatrStrategy);
-        strategyCreators.put(STRATEGY_MASS, StrategyFactory::createMassStrategy);
-        strategyCreators.put(STRATEGY_STDDEV, StrategyFactory::createStddevStrategy);
-        strategyCreators.put(STRATEGY_SQUEEZE, StrategyFactory::createSqueezeStrategy);
-        strategyCreators.put(STRATEGY_BBW, StrategyFactory::createBbwStrategy);
-        strategyCreators.put(STRATEGY_VOLATILITY, StrategyFactory::createVolatilityStrategy);
-        strategyCreators.put(STRATEGY_DONCHIAN_CHANNELS, StrategyFactory::createDonchianChannelsStrategy);
-
-        // 添加新的成交量指标策略
-        strategyCreators.put(STRATEGY_AD, StrategyFactory::createAdStrategy);
-        strategyCreators.put(STRATEGY_ADOSC, StrategyFactory::createAdoscStrategy);
-        strategyCreators.put(STRATEGY_NVI, StrategyFactory::createNviStrategy);
-        strategyCreators.put(STRATEGY_PVI, StrategyFactory::createPviStrategy);
-        strategyCreators.put(STRATEGY_VWMA, StrategyFactory::createVwmaStrategy);
-        strategyCreators.put(STRATEGY_VOSC, StrategyFactory::createVoscStrategy);
-
-        strategyCreators.put(STRATEGY_MARKETFI, StrategyFactory::createMarketfiStrategy);
-
-        // 添加新的蜡烛图形态策略
-        strategyCreators.put(STRATEGY_HAMMER, StrategyFactory::createHammerStrategy);
-        strategyCreators.put(STRATEGY_INVERTED_HAMMER, StrategyFactory::createInvertedHammerStrategy);
-        strategyCreators.put(STRATEGY_SHOOTING_STAR, StrategyFactory::createShootingStarStrategy);
-        strategyCreators.put(STRATEGY_MORNING_STAR, StrategyFactory::createMorningStarStrategy);
-        strategyCreators.put(STRATEGY_EVENING_STAR, StrategyFactory::createEveningStarStrategy);
-        strategyCreators.put(STRATEGY_PIERCING, StrategyFactory::createPiercingStrategy);
-        strategyCreators.put(STRATEGY_DARK_CLOUD_COVER, StrategyFactory::createDarkCloudCoverStrategy);
-        strategyCreators.put(STRATEGY_MARUBOZU, StrategyFactory::createMarubozuStrategy);
-
-        // 添加统计函数策略
-        strategyCreators.put(STRATEGY_BETA, StrategyFactory::createBetaStrategy);
-        strategyCreators.put(STRATEGY_CORREL, StrategyFactory::createCorrelStrategy);
-        strategyCreators.put(STRATEGY_LINEARREG, StrategyFactory::createLinearregStrategy);
-        strategyCreators.put(STRATEGY_LINEARREG_ANGLE, StrategyFactory::createLinearregAngleStrategy);
-        strategyCreators.put(STRATEGY_LINEARREG_INTERCEPT, StrategyFactory::createLinearregInterceptStrategy);
-        strategyCreators.put(STRATEGY_LINEARREG_SLOPE, StrategyFactory::createLinearregSlopeStrategy);
-        strategyCreators.put(STRATEGY_TSF, StrategyFactory::createTsfStrategy);
-        strategyCreators.put(STRATEGY_VAR, StrategyFactory::createVarStrategy);
-
-        // 添加希尔伯特变换策略
-        strategyCreators.put(STRATEGY_HT_DCPERIOD, StrategyFactory::createHtDcperiodStrategy);
-        strategyCreators.put(STRATEGY_HT_DCPHASE, StrategyFactory::createHtDcphaseStrategy);
-        strategyCreators.put(STRATEGY_HT_PHASOR, StrategyFactory::createHtPhasorStrategy);
-        strategyCreators.put(STRATEGY_HT_SINE, StrategyFactory::createHtSineStrategy);
-        strategyCreators.put(STRATEGY_HT_TRENDMODE, StrategyFactory::createHtTrendmodeStrategy);
-        strategyCreators.put(STRATEGY_MSW, StrategyFactory::createMswStrategy);
-    }
-
-    /**
-     * 创建策略
-     *
-     * @param series       BarSeries对象
-     * @param strategyType 策略类型
-     * @param params       策略参数
-     * @return 策略对象
-     */
-    public static Strategy createStrategy(BarSeries series, String strategyType) {
-        Function<BarSeries, Strategy> strategyCreator = strategyCreators.get(strategyType);
-
-        if (strategyCreator == null) {
-            throw new IllegalArgumentException("不支持的策略类型: " + strategyType);
-        }
-
-        if (series == null || series.getBarCount() == 0) {
-            throw new IllegalArgumentException("K线数据不能为空");
-        }
-
-        return strategyCreator.apply(series);
-    }
+public class StrategyFactory1 {
 
     /**
      * 创建SMA交叉策略
      */
-    private static Strategy createSMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createSMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
@@ -242,9 +57,9 @@ public class StrategyFactory {
     /**
      * 创建布林带策略
      */
-    private static Strategy createBollingerBandsStrategy(BarSeries series) {
-        int period = (int) ( 20);
-        double multiplier = (double) ( 2.0);
+    public static Strategy createBollingerBandsStrategy(BarSeries series) {
+        int period = (int) (20);
+        double multiplier = (double) (2.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -270,10 +85,10 @@ public class StrategyFactory {
     /**
      * 创建MACD策略
      */
-    private static Strategy createMACDStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 12);
-        int longPeriod = (int) ( 26);
-        int signalPeriod = (int) ( 9);
+    public static Strategy createMACDStrategy(BarSeries series) {
+        int shortPeriod = (int) (12);
+        int longPeriod = (int) (26);
+        int signalPeriod = (int) (9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -297,10 +112,10 @@ public class StrategyFactory {
     /**
      * 创建RSI策略
      */
-    private static Strategy createRSIStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        int oversold = (int) ( 30);
-        int overbought = (int) ( 70);
+    public static Strategy createRSIStrategy(BarSeries series) {
+        int period = (int) (14);
+        int oversold = (int) (30);
+        int overbought = (int) (70);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -321,12 +136,12 @@ public class StrategyFactory {
     /**
      * 创建随机指标策略
      */
-    private static Strategy createStochasticStrategy(BarSeries series) {
-        int kPeriod = (int) ( 14);
-        int kSmooth = (int) ( 3);
-        int dSmooth = (int) ( 3);
-        int oversold = (int) ( 20);
-        int overbought = (int) ( 80);
+    public static Strategy createStochasticStrategy(BarSeries series) {
+        int kPeriod = (int) (14);
+        int kSmooth = (int) (3);
+        int dSmooth = (int) (3);
+        int oversold = (int) (20);
+        int overbought = (int) (80);
 
         if (series.getBarCount() <= kPeriod + kSmooth + dSmooth) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -349,10 +164,10 @@ public class StrategyFactory {
     /**
      * 创建ADX策略
      */
-    private static Strategy createADXStrategy(BarSeries series) {
-        int adxPeriod = (int) ( 14);
-        int diPeriod = (int) ( 14);
-        int threshold = (int) ( 25);
+    public static Strategy createADXStrategy(BarSeries series) {
+        int adxPeriod = (int) (14);
+        int diPeriod = (int) (14);
+        int threshold = (int) (25);
 
         if (series.getBarCount() <= Math.max(adxPeriod, diPeriod) + 1) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -382,10 +197,10 @@ public class StrategyFactory {
     /**
      * 创建CCI策略
      */
-    private static Strategy createCCIStrategy(BarSeries series) {
-        int period = (int) ( 20);
-        int oversold = (int) ( -100);
-        int overbought = (int) ( 100);
+    public static Strategy createCCIStrategy(BarSeries series) {
+        int period = (int) (20);
+        int oversold = (int) (-100);
+        int overbought = (int) (100);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -404,10 +219,10 @@ public class StrategyFactory {
     /**
      * 创建威廉指标策略
      */
-    private static Strategy createWilliamsRStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        int oversold = (int) ( -80);
-        int overbought = (int) ( -20);
+    public static Strategy createWilliamsRStrategy(BarSeries series) {
+        int period = (int) (14);
+        int oversold = (int) (-80);
+        int overbought = (int) (-20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -426,10 +241,10 @@ public class StrategyFactory {
     /**
      * 创建三重EMA策略
      */
-    private static Strategy createTripleEMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 5);
-        int middlePeriod = (int) ( 10);
-        int longPeriod = (int) ( 20);
+    public static Strategy createTripleEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (5);
+        int middlePeriod = (int) (10);
+        int longPeriod = (int) (20);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -455,10 +270,10 @@ public class StrategyFactory {
     /**
      * 创建一目均衡表策略
      */
-    private static Strategy createIchimokuStrategy(BarSeries series) {
-        int conversionPeriod = (int) ( 9);
-        int basePeriod = (int) ( 26);
-        int laggingSpan = (int) ( 52);
+    public static Strategy createIchimokuStrategy(BarSeries series) {
+        int conversionPeriod = (int) (9);
+        int basePeriod = (int) (26);
+        int laggingSpan = (int) (52);
 
         if (series.getBarCount() <= laggingSpan) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -491,9 +306,9 @@ public class StrategyFactory {
     /**
      * 创建EMA策略
      */
-    private static Strategy createEMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -515,9 +330,9 @@ public class StrategyFactory {
     /**
      * 创建WMA策略 (加权移动平均线)
      */
-    private static Strategy createWMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createWMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -539,9 +354,9 @@ public class StrategyFactory {
     /**
      * 创建HMA策略 (Hull移动平均线)
      */
-    private static Strategy createHMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createHMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -563,10 +378,10 @@ public class StrategyFactory {
     /**
      * 创建KAMA策略 (考夫曼自适应移动平均线)
      */
-    private static Strategy createKAMAStrategy(BarSeries series) {
-        int period = (int) ( 10);
-        int fastEMA = (int) ( 2);
-        int slowEMA = (int) ( 30);
+    public static Strategy createKAMAStrategy(BarSeries series) {
+        int period = (int) (10);
+        int fastEMA = (int) (2);
+        int slowEMA = (int) (30);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -588,9 +403,9 @@ public class StrategyFactory {
     /**
      * 创建ZLEMA策略 (零滞后指数移动平均线)
      */
-    private static Strategy createZLEMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createZLEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -612,9 +427,9 @@ public class StrategyFactory {
     /**
      * 创建DEMA策略 (双重指数移动平均线)
      */
-    private static Strategy createDEMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createDEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -636,9 +451,9 @@ public class StrategyFactory {
     /**
      * 创建TEMA策略 (三重指数移动平均线)
      */
-    private static Strategy createTEMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createTEMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -661,13 +476,13 @@ public class StrategyFactory {
     /**
      * 创建随机RSI策略
      */
-    private static Strategy createStochasticRSIStrategy(BarSeries series) {
-        int rsiPeriod = (int) ( 14);
-        int stochasticPeriod = (int) ( 14);
-        int kPeriod = (int) ( 3);
-        int dPeriod = (int) ( 3);
-        int overbought = (int) ( 80);
-        int oversold = (int) ( 20);
+    public static Strategy createStochasticRSIStrategy(BarSeries series) {
+        int rsiPeriod = (int) (14);
+        int stochasticPeriod = (int) (14);
+        int kPeriod = (int) (3);
+        int dPeriod = (int) (3);
+        int overbought = (int) (80);
+        int oversold = (int) (20);
 
         if (series.getBarCount() <= rsiPeriod + stochasticPeriod + kPeriod + dPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -692,10 +507,10 @@ public class StrategyFactory {
     /**
      * 创建CMO策略 (钱德动量震荡指标)
      */
-    private static Strategy createCMOStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        int overbought = (int) ( 50);
-        int oversold = (int) ( -50);
+    public static Strategy createCMOStrategy(BarSeries series) {
+        int period = (int) (14);
+        int overbought = (int) (50);
+        int oversold = (int) (-50);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -714,9 +529,9 @@ public class StrategyFactory {
     /**
      * 创建ROC策略 (变动率指标)
      */
-    private static Strategy createROCStrategy(BarSeries series) {
-        int period = (int) ( 12);
-        double threshold = (double) ( 0.0);
+    public static Strategy createROCStrategy(BarSeries series) {
+        int period = (int) (12);
+        double threshold = (double) (0.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -735,10 +550,10 @@ public class StrategyFactory {
     /**
      * 创建PPO策略 (百分比价格震荡指标)
      */
-    private static Strategy createPPOStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 12);
-        int longPeriod = (int) ( 26);
-        int signalPeriod = (int) ( 9);
+    public static Strategy createPPOStrategy(BarSeries series) {
+        int shortPeriod = (int) (12);
+        int longPeriod = (int) (26);
+        int signalPeriod = (int) (9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -758,8 +573,8 @@ public class StrategyFactory {
     /**
      * 创建DPO策略 (区间震荡指标)
      */
-    private static Strategy createDPOStrategy(BarSeries series) {
-        int period = (int) ( 20);
+    public static Strategy createDPOStrategy(BarSeries series) {
+        int period = (int) (20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -778,8 +593,8 @@ public class StrategyFactory {
     /**
      * 创建Aroon策略
      */
-    private static Strategy createAroonStrategy(BarSeries series) {
-        int period = (int) ( 25);
+    public static Strategy createAroonStrategy(BarSeries series) {
+        int period = (int) (25);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -798,10 +613,10 @@ public class StrategyFactory {
     /**
      * 创建DMA策略 (差异移动平均线)
      */
-    private static Strategy createDMAStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 10);
-        int longPeriod = (int) ( 50);
-        int signalPeriod = (int) ( 10);
+    public static Strategy createDMAStrategy(BarSeries series) {
+        int shortPeriod = (int) (10);
+        int longPeriod = (int) (50);
+        int signalPeriod = (int) (10);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -826,9 +641,9 @@ public class StrategyFactory {
     /**
      * 创建溃疡指数策略
      */
-    private static Strategy createUlcerIndexStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        double threshold = (double) ( 5.0);
+    public static Strategy createUlcerIndexStrategy(BarSeries series) {
+        int period = (int) (14);
+        double threshold = (double) (5.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -847,8 +662,8 @@ public class StrategyFactory {
     /**
      * 创建OBV策略 (能量潮指标)
      */
-    private static Strategy createOBVStrategy(BarSeries series) {
-        int period = (int) ( 20);
+    public static Strategy createOBVStrategy(BarSeries series) {
+        int period = (int) (20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -867,10 +682,10 @@ public class StrategyFactory {
     /**
      * 创建质量指数策略
      */
-    private static Strategy createMassIndexStrategy(BarSeries series) {
-        int emaPeriod = (int) ( 9);
-        int massIndexPeriod = (int) ( 25);
-        double threshold = (double) ( 27.0);
+    public static Strategy createMassIndexStrategy(BarSeries series) {
+        int emaPeriod = (int) (9);
+        int massIndexPeriod = (int) (25);
+        double threshold = (double) (27.0);
 
         if (series.getBarCount() <= emaPeriod * 2 + massIndexPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -888,8 +703,8 @@ public class StrategyFactory {
     /**
      * 创建十字星策略
      */
-    private static Strategy createDojiStrategy(BarSeries series) {
-        double tolerance = (double) ( 0.05);
+    public static Strategy createDojiStrategy(BarSeries series) {
+        double tolerance = (double) (0.05);
 
         DojiIndicator doji = new DojiIndicator(series, 10, tolerance);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -907,7 +722,7 @@ public class StrategyFactory {
     /**
      * 创建看涨吞没策略
      */
-    private static Strategy createBullishEngulfingStrategy(BarSeries series) {
+    public static Strategy createBullishEngulfingStrategy(BarSeries series) {
         BullishEngulfingIndicator bullishEngulfing = new BullishEngulfingIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -924,7 +739,7 @@ public class StrategyFactory {
     /**
      * 创建看跌吞没策略
      */
-    private static Strategy createBearishEngulfingStrategy(BarSeries series) {
+    public static Strategy createBearishEngulfingStrategy(BarSeries series) {
         BearishEngulfingIndicator bearishEngulfing = new BearishEngulfingIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -941,7 +756,7 @@ public class StrategyFactory {
     /**
      * 创建看涨孕线策略
      */
-    private static Strategy createBullishHaramiStrategy(BarSeries series) {
+    public static Strategy createBullishHaramiStrategy(BarSeries series) {
         BullishHaramiIndicator bullishHarami = new BullishHaramiIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -958,7 +773,7 @@ public class StrategyFactory {
     /**
      * 创建看跌孕线策略
      */
-    private static Strategy createBearishHaramiStrategy(BarSeries series) {
+    public static Strategy createBearishHaramiStrategy(BarSeries series) {
         BearishHaramiIndicator bearishHarami = new BearishHaramiIndicator(series);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -975,7 +790,7 @@ public class StrategyFactory {
     /**
      * 创建三白兵策略
      */
-    private static Strategy createThreeWhiteSoldiersStrategy(BarSeries series) {
+    public static Strategy createThreeWhiteSoldiersStrategy(BarSeries series) {
         ThreeWhiteSoldiersIndicator threeWhiteSoldiers = new ThreeWhiteSoldiersIndicator(series, 5, DecimalNum.valueOf(0.3));
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -990,7 +805,7 @@ public class StrategyFactory {
     /**
      * 创建三黑乌鸦策略
      */
-    private static Strategy createThreeBlackCrowsStrategy(BarSeries series) {
+    public static Strategy createThreeBlackCrowsStrategy(BarSeries series) {
         ThreeBlackCrowsIndicator threeBlackCrows = new ThreeBlackCrowsIndicator(series, 5, 0.3);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
@@ -1005,9 +820,9 @@ public class StrategyFactory {
     /**
      * 创建双推策略
      */
-    private static Strategy createDoublePushStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 5);
-        int longPeriod = (int) ( 20);
+    public static Strategy createDoublePushStrategy(BarSeries series) {
+        int shortPeriod = (int) (5);
+        int longPeriod = (int) (20);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1031,9 +846,9 @@ public class StrategyFactory {
     /**
      * 创建海龟交易策略
      */
-    private static Strategy createTurtleTradingStrategy(BarSeries series) {
-        int entryPeriod = (int) ( 20);
-        int exitPeriod = (int) ( 10);
+    public static Strategy createTurtleTradingStrategy(BarSeries series) {
+        int entryPeriod = (int) (20);
+        int exitPeriod = (int) (10);
 
         if (series.getBarCount() <= entryPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1058,10 +873,10 @@ public class StrategyFactory {
     /**
      * 创建趋势跟踪策略
      */
-    private static Strategy createTrendFollowingStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 26);
-        int signalPeriod = (int) ( 9);
+    public static Strategy createTrendFollowingStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (26);
+        int signalPeriod = (int) (9);
 
         if (series.getBarCount() <= longPeriod + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1091,8 +906,8 @@ public class StrategyFactory {
     /**
      * 创建突破策略
      */
-    private static Strategy createBreakoutStrategy(BarSeries series) {
-        int period = (int) ( 20);
+    public static Strategy createBreakoutStrategy(BarSeries series) {
+        int period = (int) (20);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1112,9 +927,9 @@ public class StrategyFactory {
     /**
      * 创建金叉策略
      */
-    private static Strategy createGoldenCrossStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 26);
+    public static Strategy createGoldenCrossStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (26);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1134,9 +949,9 @@ public class StrategyFactory {
     /**
      * 创建死叉策略
      */
-    private static Strategy createDeathCrossStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 26);
+    public static Strategy createDeathCrossStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (26);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1157,9 +972,9 @@ public class StrategyFactory {
     /**
      * 创建TRIX策略
      */
-    private static Strategy createTRIXStrategy(BarSeries series) {
-        int period = (int) ( 15);
-        int signalPeriod = (int) ( 9);
+    public static Strategy createTRIXStrategy(BarSeries series) {
+        int period = (int) (15);
+        int signalPeriod = (int) (9);
 
         if (series.getBarCount() <= period * 3 + signalPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1189,11 +1004,11 @@ public class StrategyFactory {
     /**
      * 创建双均线RSI策略
      */
-    private static Strategy createDualMAWithRSIStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
-        int rsiPeriod = (int) ( 14);
-        int rsiThreshold = (int) ( 50);
+    public static Strategy createDualMAWithRSIStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
+        int rsiPeriod = (int) (14);
+        int rsiThreshold = (int) (50);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1217,9 +1032,9 @@ public class StrategyFactory {
     /**
      * 创建抛物线SAR策略
      */
-    private static Strategy createParabolicSARStrategy(BarSeries series) {
-        double step = (double) ( 0.02);
-        double max = (double) ( 0.2);
+    public static Strategy createParabolicSARStrategy(BarSeries series) {
+        double step = (double) (0.02);
+        double max = (double) (0.2);
 
         if (series.getBarCount() <= 2) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1239,10 +1054,10 @@ public class StrategyFactory {
     /**
      * 创建吊灯线退出策略
      */
-    private static Strategy createChandelierExitStrategy(BarSeries series) {
+    public static Strategy createChandelierExitStrategy(BarSeries series) {
         // 确保period参数至少为1，避免TimePeriod为null的错误
-        int period = Math.max(1, (int) ( 22));
-        double multiplier = (double) ( 3.0);
+        int period = Math.max(1, (int) (22));
+        double multiplier = (double) (3.0);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -1263,9 +1078,9 @@ public class StrategyFactory {
 
         // 创建自定义指标 - 多头吊灯线退出位置 (最高价 - ATR * multiplier)
         class LongChandelierExitIndicator extends CachedIndicator<Num> {
-            private final MaxPriceIndicator highestHigh;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final MaxPriceIndicator highestHigh;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public LongChandelierExitIndicator(MaxPriceIndicator highestHigh, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(highestHigh);
@@ -1285,9 +1100,9 @@ public class StrategyFactory {
 
         // 创建自定义指标 - 空头吊灯线退出位置 (最低价 + ATR * multiplier)
         class ShortChandelierExitIndicator extends CachedIndicator<Num> {
-            private final MinPriceIndicator lowestLow;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final MinPriceIndicator lowestLow;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public ShortChandelierExitIndicator(MinPriceIndicator lowestLow, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(lowestLow);
@@ -1327,9 +1142,9 @@ public class StrategyFactory {
     }
 
     // 自定义最大价格指标
-    private static class MaxPriceIndicator extends CachedIndicator<Num> {
-        private final HighPriceIndicator highPrice;
-        private final int period;
+    public static class MaxPriceIndicator extends CachedIndicator<Num> {
+        public final HighPriceIndicator highPrice;
+        public final int period;
 
         public MaxPriceIndicator(BarSeries series, int period) {
             super(series);
@@ -1354,9 +1169,9 @@ public class StrategyFactory {
     }
 
     // 自定义最小价格指标
-    private static class MinPriceIndicator extends CachedIndicator<Num> {
-        private final LowPriceIndicator lowPrice;
-        private final int period;
+    public static class MinPriceIndicator extends CachedIndicator<Num> {
+        public final LowPriceIndicator lowPrice;
+        public final int period;
 
         public MinPriceIndicator(BarSeries series, int period) {
             super(series);
@@ -1383,15 +1198,15 @@ public class StrategyFactory {
     /**
      * 创建MACD与布林带组合策略
      */
-    private static Strategy createMACDWithBollingerStrategy(BarSeries series) {
+    public static Strategy createMACDWithBollingerStrategy(BarSeries series) {
         // 获取MACD相关参数
-        int shortPeriod = (int) ( 12);
-        int longPeriod = (int) ( 26);
-        int signalPeriod = (int) ( 9);
+        int shortPeriod = (int) (12);
+        int longPeriod = (int) (26);
+        int signalPeriod = (int) (9);
 
         // 获取布林带相关参数
-        int bollingerPeriod = (int) ( 20);
-        double bollingerDeviation = (double) ( 2.0);
+        int bollingerPeriod = (int) (20);
+        double bollingerDeviation = (double) (2.0);
 
         // 验证数据点数量是否足够
         if (series.getBarCount() <= Math.max(longPeriod + signalPeriod, bollingerPeriod)) {
@@ -1412,14 +1227,14 @@ public class StrategyFactory {
         BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(bollingerDeviation));
         BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(bollingerDeviation));
 
-        // 创建组合规则
-        // 买入规则: MACD上穿信号线 且 价格位于布林带下轨以下
+        // 更平衡的交易规则
+        // 买入规则: MACD上穿信号线 且 (价格接近下轨或在下轨以下)
         Rule entryRule = new CrossedUpIndicatorRule(macd, signal)
-                .and(new UnderIndicatorRule(closePrice, lowerBand));
+                .and(new UnderIndicatorRule(closePrice, middleBand)); // 改为中轨以下
 
-        // 卖出规则: MACD下穿信号线 或 价格位于布林带上轨以上
+        // 卖出规则: MACD下穿信号线 且 价格在上轨以上
         Rule exitRule = new CrossedDownIndicatorRule(macd, signal)
-                .or(new OverIndicatorRule(closePrice, upperBand));
+                .and(new OverIndicatorRule(closePrice, upperBand)); // 改为and条件
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -1427,9 +1242,9 @@ public class StrategyFactory {
     /**
      * 创建吊锤形态策略
      */
-    private static Strategy createHangingManStrategy(BarSeries series) {
-        double upperShadowRatio = (double) ( 0.1);
-        double lowerShadowRatio = (double) ( 2.0);
+    public static Strategy createHangingManStrategy(BarSeries series) {
+        double upperShadowRatio = (double) (0.1);
+        double lowerShadowRatio = (double) (2.0);
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
@@ -1439,12 +1254,12 @@ public class StrategyFactory {
 
         // 创建自定义的吊锤形态指标
         class HangingManIndicator extends CachedIndicator<Boolean> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final OpenPriceIndicator openPrice;
-            private final ClosePriceIndicator closePrice;
-            private final double upperShadowRatio;
-            private final double lowerShadowRatio;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final OpenPriceIndicator openPrice;
+            public final ClosePriceIndicator closePrice;
+            public final double upperShadowRatio;
+            public final double lowerShadowRatio;
 
             public HangingManIndicator(BarSeries series, double upperShadowRatio, double lowerShadowRatio) {
                 super(series);
@@ -1505,8 +1320,8 @@ public class StrategyFactory {
     /**
      * 创建VWAP策略
      */
-    private static Strategy createVWAPStrategy(BarSeries series) {
-        int period = (int) ( 14);
+    public static Strategy createVWAPStrategy(BarSeries series) {
+        int period = (int) (14);
 
         // 创建VWAP指标
         VWAPIndicator vwap = new VWAPIndicator(series, period);
@@ -1524,9 +1339,9 @@ public class StrategyFactory {
     /**
      * 创建肯特纳通道策略
      */
-    private static Strategy createKeltnerChannelStrategy(BarSeries series) {
-        int emaPeriod = (int) ( 20);
-        int atrPeriod = (int) ( 10);
+    public static Strategy createKeltnerChannelStrategy(BarSeries series) {
+        int emaPeriod = (int) (20);
+        int atrPeriod = (int) (10);
         double multiplier = 0.2;
 
         // 创建肯特纳通道指标
@@ -1551,8 +1366,8 @@ public class StrategyFactory {
     /**
      * 创建ATR策略
      */
-    private static Strategy createATRStrategy(BarSeries series) {
-        int period = (int) ( 14);
+    public static Strategy createATRStrategy(BarSeries series) {
+        int period = (int) (14);
         double multiplier = 2.0;
 
         // 创建ATR指标
@@ -1561,9 +1376,9 @@ public class StrategyFactory {
 
         // 创建自定义指标 - 上轨 (收盘价 + ATR * multiplier)
         class UpperBandIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final ClosePriceIndicator closePrice;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public UpperBandIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(series);
@@ -1580,9 +1395,9 @@ public class StrategyFactory {
 
         // 创建自定义指标 - 下轨 (收盘价 - ATR * multiplier)
         class LowerBandIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final ClosePriceIndicator closePrice;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public LowerBandIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(series);
@@ -1612,12 +1427,12 @@ public class StrategyFactory {
     /**
      * 创建KDJ策略
      */
-    private static Strategy createKDJStrategy(BarSeries series) {
-        int kPeriod = (int) ( 9);
-        int dPeriod = (int) ( 3);
-        int jPeriod = (int) ( 3);
-        int oversold = (int) ( 20);
-        int overbought = (int) ( 80);
+    public static Strategy createKDJStrategy(BarSeries series) {
+        int kPeriod = (int) (9);
+        int dPeriod = (int) (3);
+        int jPeriod = (int) (3);
+        int oversold = (int) (20);
+        int overbought = (int) (80);
 
         // 创建KDJ指标
         StochasticOscillatorKIndicator k = new StochasticOscillatorKIndicator(series, kPeriod);
@@ -1625,10 +1440,10 @@ public class StrategyFactory {
 
         // J = 3 * K - 2 * D
         class JIndicator extends CachedIndicator<Num> {
-            private final StochasticOscillatorKIndicator k;
-            private final StochasticOscillatorDIndicator d;
-            private final Num three;
-            private final Num two;
+            public final StochasticOscillatorKIndicator k;
+            public final StochasticOscillatorDIndicator d;
+            public final Num three;
+            public final Num two;
 
             public JIndicator(StochasticOscillatorKIndicator k, StochasticOscillatorDIndicator d, BarSeries series) {
                 super(series);
@@ -1662,9 +1477,9 @@ public class StrategyFactory {
     /**
      * 创建神奇震荡指标策略
      */
-    private static Strategy createAwesomeOscillatorStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 5);
-        int longPeriod = (int) ( 34);
+    public static Strategy createAwesomeOscillatorStrategy(BarSeries series) {
+        int shortPeriod = (int) (5);
+        int longPeriod = (int) (34);
 
         // 创建中间价指标 (high + low) / 2
         MedianPriceIndicator medianPrice = new MedianPriceIndicator(series);
@@ -1675,8 +1490,8 @@ public class StrategyFactory {
 
         // 创建神奇震荡指标 (短期SMA - 长期SMA)
         class AwesomeOscillatorIndicator extends CachedIndicator<Num> {
-            private final SMAIndicator shortSma;
-            private final SMAIndicator longSma;
+            public final SMAIndicator shortSma;
+            public final SMAIndicator longSma;
 
             public AwesomeOscillatorIndicator(SMAIndicator shortSma, SMAIndicator longSma, BarSeries series) {
                 super(series);
@@ -1707,18 +1522,18 @@ public class StrategyFactory {
     /**
      * 创建方向运动指标策略
      */
-    private static Strategy createDMIStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        int adxThreshold = (int) ( 20);
+    public static Strategy createDMIStrategy(BarSeries series) {
+        int period = (int) (14);
+        int adxThreshold = (int) (20);
 
         // 创建ADX指标
         ADXIndicator adx = new ADXIndicator(series, period);
 
         // 自定义实现+DI和-DI指标
         class DirectionalMovementPlusIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final ATRIndicator atr;
-            private final int period;
+            public final HighPriceIndicator highPrice;
+            public final ATRIndicator atr;
+            public final int period;
 
             public DirectionalMovementPlusIndicator(BarSeries series, int period) {
                 super(series);
@@ -1748,9 +1563,9 @@ public class StrategyFactory {
         }
 
         class DirectionalMovementMinusIndicator extends CachedIndicator<Num> {
-            private final LowPriceIndicator lowPrice;
-            private final ATRIndicator atr;
-            private final int period;
+            public final LowPriceIndicator lowPrice;
+            public final ATRIndicator atr;
+            public final int period;
 
             public DirectionalMovementMinusIndicator(BarSeries series, int period) {
                 super(series);
@@ -1800,8 +1615,8 @@ public class StrategyFactory {
     /**
      * 创建超级趋势指标策略
      */
-    private static Strategy createSupertrendStrategy(BarSeries series) {
-        int period = (int) ( 10);
+    public static Strategy createSupertrendStrategy(BarSeries series) {
+        int period = (int) (10);
         double multiplier = 3.0;
 
         // 创建ATR指标
@@ -1812,9 +1627,9 @@ public class StrategyFactory {
 
         // 创建上轨和下轨指标
         class UpperBandIndicator extends CachedIndicator<Num> {
-            private final MedianPriceIndicator medianPrice;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final MedianPriceIndicator medianPrice;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public UpperBandIndicator(MedianPriceIndicator medianPrice, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(series);
@@ -1830,9 +1645,9 @@ public class StrategyFactory {
         }
 
         class LowerBandIndicator extends CachedIndicator<Num> {
-            private final MedianPriceIndicator medianPrice;
-            private final ATRIndicator atr;
-            private final Num multiplier;
+            public final MedianPriceIndicator medianPrice;
+            public final ATRIndicator atr;
+            public final Num multiplier;
 
             public LowerBandIndicator(MedianPriceIndicator medianPrice, ATRIndicator atr, double multiplier, BarSeries series) {
                 super(series);
@@ -1864,11 +1679,11 @@ public class StrategyFactory {
     /**
      * 创建一目均衡表云突破策略
      */
-    private static Strategy createIchimokuCloudBreakoutStrategy(BarSeries series) {
-        int conversionPeriod = (int) ( 9);
-        int basePeriod = (int) ( 26);
-        int spanPeriod = (int) ( 52);
-        int displacement = (int) ( 26);
+    public static Strategy createIchimokuCloudBreakoutStrategy(BarSeries series) {
+        int conversionPeriod = (int) (9);
+        int basePeriod = (int) (26);
+        int spanPeriod = (int) (52);
+        int displacement = (int) (26);
 
         // 创建一目均衡表指标
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
@@ -1877,10 +1692,10 @@ public class StrategyFactory {
 
         // 转换线 (Conversion Line, Tenkan-sen) = (n日高点 + n日低点) / 2，一般n取9
         class ConversionLineIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final int period;
-            private final Num two;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final int period;
+            public final Num two;
 
             public ConversionLineIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, BarSeries series) {
                 super(series);
@@ -1910,10 +1725,10 @@ public class StrategyFactory {
 
         // 基准线 (Base Line, Kijun-sen) = (n日高点 + n日低点) / 2，一般n取26
         class BaseLineIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final int period;
-            private final Num two;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final int period;
+            public final Num two;
 
             public BaseLineIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, BarSeries series) {
                 super(series);
@@ -1946,10 +1761,10 @@ public class StrategyFactory {
 
         // 先行带1号 (Leading Span A, Senkou Span A) = (转换线 + 基准线) / 2，向前平移26日
         class LeadingSpanAIndicator extends CachedIndicator<Num> {
-            private final ConversionLineIndicator conversionLine;
-            private final BaseLineIndicator baseLine;
-            private final int displacement;
-            private final Num two;
+            public final ConversionLineIndicator conversionLine;
+            public final BaseLineIndicator baseLine;
+            public final int displacement;
+            public final Num two;
 
             public LeadingSpanAIndicator(ConversionLineIndicator conversionLine, BaseLineIndicator baseLine, int displacement, BarSeries series) {
                 super(series);
@@ -1971,11 +1786,11 @@ public class StrategyFactory {
 
         // 先行带2号 (Leading Span B, Senkou Span B) = (n日高点 + n日低点) / 2，一般n取52，向前平移26日
         class LeadingSpanBIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final int period;
-            private final int displacement;
-            private final Num two;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final int period;
+            public final int displacement;
+            public final Num two;
 
             public LeadingSpanBIndicator(HighPriceIndicator highPrice, LowPriceIndicator lowPrice, int period, int displacement, BarSeries series) {
                 super(series);
@@ -2020,9 +1835,9 @@ public class StrategyFactory {
      * 创建三角移动平均线策略
      * 三角移动平均线是一种平滑的移动平均线，它对价格变化的反应比简单移动平均线更平滑
      */
-    private static Strategy createTrimaStrategy(BarSeries series) {
-        int shortPeriod = (int) ( 9);
-        int longPeriod = (int) ( 21);
+    public static Strategy createTrimaStrategy(BarSeries series) {
+        int shortPeriod = (int) (9);
+        int longPeriod = (int) (21);
 
         if (series.getBarCount() <= longPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longPeriod + 1) + " 个数据点");
@@ -2045,9 +1860,9 @@ public class StrategyFactory {
      * 创建T3移动平均线策略
      * T3是一种三重指数平滑移动平均线，提供更平滑的价格曲线
      */
-    private static Strategy createT3Strategy(BarSeries series) {
-        int period = (int) ( 10);
-        double volumeFactor = (double) ( 0.7); // 体积因子，一般在0.5-0.9之间
+    public static Strategy createT3Strategy(BarSeries series) {
+        int period = (int) (10);
+        double volumeFactor = (double) (0.7); // 体积因子，一般在0.5-0.9之间
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -2070,9 +1885,9 @@ public class StrategyFactory {
      * 创建MESA自适应移动平均线策略
      * MAMA是一种自适应移动平均线，能够根据市场条件自动调整
      */
-    private static Strategy createMamaStrategy(BarSeries series) {
-        double fastLimit = (double) ( 0.5);
-        double slowLimit = (double) ( 0.05);
+    public static Strategy createMamaStrategy(BarSeries series) {
+        double fastLimit = (double) (0.5);
+        double slowLimit = (double) (0.05);
 
         if (series.getBarCount() <= 30) { // MAMA需要足够的数据点
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 31 个数据点");
@@ -2095,10 +1910,10 @@ public class StrategyFactory {
      * 创建可变指数动态平均线策略
      * VIDYA是一种基于波动率的移动平均线，在波动较大时反应更快
      */
-    private static Strategy createVidyaStrategy(BarSeries series) {
-        int shortCMAPeriod = (int) ( 9);
-        int longCMAPeriod = (int) ( 12);
-        double alpha = (double) ( 0.2);
+    public static Strategy createVidyaStrategy(BarSeries series) {
+        int shortCMAPeriod = (int) (9);
+        int longCMAPeriod = (int) (12);
+        double alpha = (double) (0.2);
 
         if (series.getBarCount() <= longCMAPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (longCMAPeriod + 1) + " 个数据点");
@@ -2121,8 +1936,8 @@ public class StrategyFactory {
      * 创建威尔德平滑移动平均线策略
      * 威尔德平滑是一种特殊的指数移动平均线，用于计算RSI等指标
      */
-    private static Strategy createWildersStrategy(BarSeries series) {
-        int period = (int) ( 14);
+    public static Strategy createWildersStrategy(BarSeries series) {
+        int period = (int) (14);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -2132,9 +1947,9 @@ public class StrategyFactory {
 
         // 创建威尔德平滑指标（威尔德平滑是一种特殊的EMA，alpha = 1/period）
         class WilderSmoothingIndicator extends CachedIndicator<Num> {
-            private final Indicator<Num> indicator;
-            private final int period;
-            private final Num alpha;
+            public final Indicator<Num> indicator;
+            public final int period;
+            public final Num alpha;
 
             public WilderSmoothingIndicator(Indicator<Num> indicator, int period, BarSeries series) {
                 super(indicator);
@@ -2148,14 +1963,14 @@ public class StrategyFactory {
                 if (index == 0) {
                     return indicator.getValue(0);
                 }
-                
+
                 Num prevWilder = getValue(index - 1);
                 Num currentValue = indicator.getValue(index);
-                
+
                 return prevWilder.multipliedBy(series.numOf(1).minus(alpha)).plus(currentValue.multipliedBy(alpha));
             }
         }
-        
+
         WilderSmoothingIndicator wilders = new WilderSmoothingIndicator(closePrice, period, series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
 
@@ -2170,8 +1985,8 @@ public class StrategyFactory {
      * 创建Fisher变换策略
      * Fisher变换是一种将价格转换为正态分布的指标，有助于识别超买超卖状态
      */
-    private static Strategy createFisherStrategy(BarSeries series) {
-        int period = (int) ( 10);
+    public static Strategy createFisherStrategy(BarSeries series) {
+        int period = (int) (10);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -2181,10 +1996,10 @@ public class StrategyFactory {
 
         // 创建自定义Fisher变换指标
         class FisherTransformIndicator extends CachedIndicator<Num> {
-            private final Indicator<Num> indicator;
-            private final int period;
-            private final Num one;
-            private final Num half;
+            public final Indicator<Num> indicator;
+            public final int period;
+            public final Num one;
+            public final Num half;
 
             public FisherTransformIndicator(Indicator<Num> indicator, int period, BarSeries series) {
                 super(indicator);
@@ -2245,8 +2060,8 @@ public class StrategyFactory {
      * 创建预测振荡器策略
      * 预测振荡器衡量当前价格与线性回归预测价格的偏差
      */
-    private static Strategy createFoscStrategy(BarSeries series) {
-        int period = (int) ( 14);
+    public static Strategy createFoscStrategy(BarSeries series) {
+        int period = (int) (14);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -2256,9 +2071,9 @@ public class StrategyFactory {
 
         // 创建自定义预测振荡器指标
         class ForecastOscillatorIndicator extends CachedIndicator<Num> {
-            private final Indicator<Num> indicator;
-            private final int period;
-            private final Num hundred;
+            public final Indicator<Num> indicator;
+            public final int period;
+            public final Num hundred;
 
             public ForecastOscillatorIndicator(Indicator<Num> indicator, int period, BarSeries series) {
                 super(indicator);
@@ -2319,9 +2134,9 @@ public class StrategyFactory {
      * 创建移动便利性指标策略
      * 移动便利性指标衡量价格变动的难易程度
      */
-    private static Strategy createEomStrategy(BarSeries series) {
-        int period = (int) ( 14);
-        double divisor = (double) ( 100000000);
+    public static Strategy createEomStrategy(BarSeries series) {
+        int period = (int) (14);
+        double divisor = (double) (100000000);
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -2332,11 +2147,11 @@ public class StrategyFactory {
 
         // 创建自定义移动便利性指标
         class EaseOfMovementIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final VolumeIndicator volume;
-            private final int period;
-            private final Num divisor;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final VolumeIndicator volume;
+            public final int period;
+            public final Num divisor;
 
             public EaseOfMovementIndicator(BarSeries series, int period, double divisor) {
                 super(series);
@@ -2405,7 +2220,7 @@ public class StrategyFactory {
      * 创建震荡指数策略
      * 震荡指数衡量市场的震荡程度
      */
-    private static Strategy createChopStrategy(BarSeries series) {
+    public static Strategy createChopStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -2418,11 +2233,11 @@ public class StrategyFactory {
 
         // 创建自定义震荡指数指标
         class ChoppinessIndexIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final ATRIndicator atr;
-            private final int period;
-            private final Num hundred;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final ATRIndicator atr;
+            public final int period;
+            public final Num hundred;
 
             public ChoppinessIndexIndicator(BarSeries series, int period) {
                 super(series);
@@ -2479,7 +2294,7 @@ public class StrategyFactory {
      * 创建克林格交易量振荡器策略
      * 结合价格和成交量的高级震荡器
      */
-    private static Strategy createKvoStrategy(BarSeries series) {
+    public static Strategy createKvoStrategy(BarSeries series) {
         int shortPeriod = 34;
         int longPeriod = 55;
         int signalPeriod = 13;
@@ -2504,7 +2319,7 @@ public class StrategyFactory {
      * 创建相对活力指数策略
      * 衡量收盘价相对于开盘价的位置
      */
-    private static Strategy createRvgiStrategy(BarSeries series) {
+    public static Strategy createRvgiStrategy(BarSeries series) {
         int period = 10;
         int signalPeriod = 4;
 
@@ -2519,11 +2334,11 @@ public class StrategyFactory {
 
         // 创建RVGI指标
         class RvgiIndicator extends CachedIndicator<Num> {
-            private final OpenPriceIndicator openPrice;
-            private final ClosePriceIndicator closePrice;
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final int period;
+            public final OpenPriceIndicator openPrice;
+            public final ClosePriceIndicator closePrice;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final int period;
 
             public RvgiIndicator(BarSeries series, int period) {
                 super(series);
@@ -2572,7 +2387,7 @@ public class StrategyFactory {
      * 创建沙夫趋势周期策略
      * 结合MACD和随机指标的优势
      */
-    private static Strategy createStcStrategy(BarSeries series) {
+    public static Strategy createStcStrategy(BarSeries series) {
         int fastPeriod = 23;
         int slowPeriod = 50;
         int signalPeriod = 10;
@@ -2588,8 +2403,8 @@ public class StrategyFactory {
         EMAIndicator slowEma = new EMAIndicator(closePrice, slowPeriod);
 
         class MacdIndicator extends CachedIndicator<Num> {
-            private final EMAIndicator fastEma;
-            private final EMAIndicator slowEma;
+            public final EMAIndicator fastEma;
+            public final EMAIndicator slowEma;
 
             public MacdIndicator(EMAIndicator fastEma, EMAIndicator slowEma, BarSeries series) {
                 super(series);
@@ -2616,7 +2431,7 @@ public class StrategyFactory {
      * 创建涡流指标策略
      * 衡量价格的旋转性运动
      */
-    private static Strategy createVortexStrategy(BarSeries series) {
+    public static Strategy createVortexStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -2629,10 +2444,10 @@ public class StrategyFactory {
 
         // 创建VI+指标
         class VortexPositiveIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final ClosePriceIndicator closePrice;
-            private final int period;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final ClosePriceIndicator closePrice;
+            public final int period;
 
             public VortexPositiveIndicator(BarSeries series, int period) {
                 super(series);
@@ -2676,10 +2491,10 @@ public class StrategyFactory {
 
         // 创建VI-指标
         class VortexNegativeIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final ClosePriceIndicator closePrice;
-            private final int period;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final ClosePriceIndicator closePrice;
+            public final int period;
 
             public VortexNegativeIndicator(BarSeries series, int period) {
                 super(series);
@@ -2734,7 +2549,7 @@ public class StrategyFactory {
      * 创建Q棒指标策略
      * 衡量买卖压力的差异
      */
-    private static Strategy createQstickStrategy(BarSeries series) {
+    public static Strategy createQstickStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -2746,9 +2561,9 @@ public class StrategyFactory {
 
         // 创建QStick指标
         class QStickIndicator extends CachedIndicator<Num> {
-            private final OpenPriceIndicator openPrice;
-            private final ClosePriceIndicator closePrice;
-            private final int period;
+            public final OpenPriceIndicator openPrice;
+            public final ClosePriceIndicator closePrice;
+            public final int period;
 
             public QStickIndicator(BarSeries series, int period) {
                 super(series);
@@ -2784,7 +2599,7 @@ public class StrategyFactory {
      * 创建威廉姆斯鳄鱼指标策略
      * 使用三条移动平均线识别趋势状态
      */
-    private static Strategy createWilliamsAlligatorStrategy(BarSeries series) {
+    public static Strategy createWilliamsAlligatorStrategy(BarSeries series) {
         int jawPeriod = 13;
         int teethPeriod = 8;
         int lipsPeriod = 5;
@@ -2804,13 +2619,13 @@ public class StrategyFactory {
 
         // 当三线呈多头排列时买入，空头排列时卖出
         Rule entryRule = new AndRule(
-            new OverIndicatorRule(lips, teeth),
-            new OverIndicatorRule(teeth, jaw)
+                new OverIndicatorRule(lips, teeth),
+                new OverIndicatorRule(teeth, jaw)
         );
 
         Rule exitRule = new AndRule(
-            new UnderIndicatorRule(lips, teeth),
-            new UnderIndicatorRule(teeth, jaw)
+                new UnderIndicatorRule(lips, teeth),
+                new UnderIndicatorRule(teeth, jaw)
         );
 
         return new BaseStrategy(entryRule, exitRule);
@@ -2820,7 +2635,7 @@ public class StrategyFactory {
      * 创建希尔伯特变换瞬时趋势线策略
      * 高级数学变换，提供平滑的趋势线
      */
-    private static Strategy createHtTrendlineStrategy(BarSeries series) {
+    public static Strategy createHtTrendlineStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -2842,7 +2657,7 @@ public class StrategyFactory {
      * 创建归一化平均真实范围策略
      * ATR的归一化版本，便于不同价格水平的比较
      */
-    private static Strategy createNatrStrategy(BarSeries series) {
+    public static Strategy createNatrStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -2854,9 +2669,9 @@ public class StrategyFactory {
 
         // 创建NATR指标
         class NatrIndicator extends CachedIndicator<Num> {
-            private final ATRIndicator atr;
-            private final ClosePriceIndicator closePrice;
-            private final Num hundred;
+            public final ATRIndicator atr;
+            public final ClosePriceIndicator closePrice;
+            public final Num hundred;
 
             public NatrIndicator(ATRIndicator atr, ClosePriceIndicator closePrice, BarSeries series) {
                 super(series);
@@ -2888,7 +2703,7 @@ public class StrategyFactory {
      * 创建质量指数策略
      * 通过价格区间识别反转信号
      */
-    private static Strategy createMassStrategy(BarSeries series) {
+    public static Strategy createMassStrategy(BarSeries series) {
         int emaPeriod = 9;
         int sumPeriod = 25;
         double threshold = 27;
@@ -2902,10 +2717,10 @@ public class StrategyFactory {
 
         // 创建质量指数指标
         class MassIndexIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final int emaPeriod;
-            private final int sumPeriod;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final int emaPeriod;
+            public final int sumPeriod;
 
             public MassIndexIndicator(BarSeries series, int emaPeriod, int sumPeriod) {
                 super(series);
@@ -2948,7 +2763,7 @@ public class StrategyFactory {
      * 创建标准差策略
      * 统计学指标，衡量价格偏离程度
      */
-    private static Strategy createStddevStrategy(BarSeries series) {
+    public static Strategy createStddevStrategy(BarSeries series) {
         int period = 20;
         double stdDevMultiplier = 2;
 
@@ -2962,9 +2777,9 @@ public class StrategyFactory {
 
         // 创建上下轨
         class UpperBandIndicator extends CachedIndicator<Num> {
-            private final SMAIndicator sma;
-            private final StandardDeviationIndicator stdDev;
-            private final Num multiplier;
+            public final SMAIndicator sma;
+            public final StandardDeviationIndicator stdDev;
+            public final Num multiplier;
 
             public UpperBandIndicator(SMAIndicator sma, StandardDeviationIndicator stdDev, double multiplier, BarSeries series) {
                 super(series);
@@ -2980,9 +2795,9 @@ public class StrategyFactory {
         }
 
         class LowerBandIndicator extends CachedIndicator<Num> {
-            private final SMAIndicator sma;
-            private final StandardDeviationIndicator stdDev;
-            private final Num multiplier;
+            public final SMAIndicator sma;
+            public final StandardDeviationIndicator stdDev;
+            public final Num multiplier;
 
             public LowerBandIndicator(SMAIndicator sma, StandardDeviationIndicator stdDev, double multiplier, BarSeries series) {
                 super(series);
@@ -3010,7 +2825,7 @@ public class StrategyFactory {
      * 创建挤压动量指标策略
      * 识别低波动后的突破机会
      */
-    private static Strategy createSqueezeStrategy(BarSeries series) {
+    public static Strategy createSqueezeStrategy(BarSeries series) {
         int bbPeriod = 20;
         int kcPeriod = 20;
         double bbMultiplier = 2;
@@ -3033,8 +2848,8 @@ public class StrategyFactory {
 
         // 挤压条件：布林带在肯特纳通道内
         Rule squeezeRule = new AndRule(
-            new UnderIndicatorRule(bbUpper, kcUpper),
-            new OverIndicatorRule(bbLower, kcLower)
+                new UnderIndicatorRule(bbUpper, kcUpper),
+                new OverIndicatorRule(bbLower, kcLower)
         );
 
         Rule entryRule = new NotRule(squeezeRule); // 挤压结束时入场
@@ -3047,7 +2862,7 @@ public class StrategyFactory {
      * 创建布林带宽度策略
      * 衡量布林带宽度变化，预测波动性变化
      */
-    private static Strategy createBbwStrategy(BarSeries series) {
+    public static Strategy createBbwStrategy(BarSeries series) {
         int period = 20;
         double stdDevMultiplier = 2;
 
@@ -3064,9 +2879,9 @@ public class StrategyFactory {
 
         // 创建布林带宽度指标
         class BollingerBandWidthIndicator extends CachedIndicator<Num> {
-            private final BollingerBandsUpperIndicator upper;
-            private final BollingerBandsLowerIndicator lower;
-            private final BollingerBandsMiddleIndicator middle;
+            public final BollingerBandsUpperIndicator upper;
+            public final BollingerBandsLowerIndicator lower;
+            public final BollingerBandsMiddleIndicator middle;
 
             public BollingerBandWidthIndicator(BollingerBandsUpperIndicator upper, BollingerBandsLowerIndicator lower, BollingerBandsMiddleIndicator middle, BarSeries series) {
                 super(series);
@@ -3098,7 +2913,7 @@ public class StrategyFactory {
      * 创建年化历史波动率策略
      * 年化波动率计算，用于风险评估
      */
-    private static Strategy createVolatilityStrategy(BarSeries series) {
+    public static Strategy createVolatilityStrategy(BarSeries series) {
         int period = 20;
 
         if (series.getBarCount() <= period) {
@@ -3109,9 +2924,9 @@ public class StrategyFactory {
 
         // 创建年化波动率指标
         class VolatilityIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-            private final Num sqrt252;
+            public final ClosePriceIndicator closePrice;
+            public final int period;
+            public final Num sqrt252;
 
             public VolatilityIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
@@ -3161,7 +2976,7 @@ public class StrategyFactory {
      * 创建唐奇安通道策略
      * 基于最高最低价的通道，经典突破系统
      */
-    private static Strategy createDonchianChannelsStrategy(BarSeries series) {
+    public static Strategy createDonchianChannelsStrategy(BarSeries series) {
         int period = 20;
 
         if (series.getBarCount() <= period) {
@@ -3174,8 +2989,8 @@ public class StrategyFactory {
 
         // 创建唐奇安上轨
         class DonchianUpperIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final int period;
+            public final HighPriceIndicator highPrice;
+            public final int period;
 
             public DonchianUpperIndicator(HighPriceIndicator highPrice, int period, BarSeries series) {
                 super(series);
@@ -3199,8 +3014,8 @@ public class StrategyFactory {
 
         // 创建唐奇安下轨
         class DonchianLowerIndicator extends CachedIndicator<Num> {
-            private final LowPriceIndicator lowPrice;
-            private final int period;
+            public final LowPriceIndicator lowPrice;
+            public final int period;
 
             public DonchianLowerIndicator(LowPriceIndicator lowPrice, int period, BarSeries series) {
                 super(series);
@@ -3235,7 +3050,7 @@ public class StrategyFactory {
      * 创建累积/派发线策略
      * 累积分配线，跟踪资金流向，确认趋势
      */
-    private static Strategy createAdStrategy(BarSeries series) {
+    public static Strategy createAdStrategy(BarSeries series) {
         int shortPeriod = 3;
         int longPeriod = 10;
 
@@ -3250,10 +3065,10 @@ public class StrategyFactory {
 
         // 创建累积分配线指标
         class AccumulationDistributionIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final ClosePriceIndicator closePrice;
-            private final VolumeIndicator volume;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final ClosePriceIndicator closePrice;
+            public final VolumeIndicator volume;
 
             public AccumulationDistributionIndicator(BarSeries series) {
                 super(series);
@@ -3305,7 +3120,7 @@ public class StrategyFactory {
      * 创建累积/派发振荡器策略
      * AD线的震荡器版本，提供买卖信号
      */
-    private static Strategy createAdoscStrategy(BarSeries series) {
+    public static Strategy createAdoscStrategy(BarSeries series) {
         int fastPeriod = 3;
         int slowPeriod = 10;
 
@@ -3323,8 +3138,8 @@ public class StrategyFactory {
         EMAIndicator slowEma = new EMAIndicator(vwap, slowPeriod);
 
         class AdoscIndicator extends CachedIndicator<Num> {
-            private final EMAIndicator fastEma;
-            private final EMAIndicator slowEma;
+            public final EMAIndicator fastEma;
+            public final EMAIndicator slowEma;
 
             public AdoscIndicator(EMAIndicator fastEma, EMAIndicator slowEma, BarSeries series) {
                 super(series);
@@ -3350,7 +3165,7 @@ public class StrategyFactory {
      * 创建负成交量指数策略
      * 关注成交量下降时的价格行为，适合机构行为分析
      */
-    private static Strategy createNviStrategy(BarSeries series) {
+    public static Strategy createNviStrategy(BarSeries series) {
         int shortPeriod = 1;
         int longPeriod = 255;
 
@@ -3363,8 +3178,8 @@ public class StrategyFactory {
 
         // 创建负成交量指数
         class NegativeVolumeIndexIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final VolumeIndicator volume;
+            public final ClosePriceIndicator closePrice;
+            public final VolumeIndicator volume;
 
             public NegativeVolumeIndexIndicator(BarSeries series) {
                 super(series);
@@ -3407,7 +3222,7 @@ public class StrategyFactory {
      * 创建正成交量指数策略
      * 关注成交量上升时的价格行为，适合散户行为分析
      */
-    private static Strategy createPviStrategy(BarSeries series) {
+    public static Strategy createPviStrategy(BarSeries series) {
         int shortPeriod = 1;
         int longPeriod = 255;
 
@@ -3420,8 +3235,8 @@ public class StrategyFactory {
 
         // 创建正成交量指数
         class PositiveVolumeIndexIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final VolumeIndicator volume;
+            public final ClosePriceIndicator closePrice;
+            public final VolumeIndicator volume;
 
             public PositiveVolumeIndexIndicator(BarSeries series) {
                 super(series);
@@ -3464,7 +3279,7 @@ public class StrategyFactory {
      * 创建成交量加权移动平均线策略
      * 成交量加权均线，反映真实的平均成本
      */
-    private static Strategy createVwmaStrategy(BarSeries series) {
+    public static Strategy createVwmaStrategy(BarSeries series) {
         int period = 20;
 
         if (series.getBarCount() <= period) {
@@ -3476,9 +3291,9 @@ public class StrategyFactory {
 
         // 创建VWMA指标
         class VwmaIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final VolumeIndicator volume;
-            private final int period;
+            public final ClosePriceIndicator closePrice;
+            public final VolumeIndicator volume;
+            public final int period;
 
             public VwmaIndicator(BarSeries series, int period) {
                 super(series);
@@ -3523,7 +3338,7 @@ public class StrategyFactory {
      * 创建成交量振荡器策略
      * 成交量震荡器，识别成交量变化趋势
      */
-    private static Strategy createVoscStrategy(BarSeries series) {
+    public static Strategy createVoscStrategy(BarSeries series) {
         int shortPeriod = 5;
         int longPeriod = 10;
 
@@ -3538,9 +3353,9 @@ public class StrategyFactory {
         SMAIndicator longVolumeAvg = new SMAIndicator(volume, longPeriod);
 
         class VolumeOscillatorIndicator extends CachedIndicator<Num> {
-            private final SMAIndicator shortAvg;
-            private final SMAIndicator longAvg;
-            private final Num hundred;
+            public final SMAIndicator shortAvg;
+            public final SMAIndicator longAvg;
+            public final Num hundred;
 
             public VolumeOscillatorIndicator(SMAIndicator shortAvg, SMAIndicator longAvg, BarSeries series) {
                 super(series);
@@ -3572,7 +3387,7 @@ public class StrategyFactory {
      * 创建市场便利指数策略
      * 市场便利指数，衡量价格移动的容易程度
      */
-    private static Strategy createMarketfiStrategy(BarSeries series) {
+    public static Strategy createMarketfiStrategy(BarSeries series) {
         int period = 14;
 
         if (series.getBarCount() <= period) {
@@ -3585,9 +3400,9 @@ public class StrategyFactory {
 
         // 创建市场便利指数
         class MarketFacilitationIndexIndicator extends CachedIndicator<Num> {
-            private final HighPriceIndicator highPrice;
-            private final LowPriceIndicator lowPrice;
-            private final VolumeIndicator volume;
+            public final HighPriceIndicator highPrice;
+            public final LowPriceIndicator lowPrice;
+            public final VolumeIndicator volume;
 
             public MarketFacilitationIndexIndicator(BarSeries series) {
                 super(series);
@@ -3623,7 +3438,7 @@ public class StrategyFactory {
      * 创建锤子线策略
      * 底部反转信号，下影线长表示支撑强劲
      */
-    private static Strategy createHammerStrategy(BarSeries series) {
+    public static Strategy createHammerStrategy(BarSeries series) {
         if (series.getBarCount() <= 1) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 2 个数据点");
         }
@@ -3641,14 +3456,14 @@ public class StrategyFactory {
     /**
      * 创建倒锤子线策略
      */
-    private static Strategy createInvertedHammerStrategy(BarSeries series) {
+    public static Strategy createInvertedHammerStrategy(BarSeries series) {
         return createHammerStrategy(series); // 简化实现
     }
 
     /**
      * 创建流星线策略
      */
-    private static Strategy createShootingStarStrategy(BarSeries series) {
+    public static Strategy createShootingStarStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
 
@@ -3661,35 +3476,35 @@ public class StrategyFactory {
     /**
      * 创建晨星策略
      */
-    private static Strategy createMorningStarStrategy(BarSeries series) {
+    public static Strategy createMorningStarStrategy(BarSeries series) {
         return createHammerStrategy(series); // 简化实现
     }
 
     /**
      * 创建暮星策略
      */
-    private static Strategy createEveningStarStrategy(BarSeries series) {
+    public static Strategy createEveningStarStrategy(BarSeries series) {
         return createShootingStarStrategy(series); // 简化实现
     }
 
     /**
      * 创建刺透形态策略
      */
-    private static Strategy createPiercingStrategy(BarSeries series) {
+    public static Strategy createPiercingStrategy(BarSeries series) {
         return createHammerStrategy(series); // 简化实现
     }
 
     /**
      * 创建乌云盖顶策略
      */
-    private static Strategy createDarkCloudCoverStrategy(BarSeries series) {
+    public static Strategy createDarkCloudCoverStrategy(BarSeries series) {
         return createShootingStarStrategy(series); // 简化实现
     }
 
     /**
      * 创建光头光脚阳线/阴线策略
      */
-    private static Strategy createMarubozuStrategy(BarSeries series) {
+    public static Strategy createMarubozuStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma10 = new SMAIndicator(closePrice, 10);
 
@@ -3700,7 +3515,7 @@ public class StrategyFactory {
     }
 
     // 统计函数策略（简化版本）
-    private static Strategy createBetaStrategy(BarSeries series) {
+    public static Strategy createBetaStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 5);
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
@@ -3708,7 +3523,7 @@ public class StrategyFactory {
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    private static Strategy createCorrelStrategy(BarSeries series) {
+    public static Strategy createCorrelStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 30);
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
@@ -3716,7 +3531,7 @@ public class StrategyFactory {
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    private static Strategy createLinearregStrategy(BarSeries series) {
+    public static Strategy createLinearregStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 14);
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
@@ -3724,23 +3539,23 @@ public class StrategyFactory {
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    private static Strategy createLinearregAngleStrategy(BarSeries series) {
+    public static Strategy createLinearregAngleStrategy(BarSeries series) {
         return createLinearregStrategy(series);
     }
 
-    private static Strategy createLinearregInterceptStrategy(BarSeries series) {
+    public static Strategy createLinearregInterceptStrategy(BarSeries series) {
         return createLinearregStrategy(series);
     }
 
-    private static Strategy createLinearregSlopeStrategy(BarSeries series) {
+    public static Strategy createLinearregSlopeStrategy(BarSeries series) {
         return createLinearregStrategy(series);
     }
 
-    private static Strategy createTsfStrategy(BarSeries series) {
+    public static Strategy createTsfStrategy(BarSeries series) {
         return createLinearregStrategy(series);
     }
 
-    private static Strategy createVarStrategy(BarSeries series) {
+    public static Strategy createVarStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, 5);
         SMAIndicator avgStdDev = new SMAIndicator(stdDev, 10);
@@ -3750,27 +3565,27 @@ public class StrategyFactory {
     }
 
     // 希尔伯特变换策略（简化版本）
-    private static Strategy createHtDcperiodStrategy(BarSeries series) {
+    public static Strategy createHtDcperiodStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 
-    private static Strategy createHtDcphaseStrategy(BarSeries series) {
+    public static Strategy createHtDcphaseStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 
-    private static Strategy createHtPhasorStrategy(BarSeries series) {
+    public static Strategy createHtPhasorStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 
-    private static Strategy createHtSineStrategy(BarSeries series) {
+    public static Strategy createHtSineStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 
-    private static Strategy createHtTrendmodeStrategy(BarSeries series) {
+    public static Strategy createHtTrendmodeStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 
-    private static Strategy createMswStrategy(BarSeries series) {
+    public static Strategy createMswStrategy(BarSeries series) {
         return createHtTrendlineStrategy(series);
     }
 }
