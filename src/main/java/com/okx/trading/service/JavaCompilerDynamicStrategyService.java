@@ -1,7 +1,7 @@
 package com.okx.trading.service;
 
 import com.okx.trading.model.entity.StrategyInfoEntity;
-import com.okx.trading.ta4j.strategy.StrategyFactory;
+import com.okx.trading.ta4j.strategy.StrategyFactory1;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,7 +11,6 @@ import org.ta4j.core.Strategy;
 import javax.tools.*;
 import java.io.*;
 import java.lang.reflect.Field;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -31,13 +30,13 @@ import java.util.function.Function;
 public class JavaCompilerDynamicStrategyService {
 
     private final StrategyInfoService strategyInfoService;
-    
+
     // 缓存已编译的策略函数
     private final Map<String, Function<BarSeries, Strategy>> compiledStrategies = new ConcurrentHashMap<>();
-    
+
     // 临时编译目录
     private final Path tempCompileDir = Paths.get(System.getProperty("java.io.tmpdir"), "okx-trading-compiled-strategies");
-    
+
     // Java编译器
     private final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
@@ -80,10 +79,10 @@ public class JavaCompilerDynamicStrategyService {
 
         // 从代码中提取类名
         String className = extractClassName(strategyCode);
-        
+
         // 准备完整的源代码
         String fullSourceCode = prepareFullSourceCode(strategyCode);
-        
+
         // 创建源文件
         Path sourceFile = tempCompileDir.resolve(className + ".java");
         Files.write(sourceFile, fullSourceCode.getBytes("UTF-8"));
@@ -97,7 +96,7 @@ public class JavaCompilerDynamicStrategyService {
 
         // 获取文件管理器
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-        
+
         // 获取编译单元
         Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjects(sourceFile.toFile());
 
@@ -108,13 +107,13 @@ public class JavaCompilerDynamicStrategyService {
 
         // 执行编译
         boolean success = task.call();
-        
+
         if (!success) {
             StringBuilder errorMessage = new StringBuilder("编译失败:\n");
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                errorMessage.append(String.format("Line %d, Column %d: %s\n", 
-                    diagnostic.getLineNumber(), 
-                    diagnostic.getColumnNumber(), 
+                errorMessage.append(String.format("Line %d, Column %d: %s\n",
+                    diagnostic.getLineNumber(),
+                    diagnostic.getColumnNumber(),
                     diagnostic.getMessage(null)));
             }
             throw new RuntimeException(errorMessage.toString());
@@ -140,7 +139,7 @@ public class JavaCompilerDynamicStrategyService {
      */
     private String prepareFullSourceCode(String strategyCode) {
         StringBuilder fullCode = new StringBuilder();
-        
+
         // 添加必要的import语句
         fullCode.append("import org.ta4j.core.*;\n");
         fullCode.append("import org.ta4j.core.indicators.*;\n");
@@ -153,10 +152,10 @@ public class JavaCompilerDynamicStrategyService {
         fullCode.append("import java.util.*;\n");
         fullCode.append("import java.math.*;\n");
         fullCode.append("\n");
-        
+
         // 添加策略代码
         fullCode.append(strategyCode);
-        
+
         return fullCode.toString();
     }
 
@@ -165,11 +164,11 @@ public class JavaCompilerDynamicStrategyService {
      */
     private String buildClasspath() {
         StringBuilder classpath = new StringBuilder();
-        
+
         // 获取当前类加载器的类路径
         String javaClassPath = System.getProperty("java.class.path");
         classpath.append(javaClassPath);
-        
+
         return classpath.toString();
     }
 
@@ -203,7 +202,7 @@ public class JavaCompilerDynamicStrategyService {
     private void loadStrategyToFactory(String strategyCode, Function<BarSeries, Strategy> strategyFunction) {
         try {
             // 通过反射获取StrategyFactory的strategyCreators字段
-            Field strategyCreatorsField = StrategyFactory.class.getDeclaredField("strategyCreators");
+            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
@@ -228,7 +227,7 @@ public class JavaCompilerDynamicStrategyService {
             // 获取所有有源代码的策略
             strategyInfoService.findAll().stream()
                     .filter(strategy ->
-                            strategy.getSourceCode() != null && 
+                            strategy.getSourceCode() != null &&
                             !strategy.getSourceCode().trim().isEmpty() &&
                             strategy.getSourceCode().contains("public class"))
                     .forEach(strategy -> {
@@ -268,7 +267,7 @@ public class JavaCompilerDynamicStrategyService {
             compiledStrategies.remove(strategyCode);
 
             // 从StrategyFactory中移除
-            Field strategyCreatorsField = StrategyFactory.class.getDeclaredField("strategyCreators");
+            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
@@ -318,4 +317,4 @@ public class JavaCompilerDynamicStrategyService {
             log.warn("清理临时编译目录失败", e);
         }
     }
-} 
+}

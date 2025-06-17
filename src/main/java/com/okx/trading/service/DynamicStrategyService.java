@@ -2,7 +2,7 @@ package com.okx.trading.service;
 
 
 import com.okx.trading.model.entity.StrategyInfoEntity;
-import com.okx.trading.ta4j.strategy.StrategyFactory;
+import com.okx.trading.ta4j.strategy.StrategyFactory1;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.janino.ClassBodyEvaluator;
@@ -312,7 +312,7 @@ public class DynamicStrategyService {
     private void loadStrategyToFactory(String strategyCode, Function<BarSeries, Strategy> strategyFunction) {
         try {
             // 通过反射获取StrategyFactory的strategyCreators字段
-            Field strategyCreatorsField = StrategyFactory.class.getDeclaredField("strategyCreators");
+            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
@@ -374,7 +374,7 @@ public class DynamicStrategyService {
             compiledStrategies.remove(strategyCode);
 
             // 从StrategyFactory中移除
-            Field strategyCreatorsField = StrategyFactory.class.getDeclaredField("strategyCreators");
+            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")

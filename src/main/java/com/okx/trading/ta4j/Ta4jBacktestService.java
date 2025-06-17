@@ -12,6 +12,7 @@ import java.util.logging.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
+import com.okx.trading.ta4j.strategy.StrategyRegisterCenter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,6 @@ import org.ta4j.core.*;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
-import com.okx.trading.ta4j.strategy.StrategyFactory;
 import org.ta4j.core.cost.ZeroCostModel;
 import ta4jexamples.logging.StrategyExecutionLogging;
 
@@ -55,7 +55,7 @@ public class Ta4jBacktestService {
         // loadLoggerConfiguration();
         try {
             // 使用策略工厂创建策略
-            Strategy strategy = StrategyFactory.createStrategy(series, strategyType);
+            Strategy strategy = StrategyRegisterCenter.createStrategy(series, strategyType);
 
             // 执行回测
             BarSeriesManager seriesManager = new BarSeriesManager(series, new ZeroCostModel(), new ZeroCostModel());

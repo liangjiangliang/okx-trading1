@@ -124,7 +124,7 @@ public class IndicatorInfo {
     public static final String STRATEGY_DEATH_CROSS = "DEATH_CROSS";
     public static final String STRATEGY_DUAL_MA_WITH_RSI = "DUAL_MA_WITH_RSI";
     public static final String STRATEGY_MACD_WITH_BOLLINGER = "MACD_WITH_BOLLINGER";
-    
+
     // 统计函数策略
     public static final String STRATEGY_BETA = "BETA"; // Beta系数
     public static final String STRATEGY_CORREL = "CORREL"; // 皮尔逊相关系数
@@ -250,7 +250,7 @@ public class IndicatorInfo {
     public static final String DEATH_CROSS_PARAMS_DESC = "短期均线周期,长期均线周期 (例如：50,200)";
     public static final String DUAL_MA_WITH_RSI_PARAMS_DESC = "短期均线周期,长期均线周期,RSI周期,RSI阈值 (例如：5,20,14,50)";
     public static final String MACD_WITH_BOLLINGER_PARAMS_DESC = "MACD短周期,MACD长周期,MACD信号周期,布林带周期,布林带标准差倍数 (例如：12,26,9,20,2.0)";
-    
+
     // 统计函数策略参数
     public static final String BETA_PARAMS_DESC = "周期 (例如：5)";
     public static final String CORREL_PARAMS_DESC = "周期 (例如：30)";
@@ -260,7 +260,7 @@ public class IndicatorInfo {
     public static final String LINEARREG_SLOPE_PARAMS_DESC = "周期 (例如：14)";
     public static final String TSF_PARAMS_DESC = "周期 (例如：14)";
     public static final String VAR_PARAMS_DESC = "周期 (例如：5)";
-    
+
     // 希尔伯特变换策略参数
     public static final String HT_DCPERIOD_PARAMS_DESC = "周期 (例如：14)";
     public static final String HT_DCPHASE_PARAMS_DESC = "周期 (例如：14)";
@@ -268,4 +268,107 @@ public class IndicatorInfo {
     public static final String HT_SINE_PARAMS_DESC = "周期 (例如：14)";
     public static final String HT_TRENDMODE_PARAMS_DESC = "周期 (例如：14)";
     public static final String MSW_PARAMS_DESC = "周期 (例如：14)";
+
+    // 高级策略常量 (50个新策略)
+    public static final String STRATEGY_ADAPTIVE_BOLLINGER = "ADAPTIVE_BOLLINGER";
+    public static final String STRATEGY_MULTI_TIMEFRAME_MACD = "MULTI_TIMEFRAME_MACD";
+    public static final String STRATEGY_VOLATILITY_BREAKOUT = "VOLATILITY_BREAKOUT";
+    public static final String STRATEGY_MOMENTUM_REVERSAL = "MOMENTUM_REVERSAL";
+    public static final String STRATEGY_PRICE_CHANNEL_BREAKOUT = "PRICE_CHANNEL_BREAKOUT";
+    public static final String STRATEGY_ADAPTIVE_RSI = "ADAPTIVE_RSI";
+    public static final String STRATEGY_TRIPLE_SCREEN = "TRIPLE_SCREEN";
+    public static final String STRATEGY_ELDER_RAY = "ELDER_RAY";
+    public static final String STRATEGY_FORCE_INDEX = "FORCE_INDEX";
+    public static final String STRATEGY_CHAIKIN_OSCILLATOR = "CHAIKIN_OSCILLATOR";
+    public static final String STRATEGY_MONEY_FLOW_INDEX = "MONEY_FLOW_INDEX";
+    public static final String STRATEGY_PRICE_VOLUME_TREND = "PRICE_VOLUME_TREND";
+    public static final String STRATEGY_EASE_OF_MOVEMENT = "EASE_OF_MOVEMENT";
+    public static final String STRATEGY_NEGATIVE_VOLUME_INDEX = "NEGATIVE_VOLUME_INDEX";
+    public static final String STRATEGY_POSITIVE_VOLUME_INDEX = "POSITIVE_VOLUME_INDEX";
+    public static final String STRATEGY_VOLUME_RATE_OF_CHANGE = "VOLUME_RATE_OF_CHANGE";
+    public static final String STRATEGY_ACCUMULATION_DISTRIBUTION = "ACCUMULATION_DISTRIBUTION";
+    public static final String STRATEGY_WILLIAMS_ACCUMULATION = "WILLIAMS_ACCUMULATION";
+    public static final String STRATEGY_KLINGER_OSCILLATOR = "KLINGER_OSCILLATOR";
+    public static final String STRATEGY_VOLUME_WEIGHTED_RSI = "VOLUME_WEIGHTED_RSI";
+    public static final String STRATEGY_ADAPTIVE_MOVING_AVERAGE = "ADAPTIVE_MOVING_AVERAGE";
+    public static final String STRATEGY_FRACTAL_ADAPTIVE_MA = "FRACTAL_ADAPTIVE_MA";
+    public static final String STRATEGY_ZERO_LAG_EMA = "ZERO_LAG_EMA";
+    public static final String STRATEGY_DOUBLE_EXPONENTIAL_MA = "DOUBLE_EXPONENTIAL_MA";
+    public static final String STRATEGY_TRIPLE_EXPONENTIAL_MA = "TRIPLE_EXPONENTIAL_MA";
+    public static final String STRATEGY_VARIABLE_MA = "VARIABLE_MA";
+    public static final String STRATEGY_ADAPTIVE_LAGUERRE = "ADAPTIVE_LAGUERRE";
+    public static final String STRATEGY_EHLERS_FILTER = "EHLERS_FILTER";
+    public static final String STRATEGY_GAUSSIAN_FILTER = "GAUSSIAN_FILTER";
+    public static final String STRATEGY_BUTTERWORTH_FILTER = "BUTTERWORTH_FILTER";
+    public static final String STRATEGY_CYBER_CYCLE = "CYBER_CYCLE";
+    public static final String STRATEGY_ROCKET_RSI = "ROCKET_RSI";
+    public static final String STRATEGY_CONNORS_RSI = "CONNORS_RSI";
+    public static final String STRATEGY_STOCHASTIC_MOMENTUM = "STOCHASTIC_MOMENTUM";
+    public static final String STRATEGY_TRUE_STRENGTH_INDEX = "TRUE_STRENGTH_INDEX";
+    public static final String STRATEGY_ULTIMATE_OSCILLATOR = "ULTIMATE_OSCILLATOR";
+    public static final String STRATEGY_BALANCE_OF_POWER = "BALANCE_OF_POWER";
+    public static final String STRATEGY_COMMODITY_SELECTION_INDEX = "COMMODITY_SELECTION_INDEX";
+    public static final String STRATEGY_DIRECTIONAL_MOVEMENT_INDEX = "DIRECTIONAL_MOVEMENT_INDEX";
+    public static final String STRATEGY_PLUS_DIRECTIONAL_INDICATOR = "PLUS_DIRECTIONAL_INDICATOR";
+    public static final String STRATEGY_MINUS_DIRECTIONAL_INDICATOR = "MINUS_DIRECTIONAL_INDICATOR";
+    public static final String STRATEGY_TREND_INTENSITY_INDEX = "TREND_INTENSITY_INDEX";
+    public static final String STRATEGY_MASS_INDEX_REVERSAL = "MASS_INDEX_REVERSAL";
+    public static final String STRATEGY_COPPOCK_CURVE = "COPPOCK_CURVE";
+    public static final String STRATEGY_KNOW_SURE_THING = "KNOW_SURE_THING";
+    public static final String STRATEGY_PRICE_OSCILLATOR = "PRICE_OSCILLATOR";
+    public static final String STRATEGY_DETRENDED_PRICE_OSCILLATOR = "DETRENDED_PRICE_OSCILLATOR";
+    public static final String STRATEGY_VERTICAL_HORIZONTAL_FILTER = "VERTICAL_HORIZONTAL_FILTER";
+    public static final String STRATEGY_RAINBOW_OSCILLATOR = "RAINBOW_OSCILLATOR";
+    public static final String STRATEGY_RELATIVE_MOMENTUM_INDEX = "RELATIVE_MOMENTUM_INDEX";
+    public static final String STRATEGY_INTRADAY_MOMENTUM_INDEX = "INTRADAY_MOMENTUM_INDEX";
+    public static final String STRATEGY_RANDOM_WALK_INDEX = "RANDOM_WALK_INDEX";
+
+    // Batch 2 策略常量 (策略 51-90)
+    // 动量反转策略 (51-60)
+    public static final String STRATEGY_RSI_REVERSAL = "RSI_REVERSAL";
+    public static final String STRATEGY_WILLIAMS_R_REVERSAL = "WILLIAMS_R_REVERSAL";
+    public static final String STRATEGY_MOMENTUM_OSCILLATOR = "MOMENTUM_OSCILLATOR";
+    public static final String STRATEGY_ROC_DIVERGENCE = "ROC_DIVERGENCE";
+    public static final String STRATEGY_TRIX_SIGNAL = "TRIX_SIGNAL";
+    public static final String STRATEGY_PARABOLIC_SAR_REVERSAL = "PARABOLIC_SAR_REVERSAL";
+    public static final String STRATEGY_ATR_BREAKOUT = "ATR_BREAKOUT";
+    public static final String STRATEGY_DONCHIAN_BREAKOUT = "DONCHIAN_BREAKOUT";
+    public static final String STRATEGY_KELTNER_BREAKOUT = "KELTNER_BREAKOUT";
+    public static final String STRATEGY_PRICE_CHANNEL = "PRICE_CHANNEL";
+
+    // 成交量价格关系策略 (61-70)
+    public static final String STRATEGY_VWMA_CROSSOVER = "VWMA_CROSSOVER";
+    public static final String STRATEGY_ACCUMULATION_DISTRIBUTION_DIVERGENCE = "ACCUMULATION_DISTRIBUTION_DIVERGENCE";
+    public static final String STRATEGY_OBV_DIVERGENCE = "OBV_DIVERGENCE";
+    public static final String STRATEGY_PRICE_VOLUME_CONFIRMATION = "PRICE_VOLUME_CONFIRMATION";
+    public static final String STRATEGY_VOLUME_OSCILLATOR_SIGNAL = "VOLUME_OSCILLATOR_SIGNAL";
+    public static final String STRATEGY_POSITIVE_VOLUME_INDEX_SIGNAL = "POSITIVE_VOLUME_INDEX_SIGNAL";
+    public static final String STRATEGY_NEGATIVE_VOLUME_INDEX_SIGNAL = "NEGATIVE_VOLUME_INDEX_SIGNAL";
+    public static final String STRATEGY_VOLUME_RSI = "VOLUME_RSI";
+    public static final String STRATEGY_VOLUME_WEIGHTED_RSI_SIGNAL = "VOLUME_WEIGHTED_RSI_SIGNAL";
+    public static final String STRATEGY_VOLUME_BREAKOUT_CONFIRMATION = "VOLUME_BREAKOUT_CONFIRMATION";
+
+    // 波动性统计分析策略 (71-80)
+    public static final String STRATEGY_HISTORICAL_VOLATILITY = "HISTORICAL_VOLATILITY";
+    public static final String STRATEGY_STANDARD_DEVIATION_CHANNEL = "STANDARD_DEVIATION_CHANNEL";
+    public static final String STRATEGY_COEFFICIENT_OF_VARIATION = "COEFFICIENT_OF_VARIATION";
+    public static final String STRATEGY_SKEWNESS_ANALYSIS = "SKEWNESS_ANALYSIS";
+    public static final String STRATEGY_KURTOSIS_ANALYSIS = "KURTOSIS_ANALYSIS";
+    public static final String STRATEGY_Z_SCORE_ANALYSIS = "Z_SCORE_ANALYSIS";
+    public static final String STRATEGY_PERCENTILE_ANALYSIS = "PERCENTILE_ANALYSIS";
+    public static final String STRATEGY_LINEAR_REGRESSION_ANALYSIS = "LINEAR_REGRESSION_ANALYSIS";
+    public static final String STRATEGY_LINEAR_REGRESSION_SLOPE_ANALYSIS = "LINEAR_REGRESSION_SLOPE_ANALYSIS";
+    public static final String STRATEGY_R_SQUARED_ANALYSIS = "R_SQUARED_ANALYSIS";
+
+    // 复合指标策略 (81-90)
+    public static final String STRATEGY_MULTIPLE_MA_CONFIRMATION = "MULTIPLE_MA_CONFIRMATION";
+    public static final String STRATEGY_RSI_MACD_CONFIRMATION = "RSI_MACD_CONFIRMATION";
+    public static final String STRATEGY_BOLLINGER_RSI_COMBO = "BOLLINGER_RSI_COMBO";
+    public static final String STRATEGY_TRIPLE_INDICATOR_CONFIRMATION = "TRIPLE_INDICATOR_CONFIRMATION";
+    public static final String STRATEGY_MOMENTUM_BREAKOUT_COMBO = "MOMENTUM_BREAKOUT_COMBO";
+    public static final String STRATEGY_VOLATILITY_BREAKOUT_COMBO = "VOLATILITY_BREAKOUT_COMBO";
+    public static final String STRATEGY_TREND_STRENGTH_ANALYSIS = "TREND_STRENGTH_ANALYSIS";
+    public static final String STRATEGY_SUPPORT_RESISTANCE_BREAKOUT = "SUPPORT_RESISTANCE_BREAKOUT";
+    public static final String STRATEGY_PRICE_PATTERN_RECOGNITION = "PRICE_PATTERN_RECOGNITION";
+    public static final String STRATEGY_COMPREHENSIVE_SCORING = "COMPREHENSIVE_SCORING";
 }

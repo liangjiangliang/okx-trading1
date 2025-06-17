@@ -30,33 +30,69 @@ public class SmartDynamicStrategyService {
     public Function<BarSeries, Strategy> compileAndLoadStrategy(
             String strategyCode, StrategyInfoEntity strategyEntity) {
         
+        // 第一步：直接尝试编译原始代码
+        if (looksLikeStandardCode(strategyCode)) {
+            log.info("代码看起来是标准格式，直接尝试编译: {}", strategyEntity.getStrategyName());
+        } else {
+            log.info("检测到可能的代码问题，尝试直接编译: {}", strategyEntity.getStrategyName());
+        }
+        
+        try {
+            // 先用Java Compiler API直接编译原始代码
+            Function<BarSeries, Strategy> directCompiled = javaCompilerService.compileAndLoadStrategy(strategyCode, strategyEntity);
+            if (directCompiled != null) {
+                log.info("✅ 原始代码直接编译成功: {}", strategyEntity.getStrategyName());
+                return directCompiled;
+            }
+        } catch (Exception directCompileError) {
+            log.info("❌ 原始代码直接编译失败: {}", directCompileError.getMessage());
+            
+            // 如果代码看起来不需要修复，记录警告
+            if (!mightNeedFix(strategyCode)) {
+                log.warn("代码看起来是标准格式但编译失败，可能存在未知问题");
+            }
+        }
+        
+        // 第二步：如果直接编译失败，进行错误修复后再编译
+        log.info("🔧 开始自动修复策略代码错误...");
         String originalCode = strategyCode;
         String fixedCode = autoFixCommonErrors(strategyCode);
         
-        // 如果代码被修复了，记录日志
-        if (!originalCode.equals(fixedCode)) {
-            log.info("自动修复了策略代码中的常见错误，策略: {}", strategyEntity.getStrategyCode());
-        }
-
-        // 首先尝试Java Compiler API
+        // 记录修复的错误类型
+        logFixedErrors(originalCode, fixedCode);
+        
+        // 第三步：尝试编译修复后的代码
         try {
-            return javaCompilerService.compileAndLoadStrategy(fixedCode, strategyEntity);
+            Function<BarSeries, Strategy> fixedCompiled = javaCompilerService.compileAndLoadStrategy(fixedCode, strategyEntity);
+            if (fixedCompiled != null) {
+                log.info("✅ 修复后代码编译成功: {}", strategyEntity.getStrategyName());
+                return fixedCompiled;
+            }
         } catch (Exception javaCompilerError) {
-            log.warn("Java Compiler API编译失败: {}, 尝试Janino编译器", javaCompilerError.getMessage());
+            log.warn("❌ Java Compiler API编译修复后代码失败: {}", javaCompilerError.getMessage());
             
-            // 对于Janino，可能需要进一步简化代码
+            // 第四步：如果Java Compiler还是失败，尝试Janino编译器
+            log.info("🔄 尝试使用Janino编译器...");
             String simplifiedCode = simplifyForJanino(fixedCode);
             
             try {
-                return janinoService.compileAndLoadStrategy(simplifiedCode, strategyEntity);
+                Function<BarSeries, Strategy> janinoCompiled = janinoService.compileAndLoadStrategy(simplifiedCode, strategyEntity);
+                if (janinoCompiled != null) {
+                    log.info("✅ Janino编译器编译成功: {}", strategyEntity.getStrategyName());
+                    return janinoCompiled;
+                }
             } catch (Exception janinoError) {
-                log.error("所有编译器都失败了，Java Compiler: {}, Janino: {}", 
+                log.error("❌ 所有编译器都失败了 - Java Compiler: {}, Janino: {}", 
                     javaCompilerError.getMessage(), janinoError.getMessage());
                 throw new RuntimeException(
                     "编译失败 - Java Compiler API: " + javaCompilerError.getMessage() + 
                     "; Janino: " + janinoError.getMessage());
             }
         }
+        
+        // 如果所有步骤都失败了
+        log.error("💥 策略编译完全失败: {}", strategyEntity.getStrategyName());
+        throw new RuntimeException("策略编译完全失败，所有编译器和修复方法都无效");
     }
 
     /**
@@ -65,34 +101,46 @@ public class SmartDynamicStrategyService {
     private String autoFixCommonErrors(String strategyCode) {
         String fixedCode = strategyCode;
 
-        // 1. 修复MACDIndicator构造函数问题
-        fixedCode = fixMACDIndicatorConstructor(fixedCode);
-        
-        // 2. 移除不支持的内部类
-        fixedCode = removeInnerClasses(fixedCode);
-        
-        // 3. 移除私有方法，内联到构造函数中
-        fixedCode = inlinePrivateMethods(fixedCode);
-        
-        // 4. 修复常见的import问题
-        fixedCode = fixImports(fixedCode);
-        
-        // 5. 确保类名正确继承
-        fixedCode = fixClassDeclaration(fixedCode);
-        
-        // 6. 修复super调用位置
-        fixedCode = fixSuperCallPosition(fixedCode);
-        
-        // 7. 修复常见的语法错误
-        fixedCode = fixCommonSyntaxErrors(fixedCode);
-        
-        // 8. 修复不存在的指标类
-        fixedCode = fixMissingIndicators(fixedCode);
-        
-        // 9. 修复常见的编译错误
-        fixedCode = fixCommonCompilationErrors(fixedCode);
+        try {
+            // 1. 修复MACDIndicator构造函数问题
+            fixedCode = fixMACDIndicatorConstructor(fixedCode);
+            
+            // 2. 移除不支持的内部类
+            fixedCode = removeInnerClasses(fixedCode);
+            
+            // 3. 移除私有方法，内联到构造函数中
+            fixedCode = inlinePrivateMethods(fixedCode);
+            
+            // 4. 修复常见的import问题
+            fixedCode = fixImports(fixedCode);
+            
+            // 5. 确保类名正确继承
+            fixedCode = fixClassDeclaration(fixedCode);
+            
+            // 6. 修复super调用位置
+            fixedCode = fixSuperCallPosition(fixedCode);
+            
+            // 7. 修复常见的语法错误
+            fixedCode = fixCommonSyntaxErrors(fixedCode);
+            
+            // 8. 修复不存在的指标类
+            fixedCode = fixMissingIndicators(fixedCode);
+            
+            // 9. 修复常见的编译错误
+            fixedCode = fixCommonCompilationErrors(fixedCode);
 
-        return fixedCode;
+            // 只有在代码确实被修复时才记录日志
+            if (!strategyCode.equals(fixedCode)) {
+                log.info("策略代码错误修复完成，共进行了 {} 个字符的修改", 
+                    Math.abs(fixedCode.length() - strategyCode.length()));
+            }
+            
+            return fixedCode;
+            
+        } catch (Exception e) {
+            log.error("自动修复策略代码时发生错误: {}", e.getMessage(), e);
+            return strategyCode; // 返回原始代码
+        }
     }
 
     /**
@@ -374,6 +422,26 @@ public class SmartDynamicStrategyService {
             code = fixCCIIndicators(code);
         }
         
+        // 修复RSI指标问题
+        if (code.contains("RSI")) {
+            code = fixRSIIndicators(code);
+        }
+        
+        // 修复Williams %R指标问题
+        if (code.contains("Williams") || code.contains("WilliamsR")) {
+            code = fixWilliamsRIndicators(code);
+        }
+        
+        // 修复KDJ指标问题
+        if (code.contains("KDJ")) {
+            code = fixKDJIndicators(code);
+        }
+        
+        // 修复ATR指标问题
+        if (code.contains("ATR")) {
+            code = fixATRIndicators(code);
+        }
+        
         return code;
     }
 
@@ -508,18 +576,27 @@ public class SmartDynamicStrategyService {
                                    "import org.ta4j.core.indicators.*;\n" +
                                    "import org.ta4j.core.indicators.helpers.*;\n" +
                                    "import org.ta4j.core.indicators.bollinger.*;\n" +
-                                   "import org.ta4j.core.rules.*;\n\n" +
+                                   "import org.ta4j.core.rules.*;\n" +
+                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
                                    "public class " + className + " extends BaseStrategy {\n\n" +
                                    "    public " + className + "(BarSeries series) {\n" +
-                                   "        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);\n" +
-                                   "        BollingerBandsMiddleIndicator middleBB = new BollingerBandsMiddleIndicator(closePrice);\n" +
-                                   "        StandardDeviationIndicator standardDeviation = new StandardDeviationIndicator(closePrice, 20);\n" +
-                                   "        BollingerBandsUpperIndicator upperBB = new BollingerBandsUpperIndicator(middleBB, standardDeviation, DecimalNum.valueOf(2.0));\n" +
-                                   "        BollingerBandsLowerIndicator lowerBB = new BollingerBandsLowerIndicator(middleBB, standardDeviation, DecimalNum.valueOf(2.0));\n" +
-                                   "        \n" +
                                    "        super(\n" +
-                                   "            new OverIndicatorRule(closePrice, upperBB),\n" +
-                                   "            new UnderIndicatorRule(closePrice, lowerBB)\n" +
+                                   "            new OverIndicatorRule(\n" +
+                                   "                new ClosePriceIndicator(series),\n" +
+                                   "                new BollingerBandsUpperIndicator(\n" +
+                                   "                    new BollingerBandsMiddleIndicator(new ClosePriceIndicator(series)),\n" +
+                                   "                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),\n" +
+                                   "                    DecimalNum.valueOf(2.0)\n" +
+                                   "                )\n" +
+                                   "            ),\n" +
+                                   "            new UnderIndicatorRule(\n" +
+                                   "                new ClosePriceIndicator(series),\n" +
+                                   "                new BollingerBandsLowerIndicator(\n" +
+                                   "                    new BollingerBandsMiddleIndicator(new ClosePriceIndicator(series)),\n" +
+                                   "                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),\n" +
+                                   "                    DecimalNum.valueOf(2.0)\n" +
+                                   "                )\n" +
+                                   "            )\n" +
                                    "        );\n" +
                                    "    }\n" +
                                    "}";
@@ -527,7 +604,16 @@ public class SmartDynamicStrategyService {
                 }
             }
             
-            // 如果不是布林带结构，保持原样
+            // 如果不是布林带结构，进行部分修复
+            code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,]+),\\s*(\\d+),\\s*([\\d.]+)\\)", 
+                "new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator($1), new StandardDeviationIndicator($1, $2), DecimalNum.valueOf($3))");
+            
+            code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,]+),\\s*(\\d+),\\s*([\\d.]+)\\)", 
+                "new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator($1), new StandardDeviationIndicator($1, $2), DecimalNum.valueOf($3))");
+            
+            // 修复double类型转int的问题
+            code = code.replaceAll("DecimalNum\\.valueOf\\((\\d+)\\.(\\d+)\\)", "DecimalNum.valueOf($1.$2)");
+            
             return code;
             
         } catch (Exception e) {
@@ -562,6 +648,162 @@ public class SmartDynamicStrategyService {
     }
 
     /**
+     * 修复RSI指标问题
+     */
+    private String fixRSIIndicators(String code) {
+        try {
+            // 检查是否包含RSI相关的复杂结构，如果是，则完全重写构造函数
+            if (code.contains("RSI") && (code.contains("new Num(") || code.contains("Overbought") || code.contains("Oversold"))) {
+                String className = extractClassName(code);
+                if (className != null) {
+                    String newCode = "import org.ta4j.core.*;\n" +
+                                   "import org.ta4j.core.indicators.*;\n" +
+                                   "import org.ta4j.core.indicators.helpers.*;\n" +
+                                   "import org.ta4j.core.rules.*;\n" +
+                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
+                                   "public class " + className + " extends BaseStrategy {\n\n" +
+                                   "    public " + className + "(BarSeries series) {\n" +
+                                   "        super(\n" +
+                                   "            new UnderIndicatorRule(\n" +
+                                   "                new RSIIndicator(new ClosePriceIndicator(series), 14),\n" +
+                                   "                DecimalNum.valueOf(30)\n" +
+                                   "            ),\n" +
+                                   "            new OverIndicatorRule(\n" +
+                                   "                new RSIIndicator(new ClosePriceIndicator(series), 14),\n" +
+                                   "                DecimalNum.valueOf(70)\n" +
+                                   "            )\n" +
+                                   "        );\n" +
+                                   "    }\n" +
+                                   "}";
+                    return newCode;
+                }
+            }
+            
+            // 如果不是RSI结构，进行部分修复
+            code = code.replaceAll("new Num\\((\\d+)\\)", "DecimalNum.valueOf($1)");
+            code = code.replaceAll("new Num\\(([\\d.]+)\\)", "DecimalNum.valueOf($1)");
+            
+            return code;
+            
+        } catch (Exception e) {
+            System.err.println("Error fixing RSI indicators: " + e.getMessage());
+        }
+        return code;
+    }
+
+    /**
+     * 修复Williams %R指标问题
+     */
+    private String fixWilliamsRIndicators(String code) {
+        try {
+            // Williams %R指标通常使用WilliamsRIndicator
+            code = code.replaceAll("WilliamsR", "WilliamsRIndicator");
+            code = code.replaceAll("Williams", "WilliamsRIndicator");
+            
+            // 修复构造函数参数
+            code = code.replaceAll("new WilliamsRIndicator\\(series, (\\d+)\\)", 
+                "new WilliamsRIndicator(series, $1)");
+            
+            return code;
+        } catch (Exception e) {
+            System.err.println("Error fixing Williams R indicators: " + e.getMessage());
+        }
+        return code;
+    }
+    
+    /**
+     * 修复KDJ指标问题
+     */
+    private String fixKDJIndicators(String code) {
+        try {
+            // KDJ指标在TA4J中通常使用StochasticOscillator
+            // 将KDJ替换为Stochastic实现
+            if (code.contains("KDJ")) {
+                String className = extractClassName(code);
+                if (className != null) {
+                    String newCode = "import org.ta4j.core.*;\n" +
+                                   "import org.ta4j.core.indicators.*;\n" +
+                                   "import org.ta4j.core.indicators.helpers.*;\n" +
+                                   "import org.ta4j.core.rules.*;\n" +
+                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
+                                   "public class " + className + " extends BaseStrategy {\n\n" +
+                                   "    public " + className + "(BarSeries series) {\n" +
+                                   "        super(\n" +
+                                   "            new UnderIndicatorRule(\n" +
+                                   "                new StochasticOscillatorKIndicator(series, 14),\n" +
+                                   "                DecimalNum.valueOf(20)\n" +
+                                   "            ),\n" +
+                                   "            new OverIndicatorRule(\n" +
+                                   "                new StochasticOscillatorKIndicator(series, 14),\n" +
+                                   "                DecimalNum.valueOf(80)\n" +
+                                   "            )\n" +
+                                   "        );\n" +
+                                   "    }\n" +
+                                   "}";
+                    return newCode;
+                }
+            }
+            
+            return code;
+        } catch (Exception e) {
+            System.err.println("Error fixing KDJ indicators: " + e.getMessage());
+        }
+        return code;
+    }
+    
+    /**
+     * 修复ATR指标问题
+     */
+    private String fixATRIndicators(String code) {
+        try {
+            // ATR指标通常使用ATRIndicator
+            code = code.replaceAll("ATR([^I])", "ATRIndicator$1");
+            
+            // 修复构造函数参数
+            code = code.replaceAll("new ATRIndicator\\(series, (\\d+)\\)", 
+                "new ATRIndicator(series, $1)");
+            
+            // 如果包含ATR策略，可能需要完全重写
+            if (code.contains("ATR") && (code.contains("突破") || code.contains("Breakout"))) {
+                String className = extractClassName(code);
+                if (className != null) {
+                    String newCode = "import org.ta4j.core.*;\n" +
+                                   "import org.ta4j.core.indicators.*;\n" +
+                                   "import org.ta4j.core.indicators.helpers.*;\n" +
+                                   "import org.ta4j.core.rules.*;\n" +
+                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
+                                   "public class " + className + " extends BaseStrategy {\n\n" +
+                                   "    public " + className + "(BarSeries series) {\n" +
+                                   "        super(\n" +
+                                   "            new OverIndicatorRule(\n" +
+                                   "                new ClosePriceIndicator(series),\n" +
+                                   "                new PlusIndicator(\n" +
+                                   "                    new SMAIndicator(new ClosePriceIndicator(series), 20),\n" +
+                                   "                    new MultiplierIndicator(new ATRIndicator(series, 14), DecimalNum.valueOf(2))\n" +
+                                   "                )\n" +
+                                   "            ),\n" +
+                                   "            new UnderIndicatorRule(\n" +
+                                   "                new ClosePriceIndicator(series),\n" +
+                                   "                new MinusIndicator(\n" +
+                                   "                    new SMAIndicator(new ClosePriceIndicator(series), 20),\n" +
+                                   "                    new MultiplierIndicator(new ATRIndicator(series, 14), DecimalNum.valueOf(2))\n" +
+                                   "                )\n" +
+                                   "            )\n" +
+                                   "        );\n" +
+                                   "    }\n" +
+                                   "}";
+                    return newCode;
+                }
+            }
+            
+            return code;
+        } catch (Exception e) {
+            System.err.println("Error fixing ATR indicators: " + e.getMessage());
+        }
+        return code;
+    }
+
+    /**
      * 修复常见的编译错误
      */
     private String fixCommonCompilationErrors(String code) {
@@ -575,23 +817,35 @@ public class SmartDynamicStrategyService {
             // 2. 修复Decimal.valueOf为DecimalNum.valueOf
             code = code.replaceAll("Decimal\\.valueOf", "DecimalNum.valueOf");
             
-            // 3. 修复int无法转换为Indicator的问题
+            // 3. 修复Num抽象类实例化错误 - new Num(数字) -> DecimalNum.valueOf(数字)
+            code = code.replaceAll("new Num\\((\\d+)\\)", "DecimalNum.valueOf($1)");
+            code = code.replaceAll("new Num\\(([\\d.]+)\\)", "DecimalNum.valueOf($1)");
+            
+            // 4. 修复int无法转换为Indicator的问题
             code = code.replaceAll("(\\w+Indicator\\([^,)]+), (\\d+)\\)", "$1, DecimalNum.valueOf($2))");
             
-            // 4. 修复构造函数参数数量不匹配问题
+            // 5. 修复构造函数参数数量不匹配问题
             code = code.replaceAll("new (\\w+Indicator)\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
                 "new $1($2, DecimalNum.valueOf($3), DecimalNum.valueOf($4))");
             
-            // 5. 修复super()调用没有参数的问题
+            // 6. 修复super()调用没有参数的问题
             if (code.contains("super()")) {
                 code = code.replaceAll("super\\(\\)", "super(null, null)");
             }
             
-            // 6. 修复类名中的空格问题
+            // 7. 修复类名中的空格问题
             code = code.replaceAll("public\\s+class\\s+([A-Z]\\w*)", "public class $1");
             
-            // 7. 修复方法调用中的语法错误
+            // 8. 修复方法调用中的语法错误
             code = code.replaceAll("\\.and\\(([^)]+)\\)\\s*,", ".and($1),");
+            
+            // 9. 修复ConstantIndicator的泛型问题
+            code = code.replaceAll("new ConstantIndicator<>\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
+            code = code.replaceAll("new ConstantIndicator<Num>\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
+            code = code.replaceAll("new ConstantIndicator\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
+            
+            // 10. 修复Rule构造中的数字参数
+            code = code.replaceAll("Rule\\(([^,]+), (\\d+)\\)", "Rule($1, DecimalNum.valueOf($2))");
             
         } catch (Exception e) {
             System.err.println("Error fixing common compilation errors: " + e.getMessage());
@@ -725,5 +979,102 @@ public class SmartDynamicStrategyService {
     public boolean isStrategyLoaded(String strategyCode) {
         return javaCompilerService.isStrategyLoaded(strategyCode) || 
                janinoService.isStrategyLoaded(strategyCode);
+    }
+
+    /**
+     * 统计和记录修复的错误类型
+     */
+    private void logFixedErrors(String originalCode, String fixedCode) {
+        if (originalCode.equals(fixedCode)) {
+            return; // 如果代码没有变化，不记录日志
+        }
+        
+        List<String> fixedErrors = new ArrayList<>();
+        
+        // 检查各种修复类型
+        if (originalCode.contains("new Num(") && !fixedCode.contains("new Num(")) {
+            fixedErrors.add("Num抽象类实例化错误");
+        }
+        
+        if (originalCode.contains("super()") && fixedCode.contains("super(") && 
+            !fixedCode.contains("super()")) {
+            fixedErrors.add("BaseStrategy构造函数调用错误");
+        }
+        
+        if (originalCode.contains("MACDIndicator") && originalCode.length() != fixedCode.length()) {
+            fixedErrors.add("MACD指标构造错误");
+        }
+        
+        if (originalCode.contains("BollingerBands") && originalCode.length() != fixedCode.length()) {
+            fixedErrors.add("布林带指标构造错误");
+        }
+        
+        if (originalCode.contains("RSI") && (originalCode.contains("new Num(") || 
+            originalCode.contains("Overbought") || originalCode.contains("Oversold"))) {
+            fixedErrors.add("RSI指标参数错误");
+        }
+        
+        if (originalCode.contains("public classGenerated") && !fixedCode.contains("public classGenerated")) {
+            fixedErrors.add("类名声明语法错误");
+        }
+        
+        if (originalCode.contains("Stochastic") && originalCode.length() != fixedCode.length()) {
+            fixedErrors.add("Stochastic指标构造错误");
+        }
+        
+        if (originalCode.contains("ConstantIndicator") && !fixedCode.contains("ConstantIndicator")) {
+            fixedErrors.add("ConstantIndicator泛型错误");
+        }
+        
+        if (originalCode.contains("import") && originalCode.split("import").length != fixedCode.split("import").length) {
+            fixedErrors.add("Import语句错误");
+        }
+        
+        // 检查括号修复
+        int originalParens = (int) originalCode.chars().filter(ch -> ch == '(' || ch == ')').count();
+        int fixedParens = (int) fixedCode.chars().filter(ch -> ch == '(' || ch == ')').count();
+        if (originalParens != fixedParens) {
+            fixedErrors.add("括号匹配错误");
+        }
+        
+        if (!fixedErrors.isEmpty()) {
+            log.info("智能编译器修复了以下错误: [{}]", String.join(", ", fixedErrors));
+        } else {
+            log.info("进行了代码优化和标准化处理");
+        }
+    }
+
+    /**
+     * 快速检查代码是否可能需要修复
+     * 用于优化性能，避免对明显正确的代码进行不必要的修复处理
+     */
+    private boolean mightNeedFix(String code) {
+        // 检查常见的错误模式
+        return code.contains("new Num(") ||
+               code.contains("super()") ||
+               code.contains("public classGenerated") ||
+               code.contains("import *") ||
+               code.contains("MACDIndicator") ||
+               code.contains("BollingerBands") ||
+               code.contains("ConstantIndicator") ||
+               code.contains("Ichimoku") ||
+               code.contains("ADX") ||
+               code.contains("KDJ") ||
+               code.contains("Williams") ||
+               code.contains("ATR") ||
+               !code.contains("extends BaseStrategy") ||
+               !code.contains("import org.ta4j.core");
+    }
+    
+    /**
+     * 检查代码是否看起来是标准的、可能直接编译成功的代码
+     */
+    private boolean looksLikeStandardCode(String code) {
+        return code.contains("extends BaseStrategy") &&
+               code.contains("import org.ta4j.core") &&
+               code.contains("super(") &&
+               !code.contains("new Num(") &&
+               !code.contains("public classGenerated") &&
+               !code.contains("super()");
     }
 } 
