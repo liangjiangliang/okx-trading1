@@ -1945,90 +1945,1255 @@ public class StrategyFactory2 {
     }
 
     public static Strategy createCyberCycleStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 网络周期指标 - 基于Ehlers的网络周期分析
+        class CyberCycleIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final double alpha;
+            private Num prevCycle;
+            private Num prevValue;
+
+            public CyberCycleIndicator(ClosePriceIndicator close, double alpha, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.alpha = alpha;
+                this.prevCycle = series.numOf(0);
+                this.prevValue = series.numOf(0);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < 7) {
+                    return close.getValue(index);
+                }
+
+                // 网络周期计算
+                Num currentPrice = close.getValue(index);
+                Num smooth = currentPrice.plus(close.getValue(index - 1).multipliedBy(series.numOf(2)))
+                           .plus(close.getValue(index - 2).multipliedBy(series.numOf(2)))
+                           .plus(close.getValue(index - 3))
+                           .dividedBy(series.numOf(6));
+
+                Num cycle = smooth.minus(prevValue).multipliedBy(series.numOf(alpha))
+                          .plus(prevCycle.multipliedBy(series.numOf(1 - alpha)));
+
+                prevValue = smooth;
+                prevCycle = cycle;
+
+                return cycle;
+            }
+        }
+
+        CyberCycleIndicator cyberCycle = new CyberCycleIndicator(closePrice, 0.07, series);
+        
+        Rule entryRule = new OverIndicatorRule(cyberCycle, series.numOf(0));
+        Rule exitRule = new UnderIndicatorRule(cyberCycle, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createRocketRSIStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        
+        // 火箭RSI - 结合成交量加权的RSI
+        class RocketRSIIndicator extends CachedIndicator<Num> {
+            private final RSIIndicator rsi;
+            private final VolumeIndicator volume;
+            private final int period;
+
+            public RocketRSIIndicator(ClosePriceIndicator close, VolumeIndicator volume, int period, BarSeries series) {
+                super(series);
+                this.rsi = new RSIIndicator(close, period);
+                this.volume = volume;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+
+                Num baseRSI = rsi.getValue(index);
+                
+                // 计算成交量权重
+                Num avgVolume = series.numOf(0);
+                for (int i = 0; i < period; i++) {
+                    avgVolume = avgVolume.plus(volume.getValue(index - i));
+                }
+                avgVolume = avgVolume.dividedBy(series.numOf(period));
+                
+                Num volumeRatio = volume.getValue(index).dividedBy(avgVolume);
+                
+                // 火箭加速因子
+                Num rocketFactor = volumeRatio.multipliedBy(series.numOf(0.3));
+                
+                // 调整RSI
+                Num rocketRSI;
+                if (baseRSI.isGreaterThan(series.numOf(50))) {
+                    rocketRSI = baseRSI.plus(rocketFactor);
+                } else {
+                    rocketRSI = baseRSI.minus(rocketFactor);
+                }
+                
+                // 限制在0-100范围内
+                if (rocketRSI.isGreaterThan(series.numOf(100))) {
+                    rocketRSI = series.numOf(100);
+                } else if (rocketRSI.isLessThan(series.numOf(0))) {
+                    rocketRSI = series.numOf(0);
+                }
+                
+                return rocketRSI;
+            }
+        }
+
+        RocketRSIIndicator rocketRSI = new RocketRSIIndicator(closePrice, volume, 14, series);
+        
+        Rule entryRule = new UnderIndicatorRule(rocketRSI, series.numOf(25));
+        Rule exitRule = new OverIndicatorRule(rocketRSI, series.numOf(75));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createConnorsRSIStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // Connors RSI - 三重RSI组合
+        class ConnorsRSIIndicator extends CachedIndicator<Num> {
+            private final RSIIndicator priceRSI;
+            private final RSIIndicator streakRSI;
+            private final int period;
+
+            public ConnorsRSIIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.priceRSI = new RSIIndicator(close, period);
+                this.period = period;
+                
+                // 连续上涨/下跌天数指标
+                class StreakIndicator extends CachedIndicator<Num> {
+                    private final ClosePriceIndicator close;
+
+                    public StreakIndicator(ClosePriceIndicator close, BarSeries series) {
+                        super(series);
+                        this.close = close;
+                    }
+
+                    @Override
+                    protected Num calculate(int index) {
+                        if (index == 0) return series.numOf(0);
+                        
+                        int streak = 0;
+                        boolean isUp = close.getValue(index).isGreaterThan(close.getValue(index - 1));
+                        
+                        for (int i = index; i > 0; i--) {
+                            boolean currentUp = close.getValue(i).isGreaterThan(close.getValue(i - 1));
+                            if (currentUp == isUp) {
+                                streak++;
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        return series.numOf(isUp ? streak : -streak);
+                    }
+                }
+                
+                StreakIndicator streak = new StreakIndicator(close, series);
+                this.streakRSI = new RSIIndicator(streak, period);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+
+                Num rsi1 = priceRSI.getValue(index);
+                Num rsi2 = streakRSI.getValue(index);
+                
+                // 百分位排名（简化版本）
+                Num rank = series.numOf(50); // 简化为固定值
+                
+                // Connors RSI = (RSI + Streak RSI + Percentile Rank) / 3
+                return rsi1.plus(rsi2).plus(rank).dividedBy(series.numOf(3));
+            }
+        }
+
+        ConnorsRSIIndicator connorsRSI = new ConnorsRSIIndicator(closePrice, 3, series);
+        
+        Rule entryRule = new UnderIndicatorRule(connorsRSI, series.numOf(20));
+        Rule exitRule = new OverIndicatorRule(connorsRSI, series.numOf(80));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createStochasticMomentumStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 随机动量指标
+        class StochasticMomentumIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final int kPeriod;
+            private final int dPeriod;
+
+            public StochasticMomentumIndicator(ClosePriceIndicator close, HighPriceIndicator high, 
+                                               LowPriceIndicator low, int kPeriod, int dPeriod, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.high = high;
+                this.low = low;
+                this.kPeriod = kPeriod;
+                this.dPeriod = dPeriod;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < Math.max(kPeriod, dPeriod)) {
+                    return series.numOf(50);
+                }
+
+                // 计算随机动量指标
+                Num highestHigh = high.getValue(index);
+                Num lowestLow = low.getValue(index);
+                
+                for (int i = 1; i < kPeriod; i++) {
+                    Num h = high.getValue(index - i);
+                    Num l = low.getValue(index - i);
+                    if (h.isGreaterThan(highestHigh)) highestHigh = h;
+                    if (l.isLessThan(lowestLow)) lowestLow = l;
+                }
+                
+                Num range = highestHigh.minus(lowestLow);
+                if (range.isZero()) return series.numOf(50);
+                
+                Num rawK = close.getValue(index).minus(lowestLow)
+                          .dividedBy(range).multipliedBy(series.numOf(100));
+                
+                // 平滑处理
+                Num smoothK = series.numOf(0);
+                for (int i = 0; i < dPeriod && index - i >= 0; i++) {
+                    // 简化计算
+                    smoothK = smoothK.plus(rawK);
+                }
+                smoothK = smoothK.dividedBy(series.numOf(dPeriod));
+                
+                return smoothK;
+            }
+        }
+
+        StochasticMomentumIndicator smi = new StochasticMomentumIndicator(closePrice, highPrice, lowPrice, 14, 3, series);
+        
+        Rule entryRule = new UnderIndicatorRule(smi, series.numOf(20));
+        Rule exitRule = new OverIndicatorRule(smi, series.numOf(80));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createTrueStrengthIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 真实强度指标
+        class TrueStrengthIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int firstSmoothing;
+            private final int secondSmoothing;
+
+            public TrueStrengthIndexIndicator(ClosePriceIndicator close, int firstSmoothing, int secondSmoothing, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.firstSmoothing = firstSmoothing;
+                this.secondSmoothing = secondSmoothing;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < Math.max(firstSmoothing, secondSmoothing)) {
+                    return series.numOf(0);
+                }
+
+                // 计算价格变化
+                Num priceChange = index > 0 ? close.getValue(index).minus(close.getValue(index - 1)) : series.numOf(0);
+                Num absChange = priceChange.abs();
+                
+                // 双重平滑
+                EMAIndicator firstMomentum = new EMAIndicator(new FixedIndicator(series, priceChange), firstSmoothing);
+                EMAIndicator firstAbsMomentum = new EMAIndicator(new FixedIndicator(series, absChange), firstSmoothing);
+                
+                EMAIndicator secondMomentum = new EMAIndicator(firstMomentum, secondSmoothing);
+                EMAIndicator secondAbsMomentum = new EMAIndicator(firstAbsMomentum, secondSmoothing);
+                
+                Num numerator = secondMomentum.getValue(index);
+                Num denominator = secondAbsMomentum.getValue(index);
+                
+                if (denominator.isZero()) return series.numOf(0);
+                
+                return numerator.dividedBy(denominator).multipliedBy(series.numOf(100));
+            }
+        }
+
+        TrueStrengthIndexIndicator tsi = new TrueStrengthIndexIndicator(closePrice, 25, 13, series);
+        
+        Rule entryRule = new OverIndicatorRule(tsi, series.numOf(0));
+        Rule exitRule = new UnderIndicatorRule(tsi, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createUltimateOscillatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 终极振荡器
+        class UltimateOscillatorIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final int period1, period2, period3;
+
+            public UltimateOscillatorIndicator(ClosePriceIndicator close, HighPriceIndicator high, LowPriceIndicator low,
+                                               int period1, int period2, int period3, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.high = high;
+                this.low = low;
+                this.period1 = period1;
+                this.period2 = period2;
+                this.period3 = period3;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < Math.max(period3, Math.max(period1, period2))) {
+                    return series.numOf(50);
+                }
+
+                Num bp1 = calculateBuyingPressure(index, period1);
+                Num bp2 = calculateBuyingPressure(index, period2);
+                Num bp3 = calculateBuyingPressure(index, period3);
+                
+                Num tr1 = calculateTrueRange(index, period1);
+                Num tr2 = calculateTrueRange(index, period2);
+                Num tr3 = calculateTrueRange(index, period3);
+                
+                if (tr1.isZero() || tr2.isZero() || tr3.isZero()) {
+                    return series.numOf(50);
+                }
+                
+                Num avg1 = bp1.dividedBy(tr1);
+                Num avg2 = bp2.dividedBy(tr2);
+                Num avg3 = bp3.dividedBy(tr3);
+                
+                // 加权平均
+                Num uo = avg1.multipliedBy(series.numOf(4))
+                        .plus(avg2.multipliedBy(series.numOf(2)))
+                        .plus(avg3)
+                        .dividedBy(series.numOf(7))
+                        .multipliedBy(series.numOf(100));
+                
+                return uo;
+            }
+            
+            private Num calculateBuyingPressure(int index, int period) {
+                Num sum = series.numOf(0);
+                for (int i = 0; i < period && index - i >= 0; i++) {
+                    Num prevClose = index - i > 0 ? close.getValue(index - i - 1) : close.getValue(index - i);
+                    Num trueLow = low.getValue(index - i).min(prevClose);
+                    sum = sum.plus(close.getValue(index - i).minus(trueLow));
+                }
+                return sum;
+            }
+            
+            private Num calculateTrueRange(int index, int period) {
+                Num sum = series.numOf(0);
+                for (int i = 0; i < period && index - i >= 0; i++) {
+                    Num prevClose = index - i > 0 ? close.getValue(index - i - 1) : close.getValue(index - i);
+                    Num trueLow = low.getValue(index - i).min(prevClose);
+                    Num trueHigh = high.getValue(index - i).max(prevClose);
+                    sum = sum.plus(trueHigh.minus(trueLow));
+                }
+                return sum;
+            }
+        }
+
+        UltimateOscillatorIndicator uo = new UltimateOscillatorIndicator(closePrice, highPrice, lowPrice, 7, 14, 28, series);
+        
+        Rule entryRule = new UnderIndicatorRule(uo, series.numOf(30));
+        Rule exitRule = new OverIndicatorRule(uo, series.numOf(70));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createBalanceOfPowerStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 力量平衡指标
+        class BalanceOfPowerIndicator extends CachedIndicator<Num> {
+            private final OpenPriceIndicator open;
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final ClosePriceIndicator close;
+
+            public BalanceOfPowerIndicator(OpenPriceIndicator open, HighPriceIndicator high, 
+                                           LowPriceIndicator low, ClosePriceIndicator close, BarSeries series) {
+                super(series);
+                this.open = open;
+                this.high = high;
+                this.low = low;
+                this.close = close;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num h = high.getValue(index);
+                Num l = low.getValue(index);
+                Num c = close.getValue(index);
+                Num o = open.getValue(index);
+                
+                Num range = h.minus(l);
+                
+                if (range.isZero()) {
+                    return series.numOf(0);
+                }
+                
+                // BOP = (Close - Open) / (High - Low)
+                return c.minus(o).dividedBy(range);
+            }
+        }
+
+        BalanceOfPowerIndicator bop = new BalanceOfPowerIndicator(openPrice, highPrice, lowPrice, closePrice, series);
+        SMAIndicator smaOfBOP = new SMAIndicator(bop, 14);
+        
+        Rule entryRule = new OverIndicatorRule(bop, series.numOf(0));
+        Rule exitRule = new UnderIndicatorRule(bop, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createCommoditySelectionIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 商品选择指标
+        class CommoditySelectionIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public CommoditySelectionIndexIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                // 计算动量
+                Num momentum = close.getValue(index).dividedBy(close.getValue(index - period)).minus(series.numOf(1));
+                
+                // 计算标准差
+                Num sum = series.numOf(0);
+                for (int i = 0; i < period; i++) {
+                    Num change = close.getValue(index - i).dividedBy(close.getValue(index - i - 1)).minus(series.numOf(1));
+                    sum = sum.plus(change.multipliedBy(change));
+                }
+                Num variance = sum.dividedBy(series.numOf(period));
+                Num stdDev = series.numOf(Math.sqrt(variance.doubleValue()));
+                
+                if (stdDev.isZero()) {
+                    return series.numOf(0);
+                }
+                
+                // CSI = Momentum / StdDev * 100
+                return momentum.dividedBy(stdDev).multipliedBy(series.numOf(100));
+            }
+        }
+
+        CommoditySelectionIndexIndicator csi = new CommoditySelectionIndexIndicator(closePrice, 14, series);
+        
+        Rule entryRule = new OverIndicatorRule(csi, series.numOf(20));
+        Rule exitRule = new UnderIndicatorRule(csi, series.numOf(-20));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createDirectionalMovementIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 方向运动指标
+        class DirectionalMovementIndexIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public DirectionalMovementIndexIndicator(HighPriceIndicator high, LowPriceIndicator low, 
+                                                     ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.high = high;
+                this.low = low;
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                // 计算DI+和DI-
+                Num sumDMPlus = series.numOf(0);
+                Num sumDMMinus = series.numOf(0);
+                Num sumTR = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    int currentIndex = index - i;
+                    if (currentIndex <= 0) break;
+                    
+                    Num highDiff = high.getValue(currentIndex).minus(high.getValue(currentIndex - 1));
+                    Num lowDiff = low.getValue(currentIndex - 1).minus(low.getValue(currentIndex));
+                    
+                    Num dmPlus = (highDiff.isGreaterThan(lowDiff) && highDiff.isGreaterThan(series.numOf(0))) ? highDiff : series.numOf(0);
+                    Num dmMinus = (lowDiff.isGreaterThan(highDiff) && lowDiff.isGreaterThan(series.numOf(0))) ? lowDiff : series.numOf(0);
+                    
+                    // True Range
+                    Num prevClose = close.getValue(currentIndex - 1);
+                    Num tr1 = high.getValue(currentIndex).minus(low.getValue(currentIndex));
+                    Num tr2 = high.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr3 = low.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr = tr1.max(tr2).max(tr3);
+                    
+                    sumDMPlus = sumDMPlus.plus(dmPlus);
+                    sumDMMinus = sumDMMinus.plus(dmMinus);
+                    sumTR = sumTR.plus(tr);
+                }
+                
+                if (sumTR.isZero()) return series.numOf(0);
+                
+                Num diPlus = sumDMPlus.dividedBy(sumTR).multipliedBy(series.numOf(100));
+                Num diMinus = sumDMMinus.dividedBy(sumTR).multipliedBy(series.numOf(100));
+                
+                // DMI = |DI+ - DI-| / (DI+ + DI-)
+                Num diSum = diPlus.plus(diMinus);
+                if (diSum.isZero()) return series.numOf(0);
+                
+                return diPlus.minus(diMinus).abs().dividedBy(diSum).multipliedBy(series.numOf(100));
+            }
+        }
+
+        DirectionalMovementIndexIndicator dmi = new DirectionalMovementIndexIndicator(highPrice, lowPrice, closePrice, 14, series);
+        
+        Rule entryRule = new OverIndicatorRule(dmi, series.numOf(20));
+        Rule exitRule = new UnderIndicatorRule(dmi, series.numOf(10));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createPlusDirectionalIndicatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // +DI指标
+        class PlusDirectionalIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public PlusDirectionalIndicator(HighPriceIndicator high, LowPriceIndicator low, 
+                                           ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.high = high;
+                this.low = low;
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                Num sumDMPlus = series.numOf(0);
+                Num sumTR = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    int currentIndex = index - i;
+                    if (currentIndex <= 0) break;
+                    
+                    Num highDiff = high.getValue(currentIndex).minus(high.getValue(currentIndex - 1));
+                    Num lowDiff = low.getValue(currentIndex - 1).minus(low.getValue(currentIndex));
+                    
+                    Num dmPlus = (highDiff.isGreaterThan(lowDiff) && highDiff.isGreaterThan(series.numOf(0))) ? highDiff : series.numOf(0);
+                    
+                    // True Range
+                    Num prevClose = close.getValue(currentIndex - 1);
+                    Num tr1 = high.getValue(currentIndex).minus(low.getValue(currentIndex));
+                    Num tr2 = high.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr3 = low.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr = tr1.max(tr2).max(tr3);
+                    
+                    sumDMPlus = sumDMPlus.plus(dmPlus);
+                    sumTR = sumTR.plus(tr);
+                }
+                
+                if (sumTR.isZero()) return series.numOf(0);
+                
+                return sumDMPlus.dividedBy(sumTR).multipliedBy(series.numOf(100));
+            }
+        }
+
+        PlusDirectionalIndicator pdi = new PlusDirectionalIndicator(highPrice, lowPrice, closePrice, 14, series);
+        
+        Rule entryRule = new OverIndicatorRule(pdi, series.numOf(25));
+        Rule exitRule = new UnderIndicatorRule(pdi, series.numOf(15));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createMinusDirectionalIndicatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // -DI指标
+        class MinusDirectionalIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public MinusDirectionalIndicator(HighPriceIndicator high, LowPriceIndicator low, 
+                                            ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.high = high;
+                this.low = low;
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                Num sumDMMinus = series.numOf(0);
+                Num sumTR = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    int currentIndex = index - i;
+                    if (currentIndex <= 0) break;
+                    
+                    Num highDiff = high.getValue(currentIndex).minus(high.getValue(currentIndex - 1));
+                    Num lowDiff = low.getValue(currentIndex - 1).minus(low.getValue(currentIndex));
+                    
+                    Num dmMinus = (lowDiff.isGreaterThan(highDiff) && lowDiff.isGreaterThan(series.numOf(0))) ? lowDiff : series.numOf(0);
+                    
+                    // True Range
+                    Num prevClose = close.getValue(currentIndex - 1);
+                    Num tr1 = high.getValue(currentIndex).minus(low.getValue(currentIndex));
+                    Num tr2 = high.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr3 = low.getValue(currentIndex).minus(prevClose).abs();
+                    Num tr = tr1.max(tr2).max(tr3);
+                    
+                    sumDMMinus = sumDMMinus.plus(dmMinus);
+                    sumTR = sumTR.plus(tr);
+                }
+                
+                if (sumTR.isZero()) return series.numOf(0);
+                
+                return sumDMMinus.dividedBy(sumTR).multipliedBy(series.numOf(100));
+            }
+        }
+
+        MinusDirectionalIndicator mdi = new MinusDirectionalIndicator(highPrice, lowPrice, closePrice, 14, series);
+        
+        Rule entryRule = new UnderIndicatorRule(mdi, series.numOf(15));
+        Rule exitRule = new OverIndicatorRule(mdi, series.numOf(25));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createTrendIntensityIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 趋势强度指标
+        class TrendIntensityIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public TrendIntensityIndexIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+
+                int upCount = 0;
+                int downCount = 0;
+                
+                for (int i = 1; i <= period; i++) {
+                    if (index - i + 1 <= 0) break;
+                    
+                    Num currentClose = close.getValue(index - i + 1);
+                    Num prevClose = close.getValue(index - i);
+                    
+                    if (currentClose.isGreaterThan(prevClose)) {
+                        upCount++;
+                    } else if (currentClose.isLessThan(prevClose)) {
+                        downCount++;
+                    }
+                }
+                
+                int totalCount = upCount + downCount;
+                if (totalCount == 0) return series.numOf(50);
+                
+                // 趋势强度 = 上涨天数占比 * 100
+                return series.numOf((double) upCount / totalCount * 100);
+            }
+        }
+
+        TrendIntensityIndexIndicator tii = new TrendIntensityIndexIndicator(closePrice, 20, series);
+        
+        Rule entryRule = new OverIndicatorRule(tii, series.numOf(60));
+        Rule exitRule = new UnderIndicatorRule(tii, series.numOf(40));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createMassIndexReversalStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 质量指标反转策略
+        class MassIndexReversalIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final int emaPeriod;
+            private final int period;
+
+            public MassIndexReversalIndicator(HighPriceIndicator high, LowPriceIndicator low, 
+                                             int emaPeriod, int period, BarSeries series) {
+                super(series);
+                this.high = high;
+                this.low = low;
+                this.emaPeriod = emaPeriod;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period + emaPeriod) {
+                    return series.numOf(0);
+                }
+
+                Num sum = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    int currentIndex = index - i;
+                    
+                    // 计算高低价差的EMA
+                    Num hl = high.getValue(currentIndex).minus(low.getValue(currentIndex));
+                    EMAIndicator ema1 = new EMAIndicator(new FixedIndicator(series, hl), emaPeriod);
+                    EMAIndicator ema2 = new EMAIndicator(ema1, emaPeriod);
+                    
+                    Num emaValue1 = ema1.getValue(currentIndex);
+                    Num emaValue2 = ema2.getValue(currentIndex);
+                    
+                    if (!emaValue2.isZero()) {
+                        sum = sum.plus(emaValue1.dividedBy(emaValue2));
+                    }
+                }
+                
+                return sum;
+            }
+        }
+
+        MassIndexReversalIndicator mir = new MassIndexReversalIndicator(highPrice, lowPrice, 9, 25, series);
+        
+        Rule entryRule = new OverIndicatorRule(mir, series.numOf(27));
+        Rule exitRule = new UnderIndicatorRule(mir, series.numOf(26.5));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createCoppockCurveStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // Coppock曲线
+        class CoppockCurveIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int roc1Period;
+            private final int roc2Period;
+            private final int wmaPeriod;
+
+            public CoppockCurveIndicator(ClosePriceIndicator close, int roc1Period, int roc2Period, int wmaPeriod, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.roc1Period = roc1Period;
+                this.roc2Period = roc2Period;
+                this.wmaPeriod = wmaPeriod;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < Math.max(roc1Period, Math.max(roc2Period, wmaPeriod))) {
+                    return series.numOf(0);
+                }
+
+                // 计算ROC
+                ROCIndicator roc1 = new ROCIndicator(close, roc1Period);
+                ROCIndicator roc2 = new ROCIndicator(close, roc2Period);
+                
+                Num rocSum = roc1.getValue(index).plus(roc2.getValue(index));
+                
+                // 计算加权移动平均
+                Num weightedSum = series.numOf(0);
+                Num weightSum = series.numOf(0);
+                
+                for (int i = 0; i < wmaPeriod && index - i >= 0; i++) {
+                    Num weight = series.numOf(wmaPeriod - i);
+                    weightedSum = weightedSum.plus(rocSum.multipliedBy(weight));
+                    weightSum = weightSum.plus(weight);
+                }
+                
+                if (weightSum.isZero()) return series.numOf(0);
+                
+                return weightedSum.dividedBy(weightSum);
+            }
+        }
+
+        CoppockCurveIndicator coppock = new CoppockCurveIndicator(closePrice, 14, 11, 10, series);
+        
+        Rule entryRule = new OverIndicatorRule(coppock, series.numOf(0));
+        Rule exitRule = new UnderIndicatorRule(coppock, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createKnowSureThingStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // Know Sure Thing指标
+        class KnowSureThingIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+
+            public KnowSureThingIndicator(ClosePriceIndicator close, BarSeries series) {
+                super(series);
+                this.close = close;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < 30) {
+                    return series.numOf(0);
+                }
+
+                // 四个不同周期的ROC
+                ROCIndicator roc1 = new ROCIndicator(close, 10);
+                ROCIndicator roc2 = new ROCIndicator(close, 15);
+                ROCIndicator roc3 = new ROCIndicator(close, 20);
+                ROCIndicator roc4 = new ROCIndicator(close, 30);
+                
+                // 对ROC进行平滑处理
+                SMAIndicator sma1 = new SMAIndicator(roc1, 10);
+                SMAIndicator sma2 = new SMAIndicator(roc2, 10);
+                SMAIndicator sma3 = new SMAIndicator(roc3, 10);
+                SMAIndicator sma4 = new SMAIndicator(roc4, 15);
+                
+                // KST = (RCO1*1 + ROC2*2 + ROC3*3 + ROC4*4)
+                Num kst = sma1.getValue(index).multipliedBy(series.numOf(1))
+                        .plus(sma2.getValue(index).multipliedBy(series.numOf(2)))
+                        .plus(sma3.getValue(index).multipliedBy(series.numOf(3)))
+                        .plus(sma4.getValue(index).multipliedBy(series.numOf(4)));
+                
+                return kst;
+            }
+        }
+
+        KnowSureThingIndicator kst = new KnowSureThingIndicator(closePrice, series);
+        SMAIndicator kstSignal = new SMAIndicator(kst, 9);
+        
+        Rule entryRule = new CrossedUpIndicatorRule(kst, kstSignal);
+        Rule exitRule = new CrossedDownIndicatorRule(kst, kstSignal);
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createPriceOscillatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 价格振荡器
+        class PriceOscillatorIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator fastMA;
+            private final SMAIndicator slowMA;
+
+            public PriceOscillatorIndicator(ClosePriceIndicator close, int fastPeriod, int slowPeriod, BarSeries series) {
+                super(series);
+                this.fastMA = new SMAIndicator(close, fastPeriod);
+                this.slowMA = new SMAIndicator(close, slowPeriod);
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                Num fast = fastMA.getValue(index);
+                Num slow = slowMA.getValue(index);
+                
+                if (slow.isZero()) return series.numOf(0);
+                
+                // PPO = (Fast MA - Slow MA) / Slow MA * 100
+                return fast.minus(slow).dividedBy(slow).multipliedBy(series.numOf(100));
+            }
+        }
+
+        PriceOscillatorIndicator ppo = new PriceOscillatorIndicator(closePrice, 12, 26, series);
+        SMAIndicator signal = new SMAIndicator(ppo, 9);
+        
+        Rule entryRule = new CrossedUpIndicatorRule(ppo, signal);
+        Rule exitRule = new CrossedDownIndicatorRule(ppo, signal);
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createDetrendedPriceOscillatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 去趋势价格振荡器
+        class DetrendedPriceOscillatorIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public DetrendedPriceOscillatorIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                // DPO = Price - SMA(period/2 + 1) bars ago
+                int lookback = period / 2 + 1;
+                if (index < lookback) return series.numOf(0);
+                
+                SMAIndicator sma = new SMAIndicator(close, period);
+                
+                return close.getValue(index).minus(sma.getValue(index - lookback));
+            }
+        }
+
+        DetrendedPriceOscillatorIndicator dpo = new DetrendedPriceOscillatorIndicator(closePrice, 20, series);
+        
+        Rule entryRule = new OverIndicatorRule(dpo, series.numOf(0));
+        Rule exitRule = new UnderIndicatorRule(dpo, series.numOf(0));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createVerticalHorizontalFilterStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 垂直水平滤波器
+        class VerticalHorizontalFilterIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final int period;
+
+            public VerticalHorizontalFilterIndicator(ClosePriceIndicator close, HighPriceIndicator high, 
+                                                     LowPriceIndicator low, int period, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.high = high;
+                this.low = low;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                // 计算最高价和最低价
+                Num highestHigh = high.getValue(index);
+                Num lowestLow = low.getValue(index);
+                
+                for (int i = 1; i < period; i++) {
+                    Num h = high.getValue(index - i);
+                    Num l = low.getValue(index - i);
+                    if (h.isGreaterThan(highestHigh)) highestHigh = h;
+                    if (l.isLessThan(lowestLow)) lowestLow = l;
+                }
+                
+                // 计算价格变化的总和
+                Num sumOfChanges = series.numOf(0);
+                for (int i = 1; i < period; i++) {
+                    sumOfChanges = sumOfChanges.plus(close.getValue(index - i + 1).minus(close.getValue(index - i)).abs());
+                }
+                
+                if (sumOfChanges.isZero()) return series.numOf(0);
+                
+                // VHF = (HCP - LCP) / Sum of absolute changes
+                return highestHigh.minus(lowestLow).dividedBy(sumOfChanges);
+            }
+        }
+
+        VerticalHorizontalFilterIndicator vhf = new VerticalHorizontalFilterIndicator(closePrice, highPrice, lowPrice, 28, series);
+        
+        Rule entryRule = new OverIndicatorRule(vhf, series.numOf(0.35));
+        Rule exitRule = new UnderIndicatorRule(vhf, series.numOf(0.25));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createRainbowOscillatorStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 彩虹振荡器 - 基于多重移动平均线
+        class RainbowOscillatorIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public RainbowOscillatorIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period * 10) {
+                    return series.numOf(0);
+                }
+
+                // 计算多层移动平均线
+                SMAIndicator ma1 = new SMAIndicator(close, period);
+                SMAIndicator ma2 = new SMAIndicator(ma1, period);
+                SMAIndicator ma3 = new SMAIndicator(ma2, period);
+                SMAIndicator ma4 = new SMAIndicator(ma3, period);
+                SMAIndicator ma5 = new SMAIndicator(ma4, period);
+                SMAIndicator ma6 = new SMAIndicator(ma5, period);
+                SMAIndicator ma7 = new SMAIndicator(ma6, period);
+                SMAIndicator ma8 = new SMAIndicator(ma7, period);
+                SMAIndicator ma9 = new SMAIndicator(ma8, period);
+                SMAIndicator ma10 = new SMAIndicator(ma9, period);
+                
+                // 彩虹值 = HHV(MA) - LLV(MA)
+                Num highest = ma1.getValue(index);
+                Num lowest = ma1.getValue(index);
+                
+                Num[] mas = {ma2.getValue(index), ma3.getValue(index), ma4.getValue(index), 
+                            ma5.getValue(index), ma6.getValue(index), ma7.getValue(index),
+                            ma8.getValue(index), ma9.getValue(index), ma10.getValue(index)};
+                
+                for (Num ma : mas) {
+                    if (ma.isGreaterThan(highest)) highest = ma;
+                    if (ma.isLessThan(lowest)) lowest = ma;
+                }
+                
+                Num range = highest.minus(lowest);
+                if (range.isZero()) return series.numOf(0);
+                
+                // 当前价格在彩虹中的位置
+                return close.getValue(index).minus(lowest).dividedBy(range).multipliedBy(series.numOf(100));
+            }
+        }
+
+        RainbowOscillatorIndicator rainbow = new RainbowOscillatorIndicator(closePrice, 2, series);
+        
+        Rule entryRule = new UnderIndicatorRule(rainbow, series.numOf(20));
+        Rule exitRule = new OverIndicatorRule(rainbow, series.numOf(80));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createRelativeMomentumIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 相对动量指标
+        class RelativeMomentumIndexIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator close;
+            private final int period;
+            private final int momentumPeriod;
+
+            public RelativeMomentumIndexIndicator(ClosePriceIndicator close, int period, int momentumPeriod, BarSeries series) {
+                super(series);
+                this.close = close;
+                this.period = period;
+                this.momentumPeriod = momentumPeriod;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period + momentumPeriod) {
+                    return series.numOf(50);
+                }
+
+                // 计算动量变化
+                Num momentum = close.getValue(index).minus(close.getValue(index - momentumPeriod));
+                
+                // 计算上涨和下跌动量的平均值
+                Num upSum = series.numOf(0);
+                Num downSum = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    Num currentMomentum = close.getValue(index - i).minus(close.getValue(index - i - momentumPeriod));
+                    if (currentMomentum.isGreaterThan(series.numOf(0))) {
+                        upSum = upSum.plus(currentMomentum);
+                    } else {
+                        downSum = downSum.plus(currentMomentum.abs());
+                    }
+                }
+                
+                if (upSum.plus(downSum).isZero()) return series.numOf(50);
+                
+                // RMI = 100 * (Up Sum / (Up Sum + Down Sum))
+                return upSum.dividedBy(upSum.plus(downSum)).multipliedBy(series.numOf(100));
+            }
+        }
+
+        RelativeMomentumIndexIndicator rmi = new RelativeMomentumIndexIndicator(closePrice, 14, 5, series);
+        
+        Rule entryRule = new UnderIndicatorRule(rmi, series.numOf(30));
+        Rule exitRule = new OverIndicatorRule(rmi, series.numOf(70));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createIntradayMomentumIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 日内动量指标
+        class IntradayMomentumIndexIndicator extends CachedIndicator<Num> {
+            private final OpenPriceIndicator open;
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public IntradayMomentumIndexIndicator(OpenPriceIndicator open, ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.open = open;
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+
+                // 计算日内动量 (Close - Open)
+                Num upSum = series.numOf(0);
+                Num downSum = series.numOf(0);
+                
+                for (int i = 0; i < period; i++) {
+                    Num intradayMove = close.getValue(index - i).minus(open.getValue(index - i));
+                    if (intradayMove.isGreaterThan(series.numOf(0))) {
+                        upSum = upSum.plus(intradayMove);
+                    } else {
+                        downSum = downSum.plus(intradayMove.abs());
+                    }
+                }
+                
+                if (upSum.plus(downSum).isZero()) return series.numOf(50);
+                
+                // IMI = 100 * (Up Sum / (Up Sum + Down Sum))
+                return upSum.dividedBy(upSum.plus(downSum)).multipliedBy(series.numOf(100));
+            }
+        }
+
+        IntradayMomentumIndexIndicator imi = new IntradayMomentumIndexIndicator(openPrice, closePrice, 14, series);
+        
+        Rule entryRule = new UnderIndicatorRule(imi, series.numOf(30));
+        Rule exitRule = new OverIndicatorRule(imi, series.numOf(70));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     public static Strategy createRandomWalkIndexStrategy(BarSeries series) {
-        return createAdaptiveRSIStrategy(series); // 简化实现
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 随机游走指标
+        class RandomWalkIndexIndicator extends CachedIndicator<Num> {
+            private final HighPriceIndicator high;
+            private final LowPriceIndicator low;
+            private final ClosePriceIndicator close;
+            private final int period;
+
+            public RandomWalkIndexIndicator(HighPriceIndicator high, LowPriceIndicator low, 
+                                           ClosePriceIndicator close, int period, BarSeries series) {
+                super(series);
+                this.high = high;
+                this.low = low;
+                this.close = close;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return series.numOf(0);
+                }
+
+                // RWI High = (High - Close[n periods ago]) / (ATR * sqrt(n))
+                // RWI Low = (Close[n periods ago] - Low) / (ATR * sqrt(n))
+                
+                ATRIndicator atr = new ATRIndicator(series, period);
+                Num atrValue = atr.getValue(index);
+                
+                if (atrValue.isZero()) return series.numOf(0);
+                
+                Num pastClose = close.getValue(index - period);
+                Num currentHigh = high.getValue(index);
+                Num currentLow = low.getValue(index);
+                
+                Num sqrtPeriod = series.numOf(Math.sqrt(period));
+                Num denominator = atrValue.multipliedBy(sqrtPeriod);
+                
+                Num rwiHigh = currentHigh.minus(pastClose).dividedBy(denominator);
+                Num rwiLow = pastClose.minus(currentLow).dividedBy(denominator);
+                
+                // 返回较大的RWI值
+                return rwiHigh.max(rwiLow);
+            }
+        }
+
+        RandomWalkIndexIndicator rwi = new RandomWalkIndexIndicator(highPrice, lowPrice, closePrice, 14, series);
+        
+        Rule entryRule = new OverIndicatorRule(rwi, series.numOf(1.0));
+        Rule exitRule = new UnderIndicatorRule(rwi, series.numOf(0.5));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 }

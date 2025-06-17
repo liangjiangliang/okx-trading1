@@ -165,7 +165,7 @@ public class Ta4jBacktestControllerTest {
             BigDecimal open = basePrice.add(new BigDecimal(variation));
             BigDecimal high = open.add(new BigDecimal(Math.random() * 100));
             BigDecimal low = open.subtract(new BigDecimal(Math.random() * 100));
-            BigDecimal close = high.add(low).divide(new BigDecimal("2"));
+            BigDecimal close = high.add(low).divide(new BigDecimal("2"), 4, BigDecimal.ROUND_HALF_UP);
 
             // 设置mock的返回值
             when(mockCandle.getSymbol()).thenReturn("BTC-USDT");

@@ -109,7 +109,7 @@ public class CandlestickBarSeriesAdapterTest {
             BigDecimal open = basePrice.add(new BigDecimal(variation));
             BigDecimal high = open.add(new BigDecimal(Math.random() * 100));
             BigDecimal low = open.subtract(new BigDecimal(Math.random() * 100));
-            BigDecimal close = high.add(low).divide(new BigDecimal("2"));
+            BigDecimal close = high.add(low).divide(new BigDecimal("2"), 4, BigDecimal.ROUND_HALF_UP);
             BigDecimal volume = new BigDecimal(Math.random() * 100 + 10);
 
             // 设置mock的返回值

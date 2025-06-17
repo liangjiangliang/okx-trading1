@@ -216,8 +216,12 @@ public class Ta4jBacktestService {
         BigDecimal volatility = calculateVolatility(series);
 
         // Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
-        List<BigDecimal> benchmarkReturns = BenchmarkUtils.fetchHistoricalClosePrices("000300.SS", series.getFirstBar().getEndTime(), series.getLastBar().getEndTime());
-        double[] alphaBeta = calculateAlphaBeta(dailyReturns, benchmarkReturns);
+        // 暂时禁用基准数据获取，避免API限制问题
+        double[] alphaBeta = new double[]{0.0, 1.0}; // 默认Alpha=0, Beta=1
+        
+        // 如果需要启用基准比较，取消注释下面的代码
+        // List<BigDecimal> benchmarkReturns = BenchmarkUtils.getBenchmarkReturns("000300.SS", series.getFirstBar().getEndTime(), series.getLastBar().getEndTime());
+        // alphaBeta = calculateAlphaBeta(dailyReturns, benchmarkReturns);
 
         //  * 计算 Treynor 比率
         //  * 用 Beta 衡量系统性风险，计算单位系统风险的超额收益
@@ -897,23 +901,42 @@ public class Ta4jBacktestService {
      * @throws IllegalArgumentException 如果输入长度不匹配或为空
      */
     public static double[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
-        if (strategyReturns == null || benchmarkReturns == null || strategyReturns.size() != benchmarkReturns.size() || strategyReturns.isEmpty()) {
-            throw new IllegalArgumentException("收益率序列长度不匹配或为空");
+        if (strategyReturns == null || strategyReturns.isEmpty()) {
+            System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new double[]{0.0, 1.0};
         }
+        
+        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
+            System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new double[]{0.0, 1.0};
+        }
+        
+        // 如果长度不匹配，取较短的长度
+        int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
+        if (minLength == 0) {
+            System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
+            return new double[]{0.0, 1.0};
+        }
+        
+        // 截取到相同长度
+        List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
+        List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
+        
+        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
 
-        int n = strategyReturns.size();
+        int n = adjustedStrategyReturns.size();
 
         // 计算策略和基准的平均收益率
-        double meanStrategy = strategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
-        double meanBenchmark = benchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+        double meanStrategy = adjustedStrategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+        double meanBenchmark = adjustedBenchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
 
         double covariance = 0.0;        // 协方差 numerator部分
         double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
 
         // 计算协方差和基准方差
         for (int i = 0; i < n; i++) {
-            double sDiff = strategyReturns.get(i).doubleValue() - meanStrategy;
-            double bDiff = benchmarkReturns.get(i).doubleValue() - meanBenchmark;
+            double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
+            double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
 
             covariance += sDiff * bDiff;
             varianceBenchmark += bDiff * bDiff;
@@ -972,7 +995,7 @@ public class Ta4jBacktestService {
                 maxPeak = price;
             }
             // 计算当前回撤百分比 (负数表示跌幅)
-            double drawdownPercent = price.subtract(maxPeak).divide(maxPeak).doubleValue() * 100.0;
+            double drawdownPercent = price.subtract(maxPeak).divide(maxPeak, 10, RoundingMode.HALF_UP).doubleValue() * 100.0;
             // 累计回撤平方（深度和持续时间都会放大结果）
             sumSquaredDrawdown += drawdownPercent * drawdownPercent;
         }

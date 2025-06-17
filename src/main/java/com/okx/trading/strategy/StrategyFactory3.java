@@ -582,12 +582,12 @@ public class StrategyFactory3 {
         public HistoricalVolatilityStrategy(BarSeries series) {
             super(
                 new OverIndicatorRule(
-                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),
-                    DecimalNum.valueOf(0.02)
+                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 14),
+                    new SMAIndicator(new StandardDeviationIndicator(new ClosePriceIndicator(series), 14), 20)
                 ),
                 new UnderIndicatorRule(
-                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),
-                    DecimalNum.valueOf(0.02)
+                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 14),
+                    new SMAIndicator(new StandardDeviationIndicator(new ClosePriceIndicator(series), 14), 20)
                 )
             );
         }
@@ -648,18 +648,18 @@ public class StrategyFactory3 {
     }
 
     /**
-     * 策略75: 峰度策略
+     * 策略75: 峰度策略 - 改进为基于标准差的波动性策略
      */
     public static class KurtosisStrategy extends BaseStrategy {
         public KurtosisStrategy(BarSeries series) {
             super(
                 new OverIndicatorRule(
-                    new VarianceIndicator(new ClosePriceIndicator(series), 20),
-                    DecimalNum.valueOf(3)
+                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 14),
+                    new SMAIndicator(new StandardDeviationIndicator(new ClosePriceIndicator(series), 14), 10)
                 ),
                 new UnderIndicatorRule(
-                    new VarianceIndicator(new ClosePriceIndicator(series), 20),
-                    DecimalNum.valueOf(3)
+                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 14),
+                    new SMAIndicator(new StandardDeviationIndicator(new ClosePriceIndicator(series), 14), 10)
                 )
             );
         }
@@ -684,18 +684,18 @@ public class StrategyFactory3 {
     }
 
     /**
-     * 策略77: 百分位数策略
+     * 策略77: 百分位数策略 - 改进为更敏感的参数
      */
     public static class PercentileStrategy extends BaseStrategy {
         public PercentileStrategy(BarSeries series) {
             super(
                 new UnderIndicatorRule(
                     new ClosePriceIndicator(series),
-                    new LowestValueIndicator(new ClosePriceIndicator(series), 50)
+                    new LowestValueIndicator(new ClosePriceIndicator(series), 20)
                 ),
                 new OverIndicatorRule(
                     new ClosePriceIndicator(series),
-                    new HighestValueIndicator(new ClosePriceIndicator(series), 50)
+                    new HighestValueIndicator(new ClosePriceIndicator(series), 20)
                 )
             );
         }
