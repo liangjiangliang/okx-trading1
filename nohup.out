@@ -1,0 +1,502 @@
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building okx-trading 0.0.1-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.7.8:run (default-cli) > test-compile @ okx-trading >>>
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (default-resources) @ okx-trading ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 2 resources
+[INFO] Copying 15 resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:compile (default-compile) @ okx-trading ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:testResources (default-testResources) @ okx-trading ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] skip non existing resourceDirectory C:\Users\ralph\IdeaProject\okx-trading\src\test\resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:testCompile (default-testCompile) @ okx-trading ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:2.7.8:run (default-cli) < test-compile @ okx-trading <<<
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:2.7.8:run (default-cli) @ okx-trading ---
+[INFO] Attaching agents: []
+00:21:34.093 [Thread-0] DEBUG org.springframework.boot.devtools.restart.classloader.RestartClassLoader - Created RestartClassLoader org.springframework.boot.devtools.restart.classloader.RestartClassLoader@19055267
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v2.7.8)
+
+2025-06-19 00:21:34.406 [restartedMain] INFO  com.okx.trading.OkxTradingApplication - Starting OkxTradingApplication using Java 1.8.0_321 on ralph with PID 39332 (C:\Users\ralph\IdeaProject\okx-trading\target\classes started by ralph in C:\Users\ralph\IdeaProject\okx-trading)
+2025-06-19 00:21:34.407 [restartedMain] INFO  com.okx.trading.OkxTradingApplication - No active profile set, falling back to 1 default profile: "default"
+2025-06-19 00:21:34.431 [restartedMain] INFO  com.okx.trading.config.PortCheckConfig - 应用启动前检查端口 8088 占用情况
+2025-06-19 00:21:34.432 [restartedMain] INFO  com.okx.trading.util.SystemUtil - 检查端口 8088 是否被占用
+2025-06-19 00:21:34.432 [restartedMain] INFO  com.okx.trading.util.SystemUtil - 执行命令: netstat -ano
+2025-06-19 00:21:34.470 [restartedMain] INFO  com.okx.trading.util.SystemUtil - 共读取了 372 行输出
+2025-06-19 00:21:34.470 [restartedMain] INFO  com.okx.trading.util.SystemUtil - 未找到占用端口 8088 的进程
+2025-06-19 00:21:34.470 [restartedMain] INFO  com.okx.trading.util.SystemUtil - 端口 8088 未被占用
+2025-06-19 00:21:34.470 [restartedMain] INFO  com.okx.trading.config.PortCheckConfig - 端口检查结果: 端口 8088 未被占用
+2025-06-19 00:21:35.842 [restartedMain] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8088"]
+2025-06-19 00:21:35.843 [restartedMain] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2025-06-19 00:21:35.843 [restartedMain] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.71]
+2025-06-19 00:21:35.889 [restartedMain] INFO  o.a.c.c.ContainerBase.[Tomcat].[localhost].[/api] - Initializing Spring embedded WebApplicationContext
+2025-06-19 00:21:36.124 [restartedMain] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-06-19 00:21:36.200 [restartedMain] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-06-19 00:21:37.703 [restartedMain] INFO  com.okx.trading.util.WebSocketUtil - 初始化WebSocket连接，模式: WEBSOCKET
+2025-06-19 00:21:37.703 [restartedMain] INFO  com.okx.trading.util.WebSocketUtil - 公共频道URL: wss://ws.okx.com:8443/ws/v5/public
+2025-06-19 00:21:37.703 [restartedMain] INFO  com.okx.trading.util.WebSocketUtil - 业务频道URL: wss://ws.okx.com:8443/ws/v5/business
+2025-06-19 00:21:37.704 [restartedMain] INFO  com.okx.trading.util.WebSocketUtil - 私有频道URL: wss://ws.okx.com:8443/ws/v5/private
+2025-06-19 00:21:37.731 [restartedMain] INFO  c.okx.trading.service.impl.PriceUpdateServiceImpl - 价格更新线程已启动
+2025-06-19 00:21:37.731 [price-update-thread] INFO  c.okx.trading.service.impl.PriceUpdateServiceImpl - 价格更新线程开始运行
+2025-06-19 00:21:37.861 [价格更新-43] INFO  c.o.t.service.impl.OkxApiWebSocketServiceImpl - 订阅币种 XRP-USDT 行情数据
+2025-06-19 00:21:37.861 [价格更新-45] INFO  c.o.t.service.impl.OkxApiWebSocketServiceImpl - 订阅币种 BTC-USDT 行情数据
+2025-06-19 00:21:37.861 [价格更新-44] INFO  c.o.t.service.impl.OkxApiWebSocketServiceImpl - 订阅币种 SOL-USDT 行情数据
+2025-06-19 00:21:37.861 [价格更新-42] INFO  c.o.t.service.impl.OkxApiWebSocketServiceImpl - 订阅币种 ETH-USDT 行情数据
+2025-06-19 00:21:37.864 [价格更新-45] INFO  com.okx.trading.util.WebSocketUtil - 添加待执行的公共频道订阅: tickers, 交易对: BTC-USDT
+2025-06-19 00:21:37.864 [价格更新-42] INFO  com.okx.trading.util.WebSocketUtil - 添加待执行的公共频道订阅: tickers, 交易对: ETH-USDT
+2025-06-19 00:21:37.864 [价格更新-43] INFO  com.okx.trading.util.WebSocketUtil - 添加待执行的公共频道订阅: tickers, 交易对: XRP-USDT
+2025-06-19 00:21:37.864 [价格更新-44] INFO  com.okx.trading.util.WebSocketUtil - 添加待执行的公共频道订阅: tickers, 交易对: SOL-USDT
+2025-06-19 00:21:38.109 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - 初始化K线数据更新服务...
+2025-06-19 00:21:38.112 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - 已加载 0 个交易对的K线订阅
+2025-06-19 00:21:38.112 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - K线数据更新服务初始化完成
+2025-06-19 00:21:38.116 [restartedMain] INFO  c.okx.trading.service.impl.KlineCleanupServiceImpl - 启动K线数据清理线程，清理间隔：300秒，保留最新数据条数：300
+2025-06-19 00:21:38.130 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 公共频道WebSocket连接成功
+2025-06-19 00:21:38.130 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 私有频道WebSocket连接成功
+2025-06-19 00:21:38.131 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 开始恢复公共频道订阅，共 4 个待执行操作
+2025-06-19 00:21:38.131 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 公共频道连接尚未就绪，等待所有连接建立后再恢复
+2025-06-19 00:21:38.221 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - WebSocket登录成功(事件方式): connId=5bd1c890
+2025-06-19 00:21:38.221 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 开始恢复私有频道订阅，共 0 个待执行操作
+2025-06-19 00:21:38.222 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 私有频道操作恢复完成，成功执行 0 个操作
+2025-06-19 00:21:38.222 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 发布WebSocket私有频道重连事件
+2025-06-19 00:21:38.259 [restartedMain] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-06-19 00:21:38.440 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 业务频道WebSocket连接成功
+2025-06-19 00:21:38.440 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 开始恢复公共频道订阅，共 4 个待执行操作
+2025-06-19 00:21:38.440 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复执行公共频道操作: 公共频道订阅: tickers:XRP-USDT
+2025-06-19 00:21:38.441 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复订阅公共频道主题: tickers, 交易对: XRP-USDT
+2025-06-19 00:21:38.441 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复执行公共频道操作: 公共频道订阅: tickers:SOL-USDT
+2025-06-19 00:21:38.441 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复订阅公共频道主题: tickers, 交易对: SOL-USDT
+2025-06-19 00:21:38.441 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复执行公共频道操作: 公共频道订阅: tickers:ETH-USDT
+2025-06-19 00:21:38.441 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复订阅公共频道主题: tickers, 交易对: ETH-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复执行公共频道操作: 公共频道订阅: tickers:BTC-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 恢复订阅公共频道主题: tickers, 交易对: BTC-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 重新订阅主题: tickers, 交易对: SOL-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 重新订阅主题: tickers, 交易对: BTC-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 重新订阅主题: tickers, 交易对: ETH-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 重新订阅主题: tickers, 交易对: XRP-USDT
+2025-06-19 00:21:38.442 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 公共频道操作恢复完成，成功执行 4 个操作，重新订阅 4 个主题
+2025-06-19 00:21:38.443 [OkHttp https://ws.okx.com:8443/...] INFO  com.okx.trading.util.WebSocketUtil - 发布WebSocket公共频道重连事件
+2025-06-19 00:21:38.550 [restartedMain] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8088"]
+2025-06-19 00:21:38.703 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.709 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.709 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.711 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.714 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.714 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.715 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.715 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.715 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.716 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.725 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.725 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.726 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.728 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.728 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.728 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.729 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.739 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.739 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.739 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.743 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.744 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.747 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.753 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.755 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.823 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.824 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.824 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.824 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.824 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.825 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.825 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.825 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.825 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.825 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.826 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Boolean, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.826 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Boolean, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.828 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.829 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.829 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.829 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.829 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.829 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.830 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.830 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: BigDecimal, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.830 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.830 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Boolean, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.830 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Boolean, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.832 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.833 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.835 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.836 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: String, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.836 [restartedMain] WARN  s.d.s.r.operation.OperationImplicitParameterReader - Unable to interpret the implicit parameter configuration with dataType: Integer, dataTypeClass: class java.lang.Void
+2025-06-19 00:21:38.846 [restartedMain] INFO  com.okx.trading.OkxTradingApplication - Started OkxTradingApplication in 4.747 seconds (JVM running for 5.075)
+2025-06-19 00:21:38.848 [restartedMain] INFO  com.okx.trading.config.DynamicStrategyConfig - 应用启动，开始加载动态策略...
+2025-06-19 00:21:39.148 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.149 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.186 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p
+2025-06-19 00:21:39.229 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.229 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.237 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p
+2025-06-19 00:21:39.276 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263088675_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.276 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263088675_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.281 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263088675_1
+2025-06-19 00:21:39.320 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263234067_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.320 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263234067_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.326 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263234067_1
+2025-06-19 00:21:39.361 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263310053_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.361 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263310053_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.366 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263310053_1
+2025-06-19 00:21:39.404 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263404081_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.405 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263404081_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.410 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263404081_1
+2025-06-19 00:21:39.447 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263497412_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.447 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263497412_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.457 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263497412_1
+2025-06-19 00:21:39.457 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedSuperMaBreakoutStrategy extends BaseStrategy {
+    public GeneratedSuperMaBreakoutStrategy(BarSeries series) {
+        super(
+            new CrossedUpIndicatorRule(
+                new SMAIndicator(new ClosePriceIndicator(series), 5),
+                new SMAIndicator(new ClosePriceIndicator(series), 20)
+            ),
+            new CrossedDownIndicatorRule(
+                new SMAIndicator(new ClosePriceIndicator(series), 5),
+                new SMAIndicator(new ClosePriceIndicator(series), 20)
+            )
+        );
+    }
+}
+2025-06-19 00:21:39.458 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 SUPER_MA_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.460 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SUPER_MA_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 的错误信息已保存到数据库
+2025-06-19 00:21:39.460 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        super(
+            new CrossedUpIndicatorRule(new VolumeIndicator(series), new SMAIndicator(new VolumeIndicator(series), 20)),
+            new CrossedDownIndicatorRule(new ClosePriceIndicator(series), new SMAIndicator(new ClosePriceIndicator(series), 10))
+        );
+    }
+}
+2025-06-19 00:21:39.460 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.461 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 的错误信息已保存到数据库
+2025-06-19 00:21:39.462 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        super(
+            new OverIndicatorRule(new VolumeIndicator(series), new SMAIndicator(new VolumeIndicator(series), 20)),
+            new UnderIndicatorRule(new ClosePriceIndicator(series), new SMAIndicator(new ClosePriceIndicator(series), 10))
+        );
+    }
+}
+2025-06-19 00:21:39.462 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261281856_1 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.464 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261281856_1 的错误信息已保存到数据库
+2025-06-19 00:21:39.464 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        VolumeIndicator volume = new VolumeIndicator(series);
+        SMAIndicator volumeSma = new SMAIndicator(volume, 20);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator priceSma = new SMAIndicator(closePrice, 10);
+
+        Rule entryRule = new CrossedUpIndicatorRule(volume, volumeSma);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, priceSma);
+
+        super(entryRule, exitRule);
+    }
+}
+2025-06-19 00:21:39.464 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261506431_1 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.466 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261506431_1 的错误信息已保存到数据库
+2025-06-19 00:21:39.466 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        super(
+            new CrossedUpIndicatorRule(new VolumeIndicator(series), new SMAIndicator(new VolumeIndicator(series), 20)),
+            new CrossedDownIndicatorRule(new ClosePriceIndicator(series), new SMAIndicator(new ClosePriceIndicator(series), 10))
+        );
+    }
+}
+2025-06-19 00:21:39.466 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261572180_1 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.468 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261572180_1 的错误信息已保存到数据库
+2025-06-19 00:21:39.468 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        super(
+            new OverIndicatorRule(new VolumeIndicator(series), new SMAIndicator(new VolumeIndicator(series), 20)),
+            new UnderIndicatorRule(new ClosePriceIndicator(series), new SMAIndicator(new ClosePriceIndicator(series), 10))
+        );
+    }
+}
+2025-06-19 00:21:39.468 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261661599_1 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.469 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261661599_1 的错误信息已保存到数据库
+2025-06-19 00:21:39.470 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVolumeBreakoutStrategy extends BaseStrategy {
+    public GeneratedVolumeBreakoutStrategy(BarSeries series) {
+        super(
+            new OverIndicatorRule(new VolumeIndicator(series), new SMAIndicator(new VolumeIndicator(series), 20)),
+            new UnderIndicatorRule(new ClosePriceIndicator(series), new SMAIndicator(new ClosePriceIndicator(series), 10))
+        );
+    }
+}
+2025-06-19 00:21:39.470 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261757958_1 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.471 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_BREAKOUT_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750261757958_1 的错误信息已保存到数据库
+2025-06-19 00:21:39.506 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.506 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.512 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p
+2025-06-19 00:21:39.547 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262489639_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.547 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262489639_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.553 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262489639_1
+2025-06-19 00:21:39.591 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262595309_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.591 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262595309_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.597 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262595309_1
+2025-06-19 00:21:39.636 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262652736_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.636 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262652736_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.643 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262652736_1
+2025-06-19 00:21:39.679 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262704707_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:21:39.679 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262704707_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:21:39.687 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API从数据库加载策略: VOLUME_SIMPLE_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750262704707_1
+2025-06-19 00:21:39.687 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 使用Java Compiler API编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series), 编译的代码: import org.ta4j.core.*;
+import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.helpers.*;
+import org.ta4j.core.rules.*;
+
+public class GeneratedVwapStrategy extends BaseStrategy {
+
+    public GeneratedVwapStrategy(BarSeries series) {
+        super(
+            new CrossedUpIndicatorRule(new ClosePriceIndicator(series), new VWAPIndicator(series, 20)),
+            new CrossedDownIndicatorRule(new ClosePriceIndicator(series), new VWAPIndicator(series, 20))
+        );
+    }
+}
+2025-06-19 00:21:39.687 [restartedMain] ERROR c.o.t.s.impl.JavaCompilerDynamicStrategyService - 加载策略 VWAP_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 失败: 编译策略代码失败: 无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)
+2025-06-19 00:21:39.689 [restartedMain] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 VWAP_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p 的错误信息已保存到数据库
+2025-06-19 00:21:39.690 [restartedMain] INFO  com.okx.trading.config.DynamicStrategyConfig - 使用智能编译服务加载动态策略完成
+2025-06-19 00:21:39.690 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - 开始初始化K线数据...
+2025-06-19 00:21:39.690 [restartedMain] INFO  com.okx.trading.service.impl.KlineCacheServiceImpl - 初始化默认K线订阅
+2025-06-19 00:21:39.692 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - 从Redis获取订阅K线列表，共 0 个交易对
+2025-06-19 00:21:39.692 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - 启动K线数据更新线程，更新频率：30秒
+2025-06-19 00:21:39.692 [restartedMain] INFO  c.okx.trading.service.impl.KlineUpdateServiceImpl - K线数据初始化完成，K线更新线程已启动
+2025-06-19 00:21:39.693 [restartedMain] INFO  com.okx.trading.component.PriceDataInitializer - 开始初始化币种价格数据...
+2025-06-19 00:21:39.696 [restartedMain] INFO  com.okx.trading.component.PriceDataInitializer - 从Redis获取订阅币种列表，共 4 个币种
+2025-06-19 00:21:39.696 [restartedMain] INFO  c.okx.trading.service.impl.PriceUpdateServiceImpl - 价格更新线程已在运行中
+2025-06-19 00:21:39.696 [restartedMain] INFO  com.okx.trading.component.PriceDataInitializer - 币种价格数据初始化完成，价格更新线程已启动
+2025-06-19 00:21:39.696 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 正在初始化日志目录结构...
+2025-06-19 00:21:39.696 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 日志目录已存在: C:\Users\ralph\IdeaProject\okx-trading\logs
+2025-06-19 00:21:39.697 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 日志目录已存在: C:\Users\ralph\IdeaProject\okx-trading\logs\all
+2025-06-19 00:21:39.697 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 日志目录已存在: C:\Users\ralph\IdeaProject\okx-trading\logs\error
+2025-06-19 00:21:39.697 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 日志目录已存在: C:\Users\ralph\IdeaProject\okx-trading\logs\api
+2025-06-19 00:21:39.697 [restartedMain] INFO  com.okx.trading.config.LogDirConfig - 日志目录结构初始化完成
+2025-06-19 00:21:39.698 [restartedMain] INFO  com.okx.trading.OkxTradingApplication - 
+----------------------------------------------------------
+应用 'okx-trading' 已成功启动! 访问URL:
+本地: 	http://localhost:8088/api
+外部: 	http://127.0.0.1:8088/api
+swagger: http://localhost:8088/api/swagger-ui
+----------------------------------------------------------
+2025-06-19 00:21:48.131 [kline-cleanup-thread] INFO  c.okx.trading.service.impl.KlineCleanupServiceImpl - 开始执行K线数据清理任务
+2025-06-19 00:21:48.132 [kline-cleanup-thread] INFO  c.okx.trading.service.impl.KlineCleanupServiceImpl - 没有已订阅的K线数据，无需清理
+2025-06-19 00:22:02.537 [http-nio-8088-exec-4] INFO  o.a.c.c.ContainerBase.[Tomcat].[localhost].[/api] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-06-19 00:22:02.562 [http-nio-8088-exec-4] INFO  com.okx.trading.controller.Ta4jBacktestController - 开始批量生成AI策略，策略描述: "生成一个简单的移动平均交叉策略"
+2025-06-19 00:22:02.562 [http-nio-8088-exec-4] INFO  com.okx.trading.controller.Ta4jBacktestController - 调用AI一次性生成1个策略
+2025-06-19 00:22:19.463 [http-nio-8088-exec-5] INFO  com.okx.trading.controller.MarketController - 查询已保存的历史K线数据, symbol: BTC-USDT, interval: 1D, startTime: 2024-06-18 00:00:00, endTime: 2025-06-18 00:00:00
+2025-06-19 00:22:19.697 [http-nio-8088-exec-6] INFO  com.okx.trading.controller.MarketController - 查询已保存的历史K线数据, symbol: BTC-USDT, interval: 1D, startTime: 2024-06-18 00:00:00, endTime: 2025-06-18 00:00:00
+2025-06-19 00:22:22.963 [http-nio-8088-exec-4] INFO  com.okx.trading.controller.Ta4jBacktestController - AI返回了1个策略信息，开始处理
+2025-06-19 00:22:22.982 [http-nio-8088-exec-4] INFO  c.o.t.service.impl.SmartDynamicStrategyService - 检测到可能的代码问题，尝试直接编译: 移动平均线交叉策略
+2025-06-19 00:22:23.050 [http-nio-8088-exec-4] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263742968_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:22:23.050 [http-nio-8088-exec-4] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263742968_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:22:23.050 [http-nio-8088-exec-4] INFO  c.o.t.service.impl.SmartDynamicStrategyService - ✅ 原始代码直接编译成功: 移动平均线交叉策略
+2025-06-19 00:22:23.050 [http-nio-8088-exec-4] INFO  c.o.t.service.impl.StrategyConversationServiceImpl - 保存策略对话记录，策略ID: 2391, 对话类型: generate
+2025-06-19 00:22:23.056 [http-nio-8088-exec-4] INFO  com.okx.trading.controller.Ta4jBacktestController - 第1个AI策略生成成功，策略代码: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263742968_1, 策略名称: 移动平均线交叉策略
+2025-06-19 00:22:23.057 [http-nio-8088-exec-4] INFO  com.okx.trading.controller.Ta4jBacktestController - 批量策略生成完成，成功: 1, 失败: 0
+2025-06-19 00:22:33.563 [http-nio-8088-exec-8] INFO  com.okx.trading.controller.Ta4jBacktestController - 开始执行Ta4j回测，交易对: BTC-USDT, 间隔: 1D, 时间范围: 2018-01-01T00:00 - 2025-04-01T00:00, 策略: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263742968_1, 参数: null, 初始资金: 100000, 手续费率: 0.001
+2025-06-19 00:22:33.675 [http-nio-8088-exec-8] INFO  com.okx.trading.service.impl.Ta4jBacktestService - 
+================================================================
+==================== 回测汇总信息 ====================
+================================================================
+策略名称: SMA_CROSS_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263742968_1
+策略参数: 
+------------------------------------------------------
+初始资金: 100,000.00
+最终资金: 852,109.63
+总盈亏: 752,109.63
+总收益率: 752.11%
+总手续费: 61,514.65
+------------------------------------------------------
+交易次数: 79
+盈利交易: 25
+亏损交易: 54
+胜率: 31.65%
+------------------------------------------------------
+风险评估指标:
+夏普比率: 0.2754
+索提诺比率: 0.2660
+卡玛比率: 1.4888
+最大回撤: -23.09%
+最大单笔亏损: -0.20
+盈亏比: 1.5803
+================================================================
+
+2025-06-19 00:22:33.753 [http-nio-8088-exec-8] INFO  c.o.trading.service.impl.BacktestTradeServiceImpl - 成功保存回测记录，回测ID: 400c34e0-15dc-4713-a910-63ae4e67ccfa, 交易数量: 79
+2025-06-19 00:22:33.771 [http-nio-8088-exec-8] INFO  c.o.trading.service.impl.BacktestTradeServiceImpl - 成功保存回测汇总信息，回测ID: 400c34e0-15dc-4713-a910-63ae4e67ccfa, 批量回测ID: null
+2025-06-19 00:22:33.773 [http-nio-8088-exec-8] INFO  com.okx.trading.util.BacktestResultPrinter - 
+================================================================
+==================== 回测汇总信息 ====================
+================================================================
+回测ID: 5111
+交易对: BTC-USDT
+时间间隔: 1D
+策略名称: 移动平均线交叉策略
+策略参数: null
+回测时间范围: 2018-01-01 00:00:00 至 2025-04-01 00:00:00
+------------------------------------------------------
+初始资金: 100,000.00
+最终资金: 852,109.63
+总盈亏: 752,109.63
+总收益率: 752.11%
+------------------------------------------------------
+交易次数: 79
+盈利交易: 25
+亏损交易: 54
+胜率: 31.65%
+------------------------------------------------------
+风险评估指标:
+夏普比率: 0.2754
+最大回撤: -23.09%
+索提诺比率: 0.2660
+卡玛比率: 1.4888
+最大单笔亏损: -0.20
+波动率: 0.5544
+总手续费: 61,514.65
+================================================================
+
+2025-06-19 00:22:33.782 [http-nio-8088-exec-8] INFO  com.okx.trading.controller.Ta4jBacktestController - 回测结果已保存，回测ID: 400c34e0-15dc-4713-a910-63ae4e67ccfa
+2025-06-19 00:22:33.783 [http-nio-8088-exec-8] INFO  com.okx.trading.controller.Ta4jBacktestController - 回测执行成功 - 移动平均线交叉策略  (BacktestID: 400c34e0-15dc-4713-a910-63ae4e67ccfa)，交易次数: 79，总收益率: 752.1100%，总手续费: 61514.6527561431457345518385158217679209767181734177718714256128884908924884556487710319753060356927952321584151060155271252639990408162493088761236591873909506019424068068174923428599421512602628412264321373804328133827288178711060863509310270546849247783542239324615563548685951484366296509872571777180831901822174255158643271137987754856920130636474958128222633044543674160278168537617152563053741861648707612404433800414091260292071636272847132269224854747762480606250988537258046166804955129812548039246956389816892174096254432005086285529224955130097592919355456073555733297069704312300230874754529353816856367697285551093454387986632410743318975804389025579764557404647229748827153446908107857032962713788056566183817751226005915808958035820347646255934453051209809920000000000000000000000
+2025-06-19 00:22:46.925 [http-nio-8088-exec-10] INFO  com.okx.trading.controller.Ta4jBacktestController - 开始批量生成AI策略，策略描述: "生成一个基于RSI的超买超卖策略"
+2025-06-19 00:22:46.925 [http-nio-8088-exec-10] INFO  com.okx.trading.controller.Ta4jBacktestController - 调用AI一次性生成1个策略
+2025-06-19 00:23:07.719 [http-nio-8088-exec-10] INFO  com.okx.trading.controller.Ta4jBacktestController - AI返回了1个策略信息，开始处理
+2025-06-19 00:23:07.726 [http-nio-8088-exec-10] INFO  c.o.t.service.impl.SmartDynamicStrategyService - 检测到可能的代码问题，尝试直接编译: RSI超买超卖策略
+2025-06-19 00:23:07.800 [http-nio-8088-exec-10] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263787721_1 已动态加载到StrategyRegisterCenter
+2025-06-19 00:23:07.800 [http-nio-8088-exec-10] INFO  c.o.t.s.impl.JavaCompilerDynamicStrategyService - 策略 RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263787721_1 使用Java Compiler API编译并加载成功
+2025-06-19 00:23:07.800 [http-nio-8088-exec-10] INFO  c.o.t.service.impl.SmartDynamicStrategyService - ✅ 原始代码直接编译成功: RSI超买超卖策略
+2025-06-19 00:23:07.800 [http-nio-8088-exec-10] INFO  c.o.t.service.impl.StrategyConversationServiceImpl - 保存策略对话记录，策略ID: 2392, 对话类型: generate
+2025-06-19 00:23:07.806 [http-nio-8088-exec-10] INFO  com.okx.trading.controller.Ta4jBacktestController - 第1个AI策略生成成功，策略代码: RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263787721_1, 策略名称: RSI超买超卖策略
+2025-06-19 00:23:07.807 [http-nio-8088-exec-10] INFO  com.okx.trading.controller.Ta4jBacktestController - 批量策略生成完成，成功: 1, 失败: 0
+2025-06-19 00:23:18.984 [http-nio-8088-exec-3] INFO  com.okx.trading.controller.Ta4jBacktestController - 开始执行Ta4j回测，交易对: BTC-USDT, 间隔: 1D, 时间范围: 2018-01-01T00:00 - 2025-04-01T00:00, 策略: RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263787721_1, 参数: null, 初始资金: 100000, 手续费率: 0.001
+2025-06-19 00:23:19.078 [http-nio-8088-exec-3] INFO  com.okx.trading.service.impl.Ta4jBacktestService - 
+================================================================
+==================== 回测汇总信息 ====================
+================================================================
+策略名称: RSI_OVERBOUGHT_OVERSOLD_STRATEGY_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p_1750263787721_1
+策略参数: 
+------------------------------------------------------
+初始资金: 100,000.00
+最终资金: 109,850.29
+总盈亏: 9,850.29
+总收益率: 9.85%
+总手续费: 1,924.28
+------------------------------------------------------
+交易次数: 11
+盈利交易: 7
+亏损交易: 4
+胜率: 63.64%
+------------------------------------------------------
+风险评估指标:
+夏普比率: 0.2754
+索提诺比率: 0.2660
+卡玛比率: 0.0229
+最大回撤: -57.02%
+最大单笔亏损: -0.53
+盈亏比: 1.1079
+================================================================
+
+2025-06-19 00:23:19.088 [http-nio-8088-exec-3] INFO  c.o.trading.service.impl.BacktestTradeServiceImpl - 成功保存回测记录，回测ID: 0b601d43-094c-41c2-a4ce-529476202dbc, 交易数量: 11
+2025-06-19 00:23:19.100 [http-nio-8088-exec-3] INFO  c.o.trading.service.impl.BacktestTradeServiceImpl - 成功保存回测汇总信息，回测ID: 0b601d43-094c-41c2-a4ce-529476202dbc, 批量回测ID: null
+2025-06-19 00:23:19.100 [http-nio-8088-exec-3] INFO  com.okx.trading.util.BacktestResultPrinter - 
+================================================================
+==================== 回测汇总信息 ====================
+================================================================
+回测ID: 5112
+交易对: BTC-USDT
+时间间隔: 1D
+策略名称: RSI超买超卖策略
+策略参数: null
+回测时间范围: 2018-01-01 00:00:00 至 2025-04-01 00:00:00
+------------------------------------------------------
+初始资金: 100,000.00
+最终资金: 109,850.29
+总盈亏: 9,850.29
+总收益率: 9.85%
+------------------------------------------------------
+交易次数: 11
+盈利交易: 7
+亏损交易: 4
+胜率: 63.64%
+------------------------------------------------------
+风险评估指标:
+夏普比率: 0.2754
+最大回撤: -57.02%
+索提诺比率: 0.2660
+卡玛比率: 0.0229
+最大单笔亏损: -0.53
+波动率: 0.5544
+总手续费: 1,924.28
+================================================================
+
+2025-06-19 00:23:19.110 [http-nio-8088-exec-3] INFO  com.okx.trading.controller.Ta4jBacktestController - 回测结果已保存，回测ID: 0b601d43-094c-41c2-a4ce-529476202dbc
+2025-06-19 00:23:19.110 [http-nio-8088-exec-3] INFO  com.okx.trading.controller.Ta4jBacktestController - 回测执行成功 - RSI超买超卖策略  (BacktestID: 0b601d43-094c-41c2-a4ce-529476202dbc)，交易次数: 11，总收益率: 9.8500%，总手续费: 1924.27556543115829471078579119304456152248540380237680307005509183456721086489510522691877011832220761980928000000
+2025-06-19 00:23:19.154 [http-nio-8088-exec-2] INFO  com.okx.trading.controller.MarketController - 查询已保存的历史K线数据, symbol: BTC-USDT, interval: 1D, startTime: 2024-06-18 00:00:00, endTime: 2025-06-18 00:00:00
+2025-06-19 00:23:19.527 [http-nio-8088-exec-5] INFO  com.okx.trading.controller.MarketController - 查询已保存的历史K线数据, symbol: BTC-USDT, interval: 1D, startTime: 2024-06-18 00:00:00, endTime: 2025-06-18 00:00:00

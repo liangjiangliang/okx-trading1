@@ -37,26 +37,32 @@ public class DeepSeekApiService {
     }
 
     private String strategyCodeTemplate = "{\n" +
-            "  \"strategyName\": \"EMA双线交叉策略\",\n" +
-            "  \"strategyId\": \"EMA_CROSSOVER_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
-            "  \"description\": \"基于快线EMA和慢线EMA的交叉策略，当快线上穿慢线时买入，当快线下穿慢线时卖出\",\n" +
-            "  \"comments\": \"适用于趋势市场，经典的移动平均线交叉策略，信号明确，易于理解和实现\",\n" +
-            "  \"category\": \"趋势策略\",\n" +
-            "  \"defaultParams\": {\"fastPeriod\": 12, \"slowPeriod\": 26},\n" +
-            "  \"paramsDesc\": {\"fastPeriod\": \"快线EMA周期\", \"slowPeriod\": \"慢线EMA周期\"},\n" +
+            "  \"strategyName\": \"成交量突破策略\",\n" +
+            "  \"strategyId\": \"VOLUME_BREAKOUT_STRATEGY_b6bf3c73-496a-4053-85da-fb5845f3daf4\",\n" +
+            "  \"description\": \"基于成交量突破的简单交易策略，当成交量超过其移动平均线时买入，当价格跌破短期均线时卖出\",\n" +
+            "  \"comments\": \"【使用场景】买卖力量对比分析。【优点】反映市场内在动力，衡量真实的买卖压力。【缺点】信号产生较慢，需要确认。【历史表现】夏普比率0.7-1.0，最大回撤20-28%。【特色】内在动力分析工具。\",\n" +
+            "  \"category\": \"成交量策略\",\n" +
+            "  \"defaultParams\": {\"volumePeriod\": 20, \"pricePeriod\": 10},\n" +
+            "  \"paramsDesc\": {\"volumePeriod\": \"成交量均线周期\", \"pricePeriod\": \"价格均线周期\"},\n" +
             "  \"strategyCode\": \"" +
-            "import org.ta4j.core.*;\\n" +
-            "import org.ta4j.core.indicators.*;\\n" +
-            "import org.ta4j.core.indicators.helpers.*;\\n" +
-            "import org.ta4j.core.rules.*;\\n" +
+            "public class CreateVolumeBreakoutStrategy {\\n" +
+            "    public static Strategy createVolumeBreakoutStrategy(BarSeries series) {\\n" +
+            "        int volumePeriod = 20;\\n" +
+            "        int pricePeriod = 10;\\n" +
             "\\n" +
-            "public class GeneratedEmaCrossoverStrategy extends BaseStrategy {\\n" +
+            "        if (series.getBarCount() <= volumePeriod) {\\n" +
+            "            throw new IllegalArgumentException(\\\"数据点不足以计算指标\\\");\\n" +
+            "        }\\n" +
             "\\n" +
-            "    public GeneratedEmaCrossoverStrategy(BarSeries series) {\\n" +
-            "        super(\\n" +
-            "            new CrossedUpIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new EMAIndicator(new ClosePriceIndicator(series), 26)),\\n" +
-            "            new CrossedDownIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new EMAIndicator(new ClosePriceIndicator(series), 26))\\n" +
-            "        );\\n" +
+            "        VolumeIndicator volume = new VolumeIndicator(series);\\n" +
+            "        SMAIndicator volumeSma = new SMAIndicator(volume, volumePeriod);\\n" +
+            "        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);\\n" +
+            "        SMAIndicator priceSma = new SMAIndicator(closePrice, pricePeriod);\\n" +
+            "\\n" +
+            "        Rule entryRule = new OverIndicatorRule(volume, volumeSma);\\n" +
+            "        Rule exitRule = new UnderIndicatorRule(closePrice, priceSma);\\n" +
+            "\\n" +
+            "        return new BaseStrategy(entryRule, exitRule);\\n" +
             "    }\\n" +
             "}\"\n" +
             "}\n";
@@ -66,66 +72,91 @@ public class DeepSeekApiService {
             + "   - strategyId: 前面是大写英文名称，用下划线区分单词，后面用uuid标记防止重复\n"
             + "   - description: 对策略逻辑的简单介绍，比如使用什么计算方式，使用的参数周期等信息\n"
             + "   - comments: 策略使用介绍，比如优缺点，适用场景，胜率，回测情况，短线还是长线使用等信息\n"
-            + "   - category: 策略分类（如：趋势策略、震荡策略、综合策略等）\n"
+            + "   - category: 策略分类（如：趋势策略、震荡策略、成交量策略等）\n"
             + "   - defaultParams: 默认参数（JSON对象格式）\n"
             + "   - paramsDesc: 参数描述（JSON对象格式，key为参数名，value为中文描述）\n"
             + "   - strategyCode: Ta4j策略Java类代码\n"
-            + "2. strategyCode要求：\n"
-            + "   - 生成一个完整的Java类，继承org.ta4j.core.BaseStrategy类\n"
-            + "   - 必须包含完整的import语句，导入所有使用的包\n"
-            + "   - 类名格式：Generated + 策略英文名 + Strategy（如：GeneratedSmaStrategy）\n"
-            + "   - 使用Ta4j库0.14版本的指标和规则\n"
+            + "2. strategyCode【强制格式要求】：\n"
+            + "   - 【必须】生成包含静态方法的Java类：public class CreateXxxStrategy\n"
+            + "   - 【必须】包含静态方法：public static Strategy createXxxStrategy(BarSeries series)\n"
+            + "   - 【绝对禁止】任何extends BaseStrategy的继承格式\n"
+            + "   - 【绝对禁止】任何构造函数super()调用\n"
+            + "   - 【绝对禁止】任何内部类、匿名类或自定义指标类\n"
+            + "   - 类名格式：Create + 策略英文名 + Strategy（如：CreateVolumeBreakoutStrategy）\n"
+            + "   - 方法名格式：create + 策略英文名 + Strategy（如：createVolumeBreakoutStrategy）\n"
+            + "   - 使用Ta4j库现有的指标和规则\n"
             + "   - 包含买入和卖出规则\n"
-            + "   - 代码要简洁且可编译，能够通过Janino编译器编译\n"
-            + "   - 继承BaseStrategy类，在构造函数中调用super()传入买入规则和卖出规则\n"
-            + "   - 构造函数只能接收BarSeries参数，不接受其他参数\n"
-            + "   - 在构造函数中直接创建指标和规则\n"
-            + "   - 【关键约束】绝对不要创建任何内部类、静态类、匿名类或自定义指标类！\n"
-            + "   - 【关键约束】只能使用现有的Ta4j指标类，如SMAIndicator、EMAIndicator、RSIIndicator等\n"
+            + "   - 代码要简洁且可编译\n"
+            + "   - 在方法开头进行数据点检查：if (series.getBarCount() <= period) throw new IllegalArgumentException(\"数据点不足以计算指标\")\n"
+            + "   - 最后返回：return new BaseStrategy(entryRule, exitRule)\n"
+            + "   - 【关键约束】只能使用现有的Ta4j指标类，如SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator等\n"
             + "   - 【关键约束】只能使用简单的规则组合，不要创建复杂的数学运算\n"
-            + "   - 【关键约束】策略类中只能包含一个构造函数，不能包含任何其他方法\n"
-            + "   - 必须的import语句：\n"
-            + "     * import org.ta4j.core.*;\n"
-            + "     * import org.ta4j.core.indicators.*;\n"
-            + "     * import org.ta4j.core.indicators.helpers.*;\n"
-            + "     * import org.ta4j.core.rules.*;\n"
-            + "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、MACDIndicator等\n"
+            + "   - 【关键约束】不需要import语句，直接生成类代码\n"
+            + "   - 常用指标：SMAIndicator、EMAIndicator、RSIIndicator、VolumeIndicator、OnBalanceVolumeIndicator等\n"
             + "   - 常用规则：CrossedUpIndicatorRule、CrossedDownIndicatorRule、OverIndicatorRule、UnderIndicatorRule\n"
             + "   - 【重要】所有策略都必须严格按照以下模板格式编写：\n"
-            + "     public class GeneratedXxxStrategy extends BaseStrategy {\n"
-            + "         public GeneratedXxxStrategy(BarSeries series) {\n"
-            + "             super(buyRule, sellRule);\n"
-            + "         }\n"
-            + "     }\n"
-            + "   - 【ATR策略限制】对于ATR类型策略，由于复杂性问题，请使用简单的SMA/EMA突破策略代替\n";
-
-    private String codeGeneratePromotion = "\n\n【严格代码规范】\n"
-            + "1. 【绝对禁止】以下类型的代码结构：\n"
-            + "   - 任何内部类、静态类或匿名类\n"
-            + "   - 任何自定义方法（除了构造函数）\n"
-            + "   - 任何参数化构造函数（除了单个BarSeries参数）\n"
-            + "   - 复杂的数值运算和类型转换\n"
-            + "   - 使用getValue()方法获取动态值\n"
-            + "2. 【必须遵循】代码结构：\n"
-            + "   - 只能有一个构造函数：public GeneratedXxxStrategy(BarSeries series)\n"
-            + "   - 构造函数中只能调用super(buyRule, sellRule)\n"
-            + "   - 买卖规则必须在构造函数中直接创建\n"
-            + "   - 只能使用现有指标类和规则类\n"
-            + "3. 【错误示例 - 绝对禁止】：\n"
-            + "   private static Rule createEntryRule(...) // 禁止自定义方法\n"
-            + "   public GeneratedStrategy(BarSeries series, int period) // 禁止多参数构造函数\n"
-            + "   Num atrValue = atr.getValue(series.getEndIndex()) // 禁止动态值获取\n"
-            + "   private static class CustomIndicator // 禁止内部类\n"
-            + "4. 【正确示例 - 必须遵循】：\n"
-            + "   public class GeneratedSmaStrategy extends BaseStrategy {\n"
-            + "       public GeneratedSmaStrategy(BarSeries series) {\n"
-            + "           super(\n"
-            + "               new CrossedUpIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new SMAIndicator(new ClosePriceIndicator(series), 26)),\n"
-            + "               new CrossedDownIndicatorRule(new EMAIndicator(new ClosePriceIndicator(series), 12), new SMAIndicator(new ClosePriceIndicator(series), 26))\n"
-            + "           );\n"
+            + "   ```java\n"
+            + "   public class CreateVolumeBreakoutStrategy {\n"
+            + "       public static Strategy createVolumeBreakoutStrategy(BarSeries series) {\n"
+            + "           int volumePeriod = 20;\n"
+            + "           int pricePeriod = 10;\n"
+            + "           \n"
+            + "           if (series.getBarCount() <= volumePeriod) {\n"
+            + "               throw new IllegalArgumentException(\"数据点不足以计算指标\");\n"
+            + "           }\n"
+            + "           \n"
+            + "           VolumeIndicator volume = new VolumeIndicator(series);\n"
+            + "           SMAIndicator volumeSma = new SMAIndicator(volume, volumePeriod);\n"
+            + "           ClosePriceIndicator closePrice = new ClosePriceIndicator(series);\n"
+            + "           SMAIndicator priceSma = new SMAIndicator(closePrice, pricePeriod);\n"
+            + "           \n"
+            + "           Rule entryRule = new OverIndicatorRule(volume, volumeSma);\n"
+            + "           Rule exitRule = new UnderIndicatorRule(closePrice, priceSma);\n"
+            + "           \n"
+            + "           return new BaseStrategy(entryRule, exitRule);\n"
             + "       }\n"
             + "   }\n"
-            + "5. 【编译错误修复】如果涉及ATR策略，改用简单的SMA/EMA交叉策略\n";
+            + "   ```\n";
+
+    private String codeGeneratePromotion = "\n\n【严格代码规范 - 必须严格遵守】\n"
+            + "1. 【绝对禁止】以下类型的代码结构：\n"
+            + "   - 任何继承BaseStrategy的类：public class XxxStrategy extends BaseStrategy\n"
+            + "   - 任何构造函数：public XxxStrategy(BarSeries series)\n"
+            + "   - 任何super()调用：super(entryRule, exitRule)\n"
+            + "   - 任何内部类、匿名类或自定义指标类\n"
+            + "   - 任何复杂的数学运算和类型转换\n"
+            + "   - 使用getValue()方法获取动态值\n"
+            + "   - 任何除了静态方法之外的其他方法\n"
+            + "2. 【必须遵循】代码结构：\n"
+            + "   - 只能有一个静态方法：public static Strategy createXxxStrategy(BarSeries series)\n"
+            + "   - 方法中最后必须返回：return new BaseStrategy(entryRule, exitRule)\n"
+            + "   - 买卖规则必须在方法中直接创建\n"
+            + "   - 只能使用现有指标类和规则类\n"
+            + "3. 【禁止格式示例 - 绝对不能生成】：\n"
+            + "   public class VolumeStrategy extends BaseStrategy {\n"
+            + "       public VolumeStrategy(BarSeries series) {\n"
+            + "           super(entryRule, exitRule);\n"
+            + "       }\n"
+            + "   }\n"
+            + "   class CustomIndicator extends CachedIndicator<Num> // 禁止自定义指标类\n"
+            + "   public createXxxStrategy(BarSeries series, int period) // 禁止多参数方法\n"
+            + "   Num value = indicator.getValue(series.getEndIndex()) // 禁止动态值获取\n"
+            + "4. 【强制格式示例 - 必须严格按照此格式】：\n"
+            + "   public class CreateVolumeStrategy {\n"
+            + "       public static Strategy createVolumeStrategy(BarSeries series) {\n"
+            + "           int period = 20;\n"
+            + "           if (series.getBarCount() <= period) {\n"
+            + "               throw new IllegalArgumentException(\"数据点不足以计算指标\");\n"
+            + "           }\n"
+            + "           VolumeIndicator volume = new VolumeIndicator(series);\n"
+            + "           SMAIndicator sma = new SMAIndicator(volume, period);\n"
+            + "           Rule entryRule = new OverIndicatorRule(volume, sma);\n"
+            + "           Rule exitRule = new UnderIndicatorRule(volume, sma);\n"
+            + "           return new BaseStrategy(entryRule, exitRule);\n"
+            + "       }\n"
+            + "   }\n"
+            + "5. 【编译错误修复】如果涉及复杂指标，改用简单的SMA/EMA交叉策略\n"
+            + "6. 【再次强调】绝对不能生成继承BaseStrategy的格式，只能生成包含静态方法的格式！\n";
 
     /**
      * 更新策略（带对话上下文）
@@ -175,7 +206,24 @@ public class DeepSeekApiService {
      */
     private String buildCompleteStrategyPrompt(String strategyDescription, String currentStrategy, String conversationContext) {
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("请根据以下描述生成一个完整的Ta4j交易策略信息，返回JSON格式：\n\n");
+
+        // 强制开头声明格式要求
+        promptBuilder.append("【强制格式要求 - 必须严格遵守】\n");
+        promptBuilder.append("生成的策略代码必须是以下静态方法格式，绝对不能是继承格式：\n\n");
+        promptBuilder.append("public class CreateXxxStrategy {\n");
+        promptBuilder.append("    public static Strategy createXxxStrategy(BarSeries series) {\n");
+        promptBuilder.append("        // 策略逻辑\n");
+        promptBuilder.append("        return new BaseStrategy(entryRule, exitRule);\n");
+        promptBuilder.append("    }\n");
+        promptBuilder.append("}\n\n");
+        promptBuilder.append("【禁止格式】绝对不能生成类似以下继承BaseStrategy的格式：\n");
+        promptBuilder.append("public class XxxStrategy extends BaseStrategy {\n");
+        promptBuilder.append("    public XxxStrategy(BarSeries series) {\n");
+        promptBuilder.append("        super(entryRule, exitRule);\n");
+        promptBuilder.append("    }\n");
+        promptBuilder.append("}\n\n");
+
+        promptBuilder.append("请根据以下描述生成一个完整的Ta4j交易策略信息，返回JSON格式。\n\n");
 
         // 添加对话上下文（如果存在）
         if (conversationContext != null && !conversationContext.trim().isEmpty()) {
@@ -192,17 +240,17 @@ public class DeepSeekApiService {
 
         // 处理ATR相关请求，统一转换为简单策略
         String processedDescription = strategyDescription;
-        if (strategyDescription.contains("atr") || strategyDescription.contains("ATR") ||
-            strategyDescription.contains("波动") || strategyDescription.contains("突破")) {
-            processedDescription = "生成一个简单的EMA双线交叉策略，作为波动突破策略的替代方案";
+        if (strategyDescription.contains("atr") || strategyDescription.contains("ATR")) {
+            processedDescription = "生成一个简单的EMA双线交叉策略，作为ATR策略的替代方案";
         }
 
         promptBuilder.append("期望生成策略的描述：").append(processedDescription).append("\n\n");
         promptBuilder.append("要求：\n");
         promptBuilder.append("1. 返回JSON格式，包含以下字段：\n");
         promptBuilder.append(codeGenerateStrategy);
-        promptBuilder.append("3. 只返回JSON，不要其他解释\n\n");
-        promptBuilder.append("示例格式：\n");
+        promptBuilder.append("3. 【再次强调】策略代码必须是静态方法格式，绝对不能是继承BaseStrategy的类格式！\n");
+        promptBuilder.append("4. 只返回JSON，不要其他解释\n\n");
+        promptBuilder.append("示例格式（必须严格按照此格式）：\n");
         promptBuilder.append(strategyCodeTemplate);
         promptBuilder.append(codeGeneratePromotion);
 
@@ -225,8 +273,9 @@ public class DeepSeekApiService {
         promptBuilder.append("要求：\n");
         promptBuilder.append("1. 返回JSON数组格式，数组中每个元素包含以下字段：\n");
         promptBuilder.append(codeGenerateStrategy);
-        promptBuilder.append("3. 确保每个策略都有不同的strategyId和类名\n");
-        promptBuilder.append("4. 只返回JSON数组，不要其他解释\n\n");
+        promptBuilder.append("3. 【重要】策略代码必须是静态方法格式，不能是继承BaseStrategy的类格式！\n");
+        promptBuilder.append("4. 确保每个策略都有不同的strategyId和类名\n");
+        promptBuilder.append("5. 只返回JSON数组，不要其他解释\n\n");
         promptBuilder.append("示例格式：\n");
         promptBuilder.append("[\n");
         promptBuilder.append(strategyCodeTemplate);

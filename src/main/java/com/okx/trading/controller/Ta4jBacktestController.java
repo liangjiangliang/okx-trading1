@@ -446,22 +446,14 @@ public class Ta4jBacktestController {
         try {
             // 从数据库中获取所有策略信息
             Map<String, Map<String, Object>> strategies = strategyInfoService.getStrategiesInfo();
-            List<BacktestSummaryEntity> bestReturnList = backtestTradeService.getBestPerformingBacktests();
+
             // 为每个策略添加available字段，基于最后一次对话的compile_error字段
             for (Map.Entry<String, Map<String, Object>> entry : strategies.entrySet()) {
                 Map<String, Object> strategyInfo = entry.getValue();
                 String strategyCode = (String) strategyInfo.get("strategy_code");
-                List<BacktestSummaryEntity> summaryEntities = bestReturnList.stream().filter(x -> x.getStrategyCode().equals(strategyCode)).sorted().collect(Collectors.toList());
-
-                if (summaryEntities.size() > 0) {
-                    BigDecimal bestRetun = (BigDecimal) summaryEntities.get(0).getTotalReturn();
-                    strategyInfo.put("best_return", bestRetun.doubleValue());
-                } else {
-                    strategyInfo.put("best_return", 0.0);
-                }
+                strategyInfo.put("best_return", 0.0);
                 String strategyIdStr = (String) strategyInfo.get("id");
                 String loadError = (String) strategyInfo.get("load_error");
-
 
                 if (strategyIdStr != null && !strategyIdStr.isEmpty()) {
                     try {

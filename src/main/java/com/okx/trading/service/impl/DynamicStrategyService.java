@@ -13,6 +13,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.Strategy;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -81,25 +82,87 @@ public class DynamicStrategyService {
     private Function<BarSeries, Strategy> compileStrategyClass(String strategyCode) throws Exception {
         // 使用SimpleCompiler编译完整的类
         SimpleCompiler compiler = new SimpleCompiler();
+        
+        // 关键修复：设置父ClassLoader，让Janino能够访问Ta4j库中的类
+        compiler.setParentClassLoader(Thread.currentThread().getContextClassLoader());
 
         // 添加必要的导入语句到代码中
         String fullCode = addImportsToCode(strategyCode);
 
-        // 编译策略类
-        compiler.cook(fullCode);
+        log.debug("编译策略代码: {}", fullCode);
+
+        try {
+            // 编译策略类
+            compiler.cook(fullCode);
+        } catch (Exception e) {
+            log.error("编译策略代码失败: {}", e.getMessage());
+            throw new RuntimeException("编译策略代码失败: " + e.getMessage(), e);
+        }
 
         // 获取编译后的类
         Class<?> strategyClass = compiler.getClassLoader().loadClass(extractClassName(strategyCode));
 
-        // 返回一个BiFunction，用于创建策略实例
-        return (series) -> {
-            try {
-                // 通过反射创建策略实例，传入BarSeries参数
-                return (Strategy) strategyClass.getConstructor(BarSeries.class).newInstance(series);
-            } catch (Exception e) {
-                throw new RuntimeException("创建策略实例失败: " + e.getMessage(), e);
+        // 检查是否是静态方法格式
+        if (isStaticMethodFormat(strategyCode)) {
+            // 静态方法格式：调用静态方法
+            String methodName = extractMethodName(strategyCode);
+            return (series) -> {
+                try {
+                    // 通过反射调用静态方法
+                    Method method = strategyClass.getMethod(methodName, BarSeries.class);
+                    return (Strategy) method.invoke(null, series);
+                } catch (Exception e) {
+                    log.error("调用静态方法失败: {}", e.getMessage(), e);
+                    throw new RuntimeException("调用静态方法失败: " + e.getMessage(), e);
+                }
+            };
+        } else {
+            // 继承格式：使用构造函数
+            return (series) -> {
+                try {
+                    // 通过反射创建策略实例，传入BarSeries参数
+                    return (Strategy) strategyClass.getConstructor(BarSeries.class).newInstance(series);
+                } catch (Exception e) {
+                    log.error("创建策略实例失败: {}", e.getMessage(), e);
+                    throw new RuntimeException("创建策略实例失败: " + e.getMessage(), e);
+                }
+            };
+        }
+    }
+
+    /**
+     * 检查是否是静态方法格式的策略代码
+     */
+    private boolean isStaticMethodFormat(String code) {
+        // 检查是否包含静态方法签名
+        return code.contains("public static Strategy") &&
+               code.contains("(BarSeries series)") &&
+               !code.contains("extends BaseStrategy");
+    }
+
+    /**
+     * 从类代码中提取静态方法名
+     */
+    private String extractMethodName(String classCode) {
+        String[] lines = classCode.split("\n");
+        for (String line : lines) {
+            line = line.trim();
+            if (line.contains("public static Strategy") && line.contains("(BarSeries series)")) {
+                // 寻找方法名：public static Strategy methodName(BarSeries series)
+                String[] parts = line.split("\\s+");
+                for (int i = 0; i < parts.length; i++) {
+                    if ("Strategy".equals(parts[i]) && i + 1 < parts.length) {
+                        String methodName = parts[i + 1];
+                        // 移除方法后面的括号
+                        if (methodName.contains("(")) {
+                            methodName = methodName.substring(0, methodName.indexOf("("));
+                        }
+                        return methodName;
+                    }
+                }
             }
-        };
+        }
+        throw new RuntimeException("无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)");
     }
 
     /**
@@ -107,11 +170,23 @@ public class DynamicStrategyService {
      */
     private String addImportsToCode(String strategyCode) {
         StringBuilder imports = new StringBuilder();
+        
+        // 核心Ta4j类 - 确保BaseStrategy能被找到
+        imports.append("import org.ta4j.core.BaseStrategy;\n");
+        imports.append("import org.ta4j.core.Strategy;\n");
+        imports.append("import org.ta4j.core.Rule;\n");
+        imports.append("import org.ta4j.core.BarSeries;\n");
+        imports.append("import org.ta4j.core.Indicator;\n");
+        imports.append("import org.ta4j.core.num.Num;\n");
+        
+        // 通配符导入作为备用
         imports.append("import org.ta4j.core.*;\n");
         imports.append("import org.ta4j.core.aggregator.*;\n");
         imports.append("import org.ta4j.core.analysis.*;\n");
         imports.append("import org.ta4j.core.analysis.criteria.*;\n");
         imports.append("import org.ta4j.core.cost.*;\n");
+        
+        // 指标类
         imports.append("import org.ta4j.core.indicators.*;\n");
         imports.append("import org.ta4j.core.indicators.bollinger.*;\n");
         imports.append("import org.ta4j.core.indicators.keltner.*;\n");
@@ -121,8 +196,11 @@ public class DynamicStrategyService {
         imports.append("import org.ta4j.core.indicators.helpers.*;\n");
         imports.append("import org.ta4j.core.indicators.statistics.*;\n");
         imports.append("import org.ta4j.core.indicators.volume.*;\n");
+        
+        // 规则类
         imports.append("import org.ta4j.core.rules.*;\n");
-        imports.append("import org.ta4j.core.num.*;\n");
+        
+        // Java标准库
         imports.append("import java.util.*;\n");
         imports.append("import java.util.function.*;\n\n");
 
@@ -219,6 +297,7 @@ public class DynamicStrategyService {
                     .replaceAll("ClosePriceIndicator\\s+\\w+\\s*=\\s*new\\s+ClosePriceIndicator\\([^;]+;\\s*", "")
                     .replaceAll("ClosePriceIndicator\\s+closePrice\\s*=\\s*new\\s+ClosePriceIndicator\\([^;]+;\\s*", "")
                     // 替换需要ClosePriceIndicator的指标，使用更精确的匹配
+                    // 只有当第一个参数是series时才替换，如果已经是closePrice则不替换
                     .replaceAll("RSIIndicator\\(\\s*" + seriesParam + "\\s*,", "RSIIndicator(closePrice,")
                     .replaceAll("new RSIIndicator\\(\\s*" + seriesParam + "\\s*,", "new RSIIndicator(closePrice,")
                     .replaceAll("EMAIndicator\\(\\s*" + seriesParam + "\\s*,", "EMAIndicator(closePrice,")
@@ -312,8 +391,8 @@ public class DynamicStrategyService {
      */
     private void loadStrategyToFactory(String strategyCode, Function<BarSeries, Strategy> strategyFunction) {
         try {
-            // 通过反射获取StrategyFactory的strategyCreators字段
-            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
+            // 通过反射获取StrategyRegisterCenter的strategyCreators字段
+            Field strategyCreatorsField = com.okx.trading.strategy.StrategyRegisterCenter.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
@@ -323,9 +402,9 @@ public class DynamicStrategyService {
             // 添加新策略
             strategyCreators.put(strategyCode, strategyFunction);
 
-            log.info("策略 {} 已动态加载到StrategyFactory", strategyCode);
+            log.info("策略 {} 已动态加载到StrategyRegisterCenter", strategyCode);
         } catch (Exception e) {
-            log.error("动态加载策略到StrategyFactory失败: {}", e.getMessage(), e);
+            log.error("动态加载策略到StrategyRegisterCenter失败: {}", e.getMessage(), e);
             throw new RuntimeException("动态加载策略失败: " + e.getMessage());
         }
     }
@@ -374,13 +453,13 @@ public class DynamicStrategyService {
             // 从缓存中移除
             compiledStrategies.remove(strategyCode);
 
-            // 从StrategyFactory中移除
-            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
+            // 从StrategyRegisterCenter中移除
+            Field strategyCreatorsField = com.okx.trading.strategy.StrategyRegisterCenter.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
-            Map<String, BiFunction<BarSeries, Map<String, Object>, Strategy>> strategyCreators =
-                    (Map<String, BiFunction<BarSeries, Map<String, Object>, Strategy>>) strategyCreatorsField.get(null);
+            Map<String, Function<BarSeries, Strategy>> strategyCreators =
+                    (Map<String, Function<BarSeries, Strategy>>) strategyCreatorsField.get(null);
 
             strategyCreators.remove(strategyCode);
 

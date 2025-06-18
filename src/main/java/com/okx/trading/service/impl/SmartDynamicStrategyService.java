@@ -102,32 +102,54 @@ public class SmartDynamicStrategyService {
         String fixedCode = strategyCode;
 
         try {
-            // 1. 修复MACDIndicator构造函数问题
-            fixedCode = fixMACDIndicatorConstructor(fixedCode);
+            log.info("🔧 [DEBUG] autoFixCommonErrors开始，原始代码包含: {}", 
+                strategyCode.contains("longPeriod") ? "longPeriod存在" : "longPeriod不存在");
+            
+            // 检查是否是静态方法格式的代码
+            boolean isStaticMethodFormat = isStaticMethodFormat(strategyCode);
+            
+            if (isStaticMethodFormat) {
+                log.info("检测到静态方法格式的策略代码，跳过继承相关的修复");
+                // 对于静态方法格式，只进行简单的修复
+                String beforeFix = fixedCode;
+                fixedCode = fixStaticMethodErrors(fixedCode);
+                
+                if (!fixedCode.equals(beforeFix)) {
+                    log.info("🚨 [DEBUG] fixStaticMethodErrors修改了代码！");
+                    log.info("🚨 [DEBUG] 修改前包含longPeriod: {}", beforeFix.contains("longPeriod"));
+                    log.info("🚨 [DEBUG] 修改后包含longPeriod: {}", fixedCode.contains("longPeriod"));
+                }
+            } else {
+                // 对于继承格式，进行完整的修复
+                log.info("检测到继承格式的策略代码，进行完整修复");
+                
+                // 1. 修复MACDIndicator构造函数问题
+                fixedCode = fixMACDIndicatorConstructor(fixedCode);
 
-            // 2. 移除不支持的内部类
-            fixedCode = removeInnerClasses(fixedCode);
+                // 2. 移除不支持的内部类
+                fixedCode = removeInnerClasses(fixedCode);
 
-            // 3. 移除私有方法，内联到构造函数中
-            fixedCode = inlinePrivateMethods(fixedCode);
+                // 3. 移除私有方法，内联到构造函数中
+                fixedCode = inlinePrivateMethods(fixedCode);
 
-            // 4. 修复常见的import问题
-            fixedCode = fixImports(fixedCode);
+                // 4. 修复常见的import问题
+                fixedCode = fixImports(fixedCode);
 
-            // 5. 确保类名正确继承
-            fixedCode = fixClassDeclaration(fixedCode);
+                // 5. 确保类名正确继承
+                fixedCode = fixClassDeclaration(fixedCode);
 
-            // 6. 修复super调用位置
-            fixedCode = fixSuperCallPosition(fixedCode);
+                // 6. 修复super调用位置
+                fixedCode = fixSuperCallPosition(fixedCode);
 
-            // 7. 修复常见的语法错误
-            fixedCode = fixCommonSyntaxErrors(fixedCode);
+                // 7. 修复常见的语法错误
+                fixedCode = fixCommonSyntaxErrors(fixedCode);
 
-            // 8. 修复不存在的指标类
-            fixedCode = fixMissingIndicators(fixedCode);
+                // 8. 修复不存在的指标类
+                fixedCode = fixMissingIndicators(fixedCode);
 
-            // 9. 修复常见的编译错误
-            fixedCode = fixCommonCompilationErrors(fixedCode);
+                // 9. 修复常见的编译错误
+                fixedCode = fixCommonCompilationErrors(fixedCode);
+            }
 
             // 只有在代码确实被修复时才记录日志
             if (!strategyCode.equals(fixedCode)) {
@@ -141,6 +163,74 @@ public class SmartDynamicStrategyService {
             log.error("自动修复策略代码时发生错误: {}", e.getMessage(), e);
             return strategyCode; // 返回原始代码
         }
+    }
+
+    /**
+     * 检查是否是静态方法格式的策略代码
+     */
+    private boolean isStaticMethodFormat(String code) {
+        // 检查是否包含静态方法签名
+        return code.contains("public static Strategy") && 
+               code.contains("(BarSeries series)") &&
+               !code.contains("extends BaseStrategy");
+    }
+
+    /**
+     * 修复静态方法格式代码的错误
+     */
+    private String fixStaticMethodErrors(String code) {
+        log.info("🔧 开始修复静态方法格式代码");
+        log.info("原始代码长度: {}", code.length());
+        
+        String originalCode = code;
+        
+        // 对于静态方法格式，只需要进行基本的修复
+        
+        // 1. 修复常见的语法错误
+        code = fixCommonSyntaxErrors(code);
+        if (!code.equals(originalCode)) {
+            log.info("✅ fixCommonSyntaxErrors 修改了代码");
+        }
+        
+        // 2. 修复不存在的指标类（但不修复继承相关问题）
+        String beforeIndicatorFix = code;
+        code = fixMissingIndicatorsForStaticMethod(code);
+        if (!code.equals(beforeIndicatorFix)) {
+            log.info("✅ fixMissingIndicatorsForStaticMethod 修改了代码");
+            log.info("修改前: {}", beforeIndicatorFix.substring(Math.max(0, beforeIndicatorFix.length()-200)));
+            log.info("修改后: {}", code.substring(Math.max(0, code.length()-200)));
+        }
+        
+        // 3. 修复括号匹配问题
+        String beforeBracketFix = code;
+        code = fixBracketMatching(code);
+        if (!code.equals(beforeBracketFix)) {
+            log.info("✅ fixBracketMatching 修改了代码");
+        }
+        
+        log.info("修复后代码长度: {}", code.length());
+        return code;
+    }
+
+    /**
+     * 为静态方法格式修复缺失的指标类
+     */
+    private String fixMissingIndicatorsForStaticMethod(String code) {
+        // 只修复指标类的简单替换，不涉及继承
+        
+        // 修复不存在的指标类名
+        code = code.replaceAll("IchimokuTenkanSenIndicator", "SMAIndicator");
+        code = code.replaceAll("IchimokuKijunSenIndicator", "EMAIndicator");
+        code = code.replaceAll("UlcerIndexIndicator", "RSIIndicator");
+        code = code.replaceAll("ParabolicSarIndicator", "SMAIndicator");
+        code = code.replaceAll("ChandelierExitIndicator", "SMAIndicator");
+        
+        // 只修复真正有三个或更多参数的指标调用，避免影响正确的两参数调用
+        // 这里使用更精确的正则表达式，确保真的是三个参数（两个逗号）
+        code = code.replaceAll("new SMAIndicator\\(([^,()]+),\\s*([^,()]+),\\s*([^,()]+)\\)", "new SMAIndicator($1, $2)");
+        code = code.replaceAll("new EMAIndicator\\(([^,()]+),\\s*([^,()]+),\\s*([^,()]+)\\)", "new EMAIndicator($1, $2)");
+        
+        return code;
     }
 
     /**

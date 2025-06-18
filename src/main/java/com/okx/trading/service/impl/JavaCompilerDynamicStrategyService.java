@@ -5,6 +5,7 @@ import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.strategy.StrategyFactory1;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.var;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Strategy;
@@ -78,8 +79,9 @@ public class JavaCompilerDynamicStrategyService {
             Files.createDirectories(tempCompileDir);
         }
 
-        // 从代码中提取类名
+        // 从代码中提取类名和方法名
         String className = extractClassName(strategyCode);
+        String methodName = extractMethodName(strategyCode);
 
         // 准备完整的源代码
         String fullSourceCode = prepareFullSourceCode(strategyCode);
@@ -125,12 +127,14 @@ public class JavaCompilerDynamicStrategyService {
         URLClassLoader classLoader = new URLClassLoader(urls, this.getClass().getClassLoader());
         Class<?> strategyClass = classLoader.loadClass(className);
 
-        // 创建策略函数
+        // 创建策略函数 - 调用静态方法而不是构造函数
         return (series) -> {
             try {
-                return (Strategy) strategyClass.getConstructor(BarSeries.class).newInstance(series);
+                // 查找静态方法
+                var method = strategyClass.getMethod(methodName, BarSeries.class);
+                return (Strategy) method.invoke(null, series);
             } catch (Exception e) {
-                throw new RuntimeException("创建策略实例失败: " + e.getMessage(), e);
+                throw new RuntimeException("调用策略静态方法失败: " + e.getMessage(), e);
             }
         };
     }
@@ -198,12 +202,37 @@ public class JavaCompilerDynamicStrategyService {
     }
 
     /**
+     * 从类代码中提取方法名
+     */
+    private String extractMethodName(String classCode) {
+        String[] lines = classCode.split("\n");
+        for (String line : lines) {
+            line = line.trim();
+            if (line.contains("public static Strategy") && line.contains("(BarSeries series)")) {
+                // 寻找方法名：public static Strategy methodName(BarSeries series)
+                String[] parts = line.split("\\s+");
+                for (int i = 0; i < parts.length; i++) {
+                    if ("Strategy".equals(parts[i]) && i + 1 < parts.length) {
+                        String methodName = parts[i + 1];
+                        // 移除方法后面的括号
+                        if (methodName.contains("(")) {
+                            methodName = methodName.substring(0, methodName.indexOf("("));
+                        }
+                        return methodName;
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("无法从代码中提取方法名，请确保方法格式为：public static Strategy methodName(BarSeries series)");
+    }
+
+    /**
      * 将策略函数动态加载到StrategyFactory
      */
     private void loadStrategyToFactory(String strategyCode, Function<BarSeries, Strategy> strategyFunction) {
         try {
-            // 通过反射获取StrategyFactory的strategyCreators字段
-            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
+            // 通过反射获取StrategyRegisterCenter的strategyCreators字段
+            Field strategyCreatorsField = com.okx.trading.strategy.StrategyRegisterCenter.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
@@ -213,9 +242,9 @@ public class JavaCompilerDynamicStrategyService {
             // 添加新策略
             strategyCreators.put(strategyCode, strategyFunction);
 
-            log.info("策略 {} 已动态加载到StrategyFactory", strategyCode);
+            log.info("策略 {} 已动态加载到StrategyRegisterCenter", strategyCode);
         } catch (Exception e) {
-            log.error("动态加载策略到StrategyFactory失败: {}", e.getMessage(), e);
+            log.error("动态加载策略到StrategyRegisterCenter失败: {}", e.getMessage(), e);
             throw new RuntimeException("动态加载策略失败: " + e.getMessage());
         }
     }
@@ -267,8 +296,8 @@ public class JavaCompilerDynamicStrategyService {
             // 从缓存中移除
             compiledStrategies.remove(strategyCode);
 
-            // 从StrategyFactory中移除
-            Field strategyCreatorsField = StrategyFactory1.class.getDeclaredField("strategyCreators");
+            // 从StrategyRegisterCenter中移除
+            Field strategyCreatorsField = com.okx.trading.strategy.StrategyRegisterCenter.class.getDeclaredField("strategyCreators");
             strategyCreatorsField.setAccessible(true);
 
             @SuppressWarnings("unchecked")
