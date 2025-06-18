@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.ta4j.core.BarSeries;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -109,7 +110,7 @@ public class CandlestickBarSeriesAdapterTest {
             BigDecimal open = basePrice.add(new BigDecimal(variation));
             BigDecimal high = open.add(new BigDecimal(Math.random() * 100));
             BigDecimal low = open.subtract(new BigDecimal(Math.random() * 100));
-            BigDecimal close = high.add(low).divide(new BigDecimal("2"), 4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal close = high.add(low).divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP);
             BigDecimal volume = new BigDecimal(Math.random() * 100 + 10);
 
             // 设置mock的返回值

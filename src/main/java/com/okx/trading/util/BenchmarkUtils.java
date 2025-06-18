@@ -3,6 +3,7 @@ package com.okx.trading.util;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.ZoneOffset;
@@ -35,8 +36,8 @@ public class BenchmarkUtils {
     public static List<BigDecimal> fetchHistoricalClosePrices(String symbol, ZonedDateTime startTime, ZonedDateTime endTime) throws Exception {
         
         // 生成缓存键
-        String cacheKey = String.format("%s_%d_%d", symbol, 
-            startTime.toEpochSecond(), endTime.toEpochSecond());
+        String cacheKey = String.format("%s_%s_%s", symbol, 
+            String.valueOf(startTime.toEpochSecond()), String.valueOf(endTime.toEpochSecond()));
         
         // 检查缓存
         if (priceCache.containsKey(cacheKey)) {
@@ -61,8 +62,8 @@ public class BenchmarkUtils {
             long period1 = startTime.toEpochSecond();
             long period2 = endTime.toEpochSecond();
             String urlStr = String.format(
-                    "https://query1.finance.yahoo.com/v7/finance/download/%s?period1=%d&period2=%d&interval=1d&events=history&includeAdjustedClose=true",
-                    symbol, period1, period2);
+                    "https://query1.finance.yahoo.com/v7/finance/download/%s?period1=%s&period2=%s&interval=1d&events=history&includeAdjustedClose=true",
+                    symbol, String.valueOf(period1), String.valueOf(period2));
 
             System.out.println("正在获取基准数据: " + symbol + " 从 " + startTime.toLocalDate() + " 到 " + endTime.toLocalDate());
             
@@ -128,7 +129,7 @@ public class BenchmarkUtils {
             BigDecimal current = prices.get(i);
             if (prev.compareTo(BigDecimal.ZERO) == 0) continue;
             
-            BigDecimal ret = current.subtract(prev).divide(prev, 8, BigDecimal.ROUND_HALF_UP);
+            BigDecimal ret = current.subtract(prev).divide(prev, 8, RoundingMode.HALF_UP);
             returns.add(ret);
         }
         return returns;
@@ -144,8 +145,8 @@ public class BenchmarkUtils {
      */
     public static List<BigDecimal> getBenchmarkReturns(String symbol, ZonedDateTime startTime, ZonedDateTime endTime) {
         // 生成缓存键
-        String cacheKey = String.format("%s_returns_%d_%d", symbol, 
-            startTime.toEpochSecond(), endTime.toEpochSecond());
+        String cacheKey = String.format("%s_returns_%s_%s", symbol, 
+            String.valueOf(startTime.toEpochSecond()), String.valueOf(endTime.toEpochSecond()));
         
         // 检查收益率缓存
         if (returnCache.containsKey(cacheKey)) {

@@ -39,6 +39,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.math.RoundingMode;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Ta4j回测控制器
@@ -260,12 +262,20 @@ public class Ta4jBacktestController {
         log.info("开始执行所有策略的批量回测，交易对: {}, 间隔: {}, 时间范围: {} - {}, 初始资金: {}, 手续费率: {}, 并行线程数: {}",
                 symbol, interval, startTime, endTime, initialAmount, feeRatio, threadCount);
 
+        // 生成唯一的批量回测ID
+        String batchBacktestId = UUID.randomUUID().toString();
+        log.info("生成批量回测ID: {}", batchBacktestId);
+
+        // 存储所有回测结果
+        List<Map<String, Object>> allResults = Collections.synchronizedList(new ArrayList<>());
+
         try {
             // 获取历史数据
             List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
+
             // 生成唯一的系列名称
             String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
 
@@ -280,13 +290,6 @@ public class Ta4jBacktestController {
 
             // 创建线程池
             ExecutorService executor = Executors.newFixedThreadPool(Math.min(threadCount, 10));
-
-            // 生成唯一的批量回测ID
-            String batchBacktestId = UUID.randomUUID().toString();
-            log.info("生成批量回测ID: {}", batchBacktestId);
-
-            // 存储所有回测结果
-            List<Map<String, Object>> allResults = Collections.synchronizedList(new ArrayList<>());
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // 创建回测任务
@@ -296,59 +299,83 @@ public class Ta4jBacktestController {
 
                 // 创建异步任务
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    String currentStrategyCode = strategyCode;
                     try {
-                        log.info("开始回测策略: {}", strategyCode);
+                        log.info("开始回测策略: {}", currentStrategyCode);
 
-                        // 执行回测
-                        BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyCode, initialAmount, feeRatio);
+                        // 执行回测 - 添加额外的异常处理
+                        BacktestResultDTO result = null;
+                        try {
+                            result = ta4jBacktestService.backtest(series, currentStrategyCode, initialAmount, feeRatio);
+                        } catch (Exception backtestException) {
+                            log.error("策略 {} 回测执行失败: {}", currentStrategyCode, backtestException.getMessage());
+                            // 创建一个失败的结果对象
+                            result = new BacktestResultDTO();
+                            result.setSuccess(false);
+                            result.setErrorMessage("回测执行失败: " + backtestException.getMessage());
+                        }
+
+                        if (result == null) {
+                            result = new BacktestResultDTO();
+                            result.setSuccess(false);
+                            result.setErrorMessage("回测结果为空");
+                        }
+
                         result.setStrategyName((String) strategyDetails.get("name"));
                         result.setStrategyCode((String) strategyDetails.get("strategy_code"));
+
                         // 如果需要保存结果到数据库
                         if (saveResult && result.isSuccess()) {
-                            // 保存交易明细
-                            String backtestId = backtestTradeService.saveBacktestTrades(symbol, result, defaultParams);
-                            result.setBacktestId(backtestId);
+                            try {
+                                // 保存交易明细
+                                String backtestId = backtestTradeService.saveBacktestTrades(symbol, result, defaultParams);
+                                result.setBacktestId(backtestId);
 
-                            // 保存汇总信息，包含批量回测ID
-                            backtestTradeService.saveBacktestSummary(
-                                    result, defaultParams, symbol, interval, startTime, endTime, backtestId, batchBacktestId);
+                                // 保存汇总信息，包含批量回测ID
+                                backtestTradeService.saveBacktestSummary(
+                                        result, defaultParams, symbol, interval, startTime, endTime, backtestId, batchBacktestId);
 
-                            result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ", BatchID: " + batchBacktestId + ")");
+                                result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ", BatchID: " + batchBacktestId + ")");
+                            } catch (Exception saveException) {
+                                log.error("策略 {} 保存结果失败: {}", currentStrategyCode, saveException.getMessage());
+                                // 不影响回测结果，只是保存失败
+                            }
                         }
 
                         // 记录结果
                         Map<String, Object> resultMap = new HashMap<>();
-                        resultMap.put("strategy_code", strategyCode);
+                        resultMap.put("strategy_code", currentStrategyCode);
                         resultMap.put("strategy_name", strategyDetails.get("name"));
                         resultMap.put("success", result.isSuccess());
 
                         if (result.isSuccess()) {
-                            resultMap.put("total_return", result.getTotalReturn());
-                            resultMap.put("number_of_trades", result.getNumberOfTrades());
-                            resultMap.put("win_rate", result.getWinRate());
-                            resultMap.put("profit_factor", result.getProfitFactor());
-                            resultMap.put("sharpe_ratio", result.getSharpeRatio());
-                            resultMap.put("max_drawdown", result.getMaxDrawdown());
+                            resultMap.put("total_return", result.getTotalReturn() != null ? result.getTotalReturn() : BigDecimal.ZERO);
+                            resultMap.put("number_of_trades", result.getNumberOfTrades() );
+                            resultMap.put("win_rate", result.getWinRate() != null ? result.getWinRate() : BigDecimal.ZERO);
+                            resultMap.put("profit_factor", result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ZERO);
+                            resultMap.put("sharpe_ratio", result.getSharpeRatio() != null ? result.getSharpeRatio() : BigDecimal.ZERO);
+                            resultMap.put("max_drawdown", result.getMaxDrawdown() != null ? result.getMaxDrawdown() : BigDecimal.ZERO);
                             resultMap.put("backtest_id", result.getBacktestId());
 
                             log.info("策略 {} 回测成功 - 收益率: {}%, 交易次数: {}, 胜率: {}%",
-                                    strategyCode,
-                                    result.getTotalReturn().multiply(new BigDecimal("100")),
-                                    result.getNumberOfTrades(),
-                                    result.getWinRate().multiply(new BigDecimal("100")));
+                                    currentStrategyCode,
+                                    result.getTotalReturn() != null ? result.getTotalReturn().multiply(new BigDecimal("100")).toString() : "0",
+                                    result.getNumberOfTrades() ,
+                                    result.getWinRate() != null ? result.getWinRate().multiply(new BigDecimal("100")).toString() : "0");
                         } else {
-                            resultMap.put("error", result.getErrorMessage());
-                            log.warn("策略 {} 回测失败 - 错误信息: {}", strategyCode, result.getErrorMessage());
+                            resultMap.put("error", result.getErrorMessage() != null ? result.getErrorMessage() : "未知错误");
+                            log.warn("策略 {} 回测失败 - 错误信息: {}", currentStrategyCode, result.getErrorMessage());
                         }
 
                         allResults.add(resultMap);
+
                     } catch (Exception e) {
-                        log.error("策略 {} 回测过程中发生错误: {}", strategyCode, e.getMessage(), e);
+                        log.error("策略 {} 回测过程中发生未捕获错误: {}", currentStrategyCode, e.getMessage(), e);
                         Map<String, Object> errorResult = new HashMap<>();
-                        errorResult.put("strategy_code", strategyCode);
+                        errorResult.put("strategy_code", currentStrategyCode);
                         errorResult.put("strategy_name", strategyDetails.get("name"));
                         errorResult.put("success", false);
-                        errorResult.put("error", e.getMessage());
+                        errorResult.put("error", "未捕获错误: " + e.getMessage());
                         allResults.add(errorResult);
                     }
                 }, executor);
@@ -356,11 +383,26 @@ public class Ta4jBacktestController {
                 futures.add(future);
             }
 
-            // 等待所有任务完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            // 等待所有任务完成，设置超时时间
+            try {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(30, TimeUnit.MINUTES); // 30分钟超时
+            } catch (TimeoutException e) {
+                log.error("批量回测超时，已完成的任务: {}/{}", allResults.size(), strategyCodes.size());
+                // 取消未完成的任务
+                futures.forEach(future -> future.cancel(true));
+            }
 
             // 关闭线程池
             executor.shutdown();
+            try {
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
 
             // 按收益率排序结果
             allResults.sort((a, b) -> {
@@ -383,18 +425,33 @@ public class Ta4jBacktestController {
 
                 return returnB.compareTo(returnA); // 降序排列
             });
+
             long successCount = allResults.stream().filter(r -> (boolean) r.get("success")).count();
-            Double totalReturn = allResults.stream().filter(r -> (boolean) r.get("success")).map(x -> ((BigDecimal) x.get("total_return")).doubleValue()).reduce(Double::sum).orElseGet(() -> 0.0);
+            Double totalReturn = allResults.stream()
+                .filter(r -> (boolean) r.get("success"))
+                .map(x -> {
+                    BigDecimal ret = (BigDecimal) x.get("total_return");
+                    return ret != null ? ret.doubleValue() : 0.0;
+                })
+                .reduce(Double::sum)
+                .orElse(0.0);
 
             // 构建响应结果
             Map<String, Object> response = new HashMap<>();
             response.put("batch_backtest_id", batchBacktestId);
             response.put("total_strategies", strategyCodes.size());
             response.put("successful_backtests", successCount);
-            response.put("failed_backtests", allResults.size() - successCount);
-            response.put("max_return", allResults.get(0).get("total_return"));
-            response.put("max_return_strategy", allResults.get(0).get("strategy_name"));
-            response.put("avg_return", totalReturn / successCount);
+            response.put("failed_backtests", (long)allResults.size() - successCount);
+
+            if (!allResults.isEmpty() && (boolean) allResults.get(0).get("success")) {
+                response.put("max_return", allResults.get(0).get("total_return"));
+                response.put("max_return_strategy", allResults.get(0).get("strategy_name"));
+            } else {
+                response.put("max_return", BigDecimal.ZERO);
+                response.put("max_return_strategy", "无");
+            }
+
+            response.put("avg_return", successCount > 0 ? totalReturn / successCount : 0.0);
             response.put("results", allResults);
 
             log.info("批量回测完成，批量ID: {}, 成功: {}, 失败: {}",
@@ -403,8 +460,23 @@ public class Ta4jBacktestController {
                     response.get("failed_backtests"));
 
             return ApiResponse.success(response);
+
         } catch (Exception e) {
-            log.error("批量回测过程中发生错误: {}", e.getMessage(), e);
+            log.error("批量回测过程中发生严重错误: {}", e.getMessage(), e);
+
+            // 即使发生严重错误，也尝试返回已完成的结果
+            if (!allResults.isEmpty()) {
+                Map<String, Object> partialResponse = new HashMap<>();
+                partialResponse.put("batch_backtest_id", batchBacktestId);
+                partialResponse.put("total_strategies", allResults.size());
+                partialResponse.put("successful_backtests", allResults.stream().filter(r -> (boolean) r.get("success")).count());
+                partialResponse.put("failed_backtests", allResults.stream().filter(r -> !(boolean) r.get("success")).count());
+                partialResponse.put("results", allResults);
+                partialResponse.put("error", "部分完成，发生错误: " + e.getMessage());
+
+                return ApiResponse.success(partialResponse);
+            }
+
             return ApiResponse.error(500, "批量回测过程中发生错误: " + e.getMessage());
         }
     }

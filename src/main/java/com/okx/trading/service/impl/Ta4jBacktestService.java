@@ -895,12 +895,12 @@ public class Ta4jBacktestService {
      * 计算 Alpha 和 Beta
      * Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
      *
-     * @param strategyReturns  策略每日收益率序列，例如[0.002, -0.001, 0.003, ...]
-     * @param benchmarkReturns 基准每日收益率序列（指数等）
-     * @return double数组，索引0为Alpha，索引1为Beta
-     * @throws IllegalArgumentException 如果输入长度不匹配或为空
+     * @param strategyReturns  策略每日收益率序列
+     * @param benchmarkReturns 基准每日收益率序列
+     * @return 包含Alpha和Beta的数组 [Alpha, Beta]
      */
     public static double[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
+        // 添加空值检查和长度验证，避免抛出异常
         if (strategyReturns == null || strategyReturns.isEmpty()) {
             System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
             return new double[]{0.0, 1.0};
@@ -911,14 +911,14 @@ public class Ta4jBacktestService {
             return new double[]{0.0, 1.0};
         }
         
-        // 如果长度不匹配，取较短的长度
+        // 如果长度不匹配，取较短的长度，避免抛出异常
         int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
         if (minLength == 0) {
             System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
             return new double[]{0.0, 1.0};
         }
         
-        // 截取到相同长度
+        // 截取到相同长度，确保不会出现长度不匹配问题
         List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
         List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
         
@@ -1037,7 +1037,7 @@ public class Ta4jBacktestService {
     /**
      * 计算收益率序列的峰度 (Kurtosis)
      * 峰度衡量数据尾部厚度，超过3表示重尾分布（极端事件更频繁）
-     * 返回的是“超额峰度”，即峰度减3，正值表示重尾，负值表示轻尾
+     * 返回的是"超额峰度"，即峰度减3，正值表示重尾，负值表示轻尾
      *
      * @param returns 日收益率序列
      * @return 超额峰度值
