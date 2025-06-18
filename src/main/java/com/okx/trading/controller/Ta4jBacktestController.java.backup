@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
 import java.math.RoundingMode;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Ta4j回测控制器
@@ -351,7 +350,7 @@ public class Ta4jBacktestController {
 
                         if (result.isSuccess()) {
                             resultMap.put("total_return", result.getTotalReturn() != null ? result.getTotalReturn() : BigDecimal.ZERO);
-                            resultMap.put("number_of_trades", result.getNumberOfTrades());
+                            resultMap.put("number_of_trades", result.getNumberOfTrades() );
                             resultMap.put("win_rate", result.getWinRate() != null ? result.getWinRate() : BigDecimal.ZERO);
                             resultMap.put("profit_factor", result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ZERO);
                             resultMap.put("sharpe_ratio", result.getSharpeRatio() != null ? result.getSharpeRatio() : BigDecimal.ZERO);
@@ -361,7 +360,7 @@ public class Ta4jBacktestController {
                             log.info("策略 {} 回测成功 - 收益率: {}%, 交易次数: {}, 胜率: {}%",
                                     currentStrategyCode,
                                     result.getTotalReturn() != null ? result.getTotalReturn().multiply(new BigDecimal("100")).toString() : "0",
-                                    String.valueOf(result.getNumberOfTrades()),
+                                    result.getNumberOfTrades() ,
                                     result.getWinRate() != null ? result.getWinRate().multiply(new BigDecimal("100")).toString() : "0");
                         } else {
                             resultMap.put("error", result.getErrorMessage() != null ? result.getErrorMessage() : "未知错误");
@@ -384,29 +383,14 @@ public class Ta4jBacktestController {
                 futures.add(future);
             }
 
-            // 等待所有任务完成，设置单策略5秒超时时间
-            for (int i = 0; i < futures.size(); i++) {
-                CompletableFuture<Void> future = futures.get(i);
-                String strategyCode = strategyCodes.get(i);
-                try {
-                    future.get(5, TimeUnit.SECONDS); // 单策略5秒超时
-                } catch (TimeoutException e) {
-                    log.warn("策略 {} 回测超时（5秒），取消该策略的回测任务", strategyCode);
-                    future.cancel(true);
-                    
-                    // 添加超时错误结果
-                    Map<String, Object> timeoutResult = new HashMap<>();
-                    timeoutResult.put("strategy_code", strategyCode);
-                    timeoutResult.put("strategy_name", "超时策略: " + strategyCode);
-                    timeoutResult.put("success", false);
-                    timeoutResult.put("error", "策略回测超时（5秒）");
-                    allResults.add(timeoutResult);
-                } catch (ExecutionException e) {
-                    log.error("策略 {} 执行异常: {}", strategyCode, e.getMessage(), e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.error("策略 {} 执行被中断: {}", strategyCode, e.getMessage(), e);
-                }
+            // 等待所有任务完成，设置超时时间
+            try {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(30, TimeUnit.MINUTES); // 30分钟超时
+            } catch (TimeoutException e) {
+                log.error("批量回测超时，已完成的任务: {}/{}", allResults.size(), strategyCodes.size());
+                // 取消未完成的任务
+                futures.forEach(future -> future.cancel(true));
             }
 
             // 关闭线程池
@@ -472,8 +456,8 @@ public class Ta4jBacktestController {
 
             log.info("批量回测完成，批量ID: {}, 成功: {}, 失败: {}",
                     batchBacktestId,
-                    String.valueOf(response.get("successful_backtests")),
-                    String.valueOf(response.get("failed_backtests")));
+                    response.get("successful_backtests"),
+                    response.get("failed_backtests"));
 
             return ApiResponse.success(response);
 
