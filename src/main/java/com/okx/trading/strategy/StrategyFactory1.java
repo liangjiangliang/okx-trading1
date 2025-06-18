@@ -4061,4 +4061,319 @@ public class StrategyFactory1 {
         
         return new BaseStrategy("方差策略", entryRule, exitRule);
     }
+
+    /**
+     * 线性回归角度策略
+     * 计算线性回归线的角度
+     */
+    public static Strategy createLinearregAngleStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 线性回归角度指标
+        class LinearRegressionAngleIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public LinearRegressionAngleIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return DecimalNum.valueOf(0);
+                }
+
+                // 线性回归计算
+                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                int n = period;
+
+                for (int i = 0; i < period; i++) {
+                    double x = i; // 时间序列
+                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+
+                // 计算斜率
+                double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                
+                // 转换为角度（弧度转度数）
+                double angle = Math.atan(slope) * 180 / Math.PI;
+                
+                return DecimalNum.valueOf(angle);
+            }
+        }
+
+        LinearRegressionAngleIndicator angle = new LinearRegressionAngleIndicator(closePrice, 20, series);
+
+        // 角度为正时买入，角度为负时卖出
+        Rule entryRule = new OverIndicatorRule(angle, DecimalNum.valueOf(5)); // 5度以上
+        Rule exitRule = new UnderIndicatorRule(angle, DecimalNum.valueOf(-5)); // -5度以下
+
+        return new BaseStrategy("线性回归角度策略", entryRule, exitRule);
+    }
+
+    /**
+     * 线性回归截距策略
+     * 计算线性回归线的截距
+     */
+    public static Strategy createLinearregInterceptStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 线性回归截距指标
+        class LinearRegressionInterceptIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public LinearRegressionInterceptIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return closePrice.getValue(index);
+                }
+
+                // 线性回归计算
+                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                int n = period;
+
+                for (int i = 0; i < period; i++) {
+                    double x = i; // 时间序列
+                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+
+                // 计算斜率和截距
+                double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                double intercept = (sumY - slope * sumX) / n;
+
+                return DecimalNum.valueOf(intercept);
+            }
+        }
+
+        LinearRegressionInterceptIndicator intercept = new LinearRegressionInterceptIndicator(closePrice, 20, series);
+        SMAIndicator avgIntercept = new SMAIndicator(intercept, 10);
+
+        // 截距高于平均时买入，低于平均时卖出
+        Rule entryRule = new OverIndicatorRule(intercept, avgIntercept);
+        Rule exitRule = new UnderIndicatorRule(intercept, avgIntercept);
+
+        return new BaseStrategy("线性回归截距策略", entryRule, exitRule);
+    }
+
+    /**
+     * 线性回归斜率策略
+     * 计算线性回归线的斜率
+     */
+    public static Strategy createLinearregSlopeStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 线性回归斜率指标
+        class LinearRegressionSlopeIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public LinearRegressionSlopeIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return DecimalNum.valueOf(0);
+                }
+
+                // 线性回归计算
+                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                int n = period;
+
+                for (int i = 0; i < period; i++) {
+                    double x = i; // 时间序列
+                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+
+                // 计算斜率
+                double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+                return DecimalNum.valueOf(slope);
+            }
+        }
+
+        LinearRegressionSlopeIndicator slope = new LinearRegressionSlopeIndicator(closePrice, 20, series);
+
+        // 斜率为正时买入，斜率为负时卖出
+        Rule entryRule = new OverIndicatorRule(slope, DecimalNum.valueOf(0.1));
+        Rule exitRule = new UnderIndicatorRule(slope, DecimalNum.valueOf(-0.1));
+
+        return new BaseStrategy("线性回归斜率策略", entryRule, exitRule);
+    }
+
+    /**
+     * 时间序列预测策略
+     * 基于历史数据预测未来价格
+     */
+    public static Strategy createTsfStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        // 时间序列预测指标
+        class TimeSeriesForecastIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+
+            public TimeSeriesForecastIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index < period - 1) {
+                    return closePrice.getValue(index);
+                }
+
+                // 使用线性回归预测下一个值
+                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                int n = period;
+
+                for (int i = 0; i < period; i++) {
+                    double x = i; // 时间序列
+                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+
+                // 计算斜率和截距
+                double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                double intercept = (sumY - slope * sumX) / n;
+
+                // 预测下一个值
+                double forecast = slope * period + intercept;
+
+                return DecimalNum.valueOf(forecast);
+            }
+        }
+
+        TimeSeriesForecastIndicator forecast = new TimeSeriesForecastIndicator(closePrice, 20, series);
+
+        // 价格高于预测值时买入，低于预测值时卖出
+        Rule entryRule = new OverIndicatorRule(closePrice, forecast);
+        Rule exitRule = new UnderIndicatorRule(closePrice, forecast);
+
+        return new BaseStrategy("时间序列预测策略", entryRule, exitRule);
+    }
+
+    /**
+     * 希尔伯特变换主导周期策略
+     * 简化实现，使用周期性指标
+     */
+    public static Strategy createHtDcperiodStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的周期检测（使用RSI周期性）
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
+        SMAIndicator rsiAvg = new SMAIndicator(rsi, 14);
+
+        Rule entryRule = new CrossedUpIndicatorRule(rsi, rsiAvg);
+        Rule exitRule = new CrossedDownIndicatorRule(rsi, rsiAvg);
+
+        return new BaseStrategy("希尔伯特变换主导周期策略", entryRule, exitRule);
+    }
+
+    /**
+     * 希尔伯特变换主导相位策略
+     */
+    public static Strategy createHtDcphaseStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的相位检测（使用移动平均线相对位置）
+        SMAIndicator shortSma = new SMAIndicator(closePrice, 10);
+        SMAIndicator longSma = new SMAIndicator(closePrice, 20);
+
+        Rule entryRule = new CrossedUpIndicatorRule(shortSma, longSma);
+        Rule exitRule = new CrossedDownIndicatorRule(shortSma, longSma);
+
+        return new BaseStrategy("希尔伯特变换主导相位策略", entryRule, exitRule);
+    }
+
+    /**
+     * 希尔伯特变换相量分量策略
+     */
+    public static Strategy createHtPhasorStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的相量检测
+        EMAIndicator ema = new EMAIndicator(closePrice, 14);
+        
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, ema);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, ema);
+
+        return new BaseStrategy("希尔伯特变换相量分量策略", entryRule, exitRule);
+    }
+
+    /**
+     * 希尔伯特变换正弦波策略
+     */
+    public static Strategy createHtSineStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的正弦波检测（使用震荡指标）
+        StochasticOscillatorKIndicator stoch = new StochasticOscillatorKIndicator(series, 14);
+        
+        Rule entryRule = new CrossedUpIndicatorRule(stoch, DecimalNum.valueOf(20));
+        Rule exitRule = new CrossedDownIndicatorRule(stoch, DecimalNum.valueOf(80));
+
+        return new BaseStrategy("希尔伯特变换正弦波策略", entryRule, exitRule);
+    }
+
+    /**
+     * 希尔伯特变换趋势模式策略
+     */
+    public static Strategy createHtTrendmodeStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的趋势模式检测
+        SMAIndicator sma = new SMAIndicator(closePrice, 21);
+        EMAIndicator ema = new EMAIndicator(closePrice, 21);
+        
+        Rule entryRule = new OverIndicatorRule(closePrice, sma);
+        Rule exitRule = new UnderIndicatorRule(closePrice, sma);
+
+        return new BaseStrategy("希尔伯特变换趋势模式策略", entryRule, exitRule);
+    }
+
+    /**
+     * MESA正弦波策略
+     */
+    public static Strategy createMswStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 简化的MESA正弦波（使用威廉指标）
+        WilliamsRIndicator williams = new WilliamsRIndicator(series, 14);
+        
+        Rule entryRule = new CrossedUpIndicatorRule(williams, DecimalNum.valueOf(-80));
+        Rule exitRule = new CrossedDownIndicatorRule(williams, DecimalNum.valueOf(-20));
+
+        return new BaseStrategy("MESA正弦波策略", entryRule, exitRule);
+    }
 }
