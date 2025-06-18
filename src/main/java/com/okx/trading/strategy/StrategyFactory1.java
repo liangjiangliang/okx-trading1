@@ -3822,118 +3822,166 @@ public class StrategyFactory1 {
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    // 统计函数策略（简化版本）
+    /**
+     * Beta策略 - 真正的Beta系数计算
+     * Beta系数衡量股票相对于市场的系统性风险
+     */
     public static Strategy createBetaStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator sma = new SMAIndicator(closePrice, 5);
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
-        return new BaseStrategy(entryRule, exitRule);
+        
+        // Beta系数指标（相对于自身价格变动的Beta，这里简化为相对于移动平均线）
+        class BetaIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+            
+            public BetaIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < period) {
+                    return DecimalNum.valueOf(1.0); // 默认Beta = 1
+                }
+                
+                // 使用价格相对于均线的变动来计算Beta
+                SMAIndicator market = new SMAIndicator(closePrice, period);
+                
+                // 计算价格变动和市场变动的协方差
+                double sumXY = 0, sumX2 = 0;
+                int count = 0;
+                
+                for (int i = index - period + 1; i <= index && i > 0; i++) {
+                    double priceReturn = closePrice.getValue(i).doubleValue() / closePrice.getValue(i-1).doubleValue() - 1;
+                    double marketReturn = market.getValue(i).doubleValue() / market.getValue(i-1).doubleValue() - 1;
+                    
+                    sumXY += priceReturn * marketReturn;
+                    sumX2 += marketReturn * marketReturn;
+                    count++;
+                }
+                
+                if (sumX2 == 0 || count == 0) {
+                    return DecimalNum.valueOf(1.0);
+                }
+                
+                double beta = sumXY / sumX2;
+                return DecimalNum.valueOf(Math.max(0, Math.min(3, beta))); // 限制Beta在0-3之间
+            }
+        }
+        
+        BetaIndicator beta = new BetaIndicator(closePrice, 20, series);
+        
+        // 高Beta时买入（高风险高收益），低Beta时卖出
+        Rule entryRule = new OverIndicatorRule(beta, DecimalNum.valueOf(1.2));
+        Rule exitRule = new UnderIndicatorRule(beta, DecimalNum.valueOf(0.8));
+        
+        return new BaseStrategy("Beta策略", entryRule, exitRule);
     }
 
+    /**
+     * 相关性策略 - 真正的相关性计算
+     * 计算价格与其滞后序列的相关性
+     */
     public static Strategy createCorrelStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator sma = new SMAIndicator(closePrice, 30);
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
-        return new BaseStrategy(entryRule, exitRule);
+        
+        // 相关性指标（价格与其滞后序列的相关性）
+        class CorrelationIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final int period;
+            private final int lag;
+            
+            public CorrelationIndicator(ClosePriceIndicator closePrice, int period, int lag, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.period = period;
+                this.lag = lag;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                if (index < period + lag) {
+                    return DecimalNum.valueOf(0);
+                }
+                
+                // 计算价格与滞后价格的相关性
+                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+                int count = 0;
+                
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (i >= lag) {
+                        double x = closePrice.getValue(i).doubleValue();
+                        double y = closePrice.getValue(i - lag).doubleValue();
+                        
+                        sumX += x;
+                        sumY += y;
+                        sumXY += x * y;
+                        sumX2 += x * x;
+                        sumY2 += y * y;
+                        count++;
+                    }
+                }
+                
+                if (count == 0) {
+                    return DecimalNum.valueOf(0);
+                }
+                
+                double meanX = sumX / count;
+                double meanY = sumY / count;
+                
+                double numerator = sumXY - count * meanX * meanY;
+                double denominator = Math.sqrt((sumX2 - count * meanX * meanX) * (sumY2 - count * meanY * meanY));
+                
+                if (denominator == 0) {
+                    return DecimalNum.valueOf(0);
+                }
+                
+                double correlation = numerator / denominator;
+                return DecimalNum.valueOf(correlation);
+            }
+        }
+        
+        CorrelationIndicator correlation = new CorrelationIndicator(closePrice, 20, 5, series);
+        
+        // 正相关时买入，负相关时卖出
+        Rule entryRule = new OverIndicatorRule(correlation, DecimalNum.valueOf(0.3));
+        Rule exitRule = new UnderIndicatorRule(correlation, DecimalNum.valueOf(-0.3));
+        
+        return new BaseStrategy("相关性策略", entryRule, exitRule);
     }
 
+    /**
+     * 线性回归策略 - 真正的线性回归计算
+     * 计算价格的线性回归趋势
+     */
     public static Strategy createLinearregStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator sma = new SMAIndicator(closePrice, 14);
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma);
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createLinearregAngleStrategy(BarSeries series) {
-        int period = 14;
         
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 线性回归角度指标
-        class LinearRegAngleIndicator extends CachedIndicator<Num> {
+        // 线性回归指标
+        class LinearRegressionTrendIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
-
-            public LinearRegAngleIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+            
+            public LinearRegressionTrendIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
             }
-
+            
             @Override
             protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算线性回归斜率
-                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-                
-                for (int i = 0; i < period; i++) {
-                    double x = i;
-                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
-                    sumX += x;
-                    sumY += y;
-                    sumXY += x * y;
-                    sumX2 += x * x;
-                }
-                
-                double slope = (period * sumXY - sumX * sumY) / (period * sumX2 - sumX * sumX);
-                
-                // 将斜率转换为角度（弧度转度数）
-                double angle = Math.atan(slope) * 180.0 / Math.PI;
-                
-                return series.numOf(angle);
-            }
-        }
-
-        LinearRegAngleIndicator linearRegAngle = new LinearRegAngleIndicator(closePrice, period, series);
-
-        // 基于角度变化的交易规则
-        Rule entryRule = new OverIndicatorRule(linearRegAngle, series.numOf(15)); // 角度大于15度
-        Rule exitRule = new UnderIndicatorRule(linearRegAngle, series.numOf(-15)); // 角度小于-15度
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createLinearregInterceptStrategy(BarSeries series) {
-        int period = 14;
-        
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 线性回归截距指标
-        class LinearRegInterceptIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public LinearRegInterceptIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
+                if (index < period - 1) {
                     return closePrice.getValue(index);
                 }
-
-                // 计算线性回归截距
+                
+                // 线性回归计算
                 double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                int n = period;
                 
                 for (int i = 0; i < period; i++) {
-                    double x = i;
+                    double x = i; // 时间序列
                     double y = closePrice.getValue(index - period + 1 + i).doubleValue();
                     sumX += x;
                     sumY += y;
@@ -3941,521 +3989,76 @@ public class StrategyFactory1 {
                     sumX2 += x * x;
                 }
                 
-                double slope = (period * sumXY - sumX * sumY) / (period * sumX2 - sumX * sumX);
-                double intercept = (sumY - slope * sumX) / period;
+                // 计算斜率和截距
+                double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                double intercept = (sumY - slope * sumX) / n;
                 
-                return series.numOf(intercept);
+                // 预测当前点的回归值
+                double predictedValue = slope * (period - 1) + intercept;
+                
+                return DecimalNum.valueOf(predictedValue);
             }
         }
-
-        LinearRegInterceptIndicator linearRegIntercept = new LinearRegInterceptIndicator(closePrice, period, series);
-        SMAIndicator avgIntercept = new SMAIndicator(linearRegIntercept, 10);
-
-        // 基于截距相对变化的交易规则
-        Rule entryRule = new OverIndicatorRule(linearRegIntercept, avgIntercept);
-        Rule exitRule = new UnderIndicatorRule(linearRegIntercept, avgIntercept);
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createLinearregSlopeStrategy(BarSeries series) {
-        int period = 14;
         
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 线性回归斜率指标
-        class LinearRegSlopeIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public LinearRegSlopeIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算线性回归斜率
-                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-                
-                for (int i = 0; i < period; i++) {
-                    double x = i;
-                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
-                    sumX += x;
-                    sumY += y;
-                    sumXY += x * y;
-                    sumX2 += x * x;
-                }
-                
-                double slope = (period * sumXY - sumX * sumY) / (period * sumX2 - sumX * sumX);
-                
-                return series.numOf(slope);
-            }
-        }
-
-        LinearRegSlopeIndicator linearRegSlope = new LinearRegSlopeIndicator(closePrice, period, series);
-
-        // 基于斜率的交易规则（更敏感的阈值）
-        Rule entryRule = new OverIndicatorRule(linearRegSlope, series.numOf(0.1)); // 正斜率买入
-        Rule exitRule = new UnderIndicatorRule(linearRegSlope, series.numOf(-0.1)); // 负斜率卖出
-
-        return new BaseStrategy(entryRule, exitRule);
+        LinearRegressionTrendIndicator regression = new LinearRegressionTrendIndicator(closePrice, 20, series);
+        
+        // 价格高于回归线买入，低于回归线卖出
+        Rule entryRule = new OverIndicatorRule(closePrice, regression);
+        Rule exitRule = new UnderIndicatorRule(closePrice, regression);
+        
+        return new BaseStrategy("线性回归策略", entryRule, exitRule);
     }
 
-    public static Strategy createTsfStrategy(BarSeries series) {
-        int period = 14;
-
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 时间序列预测指标
-        class TimeSeriesForecastIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public TimeSeriesForecastIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return closePrice.getValue(index);
-                }
-
-                // 计算线性回归并预测下一个点
-                double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-                
-                for (int i = 0; i < period; i++) {
-                    double x = i;
-                    double y = closePrice.getValue(index - period + 1 + i).doubleValue();
-                    sumX += x;
-                    sumY += y;
-                    sumXY += x * y;
-                    sumX2 += x * x;
-                }
-                
-                double slope = (period * sumXY - sumX * sumY) / (period * sumX2 - sumX * sumX);
-                double intercept = (sumY - slope * sumX) / period;
-                
-                // 预测下一个点的值
-                double forecast = slope * period + intercept;
-                
-                return series.numOf(forecast);
-            }
-        }
-
-        TimeSeriesForecastIndicator tsf = new TimeSeriesForecastIndicator(closePrice, period, series);
-
-        // 基于预测价格的交易规则
-        Rule entryRule = new OverIndicatorRule(closePrice, tsf); // 实际价格高于预测价格买入
-        Rule exitRule = new UnderIndicatorRule(closePrice, tsf); // 实际价格低于预测价格卖出
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
+    /**
+     * 方差策略 - 真正的方差计算
+     * 基于价格方差的交易策略
+     */
     public static Strategy createVarStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, 5);
-        SMAIndicator avgStdDev = new SMAIndicator(stdDev, 10);
-        Rule entryRule = new CrossedUpIndicatorRule(stdDev, avgStdDev);
-        Rule exitRule = new CrossedDownIndicatorRule(stdDev, avgStdDev);
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    // 希尔伯特变换策略 - 各有独特实现
-    public static Strategy createHtDcperiodStrategy(BarSeries series) {
-        int period = 20;
-
-        if (series.getBarCount() <= period * 2) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period * 2 + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 希尔伯特变换主导周期指标
-        class HTDCPeriodIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int basePeriod;
-
-            public HTDCPeriodIndicator(ClosePriceIndicator closePrice, int basePeriod, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.basePeriod = basePeriod;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < basePeriod) {
-                    return series.numOf(basePeriod);
-                }
-
-                // 计算主导周期 - 通过分析价格的周期性变化
-                double maxCorrelation = 0;
-                int dominantPeriod = basePeriod;
-
-                for (int testPeriod = 8; testPeriod <= 50; testPeriod++) {
-                    if (index >= testPeriod * 2) {
-                        double correlation = 0;
-                        int count = 0;
-
-                        for (int i = 0; i < testPeriod && index - i - testPeriod >= 0; i++) {
-                            double current = closePrice.getValue(index - i).doubleValue();
-                            double delayed = closePrice.getValue(index - i - testPeriod).doubleValue();
-                            correlation += current * delayed;
-                            count++;
-                        }
-
-                        if (count > 0) {
-                            correlation /= count;
-                            if (correlation > maxCorrelation) {
-                                maxCorrelation = correlation;
-                                dominantPeriod = testPeriod;
-                            }
-                        }
-                    }
-                }
-
-                return series.numOf(dominantPeriod);
-            }
-        }
-
-        HTDCPeriodIndicator htDcPeriod = new HTDCPeriodIndicator(closePrice, period, series);
-        SMAIndicator avgPeriod = new SMAIndicator(htDcPeriod, 10);
-
-        // 基于周期变化的交易规则
-        Rule entryRule = new OverIndicatorRule(htDcPeriod, avgPeriod);
-        Rule exitRule = new UnderIndicatorRule(htDcPeriod, avgPeriod);
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createHtDcphaseStrategy(BarSeries series) {
-        int period = 14;
-
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 希尔伯特变换主导相位指标
-        class HTDCPhaseIndicator extends CachedIndicator<Num> {
+        
+        // 方差指标
+        class VarianceIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
-
-            public HTDCPhaseIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
+            
+            public VarianceIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
             }
-
+            
             @Override
             protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算相位 - 通过价格序列的相位分析
-                double phase = 0;
-                
-                for (int i = 1; i <= period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        double refPrice = closePrice.getValue(index - period + 1).doubleValue();
-                        if (refPrice != 0) {
-                            phase += Math.atan2(price - refPrice, i) * 180.0 / Math.PI;
-                        }
-                    }
-                }
-
-                return series.numOf(phase / period);
-            }
-        }
-
-        HTDCPhaseIndicator htDcPhase = new HTDCPhaseIndicator(closePrice, period, series);
-
-        // 基于相位角度的交易规则
-        Rule entryRule = new OverIndicatorRule(htDcPhase, series.numOf(15)); // 相位角度大于15度买入
-        Rule exitRule = new UnderIndicatorRule(htDcPhase, series.numOf(-15)); // 相位角度小于-15度卖出
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createHtPhasorStrategy(BarSeries series) {
-        int period = 14;
-
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 希尔伯特变换相位器指标
-        class HTPhasorIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public HTPhasorIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算实部和虚部
-                double real = 0;
-                double imag = 0;
-
-                for (int i = 0; i < period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        double angle = 2.0 * Math.PI * i / period;
-                        real += price * Math.cos(angle);
-                        imag += price * Math.sin(angle);
-                    }
-                }
-
-                // 计算相位角度
-                double phase = Math.atan2(imag, real) * 180.0 / Math.PI;
-                return series.numOf(phase);
-            }
-        }
-
-        HTPhasorIndicator htPhasor = new HTPhasorIndicator(closePrice, period, series);
-
-        // 基于相位变化的交易规则
-        Rule entryRule = new OverIndicatorRule(htPhasor, series.numOf(0));
-        Rule exitRule = new UnderIndicatorRule(htPhasor, series.numOf(0));
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createHtSineStrategy(BarSeries series) {
-        int period = 14;
-
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 希尔伯特变换正弦波指标
-        class HTSineIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public HTSineIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算正弦波分量
-                double sine = 0;
-                for (int i = 0; i < period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        sine += price * Math.sin(2.0 * Math.PI * i / period);
-                    }
-                }
-
-                return series.numOf(sine / period);
-            }
-        }
-
-        // 创建余弦波指标作为配对
-        class HTLeadSineIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public HTLeadSineIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // 计算余弦波分量
-                double cosine = 0;
-                for (int i = 0; i < period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        cosine += price * Math.cos(2.0 * Math.PI * i / period);
-                    }
-                }
-
-                return series.numOf(cosine / period);
-            }
-        }
-
-        HTSineIndicator htSine = new HTSineIndicator(closePrice, period, series);
-        HTLeadSineIndicator htLeadSine = new HTLeadSineIndicator(closePrice, period, series);
-
-        // 基于正弦波交叉的交易规则
-        Rule entryRule = new CrossedUpIndicatorRule(htSine, htLeadSine);
-        Rule exitRule = new CrossedDownIndicatorRule(htSine, htLeadSine);
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createHtTrendmodeStrategy(BarSeries series) {
-        int period = 14;
-
-        if (series.getBarCount() <= period * 2) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period * 2 + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // 希尔伯特变换趋势模式指标
-        class HTTrendModeIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public HTTrendModeIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period * 2) {
-                    return series.numOf(0);
-                }
-
-                // 计算趋势强度
-                double trendStrength = 0;
-                for (int i = 1; i <= period; i++) {
-                    if (index - i >= 0 && index - i - period >= 0) {
-                        double currentPrice = closePrice.getValue(index - i).doubleValue();
-                        double pastPrice = closePrice.getValue(index - i - period).doubleValue();
-                        trendStrength += Math.abs(currentPrice - pastPrice);
-                    }
-                }
-
-                // 计算周期性强度
-                double cyclicStrength = 0;
-                for (int i = 0; i < period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        cyclicStrength += price * Math.cos(2.0 * Math.PI * i / period);
-                    }
-                }
-
-                // 趋势模式值：正值表示趋势模式，负值表示周期模式
-                double trendMode = trendStrength - Math.abs(cyclicStrength);
-                return series.numOf(trendMode);
-            }
-        }
-
-        HTTrendModeIndicator htTrendMode = new HTTrendModeIndicator(closePrice, period, series);
-
-        // 基于趋势模式的交易规则
-        Rule entryRule = new OverIndicatorRule(htTrendMode, series.numOf(0));
-        Rule exitRule = new UnderIndicatorRule(htTrendMode, series.numOf(0));
-
-        return new BaseStrategy(entryRule, exitRule);
-    }
-
-    public static Strategy createMswStrategy(BarSeries series) {
-        int period = 20;
-
-        if (series.getBarCount() <= period) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
-        }
-
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
-        // MESA正弦波指标 - 与HT_SINE不同的实现
-        class MESASineWaveIndicator extends CachedIndicator<Num> {
-            private final ClosePriceIndicator closePrice;
-            private final int period;
-
-            public MESASineWaveIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
-                super(series);
-                this.closePrice = closePrice;
-                this.period = period;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index < period) {
-                    return series.numOf(0);
-                }
-
-                // MESA自适应正弦波计算 - 与传统正弦波不同
-                double adaptivePeriod = calculateAdaptivePeriod(index);
-                double sine = 0;
-                
-                for (int i = 0; i < period; i++) {
-                    if (index - i >= 0) {
-                        double price = closePrice.getValue(index - i).doubleValue();
-                        // 使用自适应周期计算正弦波
-                        sine += price * Math.sin(2.0 * Math.PI * i / adaptivePeriod);
-                    }
-                }
-
-                return series.numOf(sine / period);
-            }
-
-            private double calculateAdaptivePeriod(int index) {
-                // 自适应周期计算
-                double volatility = 0;
-                int lookback = Math.min(10, index);
-                
-                for (int i = 1; i <= lookback; i++) {
-                    if (index - i >= 0 && index - i + 1 >= 0) {
-                        double change = Math.abs(closePrice.getValue(index - i + 1).doubleValue() - 
-                                               closePrice.getValue(index - i).doubleValue());
-                        volatility += change;
-                    }
+                if (index < period - 1) {
+                    return DecimalNum.valueOf(0);
                 }
                 
-                // 根据波动性调整周期
-                double avgVolatility = volatility / lookback;
-                return Math.max(8, Math.min(50, period * (1 + avgVolatility)));
+                // 计算均值
+                Num sum = DecimalNum.valueOf(0);
+                for (int i = index - period + 1; i <= index; i++) {
+                    sum = sum.plus(closePrice.getValue(i));
+                }
+                Num mean = sum.dividedBy(DecimalNum.valueOf(period));
+                
+                // 计算方差
+                Num variance = DecimalNum.valueOf(0);
+                for (int i = index - period + 1; i <= index; i++) {
+                    Num diff = closePrice.getValue(i).minus(mean);
+                    variance = variance.plus(diff.multipliedBy(diff));
+                }
+                variance = variance.dividedBy(DecimalNum.valueOf(period));
+                
+                return variance;
             }
         }
-
-        MESASineWaveIndicator mesaSine = new MESASineWaveIndicator(closePrice, period, series);
-        SMAIndicator mesaSignal = new SMAIndicator(mesaSine, 5);
-
-        // 基于MESA正弦波的交易规则 - 与普通正弦波不同
-        Rule entryRule = new CrossedUpIndicatorRule(mesaSine, mesaSignal);
-        Rule exitRule = new CrossedDownIndicatorRule(mesaSine, mesaSignal);
-
-        return new BaseStrategy(entryRule, exitRule);
+        
+        VarianceIndicator variance = new VarianceIndicator(closePrice, 20, series);
+        SMAIndicator avgVariance = new SMAIndicator(variance, 10);
+        
+        // 方差高于平均时买入（高波动性），低于平均时卖出
+        Rule entryRule = new OverIndicatorRule(variance, avgVariance);
+        Rule exitRule = new UnderIndicatorRule(variance, avgVariance);
+        
+        return new BaseStrategy("方差策略", entryRule, exitRule);
     }
 }

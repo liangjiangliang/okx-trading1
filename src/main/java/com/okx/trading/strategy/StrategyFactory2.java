@@ -1115,18 +1115,43 @@ public class StrategyFactory2 {
                 // Typical Price = (High + Low + Close) / 3
                 Num typicalPrice = high.getValue(index).plus(low.getValue(index)).plus(close.getValue(index)).dividedBy(series.numOf(3));
                 Num prevTypicalPrice = high.getValue(index-1).plus(low.getValue(index-1)).plus(close.getValue(index-1)).dividedBy(series.numOf(3));
-
-                // Volume Force = Volume * (2 * ((dm/cm) - 1)) * Trend * 100
-                // 简化版本：根据价格变化方向调整成交量
-                Num volumeForce;
-                if (typicalPrice.isGreaterThan(prevTypicalPrice)) {
-                    volumeForce = volume.getValue(index);
-                } else {
-                    volumeForce = volume.getValue(index).multipliedBy(series.numOf(-1));
+                
+                // 真正的Klinger Volume Force计算
+                // dm = high - low (距离移动)
+                Num dm = high.getValue(index).minus(low.getValue(index));
+                
+                // cm = 累积距离移动
+                Num cm = dm;
+                for (int i = 1; i <= index && i <= 20; i++) {
+                    if (index - i >= 0) {
+                        Num prevDm = high.getValue(index - i).minus(low.getValue(index - i));
+                        cm = cm.plus(prevDm);
+                    }
                 }
-
-                // 使用EMA计算短期和长期成交量力量
-                // 这里简化实现，实际的Klinger需要更复杂的计算
+                
+                // 趋势计算 - Hlc和前一个Hlc的比较
+                Num hlc = typicalPrice;
+                Num prevHlc = prevTypicalPrice;
+                
+                Num trend;
+                if (hlc.isGreaterThan(prevHlc)) {
+                    trend = series.numOf(1);
+                } else if (hlc.isLessThan(prevHlc)) {
+                    trend = series.numOf(-1);
+                } else {
+                    trend = series.numOf(0);
+                }
+                
+                // Volume Force = Volume * (2 * ((dm/cm) - 1)) * Trend * 100
+                Num volumeForce;
+                if (!cm.isZero()) {
+                    Num ratio = dm.dividedBy(cm);
+                    Num multiplier = series.numOf(2).multipliedBy(ratio.minus(series.numOf(1)));
+                    volumeForce = volume.getValue(index).multipliedBy(multiplier).multipliedBy(trend).multipliedBy(series.numOf(100));
+                } else {
+                    volumeForce = series.numOf(0);
+                }
+                
                 return volumeForce;
             }
         }
@@ -1904,31 +1929,38 @@ public class StrategyFactory2 {
                     return close.getValue(index);
                 }
 
-                // 巴特沃斯滤波器系数（简化版本）
-                double omega = 2 * Math.PI / period;
-                double cosOmega = Math.cos(omega);
-                double sinOmega = Math.sin(omega);
-
-                // 二阶巴特沃斯滤波器
-                double a = Math.exp(-1.414 * omega);
-                double b = 2 * a * cosOmega;
-                double c = a * a;
-
-                Num coeff1 = series.numOf(1 - b + c);
-                Num coeff2 = series.numOf(b - c);
-                Num coeff3 = series.numOf(-c);
-
-                Num currentPrice = close.getValue(index);
-                Num result = coeff1.multipliedBy(currentPrice);
-
-                if (index >= 1) {
-                    result = result.plus(coeff2.multipliedBy(getValue(index - 1)));
-                }
-
-                if (index >= 2) {
-                    result = result.plus(coeff3.multipliedBy(getValue(index - 2)));
-                }
-
+                // 真正的巴特沃斯滤波器实现
+                // 计算截止频率
+                double cutoffFreq = 1.0 / period;
+                double nyquist = 0.5; // 假设采样频率为1
+                double normalizedCutoff = cutoffFreq / nyquist;
+                
+                // 限制截止频率在有效范围内
+                normalizedCutoff = Math.max(0.001, Math.min(0.999, normalizedCutoff));
+                
+                // 计算巴特沃斯滤波器的系数（二阶）
+                double c = 1.0 / Math.tan(Math.PI * normalizedCutoff);
+                double c1 = 1.0 / (1.0 + 1.414213562 * c + c * c);
+                double c2 = 2.0 * c1;
+                double c3 = c1;
+                double c4 = 2.0 * (1.0 - c * c) * c1;
+                double c5 = (1.0 - 1.414213562 * c + c * c) * c1;
+                
+                Num currentInput = close.getValue(index);
+                Num prevInput1 = index >= 1 ? close.getValue(index - 1) : currentInput;
+                Num prevInput2 = index >= 2 ? close.getValue(index - 2) : currentInput;
+                
+                Num prevOutput1 = index >= 1 ? getValue(index - 1) : currentInput;
+                Num prevOutput2 = index >= 2 ? getValue(index - 2) : currentInput;
+                
+                // 巴特沃斯低通滤波器的差分方程：
+                // y[n] = c1*x[n] + c2*x[n-1] + c3*x[n-2] - c4*y[n-1] - c5*y[n-2]
+                Num result = currentInput.multipliedBy(series.numOf(c1))
+                           .plus(prevInput1.multipliedBy(series.numOf(c2)))
+                           .plus(prevInput2.multipliedBy(series.numOf(c3)))
+                           .minus(prevOutput1.multipliedBy(series.numOf(c4)))
+                           .minus(prevOutput2.multipliedBy(series.numOf(c5)));
+                
                 return result;
             }
         }
@@ -2064,10 +2096,12 @@ public class StrategyFactory2 {
         class ConnorsRSIIndicator extends CachedIndicator<Num> {
             private final RSIIndicator priceRSI;
             private final RSIIndicator streakRSI;
+            private final ClosePriceIndicator closePrice;
             private final int period;
 
             public ConnorsRSIIndicator(ClosePriceIndicator close, int period, BarSeries series) {
                 super(series);
+                this.closePrice = close;
                 this.priceRSI = new RSIIndicator(close, period);
                 this.period = period;
                 
@@ -2113,11 +2147,33 @@ public class StrategyFactory2 {
                 Num rsi1 = priceRSI.getValue(index);
                 Num rsi2 = streakRSI.getValue(index);
                 
-                // 百分位排名（简化版本）
-                Num rank = series.numOf(50); // 简化为固定值
+                // 真正的百分位排名计算
+                Num rank = calculatePercentileRank(closePrice, index, period);
                 
                 // Connors RSI = (RSI + Streak RSI + Percentile Rank) / 3
                 return rsi1.plus(rsi2).plus(rank).dividedBy(series.numOf(3));
+            }
+            
+            // 计算百分位排名的方法
+            private Num calculatePercentileRank(ClosePriceIndicator closePrice, int index, int period) {
+                if (index < period) {
+                    return series.numOf(50);
+                }
+                
+                Num currentPrice = closePrice.getValue(index);
+                int lowerCount = 0;
+                int totalCount = period;
+                
+                // 计算当前价格在过去period个周期中的排名
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (i >= 0 && closePrice.getValue(i).isLessThan(currentPrice)) {
+                        lowerCount++;
+                    }
+                }
+                
+                // 百分位排名 = (小于当前价格的数量 / 总数量) * 100
+                double percentile = ((double) lowerCount / totalCount) * 100.0;
+                return series.numOf(percentile);
             }
         }
 
