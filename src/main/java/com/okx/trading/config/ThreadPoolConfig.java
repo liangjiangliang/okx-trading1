@@ -71,6 +71,12 @@ public class ThreadPoolConfig {
                 createThreadFactory("价格更新"));
     }
 
+    @Bean(name = "tradeIndicatorCalculateScheduler")
+    public ExecutorService tradeIndicatorCalculateScheduler() {
+        return Executors.newFixedThreadPool(20,
+                createThreadFactory("交易指标计算"));
+    }
+
     /**
      * WebSocket心跳线程池
      * 用于定期发送WebSocket心跳消息

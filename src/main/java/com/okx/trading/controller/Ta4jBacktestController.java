@@ -27,6 +27,8 @@ import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.ta4j.core.BarSeries;
@@ -34,14 +36,9 @@ import org.ta4j.core.BarSeries;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.math.RoundingMode;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Ta4j回测控制器
@@ -65,6 +62,11 @@ public class Ta4jBacktestController {
     private final SmartDynamicStrategyService smartDynamicStrategyService;
     private final StrategyConversationService strategyConversationService;
     private final CandlestickBarSeriesConverter barSeriesConverter;
+
+    // 线程池
+    @Qualifier("tradeIndicatorCalculateScheduler")
+    @Autowired
+    private ExecutorService scheduler;
 
 
     @GetMapping("/run")
@@ -92,53 +94,6 @@ public class Ta4jBacktestController {
             @ApiParam(value = "策略参数 (以逗号分隔的数字)\n" +
                     "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
                     "- EMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- WMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- HMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- KAMA策略参数: 周期,快速EMA周期,慢速EMA周期 (例如：10,2,30)\n" +
-                    "- ZLEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- DEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- TEMA策略参数: 短期均线周期,长期均线周期 (例如：9,21)\n" +
-                    "- VWAP策略参数: 周期 (例如：14)\n" +
-                    "- BOLLINGER策略参数: 周期,标准差倍数 (例如：20,2.0)\n" +
-                    "- KELTNER_CHANNEL策略参数: EMA周期,ATR周期,乘数 (例如：20,10,2.0)\n" +
-                    "- MACD策略参数: 短周期,长周期,信号周期 (例如：12,26,9)\n" +
-                    "- PPO策略参数: 短周期,长周期,信号周期 (例如：12,26,9)\n" +
-                    "- DPO策略参数: 周期 (例如：20)\n" +
-                    "- RSI策略参数: RSI周期,超卖阈值,超买阈值 (例如：14,30,70)\n" +
-                    "- STOCHASTIC策略参数: K周期,%K平滑周期,%D平滑周期,超卖阈值,超买阈值 (例如：14,3,3,20,80)\n" +
-                    "- STOCHASTIC_RSI策略参数: RSI周期,随机指标周期,K平滑周期,D平滑周期,超卖阈值,超买阈值 (例如：14,14,3,3,20,80)\n" +
-                    "- CCI策略参数: CCI周期,超卖阈值,超买阈值 (例如：20,-100,100)\n" +
-                    "- CMO策略参数: 周期,超卖阈值,超买阈值 (例如：14,-30,30)\n" +
-                    "- ROC策略参数: 周期,阈值 (例如：12,0)\n" +
-                    "- WILLIAMS_R策略参数: 周期,超卖阈值,超买阈值 (例如：14,-80,-20)\n" +
-                    "- TRIX策略参数: TRIX周期,信号周期 (例如：15,9)\n" +
-                    "- AWESOME_OSCILLATOR策略参数: 短周期,长周期 (例如：5,34)\n" +
-                    "- ADX策略参数: ADX周期,DI周期,阈值 (例如：14,14,25)\n" +
-                    "- AROON策略参数: 周期,阈值 (例如：25,70)\n" +
-                    "- ICHIMOKU策略参数: 转换线周期,基准线周期,延迟跨度 (例如：9,26,52)\n" +
-                    "- ICHIMOKU_CLOUD_BREAKOUT策略参数: 转换线周期,基准线周期,延迟跨度 (例如：9,26,52)\n" +
-                    "- PARABOLIC_SAR策略参数: 步长,最大步长 (例如：0.02,0.2)\n" +
-                    "- DMA策略参数: 短期均线周期,长期均线周期 (例如：10,50)\n" +
-                    "- DMI策略参数: 周期,ADX阈值 (例如：14,20)\n" +
-                    "- SUPERTREND策略参数: ATR周期,乘数 (例如：10,3.0)\n" +
-                    "- TRIPLE_EMA策略参数: 短期EMA,中期EMA,长期EMA (例如：5,10,20)\n" +
-                    "- CHANDELIER_EXIT策略参数: 周期,乘数 (例如：22,3.0)\n" +
-                    "- ULCER_INDEX策略参数: 周期,阈值 (例如：14,5.0)\n" +
-                    "- ATR策略参数: 周期,乘数 (例如：14,2.0)\n" +
-                    "- KDJ策略参数: K周期,D周期,J周期,超卖阈值,超买阈值 (例如：9,3,3,20,80)\n" +
-                    "- OBV策略参数: 短期OBV周期,长期OBV周期 (例如：5,20)\n" +
-                    "- MASS_INDEX策略参数: EMA周期,累积周期,阈值 (例如：9,25,27)\n" +
-                    "- DOJI策略参数: 影线比例阈值 (例如：0.1)\n" +
-                    "- BULLISH_ENGULFING/BEARISH_ENGULFING/BULLISH_HARAMI/BEARISH_HARAMI策略参数: 确认周期 (例如：1)\n" +
-                    "- THREE_WHITE_SOLDIERS/THREE_BLACK_CROWS策略参数: 确认周期 (例如：3)\n" +
-                    "- DUAL_THRUST策略参数: 周期,K1,K2 (例如：14,0.5,0.5)\n" +
-                    "- TURTLE_TRADING策略参数: 入场周期,出场周期,ATR周期,ATR乘数 (例如：20,10,14,2.0)\n" +
-                    "- MEAN_REVERSION策略参数: 均线周期,标准差倍数 (例如：20,2.0)\n" +
-                    "- TREND_FOLLOWING策略参数: 短期均线周期,长期均线周期,ADX周期,ADX阈值 (例如：5,20,14,25)\n" +
-                    "- BREAKOUT策略参数: 突破周期,确认周期 (例如：20,3)\n" +
-                    "- GOLDEN_CROSS/DEATH_CROSS策略参数: 短期均线周期,长期均线周期 (例如：50,200)\n" +
-                    "- DUAL_MA_WITH_RSI策略参数: 短期均线周期,长期均线周期,RSI周期,RSI阈值 (例如：5,20,14,50)\n" +
-                    "- MACD_WITH_BOLLINGER策略参数: MACD短周期,MACD长周期,MACD信号周期,布林带周期,布林带标准差倍数 (例如：12,26,9,20,2.0)\n" +
                     "- 不传或传空字符串将使用默认参数",
                     required = false,
                     example = "20,2.0",
@@ -290,7 +245,6 @@ public class Ta4jBacktestController {
             log.info("找到{}个策略，准备执行批量回测", strategyCodes.size());
 
             // 创建线程池
-            ExecutorService executor = Executors.newFixedThreadPool(Math.min(threadCount, 10));
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             // 创建回测任务
@@ -379,7 +333,7 @@ public class Ta4jBacktestController {
                         errorResult.put("error", "未捕获错误: " + e.getMessage());
                         allResults.add(errorResult);
                     }
-                }, executor);
+                }, scheduler);
 
                 futures.add(future);
             }
@@ -389,11 +343,11 @@ public class Ta4jBacktestController {
                 CompletableFuture<Void> future = futures.get(i);
                 String strategyCode = strategyCodes.get(i);
                 try {
-                    future.get(5, TimeUnit.SECONDS); // 单策略5秒超时
+                    future.get(30, TimeUnit.SECONDS); // 单策略5秒超时
                 } catch (TimeoutException e) {
-                    log.warn("策略 {} 回测超时（5秒），取消该策略的回测任务", strategyCode);
+                    log.warn("策略 {} 回测超时（30秒），取消该策略的回测任务", strategyCode);
                     future.cancel(true);
-                    
+
                     // 添加超时错误结果
                     Map<String, Object> timeoutResult = new HashMap<>();
                     timeoutResult.put("strategy_code", strategyCode);
@@ -407,17 +361,6 @@ public class Ta4jBacktestController {
                     Thread.currentThread().interrupt();
                     log.error("策略 {} 执行被中断: {}", strategyCode, e.getMessage(), e);
                 }
-            }
-
-            // 关闭线程池
-            executor.shutdown();
-            try {
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-                    executor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
             }
 
             // 按收益率排序结果
@@ -444,20 +387,20 @@ public class Ta4jBacktestController {
 
             long successCount = allResults.stream().filter(r -> (boolean) r.get("success")).count();
             Double totalReturn = allResults.stream()
-                .filter(r -> (boolean) r.get("success"))
-                .map(x -> {
-                    BigDecimal ret = (BigDecimal) x.get("total_return");
-                    return ret != null ? ret.doubleValue() : 0.0;
-                })
-                .reduce(Double::sum)
-                .orElse(0.0);
+                    .filter(r -> (boolean) r.get("success"))
+                    .map(x -> {
+                        BigDecimal ret = (BigDecimal) x.get("total_return");
+                        return ret != null ? ret.doubleValue() : 0.0;
+                    })
+                    .reduce(Double::sum)
+                    .orElse(0.0);
 
             // 构建响应结果
             Map<String, Object> response = new HashMap<>();
             response.put("batch_backtest_id", batchBacktestId);
             response.put("total_strategies", strategyCodes.size());
             response.put("successful_backtests", successCount);
-            response.put("failed_backtests", (long)allResults.size() - successCount);
+            response.put("failed_backtests", (long) allResults.size() - successCount);
 
             if (!allResults.isEmpty() && (boolean) allResults.get(0).get("success")) {
                 response.put("max_return", allResults.get(0).get("total_return"));

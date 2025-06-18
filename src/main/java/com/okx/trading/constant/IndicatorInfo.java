@@ -96,6 +96,60 @@ public class IndicatorInfo {
     public static final String STRATEGY_VOSC = "VOSC"; // 成交量振荡器
     public static final String STRATEGY_MARKETFI = "MARKETFI"; // 市场便利指数
 
+    // 机器学习策略 (91-100)
+    public static final String STRATEGY_NEURAL_NETWORK = "NEURAL_NETWORK";
+    public static final String STRATEGY_GENETIC_ALGORITHM = "GENETIC_ALGORITHM";
+    public static final String STRATEGY_RANDOM_FOREST = "RANDOM_FOREST";
+    public static final String STRATEGY_SVM = "SVM";
+    public static final String STRATEGY_LSTM = "LSTM";
+    public static final String STRATEGY_KNN = "KNN";
+    public static final String STRATEGY_NAIVE_BAYES = "NAIVE_BAYES";
+    public static final String STRATEGY_DECISION_TREE = "DECISION_TREE";
+    public static final String STRATEGY_ENSEMBLE = "ENSEMBLE";
+    public static final String STRATEGY_REINFORCEMENT_LEARNING = "REINFORCEMENT_LEARNING";
+
+    // 量化因子策略 (101-105)
+    public static final String STRATEGY_MOMENTUM_FACTOR = "MOMENTUM_FACTOR";
+    public static final String STRATEGY_VALUE_FACTOR = "VALUE_FACTOR";
+    public static final String STRATEGY_QUALITY_FACTOR = "QUALITY_FACTOR";
+    public static final String STRATEGY_SIZE_FACTOR = "SIZE_FACTOR";
+    public static final String STRATEGY_LOW_VOLATILITY_FACTOR = "LOW_VOLATILITY_FACTOR";
+
+    // 高频和微观结构策略 (106-110)
+    public static final String STRATEGY_MICROSTRUCTURE_IMBALANCE = "MICROSTRUCTURE_IMBALANCE";
+    public static final String STRATEGY_MEAN_REVERSION_INTRADAY = "MEAN_REVERSION_INTRADAY";
+    public static final String STRATEGY_MOMENTUM_INTRADAY = "MOMENTUM_INTRADAY";
+    public static final String STRATEGY_ARBITRAGE_STATISTICAL = "ARBITRAGE_STATISTICAL";
+    public static final String STRATEGY_PAIRS_TRADING = "PAIRS_TRADING";
+
+    // 期权和波动率策略 (111-115)
+    public static final String STRATEGY_VOLATILITY_SURFACE = "VOLATILITY_SURFACE";
+    public static final String STRATEGY_GAMMA_SCALPING = "GAMMA_SCALPING";
+    public static final String STRATEGY_VOLATILITY_MEAN_REVERSION = "VOLATILITY_MEAN_REVERSION";
+    public static final String STRATEGY_VOLATILITY_MOMENTUM = "VOLATILITY_MOMENTUM";
+    public static final String STRATEGY_IMPLIED_VOLATILITY_RANK = "IMPLIED_VOLATILITY_RANK";
+
+    // 宏观和基本面策略 (116-120)
+    public static final String STRATEGY_CARRY_TRADE = "CARRY_TRADE";
+    public static final String STRATEGY_FUNDAMENTAL_SCORE = "FUNDAMENTAL_SCORE";
+    public static final String STRATEGY_MACRO_MOMENTUM = "MACRO_MOMENTUM";
+    public static final String STRATEGY_SEASONALITY = "SEASONALITY";
+    public static final String STRATEGY_CALENDAR_SPREAD = "CALENDAR_SPREAD";
+
+    // 创新和实验性策略 (121-125)
+    public static final String STRATEGY_SENTIMENT_ANALYSIS = "SENTIMENT_ANALYSIS";
+    public static final String STRATEGY_NETWORK_ANALYSIS = "NETWORK_ANALYSIS";
+    public static final String STRATEGY_FRACTAL_GEOMETRY = "FRACTAL_GEOMETRY";
+    public static final String STRATEGY_CHAOS_THEORY = "CHAOS_THEORY";
+    public static final String STRATEGY_QUANTUM_INSPIRED = "QUANTUM_INSPIRED";
+
+    // 风险管理策略 (126-130)
+    public static final String STRATEGY_KELLY_CRITERION = "KELLY_CRITERION";
+    public static final String STRATEGY_VAR_RISK_MANAGEMENT = "VAR_RISK_MANAGEMENT";
+    public static final String STRATEGY_MAXIMUM_DRAWDOWN_CONTROL = "MAXIMUM_DRAWDOWN_CONTROL";
+    public static final String STRATEGY_POSITION_SIZING = "POSITION_SIZING";
+    public static final String STRATEGY_CORRELATION_FILTER = "CORRELATION_FILTER";
+
     // 蜡烛图形态策略
     public static final String STRATEGY_DOJI = "DOJI";
     public static final String STRATEGY_BULLISH_ENGULFING = "BULLISH_ENGULFING";

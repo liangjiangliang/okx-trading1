@@ -281,5 +281,61 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_SUPPORT_RESISTANCE_BREAKOUT, StrategyFactory3::createSupportResistanceBreakoutStrategy);
         strategyCreators.put(STRATEGY_PRICE_PATTERN_RECOGNITION, StrategyFactory3::createPricePatternRecognitionStrategy);
         strategyCreators.put(STRATEGY_COMPREHENSIVE_SCORING, StrategyFactory3::createComprehensiveScoringStrategy);
+
+
+        // ================= 策略工厂4注册 (策略91-130) =================
+        // 机器学习启发策略 (91-100)
+        strategyCreators.put(STRATEGY_NEURAL_NETWORK, StrategyFactory4::createNeuralNetworkStrategy);
+        strategyCreators.put(STRATEGY_GENETIC_ALGORITHM, StrategyFactory4::createGeneticAlgorithmStrategy);
+        strategyCreators.put(STRATEGY_RANDOM_FOREST, StrategyFactory4::createRandomForestStrategy);
+        strategyCreators.put(STRATEGY_SVM, StrategyFactory4::createSVMStrategy);
+        strategyCreators.put(STRATEGY_LSTM, StrategyFactory4::createLSTMStrategy);
+        strategyCreators.put(STRATEGY_KNN, StrategyFactory4::createKNNStrategy);
+        strategyCreators.put(STRATEGY_NAIVE_BAYES, StrategyFactory4::createNaiveBayesStrategy);
+        strategyCreators.put(STRATEGY_DECISION_TREE, StrategyFactory4::createDecisionTreeStrategy);
+        strategyCreators.put(STRATEGY_ENSEMBLE, StrategyFactory4::createEnsembleStrategy);
+        strategyCreators.put(STRATEGY_REINFORCEMENT_LEARNING, StrategyFactory4::createReinforcementLearningStrategy);
+
+        // 量化因子策略 (101-105)
+        strategyCreators.put(STRATEGY_MOMENTUM_FACTOR, StrategyFactory4::createMomentumFactorStrategy);
+        strategyCreators.put(STRATEGY_VALUE_FACTOR, StrategyFactory4::createValueFactorStrategy);
+        strategyCreators.put(STRATEGY_QUALITY_FACTOR, StrategyFactory4::createQualityFactorStrategy);
+        strategyCreators.put(STRATEGY_SIZE_FACTOR, StrategyFactory4::createSizeFactorStrategy);
+        strategyCreators.put(STRATEGY_LOW_VOLATILITY_FACTOR, StrategyFactory4::createLowVolatilityFactorStrategy);
+
+        // 高频和微观结构策略 (106-110)
+        strategyCreators.put(STRATEGY_MICROSTRUCTURE_IMBALANCE, StrategyFactory4::createMicrostructureImbalanceStrategy);
+        strategyCreators.put(STRATEGY_MEAN_REVERSION_INTRADAY, StrategyFactory4::createMeanReversionIntradayStrategy);
+        strategyCreators.put(STRATEGY_MOMENTUM_INTRADAY, StrategyFactory4::createMomentumIntradayStrategy);
+        strategyCreators.put(STRATEGY_ARBITRAGE_STATISTICAL, StrategyFactory4::createArbitrageStatisticalStrategy);
+        strategyCreators.put(STRATEGY_PAIRS_TRADING, StrategyFactory4::createPairsTradingStrategy);
+
+        // 期权和波动率策略 (111-115)
+        strategyCreators.put(STRATEGY_VOLATILITY_SURFACE, StrategyFactory4::createVolatilitySurfaceStrategy);
+        strategyCreators.put(STRATEGY_GAMMA_SCALPING, StrategyFactory4::createGammaScalpingStrategy);
+        strategyCreators.put(STRATEGY_VOLATILITY_MEAN_REVERSION, StrategyFactory4::createVolatilityMeanReversionStrategy);
+        strategyCreators.put(STRATEGY_VOLATILITY_MOMENTUM, StrategyFactory4::createVolatilityMomentumStrategy);
+        strategyCreators.put(STRATEGY_IMPLIED_VOLATILITY_RANK, StrategyFactory4::createImpliedVolatilityRankStrategy);
+
+        // 宏观和基本面策略 (116-120)
+        strategyCreators.put(STRATEGY_CARRY_TRADE, StrategyFactory4::createCarryTradeStrategy);
+        strategyCreators.put(STRATEGY_FUNDAMENTAL_SCORE, StrategyFactory4::createFundamentalScoreStrategy);
+        strategyCreators.put(STRATEGY_MACRO_MOMENTUM, StrategyFactory4::createMacroMomentumStrategy);
+        strategyCreators.put(STRATEGY_SEASONALITY, StrategyFactory4::createSeasonalityStrategy);
+        strategyCreators.put(STRATEGY_CALENDAR_SPREAD, StrategyFactory4::createCalendarSpreadStrategy);
+
+        // 创新和实验性策略 (121-125)
+        strategyCreators.put(STRATEGY_SENTIMENT_ANALYSIS, StrategyFactory4::createSentimentAnalysisStrategy);
+        strategyCreators.put(STRATEGY_NETWORK_ANALYSIS, StrategyFactory4::createNetworkAnalysisStrategy);
+        strategyCreators.put(STRATEGY_FRACTAL_GEOMETRY, StrategyFactory4::createFractalGeometryStrategy);
+        strategyCreators.put(STRATEGY_CHAOS_THEORY, StrategyFactory4::createChaosTheoryStrategy);
+        strategyCreators.put(STRATEGY_QUANTUM_INSPIRED, StrategyFactory4::createQuantumInspiredStrategy);
+
+        // 风险管理策略 (126-130)
+        strategyCreators.put(STRATEGY_KELLY_CRITERION, StrategyFactory4::createKellyCriterionStrategy);
+        strategyCreators.put(STRATEGY_VAR_RISK_MANAGEMENT, StrategyFactory4::createVarRiskManagementStrategy);
+        strategyCreators.put(STRATEGY_MAXIMUM_DRAWDOWN_CONTROL, StrategyFactory4::createMaximumDrawdownControlStrategy);
+        strategyCreators.put(STRATEGY_POSITION_SIZING, StrategyFactory4::createPositionSizingStrategy);
+        strategyCreators.put(STRATEGY_CORRELATION_FILTER, StrategyFactory4::createCorrelationFilterStrategy);
     }
 }
