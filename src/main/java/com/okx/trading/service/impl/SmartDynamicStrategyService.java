@@ -100,7 +100,7 @@ public class SmartDynamicStrategyService {
      */
     private String autoFixCommonErrors(String strategyCode) {
         String fixedCode = strategyCode;
-        
+
         try {
             log.info("🔧 开始自动修复策略代码错误...");
             
@@ -120,20 +120,20 @@ public class SmartDynamicStrategyService {
                 // 其他修复...
                 fixedCode = fixMACDIndicatorConstructor(fixedCode);
                 fixedCode = removeInnerClasses(fixedCode);
-                fixedCode = inlinePrivateMethods(fixedCode);
+            fixedCode = inlinePrivateMethods(fixedCode);
             } else {
                 // 对普通策略类格式的代码进行修复
                 log.info("检测到普通策略类格式，开始标准修复流程");
-                
+
                 // **优先修复MACD构造函数错误**
                 fixedCode = fixMACDConstructorEarly(fixedCode);
-                
+
                 fixedCode = fixImports(fixedCode);
-                fixedCode = fixClassDeclaration(fixedCode);
+            fixedCode = fixClassDeclaration(fixedCode);
                 fixedCode = fixMACDUsage(fixedCode);
-                fixedCode = fixSuperCallPosition(fixedCode);
+            fixedCode = fixSuperCallPosition(fixedCode);
             }
-            
+
             // 通用修复方法
             fixedCode = fixCommonSyntaxErrors(fixedCode);
             fixedCode = fixMissingIndicators(fixedCode);
@@ -157,8 +157,8 @@ public class SmartDynamicStrategyService {
         // 进行代码优化和标准化处理
         fixedCode = optimizeCode(fixedCode);
         log.info("进行了代码优化和标准化处理");
-        
-        return fixedCode;
+
+            return fixedCode;
     }
     
     /**
@@ -800,7 +800,7 @@ public class SmartDynamicStrategyService {
             return code;
         } catch (Exception e) {
             System.err.println("Error fixing rule combination: " + e.getMessage());
-            return code;
+        return code;
         }
     }
 

@@ -199,13 +199,13 @@ public class Ta4jBacktestService{
             averageProfit = totalReturn.divide(new BigDecimal(tradeCount), 4, RoundingMode.HALF_UP);
         }
 
-        // 计算夏普比率和索提诺比例 - 只考虑有交易行为的时间范围
-        List<BigDecimal> tradingPeriodReturns = calculateTradingPeriodReturns(series, tradingRecord, tradeRecords, true);
-        BigDecimal sharpeRatio = calculateSharpeRatio(tradingPeriodReturns, riskFreeRate, 252);
-        BigDecimal omega = calculateOmegaRatio(tradingPeriodReturns, riskFreeRate); // 以0.01%为阈值
+        // 计算夏普比率和索提诺比例 - 全周期策略收益率（包括未持仓期间的0收益）
+        List<BigDecimal> fullPeriodStrategyReturns = calculateFullPeriodStrategyReturns(series, tradingRecord, true);
+        BigDecimal sharpeRatio = calculateSharpeRatio(fullPeriodStrategyReturns, riskFreeRate, 252);
+        BigDecimal omega = calculateOmegaRatio(fullPeriodStrategyReturns, riskFreeRate); // 以0.01%为阈值
 
         // 计算Sortino比率
-        BigDecimal sortinoRatio = calculateSortinoRatio(tradingPeriodReturns, riskFreeRate, 252);
+        BigDecimal sortinoRatio = calculateSortinoRatio(fullPeriodStrategyReturns, riskFreeRate, 252);
 
         // 计算所有日期的价格数据用于其他指标计算
         ArrayList<BigDecimal> dailyPrice = new ArrayList<>();
@@ -223,11 +223,11 @@ public class Ta4jBacktestService{
 
         // 如果需要启用基准比较，取消注释下面的代码
         // List<BigDecimal> benchmarkReturns = BenchmarkUtils.getBenchmarkReturns("000300.SS", series.getFirstBar().getEndTime(), series.getLastBar().getEndTime());
-        // alphaBeta = calculateAlphaBeta(tradingPeriodReturns, benchmarkReturns);
+        // alphaBeta = calculateAlphaBeta(fullPeriodStrategyReturns, benchmarkReturns);
 
         //  * 计算 Treynor 比率
         //  * 用 Beta 衡量系统性风险，计算单位系统风险的超额收益
-        double treynorRatio = calculateTreynorRatio(tradingPeriodReturns, riskFreeRate, alphaBeta[1]);
+        double treynorRatio = calculateTreynorRatio(fullPeriodStrategyReturns, riskFreeRate, alphaBeta[1]);
 
 
         //  * 计算 Ulcer Index
@@ -236,7 +236,7 @@ public class Ta4jBacktestService{
 
         //  * 计算收益率序列的偏度 (Skewness)
         //  * 偏度反映数据分布的非对称性，正偏说明右尾重，负偏说明左尾重
-        double skewness = calculateSkewness(tradingPeriodReturns);
+        double skewness = calculateSkewness(fullPeriodStrategyReturns);
 
         // 构建回测结果
         BacktestResultDTO result = new BacktestResultDTO();
@@ -271,7 +271,113 @@ public class Ta4jBacktestService{
     }
 
     /**
-     * 计算交易期间的收益率序列
+     * 计算全周期策略收益率序列
+     * 在持仓期间使用实际价格变动，在未持仓期间收益率为0
+     * 这样可以更准确地反映策略的整体表现，包括资金利用率
+     *
+     * @param series        BarSeries对象
+     * @param tradingRecord 交易记录
+     * @param useLogReturn  是否使用对数收益率
+     * @return 全周期策略收益率序列
+     */
+    /**
+     * 计算全周期策略收益率序列
+     * 包括持仓期间的实际收益率和未持仓期间的零收益率
+     * 
+     * 边界条件处理：
+     * 1. 持仓第一天：只是买入，没有收益，不能和昨天比较 -> 收益率为0
+     * 2. 持仓最后一天的后面一天：没有资产了，也不能算收益 -> 收益率为0
+     * 
+     * @param series BarSeries对象
+     * @param tradingRecord 交易记录
+     * @param useLogReturn 是否使用对数收益率
+     * @return 全周期策略收益率序列
+     */
+    private List<BigDecimal> calculateFullPeriodStrategyReturns(BarSeries series, TradingRecord tradingRecord, boolean useLogReturn) {
+        List<BigDecimal> returns = new ArrayList<>();
+        
+        if (series == null || series.getBarCount() < 2) {
+            return returns;
+        }
+
+        // 如果没有交易记录，整个期间都是0收益
+        if (tradingRecord == null || tradingRecord.getPositionCount() == 0) {
+            for (int i = 1; i < series.getBarCount(); i++) {
+                returns.add(BigDecimal.ZERO);
+            }
+            return returns;
+        }
+
+        // 创建持仓期间标记数组
+        boolean[] isInPosition = new boolean[series.getBarCount()];
+        boolean[] isEntryDay = new boolean[series.getBarCount()];  // 标记买入日
+        boolean[] isExitDay = new boolean[series.getBarCount()];   // 标记卖出日
+        
+        // 标记所有持仓期间、买入日和卖出日
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
+                int entryIndex = position.getEntry().getIndex();
+                int exitIndex = position.getExit().getIndex();
+                
+                // 标记买入日和卖出日
+                if (entryIndex < isEntryDay.length) {
+                    isEntryDay[entryIndex] = true;
+                }
+                if (exitIndex < isExitDay.length) {
+                    isExitDay[exitIndex] = true;
+                }
+                
+                // 从入场时间点到出场时间点都标记为持仓状态
+                for (int i = entryIndex; i <= exitIndex; i++) {
+                    if (i < isInPosition.length) {
+                        isInPosition[i] = true;
+                    }
+                }
+            }
+        }
+
+        // 计算每个时间点的收益率
+        for (int i = 1; i < series.getBarCount(); i++) {
+            BigDecimal dailyReturn = BigDecimal.ZERO;
+            
+            // 边界条件1：持仓第一天（买入日）收益率为0，因为只是买入，没有收益
+            if (isEntryDay[i]) {
+                dailyReturn = BigDecimal.ZERO;
+            }
+            // 边界条件2：卖出日的后一天收益率为0（已经没有持仓）
+            else if (i > 0 && isExitDay[i-1]) {
+                dailyReturn = BigDecimal.ZERO;
+            }
+            // 正常持仓期间：计算价格收益率（排除买入日）
+            else if (isInPosition[i] && !isEntryDay[i]) {
+                BigDecimal today = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
+                BigDecimal yesterday = BigDecimal.valueOf(series.getBar(i - 1).getClosePrice().doubleValue());
+                
+                if (yesterday.compareTo(BigDecimal.ZERO) > 0) {
+                    if (useLogReturn) {
+                        double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
+                        dailyReturn = BigDecimal.valueOf(logR);
+                    } else {
+                        BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
+                        dailyReturn = change;
+                    }
+                } else {
+                    dailyReturn = BigDecimal.ZERO;
+                }
+            }
+            // 未持仓期间：收益率为0
+            else {
+                dailyReturn = BigDecimal.ZERO;
+            }
+            
+            returns.add(dailyReturn);
+        }
+
+        return returns;
+    }
+
+    /**
+     * 计算交易期间的收益率序列（保留原方法以备后用）
      * 只计算有交易行为的时间范围内的价格变化，而不是整个回测期间
      *
      * @param series        BarSeries对象
