@@ -4376,4 +4376,310 @@ public class StrategyFactory1 {
 
         return new BaseStrategy("MESA正弦波策略", entryRule, exitRule);
     }
+
+    /**
+     * 创建多层次止盈止损策略
+     * 使用不同层次的止盈止损点来管理风险和锁定利润
+     * 
+     * 策略逻辑：
+     * 1. 当RSI<30且价格突破20日均线时买入
+     * 2. 设置多个止盈点：2%、4%、6%
+     * 3. 设置多个止损点：-1%、-2%、-3%
+     * 4. 根据价格变化动态调整止盈止损位
+     */
+    public static Strategy createMultiLevelTakeProfitStopLossStrategy(BarSeries series) {
+        int rsiPeriod = 14;
+        int smaPeriod = 20;
+        
+        if (series.getBarCount() <= Math.max(rsiPeriod, smaPeriod)) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (Math.max(rsiPeriod, smaPeriod) + 1) + " 个数据点");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        RSIIndicator rsi = new RSIIndicator(closePrice, rsiPeriod);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, smaPeriod);
+        ATRIndicator atr = new ATRIndicator(series, 14);
+
+        // 多层次止盈止损指标
+        class MultiLevelTPSLIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final ATRIndicator atr;
+            private final double[] takeProfitLevels = {0.02, 0.04, 0.06}; // 2%, 4%, 6%
+            private final double[] stopLossLevels = {-0.01, -0.02, -0.03}; // -1%, -2%, -3%
+            private Num entryPrice = null;
+            private boolean isLong = false;
+            private int currentTPLevel = 0;
+            private int currentSLLevel = 0;
+
+            public MultiLevelTPSLIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.atr = atr;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) {
+                    return series.numOf(0);
+                }
+
+                Num currentPrice = closePrice.getValue(index);
+                
+                // 如果还没有入场价格，返回0
+                if (entryPrice == null) {
+                    return series.numOf(0);
+                }
+
+                // 计算当前收益率
+                Num profitRate = currentPrice.minus(entryPrice).dividedBy(entryPrice);
+                
+                // 检查止盈条件
+                for (int i = currentTPLevel; i < takeProfitLevels.length; i++) {
+                    if (profitRate.doubleValue() >= takeProfitLevels[i]) {
+                        currentTPLevel = i + 1;
+                        // 动态调整止损位 - 当达到某个止盈点时，将止损位上移
+                        if (i > 0) {
+                            currentSLLevel = Math.min(currentSLLevel + 1, stopLossLevels.length - 1);
+                        }
+                        return series.numOf(1); // 部分止盈信号
+                    }
+                }
+                
+                // 检查止损条件
+                if (profitRate.doubleValue() <= stopLossLevels[currentSLLevel]) {
+                    return series.numOf(-1); // 止损信号
+                }
+                
+                return series.numOf(0); // 持仓信号
+            }
+            
+            public void setEntryPrice(Num price) {
+                this.entryPrice = price;
+                this.isLong = true;
+                this.currentTPLevel = 0;
+                this.currentSLLevel = 0;
+            }
+            
+            public void reset() {
+                this.entryPrice = null;
+                this.isLong = false;
+                this.currentTPLevel = 0;
+                this.currentSLLevel = 0;
+            }
+        }
+
+        MultiLevelTPSLIndicator multiLevelTPSL = new MultiLevelTPSLIndicator(closePrice, atr, series);
+
+        // 动态止盈止损规则
+        class DynamicTakeProfitRule implements Rule {
+            private final MultiLevelTPSLIndicator indicator;
+            
+            public DynamicTakeProfitRule(MultiLevelTPSLIndicator indicator) {
+                this.indicator = indicator;
+            }
+            
+            @Override
+            public boolean isSatisfied(int index, TradingRecord tradingRecord) {
+                if (tradingRecord.getCurrentPosition().isOpened()) {
+                    // 设置入场价格
+                    if (indicator.entryPrice == null) {
+                        Trade entryTrade = tradingRecord.getCurrentPosition().getEntry();
+                        indicator.setEntryPrice(entryTrade.getNetPrice());
+                    }
+                    
+                    Num signal = indicator.getValue(index);
+                    return signal.doubleValue() == 1 || signal.doubleValue() == -1;
+                }
+                return false;
+            }
+        }
+
+        class DynamicStopLossRule implements Rule {
+            private final MultiLevelTPSLIndicator indicator;
+            
+            public DynamicStopLossRule(MultiLevelTPSLIndicator indicator) {
+                this.indicator = indicator;
+            }
+            
+            @Override
+            public boolean isSatisfied(int index, TradingRecord tradingRecord) {
+                if (tradingRecord.getCurrentPosition().isOpened()) {
+                    Num signal = indicator.getValue(index);
+                    return signal.doubleValue() == -1;
+                }
+                return false;
+            }
+        }
+
+        // 入场规则：RSI超卖且价格突破20日均线
+        Rule entryRule = new UnderIndicatorRule(rsi, series.numOf(30))
+                .and(new CrossedUpIndicatorRule(closePrice, sma20));
+
+        // 出场规则：多层次止盈止损或RSI超买
+        Rule exitRule = new OrRule(
+                new OrRule(
+                    new DynamicTakeProfitRule(multiLevelTPSL),
+                    new DynamicStopLossRule(multiLevelTPSL)
+                ),
+                new OverIndicatorRule(rsi, series.numOf(70))
+        );
+
+        // 在出场时重置指标
+        class ResetOnExitRule implements Rule {
+            private final Rule originalRule;
+            private final MultiLevelTPSLIndicator indicator;
+            
+            public ResetOnExitRule(Rule originalRule, MultiLevelTPSLIndicator indicator) {
+                this.originalRule = originalRule;
+                this.indicator = indicator;
+            }
+            
+            @Override
+            public boolean isSatisfied(int index, TradingRecord tradingRecord) {
+                boolean shouldExit = originalRule.isSatisfied(index, tradingRecord);
+                if (shouldExit) {
+                    indicator.reset();
+                }
+                return shouldExit;
+            }
+        }
+
+        Rule finalExitRule = new ResetOnExitRule(exitRule, multiLevelTPSL);
+
+        return new BaseStrategy("多层次止盈止损策略", entryRule, finalExitRule);
+    }
+
+    /**
+     * 创建高级多层次止盈止损策略
+     * 结合技术指标和风险管理的综合策略
+     */
+    public static Strategy createAdvancedMultiLevelStrategy(BarSeries series) {
+        int period = 20;
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标");
+        }
+
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        EMAIndicator ema12 = new EMAIndicator(closePrice, 12);
+        EMAIndicator ema26 = new EMAIndicator(closePrice, 26);
+        MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
+        EMAIndicator macdSignal = new EMAIndicator(macd, 9);
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
+        ATRIndicator atr = new ATRIndicator(series, 14);
+
+        // 高级多层次管理指标
+        class AdvancedMultiLevelIndicator extends CachedIndicator<Num> {
+            private final ClosePriceIndicator closePrice;
+            private final ATRIndicator atr;
+            private final RSIIndicator rsi;
+            private Num entryPrice = null;
+            private double[] profitTargets = {0.015, 0.03, 0.045, 0.06}; // 1.5%, 3%, 4.5%, 6%
+            private double[] stopLevels = {-0.008, -0.015, -0.025}; // -0.8%, -1.5%, -2.5%
+            private int activeProfitLevel = 0;
+            private int activeStopLevel = 0;
+            private double trailingStopDistance = 0.01; // 1% 追踪止损
+
+            public AdvancedMultiLevelIndicator(ClosePriceIndicator closePrice, ATRIndicator atr, RSIIndicator rsi, BarSeries series) {
+                super(series);
+                this.closePrice = closePrice;
+                this.atr = atr;
+                this.rsi = rsi;
+            }
+
+            @Override
+            protected Num calculate(int index) {
+                if (entryPrice == null) {
+                    return series.numOf(0);
+                }
+
+                Num currentPrice = closePrice.getValue(index);
+                Num profitRate = currentPrice.minus(entryPrice).dividedBy(entryPrice);
+                double profit = profitRate.doubleValue();
+
+                // 动态调整止盈目标
+                for (int i = activeProfitLevel; i < profitTargets.length; i++) {
+                    if (profit >= profitTargets[i]) {
+                        activeProfitLevel = i + 1;
+                        // 当达到新的止盈目标时，上移止损位
+                        if (i > 0 && activeStopLevel < stopLevels.length - 1) {
+                            activeStopLevel++;
+                        }
+                        return series.numOf(2); // 部分止盈信号
+                    }
+                }
+
+                // 检查止损
+                if (profit <= stopLevels[activeStopLevel]) {
+                    return series.numOf(-1); // 止损信号
+                }
+
+                // 追踪止损（当利润超过2%时启用）
+                if (profit > 0.02) {
+                    double trailingStop = profit - trailingStopDistance;
+                    if (profit <= trailingStop) {
+                        return series.numOf(-2); // 追踪止损信号
+                    }
+                }
+
+                // RSI过热出场
+                if (rsi.getValue(index).doubleValue() > 80) {
+                    return series.numOf(-3); // RSI过热出场
+                }
+
+                return series.numOf(0); // 持仓
+            }
+
+            public void setEntry(Num price) {
+                this.entryPrice = price;
+                this.activeProfitLevel = 0;
+                this.activeStopLevel = 0;
+            }
+
+            public void reset() {
+                this.entryPrice = null;
+                this.activeProfitLevel = 0;
+                this.activeStopLevel = 0;
+            }
+        }
+
+        AdvancedMultiLevelIndicator advancedIndicator = new AdvancedMultiLevelIndicator(closePrice, atr, rsi, series);
+
+        // 入场规则：MACD金叉且RSI在30-70之间
+        Rule entryRule = new CrossedUpIndicatorRule(macd, macdSignal)
+                .and(new OverIndicatorRule(rsi, series.numOf(30)))
+                .and(new UnderIndicatorRule(rsi, series.numOf(70)));
+
+        // 高级出场规则
+        class AdvancedExitRule implements Rule {
+            private final AdvancedMultiLevelIndicator indicator;
+
+            public AdvancedExitRule(AdvancedMultiLevelIndicator indicator) {
+                this.indicator = indicator;
+            }
+
+            @Override
+            public boolean isSatisfied(int index, TradingRecord tradingRecord) {
+                if (tradingRecord.getCurrentPosition().isOpened()) {
+                    if (indicator.entryPrice == null) {
+                        Trade entryTrade = tradingRecord.getCurrentPosition().getEntry();
+                        indicator.setEntry(entryTrade.getNetPrice());
+                    }
+
+                    Num signal = indicator.getValue(index);
+                    double signalValue = signal.doubleValue();
+                    
+                    // 任何非0信号都表示出场
+                    if (signalValue != 0) {
+                        indicator.reset();
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        Rule exitRule = new AdvancedExitRule(advancedIndicator);
+
+        return new BaseStrategy("高级多层次止盈止损策略", entryRule, exitRule);
+    }
 }

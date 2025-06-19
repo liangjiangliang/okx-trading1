@@ -100,69 +100,93 @@ public class SmartDynamicStrategyService {
      */
     private String autoFixCommonErrors(String strategyCode) {
         String fixedCode = strategyCode;
-
+        
         try {
-            log.info("🔧 [DEBUG] autoFixCommonErrors开始，原始代码包含: {}", 
-                strategyCode.contains("longPeriod") ? "longPeriod存在" : "longPeriod不存在");
+            log.info("🔧 开始自动修复策略代码错误...");
             
-            // 检查是否是静态方法格式的代码
-            boolean isStaticMethodFormat = isStaticMethodFormat(strategyCode);
-            
-            if (isStaticMethodFormat) {
+            // 检测是否为静态方法格式的策略代码
+            if (isStaticMethodFormat(fixedCode)) {
                 log.info("检测到静态方法格式的策略代码，跳过继承相关的修复");
-                // 对于静态方法格式，只进行简单的修复
-                String beforeFix = fixedCode;
+                
+                // 对静态方法格式的代码进行特殊修复
                 fixedCode = fixStaticMethodErrors(fixedCode);
                 
-                if (!fixedCode.equals(beforeFix)) {
-                    log.info("🚨 [DEBUG] fixStaticMethodErrors修改了代码！");
-                    log.info("🚨 [DEBUG] 修改前包含longPeriod: {}", beforeFix.contains("longPeriod"));
-                    log.info("🚨 [DEBUG] 修改后包含longPeriod: {}", fixedCode.contains("longPeriod"));
-                }
-            } else {
-                // 对于继承格式，进行完整的修复
-                log.info("检测到继承格式的策略代码，进行完整修复");
+                // 修复静态方法中的指标缺失问题
+                fixedCode = fixMissingIndicatorsForStaticMethod(fixedCode);
                 
-                // 1. 修复MACDIndicator构造函数问题
+                // **优先修复MACD构造函数错误 - 在其他修复之前**
+                fixedCode = fixMACDConstructorEarly(fixedCode);
+                
+                // 其他修复...
                 fixedCode = fixMACDIndicatorConstructor(fixedCode);
-
-                // 2. 移除不支持的内部类
                 fixedCode = removeInnerClasses(fixedCode);
-
-                // 3. 移除私有方法，内联到构造函数中
                 fixedCode = inlinePrivateMethods(fixedCode);
-
-                // 4. 修复常见的import问题
+            } else {
+                // 对普通策略类格式的代码进行修复
+                log.info("检测到普通策略类格式，开始标准修复流程");
+                
+                // **优先修复MACD构造函数错误**
+                fixedCode = fixMACDConstructorEarly(fixedCode);
+                
                 fixedCode = fixImports(fixedCode);
-
-                // 5. 确保类名正确继承
                 fixedCode = fixClassDeclaration(fixedCode);
-
-                // 6. 修复super调用位置
+                fixedCode = fixMACDUsage(fixedCode);
                 fixedCode = fixSuperCallPosition(fixedCode);
-
-                // 7. 修复常见的语法错误
-                fixedCode = fixCommonSyntaxErrors(fixedCode);
-
-                // 8. 修复不存在的指标类
-                fixedCode = fixMissingIndicators(fixedCode);
-
-                // 9. 修复常见的编译错误
-                fixedCode = fixCommonCompilationErrors(fixedCode);
             }
-
-            // 只有在代码确实被修复时才记录日志
-            if (!strategyCode.equals(fixedCode)) {
-                log.info("策略代码错误修复完成，共进行了 {} 个字符的修改",
-                    Math.abs(fixedCode.length() - strategyCode.length()));
-            }
-
-            return fixedCode;
-
+            
+            // 通用修复方法
+            fixedCode = fixCommonSyntaxErrors(fixedCode);
+            fixedCode = fixMissingIndicators(fixedCode);
+            fixedCode = fixRuleCombination(fixedCode);
+            fixedCode = fixCommonCompilationErrors(fixedCode);
+            fixedCode = addCustomIndicatorsAndMethods(fixedCode);
+            fixedCode = fixBracketMatching(fixedCode);
+            
         } catch (Exception e) {
-            log.error("自动修复策略代码时发生错误: {}", e.getMessage(), e);
-            return strategyCode; // 返回原始代码
+            log.error("自动修复过程中发生错误: {}", e.getMessage());
+            return strategyCode; // 如果修复过程失败，返回原始代码
         }
+
+        // 计算修改的字符数
+        int changedChars = Math.abs(fixedCode.length() - strategyCode.length());
+        log.info("策略代码错误修复完成，共进行了 {} 个字符的修改", changedChars);
+        
+        // 记录修复的错误类型
+        logFixedErrors(strategyCode, fixedCode);
+        
+        // 进行代码优化和标准化处理
+        fixedCode = optimizeCode(fixedCode);
+        log.info("进行了代码优化和标准化处理");
+        
+        return fixedCode;
+    }
+    
+    /**
+     * 早期修复MACD构造函数错误
+     */
+    private String fixMACDConstructorEarly(String code) {
+        try {
+            log.info("🔧 修复MACD构造函数错误...");
+            
+            // 修复具体的EMA参数错误调用 - 最高优先级
+            code = code.replaceAll("new MACDIndicator\\(shortEma,\\s*longEma\\)", 
+                "new MACDIndicator(closePrice, shortPeriod, longPeriod)");
+            code = code.replaceAll("new MACDIndicator\\(([a-zA-Z_][a-zA-Z0-9_]*Ema),\\s*([a-zA-Z_][a-zA-Z0-9_]*Ema)\\)", 
+                "new MACDIndicator(closePrice, shortPeriod, longPeriod)");
+            
+            // 修复所有形式的两个EMA参数调用
+            code = code.replaceAll("MACDIndicator\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*new\\s*MACDIndicator\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*),\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\);", 
+                "MACDIndicator $1 = new MACDIndicator(closePrice, shortPeriod, longPeriod);");
+            
+            // 修复任何两个参数的MACD构造函数调用
+            code = code.replaceAll("new MACDIndicator\\(([^,)]+),\\s*([^,)]+)\\)(?!,)", 
+                "new MACDIndicator(closePrice, shortPeriod, longPeriod)");
+            
+            log.info("✅ MACD构造函数错误修复完成");
+        } catch (Exception e) {
+            log.error("修复MACD构造函数时发生错误: {}", e.getMessage());
+        }
+        return code;
     }
 
     /**
@@ -206,6 +230,13 @@ public class SmartDynamicStrategyService {
         code = fixBracketMatching(code);
         if (!code.equals(beforeBracketFix)) {
             log.info("✅ fixBracketMatching 修改了代码");
+        }
+        
+        // 4. 修复Rule组合问题（AndRule/OrRule和Num.valueOf）
+        String beforeRuleFix = code;
+        code = fixRuleCombination(code);
+        if (!code.equals(beforeRuleFix)) {
+            log.info("✅ fixRuleCombination 修改了代码");
         }
         
         log.info("修复后代码长度: {}", code.length());
@@ -617,38 +648,45 @@ public class SmartDynamicStrategyService {
      */
     private String fixMACDIndicators(String code) {
         try {
-            // 检查是否包含MACD相关的复杂结构，如果是，则完全重写构造函数
-            if (code.contains("MACDIndicator")) {
-                // 完全重写MACD策略为简单的EMA交叉策略
-                String className = extractClassName(code);
-                if (className != null) {
-                    String newCode = "import org.ta4j.core.*;\n" +
-                                   "import org.ta4j.core.indicators.*;\n" +
-                                   "import org.ta4j.core.indicators.helpers.*;\n" +
-                                   "import org.ta4j.core.rules.*;\n\n" +
-                                   "public class " + className + " extends BaseStrategy {\n\n" +
-                                   "    public " + className + "(BarSeries series) {\n" +
-                                   "        super(\n" +
-                                   "            new CrossedUpIndicatorRule(\n" +
-                                   "                new EMAIndicator(new ClosePriceIndicator(series), 12),\n" +
-                                   "                new EMAIndicator(new ClosePriceIndicator(series), 26)\n" +
-                                   "            ),\n" +
-                                   "            new CrossedDownIndicatorRule(\n" +
-                                   "                new EMAIndicator(new ClosePriceIndicator(series), 12),\n" +
-                                   "                new EMAIndicator(new ClosePriceIndicator(series), 26)\n" +
-                                   "            )\n" +
-                                   "        );\n" +
-                                   "    }\n" +
-                                   "}";
-                    return newCode;
-                }
-            }
-
-            // 如果不是复杂的MACD结构，进行简单的替换
-            code = code.replaceAll("new MACDIndicator\\([^)]+\\)", "new EMAIndicator(new ClosePriceIndicator(series), 12)");
+            // MACD正确的构造函数是：MACDIndicator(Indicator<Num> indicator, int shortBarCount, int longBarCount)
+            // 不是接受两个EMA参数
+            
+            // 修复错误的MACD构造函数调用
+            code = code.replaceAll("new MACDIndicator\\(([^,)]+),\\s*([^,)]+)\\)", 
+                "new MACDIndicator($1, 12, 26)");
+            
+            // 修复具体的EMA参数错误调用
+            code = code.replaceAll("new MACDIndicator\\(shortEma,\\s*longEma\\)", 
+                "new MACDIndicator(closePrice, shortPeriod, longPeriod)");
+            code = code.replaceAll("new MACDIndicator\\(([a-zA-Z_][a-zA-Z0-9_]*Ema),\\s*([a-zA-Z_][a-zA-Z0-9_]*Ema)\\)", 
+                "new MACDIndicator(closePrice, shortPeriod, longPeriod)");
+            
+            // MACD需要closePrice, shortPeriod, longPeriod三个参数
+            code = code.replaceAll("new MACDIndicator\\(([^,)]+)\\)", 
+                "new MACDIndicator($1, 12, 26)");
+            
+            // 修复MACD信号线计算
+            code = code.replaceAll("new EMAIndicator\\(([a-zA-Z_][a-zA-Z0-9_]*),\\s*(\\d+)\\)", 
+                "new EMAIndicator($1, $2)");
+            
+            // 修复MACDIndicator调用中的getSignal()方法，Ta4j 0.14中没有这个方法
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getSignal\\(\\)", 
+                "new EMAIndicator($1, 9)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getSignalLine\\(\\)", 
+                "new EMAIndicator($1, 9)");
+            
+            // 修复MACD直方图计算
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getHistogram\\(\\)", 
+                "new MinusIndicator($1, new EMAIndicator($1, 9))");
+            
+            // 修复MACD金叉死叉的Rule创建
+            code = code.replaceAll("new CrossedUpIndicatorRule\\(([^,)]+)\\.getSignal\\(\\),\\s*([^,)]+)\\)", 
+                "new CrossedUpIndicatorRule($1, new EMAIndicator($1, 9))");
+            code = code.replaceAll("new CrossedDownIndicatorRule\\(([^,)]+)\\.getSignal\\(\\),\\s*([^,)]+)\\)", 
+                "new CrossedDownIndicatorRule($1, new EMAIndicator($1, 9))");
 
         } catch (Exception e) {
-            System.err.println("Error fixing MACD indicators: " + e.getMessage());
+            log.error("Error fixing MACD indicators: {}", e.getMessage());
         }
         return code;
     }
@@ -658,58 +696,112 @@ public class SmartDynamicStrategyService {
      */
     private String fixBollingerIndicators(String code) {
         try {
-            // 检查是否包含布林带相关的复杂结构，如果是，则完全重写构造函数
-            if (code.contains("BollingerBands") || code.contains("Bollinger")) {
-                String className = extractClassName(code);
-                if (className != null) {
-                    String newCode = "import org.ta4j.core.*;\n" +
-                                   "import org.ta4j.core.indicators.*;\n" +
-                                   "import org.ta4j.core.indicators.helpers.*;\n" +
-                                   "import org.ta4j.core.indicators.bollinger.*;\n" +
-                                   "import org.ta4j.core.rules.*;\n" +
-                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
-                                   "public class " + className + " extends BaseStrategy {\n\n" +
-                                   "    public " + className + "(BarSeries series) {\n" +
-                                   "        super(\n" +
-                                   "            new OverIndicatorRule(\n" +
-                                   "                new ClosePriceIndicator(series),\n" +
-                                   "                new BollingerBandsUpperIndicator(\n" +
-                                   "                    new BollingerBandsMiddleIndicator(new ClosePriceIndicator(series)),\n" +
-                                   "                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),\n" +
-                                   "                    DecimalNum.valueOf(2.0)\n" +
-                                   "                )\n" +
-                                   "            ),\n" +
-                                   "            new UnderIndicatorRule(\n" +
-                                   "                new ClosePriceIndicator(series),\n" +
-                                   "                new BollingerBandsLowerIndicator(\n" +
-                                   "                    new BollingerBandsMiddleIndicator(new ClosePriceIndicator(series)),\n" +
-                                   "                    new StandardDeviationIndicator(new ClosePriceIndicator(series), 20),\n" +
-                                   "                    DecimalNum.valueOf(2.0)\n" +
-                                   "                )\n" +
-                                   "            )\n" +
-                                   "        );\n" +
-                                   "    }\n" +
-                                   "}";
-                    return newCode;
-                }
+            // 1. 修复BollingerBandsMiddleIndicator - 必须传入SMAIndicator而不是直接的closePrice
+            code = code.replaceAll("new BollingerBandsMiddleIndicator\\(([^,)]+), (\\d+)\\)", 
+                "new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2))");
+            code = code.replaceAll("new BollingerBandsMiddleIndicator\\(([^,)]+)\\)", 
+                "new BollingerBandsMiddleIndicator(new SMAIndicator($1, 20))");
+
+            // 2. 修复BollingerBandsUpperIndicator - 需要三个参数：middle, standardDeviation, coefficient
+            code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
+                "new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf($3))");
+            code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,)]+), (\\d+)\\)", 
+                "new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf(2.0))");
+
+            // 3. 修复BollingerBandsLowerIndicator - 需要三个参数：middle, standardDeviation, coefficient  
+            code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
+                "new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf($3))");
+            code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,)]+), (\\d+)\\)", 
+                "new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf(2.0))");
+
+            // 4. 修复StandardDeviationIndicator构造函数
+            code = code.replaceAll("new StandardDeviationIndicator\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
+                "new StandardDeviationIndicator($1, $2)");
+
+            // 5. 修复布林带指标的数学运算方法调用
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.plus\\(([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([\\d.]+)\\)\\)", 
+                "new PlusIndicator($1, new MultipliedIndicator($2, series.numOf($3)))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.minus\\(([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([\\d.]+)\\)\\)", 
+                "new MinusIndicator($1, new MultipliedIndicator($2, series.numOf($3)))");
+
+            // 6. 修复布林带突破规则
+            code = code.replaceAll("new OverIndicatorRule\\(([^,)]+), ([a-zA-Z_][a-zA-Z0-9_]*)\\.getBBUpperIndicator\\(\\)\\)", 
+                "new OverIndicatorRule($1, $2)");
+            code = code.replaceAll("new UnderIndicatorRule\\(([^,)]+), ([a-zA-Z_][a-zA-Z0-9_]*)\\.getBBLowerIndicator\\(\\)\\)", 
+                "new UnderIndicatorRule($1, $2)");
+
+            // 7. 修复布林带相关的import
+            if (!code.contains("import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.bollinger.*;");
+            }
+            if (!code.contains("import org.ta4j.core.indicators.statistics.StandardDeviationIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.statistics.*;");
             }
 
-            // 如果不是布林带结构，进行部分修复
-            code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,]+),\\s*(\\d+),\\s*([\\d.]+)\\)",
-                "new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator($1), new StandardDeviationIndicator($1, $2), DecimalNum.valueOf($3))");
-
-            code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,]+),\\s*(\\d+),\\s*([\\d.]+)\\)",
-                "new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator($1), new StandardDeviationIndicator($1, $2), DecimalNum.valueOf($3))");
-
-            // 修复double类型转int的问题
-            code = code.replaceAll("DecimalNum\\.valueOf\\((\\d+)\\.(\\d+)\\)", "DecimalNum.valueOf($1.$2)");
-
-            return code;
-
         } catch (Exception e) {
-            System.err.println("Error fixing Bollinger indicators: " + e.getMessage());
+            log.error("Error fixing Bollinger indicators: {}", e.getMessage());
         }
         return code;
+    }
+
+    /**
+     * 修复Rule组合问题
+     */
+    private String fixRuleCombination(String code) {
+        try {
+            // 先处理四个参数的AndRule和OrRule - 必须最先处理，避免被两参数的规则匹配
+            code = code.replaceAll("new AndRule\\(\\s*([^,()]+),\\s*([^,()]+),\\s*([^,()]+),\\s*([^,()]+)\\s*\\)", 
+                "($1).and($2).and($3).and($4)");
+                
+            // 再处理三个参数的情况
+            code = code.replaceAll("new AndRule\\(\\s*([^,()]+),\\s*([^,()]+),\\s*([^,()]+)\\s*\\)", 
+                "($1).and($2).and($3)");
+            code = code.replaceAll("new OrRule\\(\\s*([^,()]+),\\s*([^,()]+),\\s*([^,()]+)\\s*\\)", 
+                "($1).or($2).or($3)");
+                
+            // 最后处理两个参数的情况
+            code = code.replaceAll("new AndRule\\(\\s*([^,()]+),\\s*([^,()]+)\\s*\\)", "($1).and($2)");
+            code = code.replaceAll("new OrRule\\(\\s*([^,()]+),\\s*([^,()]+)\\s*\\)", "($1).or($2)");
+                
+            // 修复Num.valueOf() - 改为series.numOf()
+            code = code.replaceAll("Num\\.valueOf\\((\\w+)\\)", "series.numOf($1)");
+            code = code.replaceAll("Num\\.valueOf\\((\\d+)\\)", "series.numOf($1)");
+            code = code.replaceAll("DecimalNum\\.valueOf\\((\\w+)\\)", "series.numOf($1)");
+            code = code.replaceAll("DecimalNum\\.valueOf\\((\\d+)\\)", "series.numOf($1)");
+            code = code.replaceAll("Decimal\\.valueOf\\((\\w+)\\)", "series.numOf($1)");
+            code = code.replaceAll("Decimal\\.valueOf\\(([\\d.]+)\\)", "series.numOf($1)");
+            
+            // 修复直接数字转换的问题
+            code = code.replaceAll("new UnderIndicatorRule\\(([^,]+),\\s*(\\d+)\\)", "new UnderIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("new OverIndicatorRule\\(([^,]+),\\s*(\\d+)\\)", "new OverIndicatorRule($1, series.numOf($2))");
+            
+            // 修复布林带指标构造函数中的变量转换问题
+            code = code.replaceAll("(BollingerBands(?:Upper|Lower)Indicator\\([^,]+,\\s*[^,]+,\\s*)(\\w+)(\\))", "$1series.numOf($2)$3");
+            
+            // 修复复杂的AndRule和OrRule - 处理嵌套参数
+            // 修复四参数AndRule的具体情况
+            if (code.contains("new AndRule(") && code.contains("CrossedUpIndicatorRule") && code.contains("UnderIndicatorRule") && code.contains("OverIndicatorRule")) {
+                code = code.replaceAll(
+                    "new AndRule\\(\\s*new CrossedUpIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\),\\s*new UnderIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\),\\s*new UnderIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\),\\s*new OverIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\)\\s*\\)",
+                    "(new CrossedUpIndicatorRule($1, $2)).and(new UnderIndicatorRule($3, $4)).and(new UnderIndicatorRule($5, $6)).and(new OverIndicatorRule($7, $8))"
+                );
+            }
+            
+            // 修复三参数OrRule的具体情况
+            if (code.contains("new OrRule(") && code.contains("CrossedDownIndicatorRule") && code.contains("OverIndicatorRule")) {
+                code = code.replaceAll(
+                    "new OrRule\\(\\s*new CrossedDownIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\),\\s*new OverIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\),\\s*new OverIndicatorRule\\(([^,)]+),\\s*([^,)]+)\\)\\s*\\)",
+                    "(new CrossedDownIndicatorRule($1, $2)).or(new OverIndicatorRule($3, $4)).or(new OverIndicatorRule($5, $6))"
+                );
+            }
+            
+            return code;
+        } catch (Exception e) {
+            System.err.println("Error fixing rule combination: " + e.getMessage());
+            return code;
+        }
     }
 
     /**
@@ -742,41 +834,31 @@ public class SmartDynamicStrategyService {
      */
     private String fixRSIIndicators(String code) {
         try {
-            // 检查是否包含RSI相关的复杂结构，如果是，则完全重写构造函数
-            if (code.contains("RSI") && (code.contains("new Num(") || code.contains("Overbought") || code.contains("Oversold"))) {
-                String className = extractClassName(code);
-                if (className != null) {
-                    String newCode = "import org.ta4j.core.*;\n" +
-                                   "import org.ta4j.core.indicators.*;\n" +
-                                   "import org.ta4j.core.indicators.helpers.*;\n" +
-                                   "import org.ta4j.core.rules.*;\n" +
-                                   "import org.ta4j.core.num.DecimalNum;\n\n" +
-                                   "public class " + className + " extends BaseStrategy {\n\n" +
-                                   "    public " + className + "(BarSeries series) {\n" +
-                                   "        super(\n" +
-                                   "            new UnderIndicatorRule(\n" +
-                                   "                new RSIIndicator(new ClosePriceIndicator(series), 14),\n" +
-                                   "                DecimalNum.valueOf(30)\n" +
-                                   "            ),\n" +
-                                   "            new OverIndicatorRule(\n" +
-                                   "                new RSIIndicator(new ClosePriceIndicator(series), 14),\n" +
-                                   "                DecimalNum.valueOf(70)\n" +
-                                   "            )\n" +
-                                   "        );\n" +
-                                   "    }\n" +
-                                   "}";
-                    return newCode;
-                }
+            // 1. 修复RSI构造函数参数问题
+            // RSI构造函数应该是 RSIIndicator(Indicator<Num>, int)
+            // 确保RSI参数正确
+            
+            // 2. 修复RSI阈值比较中的数字常量问题
+            // 将纯数字转换为series.numOf()调用
+            code = code.replaceAll("new UnderIndicatorRule\\(([^,]+),\\s*(\\d+)\\)", 
+                "new UnderIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("new OverIndicatorRule\\(([^,]+),\\s*(\\d+)\\)", 
+                "new OverIndicatorRule($1, series.numOf($2))");
+            
+            // 修复变量形式的阈值
+            code = code.replaceAll("new UnderIndicatorRule\\(([^,]+),\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\)", 
+                "new UnderIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("new OverIndicatorRule\\(([^,]+),\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\)", 
+                "new OverIndicatorRule($1, series.numOf($2))");
+
+            // 3. 修复RSI相关的import
+            if (!code.contains("import org.ta4j.core.indicators.RSIIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.*;");
             }
 
-            // 如果不是RSI结构，进行部分修复
-            code = code.replaceAll("new Num\\((\\d+)\\)", "DecimalNum.valueOf($1)");
-            code = code.replaceAll("new Num\\(([\\d.]+)\\)", "DecimalNum.valueOf($1)");
-
-            return code;
-
         } catch (Exception e) {
-            System.err.println("Error fixing RSI indicators: " + e.getMessage());
+            log.error("Error fixing RSI indicators: {}", e.getMessage());
         }
         return code;
     }
@@ -894,6 +976,198 @@ public class SmartDynamicStrategyService {
     }
 
     /**
+     * 添加自定义指标和工具方法
+     */
+    private String addCustomIndicatorsAndMethods(String code) {
+        StringBuilder customMethods = new StringBuilder();
+        
+        // 如果需要自定义指标，添加到类的开头
+        if (code.contains("FixedNumIndicator") || code.contains("ConstantIndicator") || 
+            code.contains("MaxPriceIndicator") || code.contains("StopLossRule") ||
+            code.contains("ConditionalIndicator") || code.contains("GreaterThanIndicator") ||
+            code.contains("TakeProfitRule")) {
+            customMethods.append("\n    // 自定义常量指标\n");
+            customMethods.append("    private static class CustomConstantIndicator implements Indicator<Num> {\n");
+            customMethods.append("        private final Num value;\n");
+            customMethods.append("        private final BarSeries series;\n");
+            customMethods.append("        \n");
+            customMethods.append("        public CustomConstantIndicator(BarSeries series, Num value) {\n");
+            customMethods.append("            this.series = series;\n");
+            customMethods.append("            this.value = value;\n");
+            customMethods.append("        }\n");
+            customMethods.append("        \n");
+            customMethods.append("        @Override\n");
+            customMethods.append("        public Num getValue(int index) {\n");
+            customMethods.append("            return value;\n");
+            customMethods.append("        }\n");
+            customMethods.append("        \n");
+            customMethods.append("        @Override\n");
+            customMethods.append("        public BarSeries getBarSeries() {\n");
+            customMethods.append("            return series;\n");
+            customMethods.append("        }\n");
+            customMethods.append("        \n");
+            customMethods.append("        @Override\n");
+            customMethods.append("        public Num numOf(Number number) {\n");
+            customMethods.append("            return series.numOf(number);\n");
+            customMethods.append("        }\n");
+            customMethods.append("    }\n\n");
+            
+            // 添加MaxPriceIndicator自定义实现
+            if (code.contains("MaxPriceIndicator")) {
+                customMethods.append("    // 自定义最大价格指标\n");
+                customMethods.append("    private static class MaxPriceIndicator implements Indicator<Num> {\n");
+                customMethods.append("        private final BarSeries series;\n");
+                customMethods.append("        private final int period;\n");
+                customMethods.append("        \n");
+                customMethods.append("        public MaxPriceIndicator(BarSeries series, int period) {\n");
+                customMethods.append("            this.series = series;\n");
+                customMethods.append("            this.period = period;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Num getValue(int index) {\n");
+                customMethods.append("            int start = Math.max(0, index - period + 1);\n");
+                customMethods.append("            Num maxPrice = series.getBar(start).getHighPrice();\n");
+                customMethods.append("            for (int i = start + 1; i <= index; i++) {\n");
+                customMethods.append("                Num currentHigh = series.getBar(i).getHighPrice();\n");
+                customMethods.append("                if (currentHigh.isGreaterThan(maxPrice)) {\n");
+                customMethods.append("                    maxPrice = currentHigh;\n");
+                customMethods.append("                }\n");
+                customMethods.append("            }\n");
+                customMethods.append("            return maxPrice;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public BarSeries getBarSeries() {\n");
+                customMethods.append("            return series;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Num numOf(Number number) {\n");
+                customMethods.append("            return series.numOf(number);\n");
+                customMethods.append("        }\n");
+                customMethods.append("    }\n\n");
+            }
+            
+            // 添加StopLossRule自定义实现
+            if (code.contains("StopLossRule")) {
+                customMethods.append("    // 自定义止损规则\n");
+                customMethods.append("    private static class StopLossRule implements Rule {\n");
+                customMethods.append("        private final Indicator<Num> indicator;\n");
+                customMethods.append("        private final Indicator<Num> threshold;\n");
+                customMethods.append("        \n");
+                customMethods.append("        public StopLossRule(Indicator<Num> indicator, Indicator<Num> threshold) {\n");
+                customMethods.append("            this.indicator = indicator;\n");
+                customMethods.append("            this.threshold = threshold;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public boolean isSatisfied(int index, TradingRecord tradingRecord) {\n");
+                customMethods.append("            return indicator.getValue(index).isLessThan(threshold.getValue(index));\n");
+                customMethods.append("        }\n");
+                customMethods.append("    }\n\n");
+            }
+            
+            // 添加ConditionalIndicator自定义实现
+            if (code.contains("ConditionalIndicator")) {
+                customMethods.append("    // 自定义条件指标\n");
+                customMethods.append("    private static class ConditionalIndicator implements Indicator<Num> {\n");
+                customMethods.append("        private final Indicator<Boolean> condition;\n");
+                customMethods.append("        private final Indicator<Num> trueIndicator;\n");
+                customMethods.append("        private final Indicator<Num> falseIndicator;\n");
+                customMethods.append("        private final BarSeries series;\n");
+                customMethods.append("        \n");
+                customMethods.append("        public ConditionalIndicator(Indicator<Boolean> condition,\n");
+                customMethods.append("                                   Indicator<Num> trueIndicator,\n");
+                customMethods.append("                                   Indicator<Num> falseIndicator) {\n");
+                customMethods.append("            this.condition = condition;\n");
+                customMethods.append("            this.trueIndicator = trueIndicator;\n");
+                customMethods.append("            this.falseIndicator = falseIndicator;\n");
+                customMethods.append("            this.series = condition.getBarSeries();\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Num getValue(int index) {\n");
+                customMethods.append("            return condition.getValue(index) ? \n");
+                customMethods.append("                   trueIndicator.getValue(index) : \n");
+                customMethods.append("                   falseIndicator.getValue(index);\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public BarSeries getBarSeries() {\n");
+                customMethods.append("            return series;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Num numOf(Number number) {\n");
+                customMethods.append("            return series.numOf(number);\n");
+                customMethods.append("        }\n");
+                customMethods.append("    }\n\n");
+            }
+            
+            // 添加GreaterThanIndicator自定义实现
+            if (code.contains("GreaterThanIndicator")) {
+                customMethods.append("    // 自定义大于指标\n");
+                customMethods.append("    private static class GreaterThanIndicator implements Indicator<Boolean> {\n");
+                customMethods.append("        private final Indicator<Num> first;\n");
+                customMethods.append("        private final Indicator<Num> second;\n");
+                customMethods.append("        private final BarSeries series;\n");
+                customMethods.append("        \n");
+                customMethods.append("        public GreaterThanIndicator(Indicator<Num> first, Indicator<Num> second) {\n");
+                customMethods.append("            this.first = first;\n");
+                customMethods.append("            this.second = second;\n");
+                customMethods.append("            this.series = first.getBarSeries();\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Boolean getValue(int index) {\n");
+                customMethods.append("            return first.getValue(index).isGreaterThan(second.getValue(index));\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public BarSeries getBarSeries() {\n");
+                customMethods.append("            return series;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public Num numOf(Number number) {\n");
+                customMethods.append("            return series.numOf(number);\n");
+                customMethods.append("        }\n");
+                customMethods.append("    }\n\n");
+            }
+            
+            // 添加TakeProfitRule自定义实现
+            if (code.contains("TakeProfitRule")) {
+                customMethods.append("    // 自定义止盈规则\n");
+                customMethods.append("    private static class TakeProfitRule implements Rule {\n");
+                customMethods.append("        private final Indicator<Num> indicator;\n");
+                customMethods.append("        private final Indicator<Num> profitTarget;\n");
+                customMethods.append("        \n");
+                customMethods.append("        public TakeProfitRule(Indicator<Num> indicator, Indicator<Num> profitTarget) {\n");
+                customMethods.append("            this.indicator = indicator;\n");
+                customMethods.append("            this.profitTarget = profitTarget;\n");
+                customMethods.append("        }\n");
+                customMethods.append("        \n");
+                customMethods.append("        @Override\n");
+                customMethods.append("        public boolean isSatisfied(int index, TradingRecord tradingRecord) {\n");
+                customMethods.append("            return indicator.getValue(index).isGreaterThan(profitTarget.getValue(index));\n");
+                customMethods.append("        }\n");
+                customMethods.append("    }\n\n");
+            }
+        }
+        
+        // 如果有自定义方法，插入到类的开头
+        if (customMethods.length() > 0) {
+            int classStart = code.indexOf("{");
+            if (classStart > 0) {
+                code = code.substring(0, classStart + 1) + customMethods.toString() + code.substring(classStart + 1);
+            }
+        }
+        
+        return code;
+    }
+
+    /**
      * 修复常见的编译错误
      */
     private String fixCommonCompilationErrors(String code) {
@@ -904,41 +1178,248 @@ public class SmartDynamicStrategyService {
                     "import org.ta4j.core.rules.*;\nimport org.ta4j.core.num.DecimalNum;");
             }
 
-            // 2. 修复Decimal.valueOf为DecimalNum.valueOf
-            code = code.replaceAll("Decimal\\.valueOf", "DecimalNum.valueOf");
+            // 2. 修复所有Decimal相关问题 - 最优先修复（使用更精确的正则表达式）
+            code = code.replaceAll("\\bDecimal\\.valueOf\\(([^)]+)\\)", "series.numOf($1)");
+            code = code.replaceAll("\\bDecimalNum\\.valueOf\\(([^)]+)\\)", "series.numOf($1)");
+            code = code.replaceAll("\\bNum\\.valueOf\\(([^)]+)\\)", "series.numOf($1)");
+            
+            // 修复可能由替换产生的错误
+            code = code.replaceAll("series\\.numOf\\(series\\.numOf\\(([^)]+)\\)\\)", "series.numOf($1)");
+            code = code.replaceAll("Decimalseries", "series");  // 修复错误合并
+            code = code.replaceAll("series\\.numOfseries", "series");
+            
+            // 修复错误的指标构造函数调用（必须在修复名称之前）
+            code = code.replaceAll("new MultiplierIndicator\\(([^,]+), ([\\d.]+)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            code = code.replaceAll("new DifferenceIndicator\\(([^,]+), ([^)]+)\\)", 
+                "new MinusIndicator($1, $2)");
+            
+            // 修复指标名称拼写错误（在构造函数修复之后）
+            code = code.replaceAll("MultiplierIndicator", "MultipliedIndicator");
+            code = code.replaceAll("DifferenceIndicator", "MinusIndicator");
+            
+            // 修复.getNum()方法调用错误
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getNum\\(\\)", "$1.getValue(series.getEndIndex())");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getNum\\(\\)\\.of\\(([^)]+)\\)", "series.numOf($2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getNum\\(\\)\\.multipliedBy\\(([^)]+)\\)", "new MultipliedIndicator($1, $3)");
+            
+            // 修复FixedNumIndicator的问题（Ta4j中没有这个类）
+            code = code.replaceAll("new FixedNumIndicator\\(([^,]+), ([^)]+)\\)", "new CustomConstantIndicator($1, $2)");
+            code = code.replaceAll("FixedNumIndicator", "CustomConstantIndicator");
+            
+            // 修复MaxPriceIndicator的问题（Ta4j中没有这个类）
+            code = code.replaceAll("MaxPriceIndicator", "MaxPriceIndicator");
+            
+            // 修复StopLossRule的问题（Ta4j中没有这个类） 
+            // 修复StopLossRule构造函数调用（3个参数变2个参数）
+            code = code.replaceAll("new StopLossRule\\(([^,]+),\\s*([^,]+),\\s*([^)]+)\\)", 
+                "new StopLossRule($1, new MultipliedIndicator($2, series.numOf($3)))");
+            code = code.replaceAll("StopLossRule", "StopLossRule");
 
-            // 3. 修复Num抽象类实例化错误 - new Num(数字) -> DecimalNum.valueOf(数字)
-            code = code.replaceAll("new Num\\((\\d+)\\)", "DecimalNum.valueOf($1)");
-            code = code.replaceAll("new Num\\(([\\d.]+)\\)", "DecimalNum.valueOf($1)");
+            // 3. 修复SMAIndicator参数缺失问题 - 智能分析修复
+            // 分析具体的SMAIndicator实例，避免错误删除参数
+            if (code.contains("shortSma") && code.contains("longSma")) {
+                // 双均线策略：分别修复shortSma和longSma
+                code = code.replaceAll("SMAIndicator shortSma = new SMAIndicator\\(([^,)]+)\\);", 
+                    "SMAIndicator shortSma = new SMAIndicator($1, shortPeriod);");
+                code = code.replaceAll("SMAIndicator longSma = new SMAIndicator\\(([^,)]+)\\);", 
+                    "SMAIndicator longSma = new SMAIndicator($1, longPeriod);");
+                // 修复已经有period但后面被错误删除的情况
+                code = code.replaceAll("SMAIndicator shortSma = new SMAIndicator\\(([^,)]+), shortPeriod\\);", 
+                    "SMAIndicator shortSma = new SMAIndicator($1, shortPeriod);");
+                code = code.replaceAll("SMAIndicator longSma = new SMAIndicator\\(([^,)]+), longPeriod\\);", 
+                    "SMAIndicator longSma = new SMAIndicator($1, longPeriod);");
+            } else {
+                // 单一均线或其他情况
+                if (code.contains("longPeriod")) {
+                    code = code.replaceAll("new SMAIndicator\\(([^,)]+)\\)(?=;)", "new SMAIndicator($1, longPeriod)");
+                } else if (code.contains("shortPeriod")) {
+                    code = code.replaceAll("new SMAIndicator\\(([^,)]+)\\)(?=;)", "new SMAIndicator($1, shortPeriod)");
+                } else if (code.contains("period")) {
+                    code = code.replaceAll("new SMAIndicator\\(([^,)]+)\\)(?=;)", "new SMAIndicator($1, period)");
+                } else {
+                    code = code.replaceAll("new SMAIndicator\\(([^,)]+)\\)(?=;)", "new SMAIndicator($1, 20)");
+                }
+            }
+            
+            // 4. 修复MACD构造函数问题 - 只修复参数不足的情况
+            code = code.replaceAll("new MACDIndicator\\(([^,)]+)\\)(?!\\w)", 
+                "new MACDIndicator($1, 12, 26)");
+            
+            // 4.1 修复RSI构造函数问题 - 需要先有指标再有周期
+            code = code.replaceAll("new RSIIndicator\\(series, ([^)]+)\\)", 
+                "new RSIIndicator(new ClosePriceIndicator(series), $1)");
+            
+            // 5. 修复数学运算方法调用错误
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.numMultipliedBy\\(([^)]+)\\)", 
+                "new MultipliedIndicator($1, $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.numPlus\\(([^)]+)\\)", 
+                "new PlusIndicator($1, $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.numMinus\\(([^)]+)\\)", 
+                "new MinusIndicator($1, $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([^)]+)\\)", 
+                "new MultipliedIndicator($1, $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.plus\\(([^)]+)\\)", 
+                "new PlusIndicator($1, $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.minus\\(([^)]+)\\)", 
+                "new MinusIndicator($1, $2)");
+            
+            // 修复指标的数值运算调用（在Rule中）
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.minus\\((\\d+)\\)", 
+                "new MinusIndicator($1, series.numOf($2))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.plus\\((\\d+)\\)", 
+                "new PlusIndicator($1, series.numOf($2))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\((\\d+)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([\\d.]+)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            
+            // 修复复杂的数学运算调用（包含Decimal.valueOf）
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(Decimal\\.valueOf\\(([^)]+)\\)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            
+            // 修复ATR特殊的数学运算（简单变量乘法）
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([a-zA-Z_][a-zA-Z0-9_]*)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            
+            // 修复.multiply()方法调用（Ta4j中不存在这个方法）
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multiply\\(([\\d.]+)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multiply\\(([a-zA-Z_][a-zA-Z0-9_]*)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            
+            // 修复.dividedBy()方法调用（Ta4j中不存在这个方法）
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.dividedBy\\(([\\d.]+)\\)", 
+                "new DividedIndicator($1, series.numOf($2))");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.dividedBy\\(([a-zA-Z_][a-zA-Z0-9_]*)\\)", 
+                "new DividedIndicator($1, series.numOf($2))");
+            
+            // 修复Num对象的.multipliedBy()调用（特殊情况）
+            code = code.replaceAll("series\\.numOf\\(([^)]+)\\)\\.multipliedBy\\(([^)]+)\\)", 
+                "new MultipliedIndicator(new CustomConstantIndicator(series, series.numOf($1)), $2)");
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getValue\\([^)]+\\)\\.multipliedBy\\(([^)]+)\\)", 
+                "new MultipliedIndicator($1, $2)");
+            
+            // 修复匿名Indicator类，直接转换为简单的逻辑
+            if (code.contains("new Indicator<Num>()") && code.contains("adaptiveMa")) {
+                // 将复杂的自适应移动平均线逻辑简化为基于条件的简单指标
+                code = code.replaceAll("Indicator<Num> adaptiveMa = new Indicator<Num>\\(\\)[^;]*;", 
+                    "Indicator<Num> adaptiveMa = new ConditionalIndicator(" +
+                    "new GreaterThanIndicator(stdDev, new DividedIndicator(stdDev, series.numOf(2))), " +
+                    "shortSma, longSma);");
+            }
+            
+            // 修复处理后可能出现的错误符号
+            code = code.replaceAll("\\bnRule\\b", "Rule");
+            // 修复重复的Indicator
+            code = code.replaceAll("IndicatorIndicator", "Indicator");
+            code = code.replaceAll("IndicatorRIndicator", "RIndicator");
+            code = code.replaceAll("RIndicatorIndicator", "RIndicator");
 
-            // 4. 修复int无法转换为Indicator的问题
-            code = code.replaceAll("(\\w+Indicator\\([^,)]+), (\\d+)\\)", "$1, DecimalNum.valueOf($2))");
+            // 6. 修复布林带标准差计算问题
+            code = code.replaceAll("StandardDeviationIndicator ([a-zA-Z_][a-zA-Z0-9_]*) = new StandardDeviationIndicator\\(([^,)]+), (\\d+)\\);",
+                "StandardDeviationIndicator $1 = new StandardDeviationIndicator($2, $3);");
+            
+            // 7. 修复Rule组合问题 - 更安全的修复
+            // 只修复明确的构造函数调用错误
+            code = code.replaceAll("new AndRule\\(([^,()]+),\\s*([^,()]+)\\)", "$1.and($2)");
+            code = code.replaceAll("new OrRule\\(([^,()]+),\\s*([^,()]+)\\)", "$1.or($2)");
 
-            // 5. 修复构造函数参数数量不匹配问题
-            code = code.replaceAll("new (\\w+Indicator)\\(([^,)]+), (\\d+), ([\\d.]+)\\)",
-                "new $1($2, DecimalNum.valueOf($3), DecimalNum.valueOf($4))");
+            // 8. 修复构造函数参数数量不匹配问题 - 但不要删除现有的有效参数
+            // 这个规则可能有问题，暂时注释掉
+            // code = code.replaceAll("new (\\w+Indicator)\\(([^,)]+), (\\d+), ([\\d.]+)\\)",
+            //     "new $1($2, $3)");
 
-            // 6. 修复super()调用没有参数的问题
+            // 9. 修复super()调用没有参数的问题
             if (code.contains("super()")) {
                 code = code.replaceAll("super\\(\\)", "super(null, null)");
             }
 
-            // 7. 修复类名中的空格问题
+            // 10. 修复类名中的空格问题
             code = code.replaceAll("public\\s+class\\s+([A-Z]\\w*)", "public class $1");
 
-            // 8. 修复方法调用中的语法错误
-            code = code.replaceAll("\\.and\\(([^)]+)\\)\\s*,", ".and($1),");
+            // 11. 修复ConstantIndicator的泛型问题
+            code = code.replaceAll("new ConstantIndicator<>\\(([^,]+), (\\d+)\\)", "series.numOf($2)");
+            code = code.replaceAll("new ConstantIndicator<Num>\\(([^,]+), (\\d+)\\)", "series.numOf($2)");
+            code = code.replaceAll("new ConstantIndicator\\(([^,]+), (\\d+)\\)", "series.numOf($2)");
 
-            // 9. 修复ConstantIndicator的泛型问题
-            code = code.replaceAll("new ConstantIndicator<>\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
-            code = code.replaceAll("new ConstantIndicator<Num>\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
-            code = code.replaceAll("new ConstantIndicator\\(([^,]+), (\\d+)\\)", "DecimalNum.valueOf($2)");
+            // 12. 修复数字常量在Rule中的使用
+            code = code.replaceAll("(?<!new )OverIndicatorRule\\(([^,]+), (\\d+)\\)", "new OverIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("(?<!new )UnderIndicatorRule\\(([^,]+), (\\d+)\\)", "new UnderIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("(?<!new )OverIndicatorRule\\(([^,]+), ([\\d.]+)\\)", "new OverIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("(?<!new )UnderIndicatorRule\\(([^,]+), ([\\d.]+)\\)", "new UnderIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("(?<!new )OverIndicatorRule\\(([^,]+), (-?[\\d.]+)\\)", "new OverIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("(?<!new )UnderIndicatorRule\\(([^,]+), (-?[\\d.]+)\\)", "new UnderIndicatorRule($1, series.numOf($2))");
+            
+            // 修复已经有new的Rule但缺少series.numOf的情况
+            code = code.replaceAll("new OverIndicatorRule\\(([^,]+), (\\d+)\\)", "new OverIndicatorRule($1, series.numOf($2))");
+            code = code.replaceAll("new UnderIndicatorRule\\(([^,]+), (\\d+)\\)", "new UnderIndicatorRule($1, series.numOf($2))");
 
-            // 10. 修复Rule构造中的数字参数
-            code = code.replaceAll("Rule\\(([^,]+), (\\d+)\\)", "Rule($1, DecimalNum.valueOf($2))");
+            // 13. 修复ATR相关的数学运算问题
+            code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.multipliedBy\\(([\\d.]+)\\)", 
+                "new MultipliedIndicator($1, series.numOf($2))");
+            
+            // 14. 修复BollingerBands相关的复合指标构造
+            if (code.contains("BollingerBands")) {
+                // 修复BollingerBandsMiddleIndicator需要SMA参数
+                code = code.replaceAll("new BollingerBandsMiddleIndicator\\(([^,)]+), (\\d+)\\)", 
+                    "new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2))");
+                code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
+                    "new BollingerBandsUpperIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf($3))");
+                code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,)]+), (\\d+), ([\\d.]+)\\)", 
+                    "new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator($1, $2)), new StandardDeviationIndicator($1, $2), series.numOf($3))");
+                
+                // 修复错误的布林带指标构造（两个参数版本）
+                code = code.replaceAll("new BollingerBandsUpperIndicator\\(([^,)]+),\\s*([^,)]+)\\)", 
+                    "new BollingerBandsUpperIndicator($1, $2, series.numOf(2))");
+                code = code.replaceAll("new BollingerBandsLowerIndicator\\(([^,)]+),\\s*([^,)]+)\\)", 
+                    "new BollingerBandsLowerIndicator($1, $2, series.numOf(2))");
+                    
+                // 修复.getNum().multipliedBy()的错误调用
+                code = code.replaceAll("([a-zA-Z_][a-zA-Z0-9_]*)\\.getNum\\(\\)\\.multipliedBy\\(([^)]+)\\)", 
+                    "new MultipliedIndicator($1, series.numOf($2))");
+            }
+
+            // 15. 修复import缺失问题
+            boolean needsArithmeticImport = code.contains("MultipliedIndicator") || 
+                                          code.contains("PlusIndicator") || 
+                                          code.contains("MinusIndicator") ||
+                                          code.contains("DividedIndicator");
+            
+            if (needsArithmeticImport && !code.contains("import org.ta4j.core.indicators.arithmetic")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.arithmetic.*;");
+            }
+            
+            // 添加统计指标的import
+            if (code.contains("StandardDeviationIndicator") && !code.contains("import org.ta4j.core.indicators.statistics.StandardDeviationIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.statistics.StandardDeviationIndicator;");
+            }
+            
+            // 修复其他缺失的import
+            if (code.contains("ClosePriceIndicator") && !code.contains("import org.ta4j.core.indicators.helpers.ClosePriceIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.helpers.ClosePriceIndicator;");
+            }
+            
+            if (code.contains("VolumeIndicator") && !code.contains("import org.ta4j.core.indicators.volume.VolumeIndicator")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.indicators.volume.VolumeIndicator;");
+            }
+            
+            // 添加TradingRecord的import（自定义Rule需要）
+            if (code.contains("TradingRecord") && !code.contains("import org.ta4j.core.TradingRecord")) {
+                code = code.replaceFirst("import org.ta4j.core.rules.*;",
+                    "import org.ta4j.core.rules.*;\nimport org.ta4j.core.TradingRecord;");
+            }
+
+            // 16. 修复其他常见的编译错误
+            code = code.replaceAll("new Num\\((\\d+)\\)", "series.numOf($1)");
+            code = code.replaceAll("new Num\\(([\\d.]+)\\)", "series.numOf($1)");
 
         } catch (Exception e) {
-            System.err.println("Error fixing common compilation errors: " + e.getMessage());
+            log.error("Error fixing common compilation errors: {}", e.getMessage());
         }
         return code;
     }
@@ -1166,5 +1647,34 @@ public class SmartDynamicStrategyService {
                !code.contains("new Num(") &&
                !code.contains("public classGenerated") &&
                !code.contains("super()");
+    }
+
+    /**
+     * 代码优化和标准化处理
+     */
+    private String optimizeCode(String code) {
+        try {
+            // 1. 移除多余的空行
+            code = code.replaceAll("\\n\\s*\\n\\s*\\n", "\n\n");
+            
+            // 2. 标准化缩进
+            code = code.replaceAll("\\t", "    ");
+            
+            // 3. 标准化大括号格式
+            code = code.replaceAll("\\)\\s*\\{", ") {");
+            code = code.replaceAll("\\}\\s*else\\s*\\{", "} else {");
+            
+            // 4. 移除行尾多余空格
+            code = code.replaceAll("\\s+\\n", "\n");
+            
+            // 5. 确保最后有换行符
+            if (!code.endsWith("\n")) {
+                code += "\n";
+            }
+            
+        } catch (Exception e) {
+            log.error("代码优化时发生错误: {}", e.getMessage());
+        }
+        return code;
     }
 }

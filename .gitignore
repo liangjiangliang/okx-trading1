@@ -124,3 +124,4 @@ application-local.properties
 /.history/
 /*test*
 /temp*
+nohup.out
