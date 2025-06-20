@@ -225,38 +225,32 @@ public class MarketController{
 
 
     /**
-     * 获取历史K线数据并保存，自动检查并补充缺失数据
+     * 获取历史K线数据并保存，智能计算需要获取的数据量
      *
      * @param symbol       交易对，如BTC-USDT
      * @param interval     K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
      * @param startTimeStr 开始时间 (yyyy-MM-dd HH:mm:ss)
      * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
-     * @param maxRetries   最大重试次数
-     * @param maxExecutions 最大执行次数，每次执行包含maxRetries次重试。默认为10
-     * @return 操作结果
+     * @return 操作结果，包含获取的K线数据
      */
-    @ApiOperation(value = "获取历史K线数据并保存，自动检查并补充缺失数据", notes = "获取并保存指定交易对的历史K线数据，检查数据完整性并自动按天分组递归获取缺失数据")
+    @ApiOperation(value = "智能获取历史K线数据", notes = "根据入参计算需要获取的K线数量，扣除已有数据，按需获取并保存")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
         @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
             required = true, dataType = "String", example = "1m", paramType = "query",
             allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
         @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "maxRetries", value = "每次执行中的最大重试次数", required = false, dataType = "Integer", example = "3", paramType = "query"),
-        @ApiImplicitParam(name = "maxExecutions", value = "最大执行次数，直到数据完整或达到此次数", required = false, dataType = "Integer", example = "10", paramType = "query")
+        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query")
     })
     @GetMapping("/fetch_history_with_integrity_check")
-    public ApiResponse<String> fetchAndSaveHistoryWithIntegrityCheck(
+    public ApiResponse<List<CandlestickEntity>> fetchAndSaveHistoryWithIntegrityCheck(
         @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
         @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
         @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
-        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr,
-        @RequestParam(required = false, defaultValue = "3") Integer maxRetries,
-        @RequestParam(required = false, defaultValue = "3") Integer maxExecutions){
+        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr){
 
-        log.info("开始获取并保存历史K线数据(带完整性检查), symbol: {}, interval: {}, startTime: {}, endTime: {}, 每次执行最大重试次数: {}, 最大执行次数: {}",
-            symbol, interval, startTimeStr, endTimeStr, maxRetries, maxExecutions);
+        log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}",
+            symbol, interval, startTimeStr, endTimeStr);
 
         try{
             // 将字符串时间转换为LocalDateTime
@@ -264,143 +258,308 @@ public class MarketController{
             LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
             LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
 
-            // 计算预期的数据点总数（用于统计）
+            // 🔍 检查并调整时间范围，避免获取未完成的时间周期
+            LocalDateTime adjustedEndTime = adjustEndTimeToAvoidIncompleteData(endTime, interval);
+            if (!adjustedEndTime.equals(endTime)) {
+                log.info("⚠️ 检测到查询时间包含未完成的周期，已调整结束时间: {} → {}", endTime, adjustedEndTime);
+                endTime = adjustedEndTime;
+            }
+
+            // 1. 计算需要获取的K线数量（基于时间范围和间隔）
             long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-            long expectedDataPoints = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
-            log.info("预期获取的数据点总数: {}", expectedDataPoints);
+            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
+            log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
 
-            // 记录初始请求开始时间
-            long startTimestamp = System.currentTimeMillis();
+            // 2. 从MySQL获取已经有的K线数量
+            List<CandlestickEntity> existingData = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+            long existingCount = existingData.size();
+            log.info("💾 MySQL中已存在的K线数量: {}", existingCount);
 
-            // 异步执行数据获取任务
-            CompletableFuture.runAsync(() -> {
-                try {
-                    // 多次执行，直到数据完整或达到最大执行次数
-                    int executionCount = 0;
-                    List<LocalDateTime> missingPoints = new ArrayList<>();
-                    int totalDataCount = 0;
+            // 3. 计算需要新获取的数量
+            long neededCount = totalExpectedCount - existingCount;
+            log.info("🔢 需要新获取的K线数量: {}", neededCount);
 
-                    do {
-                        executionCount++;
-                        log.info("第 {} 次执行数据获取流程", executionCount);
+            // 如果MySQL的数据已经足够，直接返回
+            if (neededCount <= 0) {
+                log.info("✅ 数据已完整，无需获取新数据，直接返回MySQL中的 {} 条数据", existingCount);
+                return ApiResponse.success(existingData);
+            }
 
-                        // 创建一个ConcurrentHashMap来记录失败的请求
-                        ConcurrentMap<String, Integer> failedRequests = new ConcurrentHashMap<>();
+            // 4. 检查数据完整性，找出缺失的时间范围
+            List<LocalDateTime> missingTimePoints = historicalDataService.checkDataIntegrity(symbol, interval, startTime, endTime);
+            log.info("🔍 发现 {} 个缺失的时间点需要获取", missingTimePoints.size());
 
-                        // 执行初始数据获取
-                        CompletableFuture<Integer> future;
-                        if (executionCount == 1 || missingPoints.isEmpty()) {
-                            // 首次执行或没有特定缺失点时，获取整个时间范围
-                            future = historicalDataService.fetchAndSaveHistoricalDataWithFailureRecord(
-                                symbol, interval, startTime, endTime, failedRequests);
-                        } else {
-                            // 有缺失点时，只获取缺失的数据
-                            log.info("针对性获取 {} 个缺失数据点", missingPoints.size());
-                            future = historicalDataService.fillMissingData(symbol, interval, missingPoints, failedRequests);
-                        }
+            if (missingTimePoints.isEmpty()) {
+                log.info("✅ 数据完整性检查通过，直接返回MySQL中的 {} 条数据", existingCount);
+                return ApiResponse.success(existingData);
+            }
 
-                        // 等待初始请求完成
-                        int dataCount = future.get();
-                        log.info("第 {} 次执行初始数据获取完成，获取 {} 条数据", executionCount, dataCount);
-                        totalDataCount += dataCount;
+            // 5. 按每批100条分批获取缺失数据
+            List<CandlestickEntity> newlyFetchedData = new ArrayList<>();
+            int batchSize = 100;
+            int totalNewlyFetched = 0;
+            
+            // 将缺失时间点按连续范围分组，便于批量处理
+            List<List<LocalDateTime>> timeRanges = groupConsecutiveTimePoints(missingTimePoints, intervalMinutes);
+            log.info("📦 缺失数据被分为 {} 个连续时间范围", timeRanges.size());
 
-                        // 重试机制 - 处理失败的请求
-                        int retryCount = 0;
-                        while (!failedRequests.isEmpty() && retryCount < maxRetries) {
-                            retryCount++;
-                            log.info("执行 {} - 第 {} 次重试，处理 {} 个失败的请求", executionCount, retryCount, failedRequests.size());
+            for (int i = 0; i < timeRanges.size(); i++) {
+                List<LocalDateTime> range = timeRanges.get(i);
+                if (range.isEmpty()) continue;
 
-                            // 复制当前失败请求列表进行重试
-                            Map<String, Integer> currentFailures = new HashMap<>(failedRequests);
-                            failedRequests.clear(); // 清空列表，准备记录本次重试中的失败
+                LocalDateTime rangeStart = range.get(0);
+                LocalDateTime rangeEnd = range.get(range.size() - 1).plusMinutes(intervalMinutes);
+                
+                log.info("🔄 处理第 {} 个时间范围: {} 到 {} ({} 个数据点)", 
+                    i + 1, rangeStart, rangeEnd, range.size());
 
-                            // 为每个失败的请求创建重试任务
-                            List<CompletableFuture<Integer>> retryFutures = new ArrayList<>();
-                            for (Map.Entry<String, Integer> entry : currentFailures.entrySet()) {
-                                String[] parts = entry.getKey().split(":");
-                                if (parts.length == 2) {
-                                    LocalDateTime sliceStart = LocalDateTime.parse(parts[0]);
-                                    LocalDateTime sliceEnd = LocalDateTime.parse(parts[1]);
-
-                                    CompletableFuture<Integer> retryFuture = historicalDataService.fetchAndSaveTimeSliceWithFailureRecord(
-                                        symbol, interval, sliceStart, sliceEnd, failedRequests);
-                                    retryFutures.add(retryFuture);
-                                }
-                            }
-
-                            // 等待所有重试任务完成
-                            CompletableFuture.allOf(retryFutures.toArray(new CompletableFuture[0])).join();
-
-                            // 计算重试获取的数据量
-                            int retryDataCount = retryFutures.stream()
-                                .map(f -> {
-                                    try {
-                                        return f.get();
-                                    } catch (Exception e) {
-                                        log.error("获取重试任务结果失败", e);
-                                        return 0;
-                                    }
-                                })
-                                .mapToInt(Integer::intValue)
-                                .sum();
-
-                            totalDataCount += retryDataCount;
-                            log.info("执行 {} - 第 {} 次重试完成，此次获取 {} 条数据，累计 {} 条数据，剩余 {} 个失败请求",
-                                executionCount, retryCount, retryDataCount, totalDataCount, failedRequests.size());
-                        }
-
-                        // 检查整体数据完整性
-                        missingPoints = historicalDataService.checkDataIntegrity(symbol, interval, startTime, endTime);
-                        log.info("执行 {} 完成后，仍有 {} 个数据点缺失", executionCount, missingPoints.size());
-
-                        // 如果已经达到数据完整（没有缺失点）或者达到最大执行次数，则跳出循环
-                    } while (!missingPoints.isEmpty() && executionCount < maxExecutions);
-
-                    // 完成后检查整体数据完整性
-                    List<LocalDateTime> finalMissingPoints = historicalDataService.checkDataIntegrity(
-                        symbol, interval, startTime, endTime);
-
-                    // 获取实际存储的数据量
-                    List<CandlestickEntity> storedData = historicalDataService.getHistoricalData(
-                        symbol, interval, startTime, endTime);
-                    int actualDataCount = storedData.size();
-
-                    // 计算总耗时
-                    long totalTimeMillis = System.currentTimeMillis() - startTimestamp;
-
-                    // 打印最终统计信息
-                    log.info("=== 历史数据获取任务最终统计 ===");
-                    log.info("交易对: {}, 时间间隔: {}", symbol, interval);
-                    log.info("时间范围: {} 至 {}", startTimeStr, endTimeStr);
-                    log.info("预期数据点: {}", expectedDataPoints);
-                    log.info("实际存储数量: {}", actualDataCount);
-                    log.info("成功率: {}%", String.format("%.2f", (actualDataCount * 100.0 / expectedDataPoints)));
-                    log.info("仍然缺失: {}", finalMissingPoints.size());
-                    log.info("总执行次数: {}/{}", executionCount, maxExecutions);
-                    log.info("总耗时: {}秒", totalTimeMillis / 1000);
-
-                    if (!finalMissingPoints.isEmpty()) {
-                        log.info("最终缺失点列表 (前20个):");
-                        finalMissingPoints.stream()
-                            .limit(20)
-                            .forEach(time -> log.info("  {}", time));
-                    }
-
-                    String completionStatus = finalMissingPoints.isEmpty() ?
-                        "数据已完整获取" :
-                        String.format("任务完成但仍有 %d 个数据点缺失", finalMissingPoints.size());
-                    log.info(completionStatus);
-                    log.info("===========================");
-
-                } catch (Exception e) {
-                    log.error("历史数据获取任务异常", e);
+                // 按批次获取这个范围的数据，每批100条
+                List<CandlestickEntity> rangeData = fetchRangeDataInBatches(
+                    symbol, interval, rangeStart, rangeEnd, batchSize, intervalMinutes);
+                
+                newlyFetchedData.addAll(rangeData);
+                totalNewlyFetched += rangeData.size();
+                
+                // 添加延迟避免API限制
+                if (i < timeRanges.size() - 1) {
+                    Thread.sleep(200); // 200ms延迟
                 }
-            });
+            }
 
-            return ApiResponse.success("历史数据获取任务已启动，包含完整性检查和失败请求重试机制，最多执行 " + maxExecutions + " 次，请稍后查询数据");
+            log.info("🎉 API调用完成，总共新获取了 {} 条K线数据", totalNewlyFetched);
+
+            // 6. 合并所有数据并按时间排序
+            List<CandlestickEntity> allData = new ArrayList<>(existingData);
+            allData.addAll(newlyFetchedData);
+            allData.sort((a, b) -> a.getOpenTime().compareTo(b.getOpenTime()));
+
+            log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})", 
+                allData.size(), existingCount, totalNewlyFetched);
+            
+            return ApiResponse.success(allData);
+
         } catch (Exception e) {
-            log.error("获取历史K线数据失败: {}", e.getMessage(), e);
+            log.error("❌ 智能获取历史K线数据失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 将缺失时间点按连续范围分组
+     */
+    private List<List<LocalDateTime>> groupConsecutiveTimePoints(List<LocalDateTime> timePoints, long intervalMinutes) {
+        List<List<LocalDateTime>> groups = new ArrayList<>();
+        if (timePoints.isEmpty()) {
+            return groups;
+        }
+
+        List<LocalDateTime> currentGroup = new ArrayList<>();
+        currentGroup.add(timePoints.get(0));
+
+        for (int i = 1; i < timePoints.size(); i++) {
+            LocalDateTime current = timePoints.get(i);
+            LocalDateTime previous = timePoints.get(i - 1);
+            
+            // 如果当前时间点与前一个时间点相差正好一个间隔，则属于同一组
+            if (ChronoUnit.MINUTES.between(previous, current) == intervalMinutes) {
+                currentGroup.add(current);
+            } else {
+                // 否则开始新的一组
+                groups.add(new ArrayList<>(currentGroup));
+                currentGroup.clear();
+                currentGroup.add(current);
+            }
+        }
+        
+        // 添加最后一组
+        if (!currentGroup.isEmpty()) {
+            groups.add(currentGroup);
+        }
+
+        return groups;
+    }
+
+    /**
+     * 按每批100条分批获取指定时间范围的数据
+     */
+    private List<CandlestickEntity> fetchRangeDataInBatches(String symbol, String interval, 
+            LocalDateTime startTime, LocalDateTime endTime, int batchSize, long intervalMinutes) {
+        List<CandlestickEntity> result = new ArrayList<>();
+        
+        LocalDateTime currentStart = startTime;
+        int batchCount = 0;
+        
+        while (currentStart.isBefore(endTime)) {
+            batchCount++;
+            
+            // 计算当前批次的结束时间 (每批100条)
+            LocalDateTime currentEnd = currentStart.plusMinutes(intervalMinutes * batchSize);
+            if (currentEnd.isAfter(endTime)) {
+                currentEnd = endTime;
+            }
+            
+            // 计算实际需要获取的条数
+            long expectedCount = ChronoUnit.MINUTES.between(currentStart, currentEnd) / intervalMinutes;
+
+            try {
+                log.info("  📥 获取第 {} 批数据: {} 到 {} (预期 {} 条)", 
+                    batchCount, currentStart, currentEnd, expectedCount);
+                
+                // 调用API获取数据 (将LocalDateTime转换为时间戳)
+                long startTimestamp = currentStart.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                long endTimestamp = currentEnd.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
+                
+                if (apiData != null && !apiData.isEmpty()) {
+                    // 转换并保存数据到MySQL
+                    List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
+                    result.addAll(entities);
+                    log.info("  ✅ 第 {} 批数据获取成功，实际获得 {} 条数据", batchCount, entities.size());
+                } else {
+                    log.warn("  ⚠️ 第 {} 批数据获取结果为空: {} 到 {}", batchCount, currentStart, currentEnd);
+                }
+                
+                // 添加延迟避免API限制
+                Thread.sleep(100);
+                
+            } catch (Exception e) {
+                log.error("  ❌ 第 {} 批数据获取失败: {} 到 {}, 错误: {}", batchCount, currentStart, currentEnd, e.getMessage());
+            }
+
+            currentStart = currentEnd;
+        }
+
+        log.info("  🏁 范围数据获取完成，共处理 {} 批，获得 {} 条数据", batchCount, result.size());
+        return result;
+    }
+
+    /**
+     * 调整结束时间以避免获取未完成的数据
+     * 针对包含最新时间周期的查询进行时间边界调整
+     */
+    private LocalDateTime adjustEndTimeToAvoidIncompleteData(LocalDateTime endTime, String interval) {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // 如果结束时间在过去，无需调整
+        if (endTime.isBefore(now.minusHours(1))) {
+            return endTime;
+        }
+        
+        LocalDateTime adjustedEndTime;
+        
+        switch (interval.toUpperCase()) {
+            case "1W":
+                // 周线: 排除当前周 (周一为一周开始)
+                adjustedEndTime = now.with(java.time.DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "1D":
+                // 日线: 排除当前日
+                adjustedEndTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "12H":
+                // 12小时线: 排除当前12小时周期 (0点或12点开始)
+                int currentHour = now.getHour();
+                int alignedHour = (currentHour >= 12) ? 12 : 0;
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "6H":
+                // 6小时线: 排除当前6小时周期 (0,6,12,18点开始)
+                currentHour = now.getHour();
+                alignedHour = (currentHour / 6) * 6;
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "4H":
+                // 4小时线: 排除当前4小时周期 (0,4,8,12,16,20点开始)
+                currentHour = now.getHour();
+                alignedHour = (currentHour / 4) * 4;
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "2H":
+                // 2小时线: 排除当前2小时周期
+                currentHour = now.getHour();
+                alignedHour = (currentHour / 2) * 2;
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "1H":
+                // 1小时线: 排除当前小时
+                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0);
+                break;
+            case "30M":
+                // 30分钟线: 排除当前30分钟周期 (0或30分开始)
+                int currentMinute = now.getMinute();
+                int alignedMinute = (currentMinute >= 30) ? 30 : 0;
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                break;
+            case "15M":
+                // 15分钟线: 排除当前15分钟周期 (0,15,30,45分开始)
+                currentMinute = now.getMinute();
+                alignedMinute = (currentMinute / 15) * 15;
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                break;
+            case "5M":
+                // 5分钟线: 排除当前5分钟周期
+                currentMinute = now.getMinute();
+                alignedMinute = (currentMinute / 5) * 5;
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                break;
+            case "1M":
+                // 包含两种情况: 月线和1分钟线，通过上下文判断
+                if (endTime.isAfter(now.minusDays(40))) {
+                    // 如果结束时间是近期，可能是月线，排除当前月
+                    LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                    if (endTime.isAfter(monthStart)) {
+                        adjustedEndTime = monthStart;
+                    } else {
+                        // 1分钟线: 排除当前分钟
+                        adjustedEndTime = now.withSecond(0).withNano(0);
+                    }
+                } else {
+                    // 1分钟线: 排除当前分钟
+                    adjustedEndTime = now.withSecond(0).withNano(0);
+                }
+                break;
+            default:
+                // 未知间隔，保守起见排除当前小时
+                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0);
+                break;
+        }
+        
+        // 返回调整后的时间与原始结束时间的较小值
+        return endTime.isBefore(adjustedEndTime) ? endTime : adjustedEndTime;
+    }
+
+    /**
+     * 转换并保存K线数据到MySQL数据库
+     */
+    private List<CandlestickEntity> convertAndSaveCandlesticks(List<Candlestick> candlesticks, String symbol, String interval) {
+        List<CandlestickEntity> entities = new ArrayList<>();
+        
+        for (Candlestick candlestick : candlesticks) {
+            CandlestickEntity entity = new CandlestickEntity();
+            entity.setSymbol(symbol);
+            entity.setIntervalVal(interval);
+            entity.setOpenTime(candlestick.getOpenTime());
+            entity.setCloseTime(candlestick.getCloseTime());
+            entity.setOpen(candlestick.getOpen());
+            entity.setHigh(candlestick.getHigh());
+            entity.setLow(candlestick.getLow());
+            entity.setClose(candlestick.getClose());
+            entity.setVolume(candlestick.getVolume());
+            entity.setQuoteVolume(candlestick.getQuoteVolume());
+            entity.setTrades(candlestick.getTrades());
+            entity.setFetchTime(LocalDateTime.now());
+            entities.add(entity);
+        }
+
+        try {
+            // 保存数据到MySQL数据库
+            historicalDataService.saveHistoricalData(entities);
+            log.info("    💾 已将 {} 条K线数据保存到MySQL", entities.size());
+        } catch (Exception e) {
+            log.error("    ❌ 保存K线数据到MySQL失败: {}", e.getMessage());
+            // 即使保存失败也返回数据，避免影响接口响应
+        }
+
+        return entities;
     }
 }

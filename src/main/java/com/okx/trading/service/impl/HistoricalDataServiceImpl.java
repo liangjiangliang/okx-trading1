@@ -898,5 +898,22 @@ public class HistoricalDataServiceImpl implements HistoricalDataService{
             }
         }, executorService);
     }
+
+    @Override
+    public void saveHistoricalData(List<CandlestickEntity> entities) {
+        if (entities == null || entities.isEmpty()) {
+            log.debug("没有数据需要保存");
+            return;
+        }
+        
+        try {
+            // 使用现有的saveBatch方法保存数据
+            saveBatch(entities);
+            log.debug("成功保存 {} 条K线数据到数据库", entities.size());
+        } catch (Exception e) {
+            log.error("保存K线数据到数据库失败: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
 }
 

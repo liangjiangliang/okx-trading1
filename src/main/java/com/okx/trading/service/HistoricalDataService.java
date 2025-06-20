@@ -128,4 +128,11 @@ public interface HistoricalDataService {
      * @return 对应的分钟数
      */
     long getIntervalMinutes(String interval);
+
+    /**
+     * 保存K线数据到数据库
+     *
+     * @param entities K线数据实体列表
+     */
+    void saveHistoricalData(List<CandlestickEntity> entities);
 }

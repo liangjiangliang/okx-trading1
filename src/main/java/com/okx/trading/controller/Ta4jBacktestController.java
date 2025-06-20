@@ -950,7 +950,7 @@ public class Ta4jBacktestController {
         }
     }
 
-    @DeleteMapping("/delete-strategy/{strategyCode}")
+    @DeleteMapping ("/delete-strategy/{strategyCode}")
     @ApiOperation(value = "删除策略", notes = "根据策略代码删除策略，包括从数据库和动态策略缓存中移除")
     public ApiResponse<String> deleteStrategy(
             @ApiParam(value = "策略代码", required = true, example = "AI_SMA_009")
