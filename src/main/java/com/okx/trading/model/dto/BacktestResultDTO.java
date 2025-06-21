@@ -86,6 +86,16 @@ public class BacktestResultDTO {
 
     private BigDecimal omega;
 
+    private BigDecimal alpha;
+
+    private BigDecimal beta;
+
+    private BigDecimal treynorRatio;
+
+    private BigDecimal ulcerIndex;
+
+    private BigDecimal skewness;
+
     /**
      * Sortino比率（只考虑下行风险的风险调整收益指标）
      */
@@ -342,5 +352,45 @@ public class BacktestResultDTO {
 
     public void setOmega(BigDecimal omega) {
         this.omega = omega;
+    }
+
+    public BigDecimal getAlpha() {
+        return alpha;
+    }
+
+    public void setAlpha(BigDecimal alpha) {
+        this.alpha = alpha;
+    }
+
+    public BigDecimal getBeta() {
+        return beta;
+    }
+
+    public void setBeta(BigDecimal beta) {
+        this.beta = beta;
+    }
+
+    public BigDecimal getTreynorRatio() {
+        return treynorRatio;
+    }
+
+    public void setTreynorRatio(BigDecimal treynorRatio) {
+        this.treynorRatio = treynorRatio;
+    }
+
+    public BigDecimal getUlcerIndex() {
+        return ulcerIndex;
+    }
+
+    public void setUlcerIndex(BigDecimal ulcerIndex) {
+        this.ulcerIndex = ulcerIndex;
+    }
+
+    public BigDecimal getSkewness() {
+        return skewness;
+    }
+
+    public void setSkewness(BigDecimal skewness) {
+        this.skewness = skewness;
     }
 }

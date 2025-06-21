@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -13,9 +12,10 @@ import java.util.logging.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
+import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.strategy.StrategyRegisterCenter;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
-import com.okx.trading.util.BenchmarkUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,8 +52,8 @@ public class Ta4jBacktestService {
      * @param feeRatio      交易手续费率（例如0.001表示0.1%）
      * @return 回测结果
      */
-    public BacktestResultDTO backtest(BarSeries series, String strategyType, BigDecimal initialAmount, BigDecimal feeRatio, String interval) {
-
+    public BacktestResultDTO backtest(BarSeries series, List<CandlestickEntity> benchmarkCandlesticks, String strategyType,
+                                      BigDecimal initialAmount, BigDecimal feeRatio, String interval) {
         // loadLoggerConfiguration();
         try {
             // 使用策略工厂创建策略
@@ -65,7 +65,7 @@ public class Ta4jBacktestService {
 
             // unloadLoggerConfiguration();
             // 计算回测指标
-            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType.toString(), "", feeRatio, interval);
+            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType.toString(), "", feeRatio, interval, benchmarkCandlesticks);
         } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             BacktestResultDTO result = new BacktestResultDTO();
@@ -86,12 +86,11 @@ public class Ta4jBacktestService {
      * @param feeRatio         交易手续费率
      * @return 回测结果DTO
      */
-    private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
-                                                       BigDecimal initialAmount, String strategyType,
-                                                       String paramDescription, BigDecimal feeRatio, String interval) throws Exception {
+    private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord, BigDecimal initialAmount, String strategyType,
+                                                       String paramDescription, BigDecimal feeRatio, String interval, List<CandlestickEntity> benchmarkCandlesticks) throws Exception {
         // 使用指标计算器计算所有回测指标
         BacktestMetricsCalculator calculator = new BacktestMetricsCalculator(
-                series, tradingRecord, initialAmount, strategyType, paramDescription, feeRatio, interval);
+                series, tradingRecord, initialAmount, strategyType, paramDescription, feeRatio, interval, benchmarkCandlesticks);
 
         BacktestResultDTO result = calculator.getResult();
 
@@ -853,68 +852,6 @@ public class Ta4jBacktestService {
         return result;
     }
 
-    /**
-     * 计算 Alpha 和 Beta
-     * Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
-     *
-     * @param strategyReturns  策略每日收益率序列
-     * @param benchmarkReturns 基准每日收益率序列
-     * @return 包含Alpha和Beta的数组 [Alpha, Beta]
-     */
-    public static double[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
-        // 添加空值检查和长度验证，避免抛出异常
-        if (strategyReturns == null || strategyReturns.isEmpty()) {
-            System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new double[]{0.0, 1.0};
-        }
-
-        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
-            System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new double[]{0.0, 1.0};
-        }
-
-        // 如果长度不匹配，取较短的长度，避免抛出异常
-        int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
-        if (minLength == 0) {
-            System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
-            return new double[]{0.0, 1.0};
-        }
-
-        // 截取到相同长度，确保不会出现长度不匹配问题
-        List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
-        List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
-
-        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
-
-        int n = adjustedStrategyReturns.size();
-
-        // 计算策略和基准的平均收益率
-        double meanStrategy = adjustedStrategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
-        double meanBenchmark = adjustedBenchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
-
-        double covariance = 0.0;        // 协方差 numerator部分
-        double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
-
-        // 计算协方差和基准方差
-        for (int i = 0; i < n; i++) {
-            double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
-            double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
-
-            covariance += sDiff * bDiff;
-            varianceBenchmark += bDiff * bDiff;
-        }
-
-        covariance /= n;        // 求平均协方差
-        varianceBenchmark /= n; // 求平均方差
-
-        // 防止除以0
-        double beta = varianceBenchmark == 0 ? 0 : covariance / varianceBenchmark;
-
-        // Alpha = 策略平均收益 - Beta * 基准平均收益
-        double alpha = meanStrategy - beta * meanBenchmark;
-
-        return new double[]{alpha, beta};
-    }
 
     /**
      * 计算 Treynor 比率
@@ -926,15 +863,15 @@ public class Ta4jBacktestService {
      * @param beta            策略的Beta值
      * @return Treynor比率，如果Beta为0返回0
      */
-    public static double calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, double beta) {
-        if (strategyReturns == null || strategyReturns.isEmpty() || beta == 0) {
-            return 0.0;
+    public static BigDecimal calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, BigDecimal beta) {
+        if (strategyReturns == null || strategyReturns.isEmpty() || beta == BigDecimal.ZERO) {
+            return BigDecimal.ZERO;
         }
         // 计算策略平均收益率
         double avgReturn = strategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
 
         // 计算超额收益率，除以系统风险Beta
-        return (avgReturn - riskFreeRate.doubleValue()) / beta;
+        return BigDecimal.valueOf((avgReturn - riskFreeRate.doubleValue()) / beta.doubleValue());
     }
 
     /**
@@ -944,8 +881,8 @@ public class Ta4jBacktestService {
      * @param prices 收盘价序列
      * @return Ulcer Index（百分比形式）
      */
-    public static double calculateUlcerIndex(List<BigDecimal> prices) {
-        if (prices == null || prices.isEmpty()) return 0.0;
+    public static BigDecimal calculateUlcerIndex(List<BigDecimal> prices) {
+        if (prices == null || prices.isEmpty()) return BigDecimal.ZERO;
 
         BigDecimal maxPeak = prices.get(0);           // 当前观察到的最大峰值价格
         double sumSquaredDrawdown = 0.0;          // 回撤平方和，用于计算均方根
@@ -963,7 +900,7 @@ public class Ta4jBacktestService {
         }
 
         // 计算均方根回撤，返回Ulcer Index
-        return Math.sqrt(sumSquaredDrawdown / n);
+        return BigDecimal.valueOf(Math.sqrt(sumSquaredDrawdown / n));
     }
 
     /**
@@ -973,8 +910,8 @@ public class Ta4jBacktestService {
      * @param returns 日收益率序列
      * @return 偏度值，接近0表示近似对称分布
      */
-    public static double calculateSkewness(List<BigDecimal> returns) {
-        if (returns == null || returns.size() < 3) return 0.0;
+    public static BigDecimal calculateSkewness(List<BigDecimal> returns) {
+        if (returns == null || returns.size() < 3) return BigDecimal.ZERO;
 
         int n = returns.size();
         double mean = returns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
@@ -991,9 +928,9 @@ public class Ta4jBacktestService {
         m3 /= n;
 
         double sd = Math.sqrt(m2); // 标准差
-        if (sd == 0.0) return 0.0;
+        if (sd == 0.0) return BigDecimal.ZERO ;
 
-        return m3 / (sd * sd * sd);
+        return BigDecimal.valueOf(m3 / (sd * sd * sd));
     }
 
     /**

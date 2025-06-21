@@ -125,6 +125,9 @@ public class Ta4jBacktestController {
             // 获取历史数据
             List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
 
+            // 获取基准数据
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
+
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
@@ -135,8 +138,9 @@ public class Ta4jBacktestController {
 
             StrategyInfoEntity strategy = strategyInfoService.getStrategyByCode(strategyType).get();
 
+
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyType, initialAmount, feeRatio, interval);
+            BacktestResultDTO result = ta4jBacktestService.backtest(series, benchmarkCandlesticks, strategyType, initialAmount, feeRatio, interval);
 
             result.setStrategyName(strategy.getStrategyName());
             result.setStrategyCode(strategy.getStrategyCode());
@@ -231,6 +235,8 @@ public class Ta4jBacktestController {
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
+            // 获取基准数据
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
 
             // 生成唯一的系列名称
             String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
@@ -261,7 +267,7 @@ public class Ta4jBacktestController {
                         // 执行回测 - 添加额外的异常处理
                         BacktestResultDTO result = null;
                         try {
-                            result = ta4jBacktestService.backtest(series, currentStrategyCode, initialAmount, feeRatio, interval);
+                            result = ta4jBacktestService.backtest(series, benchmarkCandlesticks, currentStrategyCode, initialAmount, feeRatio, interval);
                         } catch (Exception backtestException) {
                             log.error("策略 {} 回测执行失败: {}", currentStrategyCode, backtestException.getMessage());
                             // 创建一个失败的结果对象

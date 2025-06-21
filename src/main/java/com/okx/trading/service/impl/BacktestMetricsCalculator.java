@@ -2,6 +2,9 @@ package com.okx.trading.service.impl;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
+import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.service.HistoricalDataService;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.ta4j.core.BarSeries;
@@ -15,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 
@@ -22,6 +26,7 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
  * 回测指标计算器
  * 负责计算各种回测指标，包括收益率、风险指标、交易统计等
  */
+@Slf4j
 public class BacktestMetricsCalculator {
 
     private static final Logger log = LoggerFactory.getLogger(BacktestMetricsCalculator.class);
@@ -37,6 +42,7 @@ public class BacktestMetricsCalculator {
     private final String paramDescription;
     private final BigDecimal feeRatio;
     private final String interval;
+    private final List<CandlestickEntity> benchmarkCandlesticks;
 
     // 中间计算结果
     private List<TradeRecordDTO> tradeRecords;
@@ -57,9 +63,8 @@ public class BacktestMetricsCalculator {
      * @param paramDescription 参数描述
      * @param feeRatio         交易手续费率
      */
-    public BacktestMetricsCalculator(BarSeries series, TradingRecord tradingRecord,
-                                     BigDecimal initialAmount, String strategyType,
-                                     String paramDescription, BigDecimal feeRatio, String interval) {
+    public BacktestMetricsCalculator(BarSeries series, TradingRecord tradingRecord, BigDecimal initialAmount, String strategyType,
+                                     String paramDescription, BigDecimal feeRatio, String interval, List<CandlestickEntity> benchmarkCandlesticks) {
         this.series = series;
         this.tradingRecord = tradingRecord;
         this.initialAmount = initialAmount;
@@ -67,6 +72,7 @@ public class BacktestMetricsCalculator {
         this.paramDescription = paramDescription;
         this.feeRatio = feeRatio;
         this.interval = interval;
+        this.benchmarkCandlesticks = benchmarkCandlesticks;
 
         // 在构造器中完成所有指标计算
         calculateAllMetrics();
@@ -430,10 +436,10 @@ public class BacktestMetricsCalculator {
         BigDecimal calmarRatio;
         BigDecimal omega;
         BigDecimal volatility;
-        double[] alphaBeta;
-        double treynorRatio;
-        double ulcerIndex;
-        double skewness;
+        BigDecimal[] alphaBeta;
+        BigDecimal treynorRatio;
+        BigDecimal ulcerIndex;
+        BigDecimal skewness;
     }
 
     /**
@@ -442,7 +448,7 @@ public class BacktestMetricsCalculator {
     private RiskMetrics calculateRiskMetrics() {
         RiskMetrics metrics = new RiskMetrics();
 
-        BigDecimal riskFreeRate = BigDecimal.valueOf(0.0001);
+        BigDecimal riskFreeRate = BigDecimal.valueOf(0);
 
         // 动态检测年化因子
         int annualizationFactor = detectAnnualizationFactor(series);
@@ -467,8 +473,7 @@ public class BacktestMetricsCalculator {
         metrics.volatility = calculateVolatility(series, annualizationFactor);
 
         // Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
-        // 暂时禁用基准数据获取，避免API限制问题
-        metrics.alphaBeta = new double[]{0.0, 1.0}; // 默认Alpha=0, Beta=1
+        metrics.alphaBeta = calculateAlphaBeta(fullPeriodStrategyReturns, benchmarkCandlesticks);
 
         // 计算 Treynor 比率
         metrics.treynorRatio = Ta4jBacktestService.calculateTreynorRatio(fullPeriodStrategyReturns, riskFreeRate, metrics.alphaBeta[1]);
@@ -508,6 +513,11 @@ public class BacktestMetricsCalculator {
         result.setSortinoRatio(riskMetrics.sortinoRatio);
         result.setCalmarRatio(riskMetrics.calmarRatio);
         result.setOmega(riskMetrics.omega);
+        result.setAlpha(riskMetrics.alphaBeta[0]);
+        result.setBeta(riskMetrics.alphaBeta[1]);
+        result.setTreynorRatio(riskMetrics.treynorRatio);
+        result.setUlcerIndex(riskMetrics.ulcerIndex);
+        result.setSkewness(riskMetrics.skewness);
         result.setMaximumLoss(tradeStats.maximumLoss);
         result.setVolatility(riskMetrics.volatility);
         result.setProfitFactor(tradeStats.profitFactor);
@@ -751,6 +761,79 @@ public class BacktestMetricsCalculator {
 
         return result;
     }
+
+    /**
+     * 计算 Alpha 和 Beta
+     * Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
+     *
+     * @param strategyReturns  策略每日收益率序列
+     * @param benchmarkReturns 基准每日收益率序列
+     * @return 包含Alpha和Beta的数组 [Alpha, Beta]
+     */
+    public static BigDecimal[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<CandlestickEntity> benchmarkCandlesticks) {
+
+        List<BigDecimal> benchmarkPriceList = benchmarkCandlesticks.stream().map(CandlestickEntity::getClose).collect(Collectors.toList());
+        List<BigDecimal> benchmarkReturns = new ArrayList<>();
+        benchmarkReturns.add(BigDecimal.ZERO);
+        for (int i = 1; i < benchmarkPriceList.size(); i++) {
+            BigDecimal divide = benchmarkPriceList.get(i).subtract(benchmarkPriceList.get(i - 1)).divide(benchmarkPriceList.get(i - 1), 8, RoundingMode.HALF_UP);
+            benchmarkReturns.add(divide);
+        }
+
+        // 添加空值检查和长度验证，避免抛出异常
+        if (strategyReturns == null || strategyReturns.isEmpty()) {
+            System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+        }
+
+        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
+            System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+        }
+
+        // 如果长度不匹配，取较短的长度，避免抛出异常
+        int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
+        if (minLength == 0) {
+            System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+        }
+
+        // 截取到相同长度，确保不会出现长度不匹配问题
+        List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
+        List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
+
+        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
+
+        int n = adjustedStrategyReturns.size();
+
+        // 计算策略和基准的平均收益率
+        double meanStrategy = adjustedStrategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+        double meanBenchmark = adjustedBenchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+
+        double covariance = 0.0;        // 协方差 numerator部分
+        double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
+
+        // 计算协方差和基准方差
+        for (int i = 0; i < n; i++) {
+            double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
+            double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
+
+            covariance += sDiff * bDiff;
+            varianceBenchmark += bDiff * bDiff;
+        }
+
+        covariance /= n;        // 求平均协方差
+        varianceBenchmark /= n; // 求平均方差
+
+        // 防止除以0
+        double beta = varianceBenchmark == 0 ? 0 : covariance / varianceBenchmark;
+
+        // Alpha = 策略平均收益 - Beta * 基准平均收益
+        double alpha = meanStrategy - beta * meanBenchmark;
+
+        return new BigDecimal[]{BigDecimal.valueOf(alpha), BigDecimal.valueOf(beta)};
+    }
+
 
     /**
      * 获取计算结果

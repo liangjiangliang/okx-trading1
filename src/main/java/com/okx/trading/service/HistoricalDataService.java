@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 
+import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
 
 /**
@@ -67,6 +68,8 @@ public interface HistoricalDataService {
     List<CandlestickEntity> getHistoricalData(String symbol, String interval,
                                              LocalDateTime startTime, LocalDateTime endTime);
 
+
+    List<CandlestickEntity> fetchAndSaveHistoryWithIntegrityCheck(String symbol, String interval, String startTimeStr, String endTimeStr);
 
     /**
      * 查询数据库中存储的历史K线数据
