@@ -86,7 +86,7 @@ public interface HistoricalDataService {
      * @param endTime    结束时间
      * @return 缺失的时间点列表
      */
-    List<LocalDateTime> checkDataIntegrity(String symbol, String interval,
+    List<LocalDateTime> checkDataIntegrity(List<CandlestickEntity> data,
                                            LocalDateTime startTime, LocalDateTime endTime);
 
     /**

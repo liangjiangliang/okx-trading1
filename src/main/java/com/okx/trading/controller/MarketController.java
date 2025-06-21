@@ -33,6 +33,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.time.temporal.ChronoUnit;
 
+import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
+
 /**
  * 市场数据控制器
  * 提供K线数据获取和技术指标计算的接口
@@ -249,42 +251,37 @@ public class MarketController {
             @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
             @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr) {
 
-        // 生成缓存键
-        String cacheKey = String.format("history_data:%s:%s:%s:%s", symbol, interval, startTimeStr, endTimeStr);
+        // 将字符串时间转换为LocalDateTime
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
+        LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
 
+        // 🔍 检查并调整时间范围，避免获取未完成的时间周期
+        LocalDateTime adjustedEndTime = adjustEndTimeToAvoidIncompleteData(endTime, interval);
+        if (!adjustedEndTime.equals(endTime)) {
+            log.info("⚠️ 检测到查询时间包含未完成的周期，已调整结束时间: {} → {}", endTime, adjustedEndTime);
+            endTime = adjustedEndTime;
+        }
+        // 生成缓存键
+        String cacheKey = String.format("history_data:%s:%s:%s:%s", symbol, interval, startTimeStr, endTime.toString());
         // 先检查缓存
         try {
-
             List<CandlestickEntity> fromCacheData = JSONArray.parseArray(redisCacheService.getCache(cacheKey, String.class), CandlestickEntity.class);
             ApiResponse<List<CandlestickEntity>> cachedResult = ApiResponse.success(fromCacheData);
             if (cachedResult != null && cachedResult.getData() != null && cachedResult.getData().size() > 0) {
-                log.info("📦 从缓存获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",
-                        symbol, interval, startTimeStr, endTimeStr);
+//                log.info("📦 从缓存获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",symbol, interval, startTimeStr, endTimeStr);
                 return cachedResult;
             }
         } catch (Exception e) {
             log.warn("⚠️ 获取缓存失败，继续执行原逻辑: {}", e.getMessage());
         }
 
-        log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}",
-                symbol, interval, startTimeStr, endTimeStr);
+        log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}", symbol, interval, startTimeStr, endTimeStr);
 
         try {
-            // 将字符串时间转换为LocalDateTime
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
-            LocalDateTime endTime = LocalDateTime.parse(endTimeStr, formatter);
-
-            // 🔍 检查并调整时间范围，避免获取未完成的时间周期
-            LocalDateTime adjustedEndTime = adjustEndTimeToAvoidIncompleteData(endTime, interval);
-            if (!adjustedEndTime.equals(endTime)) {
-                log.info("⚠️ 检测到查询时间包含未完成的周期，已调整结束时间: {} → {}", endTime, adjustedEndTime);
-                endTime = adjustedEndTime;
-            }
-
             // 1. 计算需要获取的K线数量（基于时间范围和间隔）
             long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
+            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes +1;
             log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
 
             // 2. 从MySQL获取已经有的K线数量
@@ -301,7 +298,6 @@ public class MarketController {
                 log.info("✅ 数据已完整，无需获取新数据，直接返回MySQL中的 {} 条数据", existingCount);
                 // 将结果存入缓存（10分钟过期）
                 try {
-
                     String cacheData = JSONArray.toJSONString(existingData);
                     redisCacheService.setCache(cacheKey, cacheData, 10);
                     log.info("💾 历史K线数据已缓存，key: {}, 过期时间: 10分钟", cacheKey);
@@ -313,7 +309,7 @@ public class MarketController {
             }
 
             // 4. 检查数据完整性，找出缺失的时间范围
-            List<LocalDateTime> missingTimePoints = historicalDataService.checkDataIntegrity(symbol, interval, startTime, endTime);
+            List<LocalDateTime> missingTimePoints = historicalDataService.checkDataIntegrity(existingData, startTime, endTime);
             log.info("🔍 发现 {} 个缺失的时间点需要获取", missingTimePoints.size());
 
             if (missingTimePoints.isEmpty()) {
@@ -358,6 +354,7 @@ public class MarketController {
             // 6. 合并所有数据并按时间排序
             List<CandlestickEntity> allData = new ArrayList<>(existingData);
             allData.addAll(newlyFetchedData);
+            allData=allData.stream().distinct().collect(Collectors.toList());
             allData.sort((a, b) -> a.getOpenTime().compareTo(b.getOpenTime()));
 
             log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",

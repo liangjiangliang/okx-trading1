@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * K线数据实体类
@@ -115,5 +116,17 @@ public class CandlestickEntity implements Comparable<CandlestickEntity> {
 
     public static CandlestickEntity fromJSONObject(String text) {
         return JSONObject.parseObject(text, CandlestickEntity.class);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        CandlestickEntity that = (CandlestickEntity) o;
+        return Objects.equals(symbol, that.symbol) && Objects.equals(intervalVal, that.intervalVal) && Objects.equals(openTime, that.openTime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(symbol, intervalVal, openTime);
     }
 }
