@@ -776,26 +776,27 @@ public class BacktestMetricsCalculator {
         List<BigDecimal> benchmarkReturns = new ArrayList<>();
         benchmarkReturns.add(BigDecimal.ZERO);
         for (int i = 1; i < benchmarkPriceList.size(); i++) {
-            BigDecimal divide = benchmarkPriceList.get(i).subtract(benchmarkPriceList.get(i - 1)).divide(benchmarkPriceList.get(i - 1), 8, RoundingMode.HALF_UP);
-            benchmarkReturns.add(divide);
+            // 使用对数收益率保持与策略收益率计算的一致性
+            double logReturn = Math.log(benchmarkPriceList.get(i).doubleValue() / benchmarkPriceList.get(i - 1).doubleValue());
+            benchmarkReturns.add(BigDecimal.valueOf(logReturn));
         }
 
         // 添加空值检查和长度验证，避免抛出异常
         if (strategyReturns == null || strategyReturns.isEmpty()) {
             System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
         }
 
         if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
             System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
         }
 
         // 如果长度不匹配，取较短的长度，避免抛出异常
         int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
         if (minLength == 0) {
             System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ONE, BigDecimal.ONE};
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
         }
 
         // 截取到相同长度，确保不会出现长度不匹配问题
