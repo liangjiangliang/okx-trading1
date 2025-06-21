@@ -92,8 +92,8 @@ public class DynamicStrategyService {
         log.debug("编译策略代码: {}", fullCode);
 
         try {
-            // 编译策略类
-            compiler.cook(fullCode);
+        // 编译策略类
+        compiler.cook(fullCode);
         } catch (Exception e) {
             log.error("编译策略代码失败: {}", e.getMessage());
             throw new RuntimeException("编译策略代码失败: " + e.getMessage(), e);
@@ -118,15 +118,15 @@ public class DynamicStrategyService {
             };
         } else {
             // 继承格式：使用构造函数
-            return (series) -> {
-                try {
-                    // 通过反射创建策略实例，传入BarSeries参数
-                    return (Strategy) strategyClass.getConstructor(BarSeries.class).newInstance(series);
-                } catch (Exception e) {
+        return (series) -> {
+            try {
+                // 通过反射创建策略实例，传入BarSeries参数
+                return (Strategy) strategyClass.getConstructor(BarSeries.class).newInstance(series);
+            } catch (Exception e) {
                     log.error("创建策略实例失败: {}", e.getMessage(), e);
-                    throw new RuntimeException("创建策略实例失败: " + e.getMessage(), e);
-                }
-            };
+                throw new RuntimeException("创建策略实例失败: " + e.getMessage(), e);
+            }
+        };
         }
     }
 

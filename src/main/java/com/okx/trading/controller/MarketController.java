@@ -44,7 +44,7 @@ import java.time.temporal.ChronoUnit;
 @RequestMapping("/market")
 @RequiredArgsConstructor
 @Api(tags = "市场数据接口", description = "提供K线数据获取和技术指标计算的接口")
-public class MarketController{
+public class MarketController {
 
     private final OkxApiService okxApiService;
     private final HistoricalDataService historicalDataService;
@@ -59,18 +59,18 @@ public class MarketController{
      */
     @ApiOperation(value = "订阅实时标记价格K线数据,订阅完成后自动推送最新行情信息", notes = "获取指定交易对的K线数据，支持多种时间间隔")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为1000，不传默认返回500条数据",
-            required = false, dataType = "Integer", example = "100", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
+            @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为1000，不传默认返回500条数据",
+                    required = false, dataType = "Integer", example = "100", paramType = "query")
     })
     @GetMapping("/subscribe_klines")
     public ApiResponse<List<Candlestick>> subscribeKlineData(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
-        @RequestParam(required = false) @Min(value = 1, message = "数据条数必须大于0") Integer limit){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+            @RequestParam(required = false) @Min(value = 1, message = "数据条数必须大于0") Integer limit) {
 
         log.info("获取K线数据, symbol: {}, interval: {}, limit: {}", symbol, interval, limit);
 
@@ -87,12 +87,12 @@ public class MarketController{
      */
     @ApiOperation(value = "获取最新行情", notes = "获取指定交易对的最新价格、24小时涨跌幅等行情数据")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
-            required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
+                    required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
     })
     @GetMapping("/ticker")
     public ApiResponse<Ticker> getTicker(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol) {
 
         log.info("获取最新行情, symbol: {}", symbol);
 
@@ -110,15 +110,15 @@ public class MarketController{
      */
     @ApiOperation(value = "取消订阅K线数据", notes = "取消订阅指定交易对的K线数据")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M")
     })
     @GetMapping("/unsubscribe_klines")
     public ApiResponse<Boolean> unsubscribeKlineData(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval) {
 
         log.info("取消订阅K线数据, symbol: {}, interval: {}", symbol, interval);
 
@@ -135,12 +135,12 @@ public class MarketController{
      */
     @ApiOperation(value = "取消订阅行情数据", notes = "取消订阅指定交易对的实时行情数据")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
-            required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
+                    required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
     })
     @GetMapping("/unsubscribe_ticker")
     public ApiResponse<Boolean> unsubscribeTicker(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol) {
 
         log.info("取消订阅行情数据, symbol: {}", symbol);
 
@@ -159,18 +159,18 @@ public class MarketController{
      */
     @ApiOperation(value = "获取最新K线数据", notes = "从数据库获取最新的K线数据，按时间降序排列")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "limit", value = "获取数据条数，默认100",
-            required = false, dataType = "Integer", example = "100", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
+            @ApiImplicitParam(name = "limit", value = "获取数据条数，默认100",
+                    required = false, dataType = "Integer", example = "100", paramType = "query")
     })
     @GetMapping("/latest_klines")
     public ApiResponse<List<CandlestickEntity>> getLatestKlineData(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
-        @RequestParam(required = false, defaultValue = "100") @Min(value = 1, message = "数据条数必须大于0") Integer limit){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+            @RequestParam(required = false, defaultValue = "100") @Min(value = 1, message = "数据条数必须大于0") Integer limit) {
 
         log.info("获取最新K线数据, symbol: {}, interval: {}, limit: {}", symbol, interval, limit);
 
@@ -190,24 +190,24 @@ public class MarketController{
      */
     @ApiOperation(value = "查询已保存的历史K线数据", notes = "查询数据库中已保存的历史K线数据")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
+            @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
+            @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
     })
     @GetMapping("/query_saved_history")
     public ApiResponse<List<CandlestickEntity>> querySavedHistoricalData(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
-        @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
-        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+            @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
+            @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr) {
 
         log.info("查询已保存的历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",
-            symbol, interval, startTimeStr, endTimeStr);
+                symbol, interval, startTimeStr, endTimeStr);
 
-        try{
+        try {
             // 将字符串时间转换为LocalDateTime
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
@@ -217,7 +217,7 @@ public class MarketController{
             List<CandlestickEntity> data = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
 
             return ApiResponse.success(data);
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("查询历史K线数据失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "查询历史K线数据失败: " + e.getMessage());
         }
@@ -235,24 +235,24 @@ public class MarketController{
      */
     @ApiOperation(value = "智能获取历史K线数据", notes = "根据入参计算需要获取的K线数量，扣除已有数据，按需获取并保存")
     @ApiImplicitParams({
-        @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-        @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-            required = true, dataType = "String", example = "1m", paramType = "query",
-            allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-        @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
-        @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query")
+            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
+            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true, dataType = "String", example = "1m", paramType = "query",
+                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
+            @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
+            @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query")
     })
     @GetMapping("/fetch_history_with_integrity_check")
     public ApiResponse<List<CandlestickEntity>> fetchAndSaveHistoryWithIntegrityCheck(
-        @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
-        @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
-        @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
-        @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr){
+            @NotBlank(message = "交易对不能为空") @RequestParam String symbol,
+            @NotBlank(message = "K线间隔不能为空") @RequestParam String interval,
+            @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
+            @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr) {
 
         log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}",
-            symbol, interval, startTimeStr, endTimeStr);
+                symbol, interval, startTimeStr, endTimeStr);
 
-        try{
+        try {
             // 将字符串时间转换为LocalDateTime
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime startTime = LocalDateTime.parse(startTimeStr, formatter);
@@ -294,11 +294,11 @@ public class MarketController{
                 return ApiResponse.success(existingData);
             }
 
-            // 5. 按每批100条分批获取缺失数据
+            // 5. 按每批300条分批获取缺失数据
             List<CandlestickEntity> newlyFetchedData = new ArrayList<>();
-            int batchSize = 100;
+            int batchSize = 300;
             int totalNewlyFetched = 0;
-            
+
             // 将缺失时间点按连续范围分组，便于批量处理
             List<List<LocalDateTime>> timeRanges = groupConsecutiveTimePoints(missingTimePoints, intervalMinutes);
             log.info("📦 缺失数据被分为 {} 个连续时间范围", timeRanges.size());
@@ -309,17 +309,17 @@ public class MarketController{
 
                 LocalDateTime rangeStart = range.get(0);
                 LocalDateTime rangeEnd = range.get(range.size() - 1).plusMinutes(intervalMinutes);
-                
-                log.info("🔄 处理第 {} 个时间范围: {} 到 {} ({} 个数据点)", 
-                    i + 1, rangeStart, rangeEnd, range.size());
+
+                log.info("🔄 处理第 {} 个时间范围: {} 到 {} ({} 个数据点)",
+                        i + 1, rangeStart, rangeEnd, range.size());
 
                 // 按批次获取这个范围的数据，每批100条
                 List<CandlestickEntity> rangeData = fetchRangeDataInBatches(
-                    symbol, interval, rangeStart, rangeEnd, batchSize, intervalMinutes);
-                
+                        symbol, interval, rangeStart, rangeEnd, batchSize, intervalMinutes);
+
                 newlyFetchedData.addAll(rangeData);
                 totalNewlyFetched += rangeData.size();
-                
+
                 // 添加延迟避免API限制
                 if (i < timeRanges.size() - 1) {
                     Thread.sleep(200); // 200ms延迟
@@ -333,9 +333,9 @@ public class MarketController{
             allData.addAll(newlyFetchedData);
             allData.sort((a, b) -> a.getOpenTime().compareTo(b.getOpenTime()));
 
-            log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})", 
-                allData.size(), existingCount, totalNewlyFetched);
-            
+            log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",
+                    allData.size(), existingCount, totalNewlyFetched, totalExpectedCount, totalExpectedCount - allData.size());
+
             return ApiResponse.success(allData);
 
         } catch (Exception e) {
@@ -359,7 +359,7 @@ public class MarketController{
         for (int i = 1; i < timePoints.size(); i++) {
             LocalDateTime current = timePoints.get(i);
             LocalDateTime previous = timePoints.get(i - 1);
-            
+
             // 如果当前时间点与前一个时间点相差正好一个间隔，则属于同一组
             if (ChronoUnit.MINUTES.between(previous, current) == intervalMinutes) {
                 currentGroup.add(current);
@@ -370,7 +370,7 @@ public class MarketController{
                 currentGroup.add(current);
             }
         }
-        
+
         // 添加最后一组
         if (!currentGroup.isEmpty()) {
             groups.add(currentGroup);
@@ -382,34 +382,34 @@ public class MarketController{
     /**
      * 按每批100条分批获取指定时间范围的数据
      */
-    private List<CandlestickEntity> fetchRangeDataInBatches(String symbol, String interval, 
-            LocalDateTime startTime, LocalDateTime endTime, int batchSize, long intervalMinutes) {
+    private List<CandlestickEntity> fetchRangeDataInBatches(String symbol, String interval,
+                                                            LocalDateTime startTime, LocalDateTime endTime, int batchSize, long intervalMinutes) {
         List<CandlestickEntity> result = new ArrayList<>();
-        
+
         LocalDateTime currentStart = startTime;
         int batchCount = 0;
-        
+
         while (currentStart.isBefore(endTime)) {
             batchCount++;
-            
+
             // 计算当前批次的结束时间 (每批100条)
             LocalDateTime currentEnd = currentStart.plusMinutes(intervalMinutes * batchSize);
             if (currentEnd.isAfter(endTime)) {
                 currentEnd = endTime;
             }
-            
+
             // 计算实际需要获取的条数
             long expectedCount = ChronoUnit.MINUTES.between(currentStart, currentEnd) / intervalMinutes;
 
             try {
-                log.info("  📥 获取第 {} 批数据: {} 到 {} (预期 {} 条)", 
-                    batchCount, currentStart, currentEnd, expectedCount);
-                
+                log.info("  📥 获取第 {} 批数据: {} 到 {} (预期 {} 条)",
+                        batchCount, currentStart, currentEnd, expectedCount);
+
                 // 调用API获取数据 (将LocalDateTime转换为时间戳)
                 long startTimestamp = currentStart.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
                 long endTimestamp = currentEnd.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
                 List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
-                
+
                 if (apiData != null && !apiData.isEmpty()) {
                     // 转换并保存数据到MySQL
                     List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
@@ -418,10 +418,10 @@ public class MarketController{
                 } else {
                     log.warn("  ⚠️ 第 {} 批数据获取结果为空: {} 到 {}", batchCount, currentStart, currentEnd);
                 }
-                
+
                 // 添加延迟避免API限制
                 Thread.sleep(100);
-                
+
             } catch (Exception e) {
                 log.error("  ❌ 第 {} 批数据获取失败: {} 到 {}, 错误: {}", batchCount, currentStart, currentEnd, e.getMessage());
             }
@@ -439,14 +439,14 @@ public class MarketController{
      */
     private LocalDateTime adjustEndTimeToAvoidIncompleteData(LocalDateTime endTime, String interval) {
         LocalDateTime now = LocalDateTime.now();
-        
+
         // 如果结束时间在过去，无需调整
         if (endTime.isBefore(now.minusHours(1))) {
             return endTime;
         }
-        
+
         LocalDateTime adjustedEndTime;
-        
+
         switch (interval.toUpperCase()) {
             case "1W":
                 // 周线: 排除当前周 (周一为一周开始)
@@ -523,7 +523,7 @@ public class MarketController{
                 adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0);
                 break;
         }
-        
+
         // 返回调整后的时间与原始结束时间的较小值
         return endTime.isBefore(adjustedEndTime) ? endTime : adjustedEndTime;
     }
@@ -533,7 +533,7 @@ public class MarketController{
      */
     private List<CandlestickEntity> convertAndSaveCandlesticks(List<Candlestick> candlesticks, String symbol, String interval) {
         List<CandlestickEntity> entities = new ArrayList<>();
-        
+
         for (Candlestick candlestick : candlesticks) {
             CandlestickEntity entity = new CandlestickEntity();
             entity.setSymbol(symbol);
