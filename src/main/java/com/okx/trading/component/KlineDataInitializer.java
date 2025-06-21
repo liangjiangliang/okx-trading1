@@ -26,7 +26,7 @@ public class KlineDataInitializer implements CommandLineRunner {
     private final KlineUpdateService klineUpdateService;
 
     @Autowired
-    public KlineDataInitializer(KlineCacheService klineCacheService, 
+    public KlineDataInitializer(KlineCacheService klineCacheService,
                                @Lazy KlineUpdateService klineUpdateService) {
         this.klineCacheService = klineCacheService;
         this.klineUpdateService = klineUpdateService;
@@ -36,7 +36,7 @@ public class KlineDataInitializer implements CommandLineRunner {
     public void run(String... args) {
         try {
             // 启动K线更新线程
-            klineUpdateService.startUpdateThread();
+//            klineUpdateService.startUpdateThread();
         } catch (Exception e) {
             log.error("K线数据初始化过程中发生错误: {}", e.getMessage(), e);
         }

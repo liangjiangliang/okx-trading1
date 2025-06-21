@@ -512,6 +512,11 @@ public class OkxApiMockServiceImpl implements OkxApiService {
     }
 
     @Override
+    public boolean subscribeKlineData(String symbol, String interval) {
+        return false;
+    }
+
+    @Override
     public boolean unsubscribeKlineData(String symbol, String interval) {
         // 模拟模式下不需要实际订阅，直接返回成功
         return true;

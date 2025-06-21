@@ -90,6 +90,15 @@ public interface OkxApiService {
     boolean unsubscribeTicker(String symbol);
 
     /**
+     * 订阅K线数据
+     *
+     * @param symbol 交易对，如BTC-USDT
+     * @param interval K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @return 是否成功订阅
+     */
+    boolean subscribeKlineData(String symbol, String interval);
+
+    /**
      * 取消订阅K线数据
      *
      * @param symbol 交易对，如BTC-USDT

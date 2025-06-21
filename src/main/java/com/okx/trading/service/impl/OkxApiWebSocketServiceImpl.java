@@ -7,7 +7,6 @@ import com.okx.trading.exception.BusinessException;
 import com.okx.trading.exception.OkxApiException;
 import com.okx.trading.model.account.AccountBalance;
 import com.okx.trading.model.account.AccountBalance.AssetBalance;
-import com.okx.trading.model.dto.IndicatorValueDTO;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
@@ -35,15 +34,9 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import okhttp3.Request;
 import okhttp3.Response;
-import reactor.util.function.Tuple2;
-
-
-import static com.okx.trading.constant.IndicatorInfo.indicatorParamMap;
-import static com.okx.trading.service.impl.TechnicalIndicatorServiceImpl.*;
 
 /**
  * OKX API WebSocket服务实现类
@@ -68,6 +61,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final IndicatorCalculationServiceImpl indicatorCalculationServiceImpl;
 
     private final TechnicalIndicatorService technicalIndicatorService;
+
+    @Lazy
+    @Autowired(required = false)
+    private RealTimeStrategyManager realTimeStrategyManager;
 
     // 缓存和回调
     private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -128,7 +125,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 // 将最新价格写入Redis缓存
                 BigDecimal lastPrice = ticker.getLastPrice();
                 if(lastPrice != null){
-                    redisCacheService.updateCoinPrice(symbol, lastPrice);
+//                    redisCacheService.updateCoinPrice(symbol, lastPrice);
                 }
 
 
@@ -181,17 +178,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 if(candlestick != null){
                     candlestick.setIntervalVal(interval);
                     redisCacheService.updateCandlestick(candlestick);
-                    // indicatorCalculationServiceImpl.calculateIndicators(candlestick.getSymbol(), candlestick.getIntervalVal());
-                    Map<String,IndicatorValueDTO> stringIndicatorValueDTOMap = technicalIndicatorService
-                        .calculateMultipleIndicators(candlestick.getSymbol(), candlestick.getIntervalVal(), indicatorParamMap);
-                    HashMap<String,Map<String,BigDecimal>> indicators = new HashMap<>();
-                    for(Map.Entry<String,IndicatorValueDTO> valueDTOEntry: stringIndicatorValueDTOMap.entrySet()){
-                        indicators.put(valueDTOEntry.getKey(), valueDTOEntry.getValue().getValues());
-                    }
-                    candlestick.setIndecator(indicators);
-                    redisCacheService.updateCandlestick(candlestick);
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
+
+                    // 通知实时策略管理器处理新的K线数据
+                    if(realTimeStrategyManager != null){
+                        realTimeStrategyManager.handleNewKlineData(symbol, interval, candlestick);
+                    }
                 }
             }
             // 如果解析到了数据，完成等待中的Future
@@ -1032,6 +1025,39 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             return true;
         }catch(Exception e){
             log.error("取消订阅行情数据失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean subscribeKlineData(String symbol, String interval){
+        try{
+            // 订阅K线数据
+            String channel = "candle" + interval;
+            String key = channel + "_" + symbol + "_" + interval;
+
+            // 检查是否已订阅
+            if(subscribedSymbols.contains(symbol)){
+                log.debug("币种 {} 已订阅，无需重复订阅", symbol);
+                return true;
+            }
+
+            log.info("订阅K线数据，交易对: {}, 间隔: {}", symbol, interval);
+
+            // 创建订阅参数
+            JSONObject arg = new JSONObject();
+            arg.put("channel", channel);
+            arg.put("instId", symbol);
+
+            // 发送订阅请求
+            webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
+
+            // 添加已订阅标记
+            subscribedSymbols.add(symbol);
+
+            return true;
+        }catch(Exception e){
+            log.error("订阅K线数据失败: {}", e.getMessage(), e);
             return false;
         }
     }

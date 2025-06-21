@@ -8,19 +8,26 @@ import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.entity.StrategyConversationEntity;
+import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.MarketDataService;
 import com.okx.trading.service.StrategyInfoService;
+import com.okx.trading.service.RealTimeOrderService;
+import com.okx.trading.service.KlineCacheService;
+import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.impl.DeepSeekApiService;
 import com.okx.trading.service.impl.DynamicStrategyService;
 import com.okx.trading.service.impl.JavaCompilerDynamicStrategyService;
 import com.okx.trading.service.impl.SmartDynamicStrategyService;
 import com.okx.trading.service.StrategyConversationService;
+import com.okx.trading.service.impl.RealTimeStrategyManager;
 import com.okx.trading.adapter.CandlestickAdapter;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import com.okx.trading.service.impl.Ta4jBacktestService;
+import com.okx.trading.model.trade.Order;
+import com.okx.trading.strategy.StrategyRegisterCenter;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -32,11 +39,14 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.Strategy;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.math.RoundingMode;
 
@@ -62,11 +72,20 @@ public class Ta4jBacktestController {
     private final SmartDynamicStrategyService smartDynamicStrategyService;
     private final StrategyConversationService strategyConversationService;
     private final CandlestickBarSeriesConverter barSeriesConverter;
+    private final RealTimeOrderService realTimeOrderService;
+    private final KlineCacheService klineCacheService;
+    private final OkxApiService okxApiService;
+    private final TradeController tradeController;
+    private final RealTimeStrategyManager realTimeStrategyManager;
 
     // 线程池
     @Qualifier("tradeIndicatorCalculateScheduler")
     @Autowired
     private ExecutorService scheduler;
+
+    @Qualifier("realTimeTradeIndicatorCalculateScheduler")
+    @Autowired
+    private ExecutorService realTimeTradeScheduler;
 
 
     @GetMapping("/run")
@@ -983,6 +1002,236 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("删除策略失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "删除策略失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 实时策略回测接口
+     * 获取实时K线数据和历史300根K线数据进行策略回测
+     * 当触发交易信号时，实时调用交易接口创建订单
+     */
+    @PostMapping("/real-time")
+    @ApiOperation(value = "实时策略回测", notes = "基于实时K线数据进行策略回测，触发信号时自动下单")
+    public ApiResponse<Map<String, Object>> realTimeBacktest(
+            @ApiParam(value = "策略代码", required = true, example = "STOCHASTIC") @RequestParam String strategyCode,
+            @ApiParam(value = "交易对", required = true, example = "BTC-USDT") @RequestParam String symbol,
+            @ApiParam(value = "时间间隔", required = true, example = "1D") @RequestParam String interval,
+            @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)", required = true, defaultValue = "2025-06-01 00:00:00") @RequestParam String startTime,
+            @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)", required = true, defaultValue = "2026-06-01 00:00:00") @RequestParam String endTime,
+            @ApiParam(value = "初始资金", required = false, example = "10000") @RequestParam(required = false, defaultValue = "10000") BigDecimal initialCapital,
+            @ApiParam(value = "手续费率", required = false, example = "0.001") @RequestParam(required = false, defaultValue = "0.001") BigDecimal feeRatio,
+            @ApiParam(value = "是否模拟交易", required = false, example = "false") @RequestParam(required = false, defaultValue = "false") Boolean simulated,
+            @ApiParam(value = "订单类型", required = false, example = "MARKET") @RequestParam(required = false, defaultValue = "MARKET") String orderType,
+            @ApiParam(value = "交易金额", required = false, example = "100") @RequestParam(required = false) BigDecimal tradeAmount) {
+
+        try {
+            log.info("开始实时策略回测: strategyCode={}, symbol={}, interval={}, startTime={}, endTime={}",
+                    strategyCode, symbol, interval, startTime, endTime);
+
+            // 1. 验证策略是否存在
+            Optional<StrategyInfoEntity> strategyOpt = strategyInfoService.getStrategyByCode(strategyCode);
+            if (!strategyOpt.isPresent()) {
+                return ApiResponse.error(404, "策略不存在: " + strategyCode);
+            }
+            StrategyInfoEntity strategy = strategyOpt.get();
+
+            // 2. 获取历史300根K线数据作为基础数据
+            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.toString(), endTime.toString());
+            if (historicalData.isEmpty()) {
+                return ApiResponse.error(400, "无法获取历史K线数据");
+            }
+
+            // 3. 转换为BarSeries
+            BarSeries series = barSeriesConverter.convert(historicalData, symbol);
+            if (series == null || series.getBarCount() < 2) {
+                return ApiResponse.error(400, "K线数据不足，无法进行回测");
+            }
+
+            // 4. 获取策略实例
+            Strategy ta4jStrategy;
+            try {
+                ta4jStrategy = StrategyRegisterCenter.createStrategy(series, strategyCode);
+            } catch (Exception e) {
+                log.error("获取策略失败: {}", e.getMessage(), e);
+                return ApiResponse.error(500, "获取策略失败: " + e.getMessage());
+            }
+
+            // 5. 初始化实时回测状态
+            Map<String, Object> backtestState = new HashMap<>();
+            backtestState.put("strategyCode", strategyCode);
+            backtestState.put("symbol", symbol);
+            backtestState.put("interval", interval);
+            backtestState.put("startTime", startTime);
+            backtestState.put("endTime", endTime);
+            backtestState.put("initialCapital", initialCapital);
+            backtestState.put("currentCapital", initialCapital);
+            backtestState.put("feeRatio", feeRatio);
+            backtestState.put("simulated", simulated);
+            backtestState.put("orderType", orderType);
+            backtestState.put("tradeAmount", tradeAmount != null ? tradeAmount : initialCapital.multiply(new BigDecimal("0.1")));
+            backtestState.put("isInPosition", false);
+            backtestState.put("totalTrades", 0);
+            backtestState.put("successfulTrades", 0);
+            backtestState.put("orders", new ArrayList<RealTimeOrderEntity>());
+
+            // 6. 开始实时监控和交易
+            CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
+                return executeRealTimeBacktest(ta4jStrategy, series, backtestState);
+            }, realTimeTradeScheduler);
+
+            // 7. 返回初始状态
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "实时回测已启动");
+            response.put("strategyName", strategy.getStrategyName());
+            response.put("strategyCode", strategyCode);
+            response.put("symbol", symbol);
+            response.put("interval", interval);
+            response.put("initialCapital", initialCapital);
+            response.put("simulated", simulated);
+            response.put("status", "RUNNING");
+            response.put("startTime", LocalDateTime.now());
+
+            return ApiResponse.success(response);
+
+        } catch (Exception e) {
+            log.error("实时回测启动失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "实时回测启动失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 执行实时回测逻辑
+     */
+    /**
+     * 执行实时回测逻辑
+     * 使用WebSocket订阅方式替代轮询获取K线数据
+     */
+    private Map<String, Object> executeRealTimeBacktest(Strategy strategy, BarSeries series, Map<String, Object> state) {
+        String strategyCode = (String) state.get("strategyCode");
+        String symbol = (String) state.get("symbol");
+        String interval = (String) state.get("interval");
+        LocalDateTime endTime = (LocalDateTime) state.get("endTime");
+        Boolean simulated = (Boolean) state.get("simulated");
+        String orderType = (String) state.get("orderType");
+        BigDecimal tradeAmount = (BigDecimal) state.get("tradeAmount");
+
+        try {
+            // 启动实时策略管理器
+            String strategyKey = realTimeStrategyManager.startRealTimeStrategy(
+                    strategyCode, symbol, interval, strategy, series, endTime,
+                    simulated, orderType, tradeAmount);
+
+            log.info("实时策略已启动，策略键: {}", strategyKey);
+
+            // 创建CompletableFuture用于异步等待结果
+            CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
+
+            // 获取策略运行状态并设置Future
+            RealTimeStrategyManager.StrategyRunningState runningState =
+                    realTimeStrategyManager.getRunningStrategy(strategyCode, symbol, interval);
+            if (runningState != null) {
+                runningState.setFuture(future);
+            }
+            // 等待策略执行完成或超时
+            try {
+                // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
+                long timeoutMillis = Duration.between(LocalDateTime.now(), endTime).toMillis() + 60000;
+                return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                log.warn("实时策略执行超时，强制停止: strategyCode={}, symbol={}, interval={}",
+                        strategyCode, symbol, interval);
+                realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
+
+                // 返回当前状态
+                if (runningState != null) {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("status", "TIMEOUT");
+                    result.put("totalTrades", runningState.getTotalTrades());
+                    result.put("successfulTrades", runningState.getSuccessfulTrades());
+                    result.put("successRate", runningState.getTotalTrades() > 0 ?
+                            (double) runningState.getSuccessfulTrades() / runningState.getTotalTrades() : 0.0);
+                    result.put("orders", runningState.getOrders());
+                    result.put("endTime", LocalDateTime.now());
+                    return result;
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("实时回测执行异常: {}", e.getMessage(), e);
+            // 确保清理资源
+            try {
+                realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
+            } catch (Exception cleanupEx) {
+                log.error("清理实时策略失败: {}", cleanupEx.getMessage());
+            }
+        }
+
+        // 返回默认结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", "ERROR");
+        result.put("totalTrades", 0);
+        result.put("successfulTrades", 0);
+        result.put("successRate", 0.0);
+        result.put("orders", new ArrayList<>());
+        result.put("endTime", LocalDateTime.now());
+        return result;
+    }
+
+
+    /**
+     * 执行交易订单
+     */
+    private Order executeTradeOrder(String symbol, String side, String orderType, BigDecimal price, BigDecimal amount, Boolean simulated) {
+        try {
+            return tradeController.createSpotOrder(
+                    symbol, orderType, side,
+                    "LIMIT".equals(orderType) ? price : null, // 限价单需要价格
+                    null, // quantity
+                    amount, // amount
+                    null, // buyRatio
+                    null, // sellRatio
+                    null, // clientOrderId
+                    null, // postOnly
+                    simulated
+            ).getData();
+        } catch (Exception e) {
+            log.error("创建订单失败: symbol={}, side={}, amount={}, error={}", symbol, side, amount, e.getMessage());
+            return null;
+        }
+    }
+
+
+    /**
+     * 获取实时回测订单记录
+     */
+    @GetMapping("/real-time/orders")
+    @ApiOperation(value = "获取实时回测订单记录", notes = "查询指定策略的实时交易订单记录")
+    public ApiResponse<List<RealTimeOrderEntity>> getRealTimeOrders(
+            @ApiParam(value = "策略代码", required = false) @RequestParam(required = false) String strategyCode,
+            @ApiParam(value = "交易对", required = false) @RequestParam(required = false) String symbol,
+            @ApiParam(value = "开始时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @ApiParam(value = "结束时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
+
+        try {
+            List<RealTimeOrderEntity> orders;
+
+            if (StringUtils.isNotBlank(strategyCode) && StringUtils.isNotBlank(symbol)) {
+                orders = realTimeOrderService.getOrdersByStrategyAndSymbol(strategyCode, symbol);
+            } else if (StringUtils.isNotBlank(strategyCode)) {
+                orders = realTimeOrderService.getOrdersByStrategy(strategyCode);
+            } else if (StringUtils.isNotBlank(symbol)) {
+                orders = realTimeOrderService.getOrdersBySymbol(symbol);
+            } else if (startTime != null && endTime != null) {
+                orders = realTimeOrderService.getOrdersByTimeRange(startTime, endTime);
+            } else {
+                orders = realTimeOrderService.getAllOrders();
+            }
+
+            return ApiResponse.success(orders);
+
+        } catch (Exception e) {
+            log.error("获取实时订单记录失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取实时订单记录失败: " + e.getMessage());
         }
     }
 

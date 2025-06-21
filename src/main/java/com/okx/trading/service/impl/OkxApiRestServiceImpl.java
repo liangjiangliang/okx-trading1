@@ -662,6 +662,11 @@ public class OkxApiRestServiceImpl implements OkxApiService{
     }
 
     @Override
+    public boolean subscribeKlineData(String symbol, String interval) {
+        return false;
+    }
+
+    @Override
     public boolean unsubscribeKlineData(String symbol, String interval){
         log.info("不支持取消订阅K线数据，因为REST API不需要订阅");
         return true;

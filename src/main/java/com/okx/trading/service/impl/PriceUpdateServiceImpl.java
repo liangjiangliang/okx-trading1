@@ -63,17 +63,17 @@ public class PriceUpdateServiceImpl implements PriceUpdateService {
     @PostConstruct
     @Override
     public void startPriceUpdateThread() {
-        if (running.get()) {
-            log.info("价格更新线程已在运行中");
-            return;
-        }
-
-        running.set(true);
-        priceUpdateThread = new Thread(this::runPriceUpdateLoop, "price-update-thread");
-        priceUpdateThread.setDaemon(true); // 设置为守护线程，随主线程退出而退出
-        priceUpdateThread.start();
-
-        log.info("价格更新线程已启动");
+//        if (running.get()) {
+//            log.info("价格更新线程已在运行中");
+//            return;
+//        }
+//
+//        running.set(true);
+//        priceUpdateThread = new Thread(this::runPriceUpdateLoop, "price-update-thread");
+//        priceUpdateThread.setDaemon(true); // 设置为守护线程，随主线程退出而退出
+//        priceUpdateThread.start();
+//
+//        log.info("价格更新线程已启动");
     }
 
     /**

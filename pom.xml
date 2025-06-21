@@ -144,19 +144,7 @@
             <version>3.32.0</version>
         </dependency>
 
-        <!-- Spring Boot DevTools -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-devtools-autoconfigure</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- Spring Boot DevTools - 已移除，使用JRebel代替 -->
 
     </dependencies>
 
