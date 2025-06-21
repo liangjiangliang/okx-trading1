@@ -136,7 +136,7 @@ public class Ta4jBacktestController {
             StrategyInfoEntity strategy = strategyInfoService.getStrategyByCode(strategyType).get();
 
             // 执行回测
-            BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyType, initialAmount, feeRatio);
+            BacktestResultDTO result = ta4jBacktestService.backtest(series, strategyType, initialAmount, feeRatio, interval);
 
             result.setStrategyName(strategy.getStrategyName());
             result.setStrategyCode(strategy.getStrategyCode());
@@ -261,7 +261,7 @@ public class Ta4jBacktestController {
                         // 执行回测 - 添加额外的异常处理
                         BacktestResultDTO result = null;
                         try {
-                            result = ta4jBacktestService.backtest(series, currentStrategyCode, initialAmount, feeRatio);
+                            result = ta4jBacktestService.backtest(series, currentStrategyCode, initialAmount, feeRatio, interval);
                         } catch (Exception backtestException) {
                             log.error("策略 {} 回测执行失败: {}", currentStrategyCode, backtestException.getMessage());
                             // 创建一个失败的结果对象
@@ -313,7 +313,7 @@ public class Ta4jBacktestController {
                             resultMap.put("backtest_id", result.getBacktestId());
 
                             log.info("策略 {} 回测成功 - 收益率: {}%, 交易次数: {}, 胜率: {}%",
-                                    currentStrategyCode,
+                                    strategyDetails.get("name"),
                                     result.getTotalReturn() != null ? result.getTotalReturn().multiply(new BigDecimal("100")).toString() : "0",
                                     String.valueOf(result.getNumberOfTrades()),
                                     result.getWinRate() != null ? result.getWinRate().multiply(new BigDecimal("100")).toString() : "0");
@@ -950,7 +950,7 @@ public class Ta4jBacktestController {
         }
     }
 
-    @DeleteMapping ("/delete-strategy/{strategyCode}")
+    @DeleteMapping("/delete-strategy/{strategyCode}")
     @ApiOperation(value = "删除策略", notes = "根据策略代码删除策略，包括从数据库和动态策略缓存中移除")
     public ApiResponse<String> deleteStrategy(
             @ApiParam(value = "策略代码", required = true, example = "AI_SMA_009")

@@ -33,12 +33,12 @@ import ta4jexamples.logging.StrategyExecutionLogging;
  */
 @Service
 @Component
-public class Ta4jBacktestService{
+public class Ta4jBacktestService {
 
     private static final Logger log = LoggerFactory.getLogger(Ta4jBacktestService.class);
 
     private static final URL LOGBACK_CONF_FILE = StrategyExecutionLogging.class.getClassLoader()
-        .getResource("logback-traces.xml");
+            .getResource("logback-traces.xml");
 
     @Autowired
     private CandlestickBarSeriesConverter barSeriesConverter;
@@ -52,10 +52,10 @@ public class Ta4jBacktestService{
      * @param feeRatio      交易手续费率（例如0.001表示0.1%）
      * @return 回测结果
      */
-    public BacktestResultDTO backtest(BarSeries series, String strategyType, BigDecimal initialAmount, BigDecimal feeRatio){
+    public BacktestResultDTO backtest(BarSeries series, String strategyType, BigDecimal initialAmount, BigDecimal feeRatio, String interval) {
 
         // loadLoggerConfiguration();
-        try{
+        try {
             // 使用策略工厂创建策略
             Strategy strategy = StrategyRegisterCenter.createStrategy(series, strategyType);
 
@@ -65,8 +65,8 @@ public class Ta4jBacktestService{
 
             // unloadLoggerConfiguration();
             // 计算回测指标
-            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType.toString(), "", feeRatio);
-        }catch(Exception e){
+            return calculateBacktestMetrics(series, tradingRecord, initialAmount, strategyType.toString(), "", feeRatio, interval);
+        } catch (Exception e) {
             log.error("回测过程中发生错误: {}", e.getMessage(), e);
             BacktestResultDTO result = new BacktestResultDTO();
             result.setSuccess(false);
@@ -88,17 +88,16 @@ public class Ta4jBacktestService{
      */
     private BacktestResultDTO calculateBacktestMetrics(BarSeries series, TradingRecord tradingRecord,
                                                        BigDecimal initialAmount, String strategyType,
-                                                       String paramDescription, BigDecimal feeRatio) throws Exception{
+                                                       String paramDescription, BigDecimal feeRatio, String interval) throws Exception {
         // 使用指标计算器计算所有回测指标
         BacktestMetricsCalculator calculator = new BacktestMetricsCalculator(
-            series, tradingRecord, initialAmount, strategyType, paramDescription, feeRatio
-        );
-        
+                series, tradingRecord, initialAmount, strategyType, paramDescription, feeRatio, interval);
+
         BacktestResultDTO result = calculator.getResult();
-        
+
         // 打印回测汇总信息
         printBacktestSummary(result);
-        
+
         return result;
     }
 
@@ -115,19 +114,19 @@ public class Ta4jBacktestService{
     /**
      * 计算全周期策略收益率序列
      * 包括持仓期间的实际收益率和未持仓期间的零收益率
-     * 
+     * <p>
      * 边界条件处理：
      * 1. 持仓第一天：只是买入，没有收益，不能和昨天比较 -> 收益率为0
      * 2. 持仓最后一天的后面一天：没有资产了，也不能算收益 -> 收益率为0
-     * 
-     * @param series BarSeries对象
+     *
+     * @param series        BarSeries对象
      * @param tradingRecord 交易记录
-     * @param useLogReturn 是否使用对数收益率
+     * @param useLogReturn  是否使用对数收益率
      * @return 全周期策略收益率序列
      */
     private List<BigDecimal> calculateFullPeriodStrategyReturns(BarSeries series, TradingRecord tradingRecord, boolean useLogReturn) {
         List<BigDecimal> returns = new ArrayList<>();
-        
+
         if (series == null || series.getBarCount() < 2) {
             return returns;
         }
@@ -144,13 +143,13 @@ public class Ta4jBacktestService{
         boolean[] isInPosition = new boolean[series.getBarCount()];
         boolean[] isEntryDay = new boolean[series.getBarCount()];  // 标记买入日
         boolean[] isExitDay = new boolean[series.getBarCount()];   // 标记卖出日
-        
+
         // 标记所有持仓期间、买入日和卖出日
         for (Position position : tradingRecord.getPositions()) {
             if (position.isClosed()) {
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
-                
+
                 // 标记买入日和卖出日
                 if (entryIndex < isEntryDay.length) {
                     isEntryDay[entryIndex] = true;
@@ -158,7 +157,7 @@ public class Ta4jBacktestService{
                 if (exitIndex < isExitDay.length) {
                     isExitDay[exitIndex] = true;
                 }
-                
+
                 // 从入场时间点到出场时间点都标记为持仓状态
                 for (int i = entryIndex; i <= exitIndex; i++) {
                     if (i < isInPosition.length) {
@@ -171,20 +170,20 @@ public class Ta4jBacktestService{
         // 计算每个时间点的收益率
         for (int i = 1; i < series.getBarCount(); i++) {
             BigDecimal dailyReturn = BigDecimal.ZERO;
-            
+
             // 边界条件1：持仓第一天（买入日）收益率为0，因为只是买入，没有收益
             if (isEntryDay[i]) {
                 dailyReturn = BigDecimal.ZERO;
             }
             // 边界条件2：卖出日的后一天收益率为0（已经没有持仓）
-            else if (i > 0 && isExitDay[i-1]) {
+            else if (i > 0 && isExitDay[i - 1]) {
                 dailyReturn = BigDecimal.ZERO;
             }
             // 正常持仓期间：计算价格收益率（排除买入日）
             else if (isInPosition[i] && !isEntryDay[i]) {
                 BigDecimal today = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
                 BigDecimal yesterday = BigDecimal.valueOf(series.getBar(i - 1).getClosePrice().doubleValue());
-                
+
                 if (yesterday.compareTo(BigDecimal.ZERO) > 0) {
                     if (useLogReturn) {
                         double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
@@ -201,7 +200,7 @@ public class Ta4jBacktestService{
             else {
                 dailyReturn = BigDecimal.ZERO;
             }
-            
+
             returns.add(dailyReturn);
         }
 
@@ -217,27 +216,27 @@ public class Ta4jBacktestService{
      * @param tradeRecords  交易记录列表
      * @return 交易期间的收益率序列
      */
-    private List<BigDecimal> calculateTradingPeriodReturns(BarSeries series, TradingRecord tradingRecord, List<TradeRecordDTO> tradeRecords, boolean useLogReturn){
+    private List<BigDecimal> calculateTradingPeriodReturns(BarSeries series, TradingRecord tradingRecord, List<TradeRecordDTO> tradeRecords, boolean useLogReturn) {
 
         List<BigDecimal> returns = new ArrayList<>();
-        if(tradingRecord.getPositionCount() == 0 || tradeRecords.isEmpty()){
+        if (tradingRecord.getPositionCount() == 0 || tradeRecords.isEmpty()) {
             return new ArrayList<>();
         }
 
         // 收集所有交易期间的价格数据
-        for(Position position: tradingRecord.getPositions()){
-            if(position.isClosed()){
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
 
                 // 添加该交易期间的所有收盘价
-                for(int i = entryIndex + 1;i <= exitIndex;i++){
+                for (int i = entryIndex + 1; i <= exitIndex; i++) {
                     BigDecimal today = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
                     BigDecimal yesterday = BigDecimal.valueOf(series.getBar(i - 1).getClosePrice().doubleValue());
-                    if(useLogReturn){
+                    if (useLogReturn) {
                         double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
                         returns.add(BigDecimal.valueOf(logR));
-                    }else{
+                    } else {
                         BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
                         returns.add(change);
                     }
@@ -246,7 +245,7 @@ public class Ta4jBacktestService{
         }
 
         // 如果没有交易期间的价格数据，返回空列表
-        if(returns.isEmpty()){
+        if (returns.isEmpty()) {
             return new ArrayList<>();
         }
 
@@ -275,16 +274,16 @@ public class Ta4jBacktestService{
      * @param tradingRecord 交易记录
      * @return 最大损失百分比（负值，表示亏损）
      */
-    public static List<ArrayList<BigDecimal>> calculateMaximumLossAndDrawdown(BarSeries series, TradingRecord tradingRecord){
+    public static List<ArrayList<BigDecimal>> calculateMaximumLossAndDrawdown(BarSeries series, TradingRecord tradingRecord) {
 
-        if(series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0){
+        if (series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0) {
             return Arrays.asList();
         }
         ArrayList<BigDecimal> maxLossList = new ArrayList<>();
         ArrayList<BigDecimal> drawdownList = new ArrayList<>();
 
         // 遍历每个已关闭的交易
-        for(Position position: tradingRecord.getPositions()){
+        for (Position position : tradingRecord.getPositions()) {
             BigDecimal maxLoss = BigDecimal.ZERO;
             BigDecimal maxDrawdown = BigDecimal.ZERO;
             // 计算收益率
@@ -293,7 +292,7 @@ public class Ta4jBacktestService{
             BigDecimal highestPrice = BigDecimal.ZERO;
             BigDecimal lowestPrice = BigDecimal.valueOf(Long.MAX_VALUE);
             BigDecimal drawDownRate = BigDecimal.ZERO;
-            if(position.isClosed()){
+            if (position.isClosed()) {
                 // 获取入场和出场信息
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
@@ -303,35 +302,35 @@ public class Ta4jBacktestService{
                 BigDecimal entryPrice = new BigDecimal(subSeries.getFirstBar().getClosePrice().doubleValue());
                 BigDecimal exitPrice = new BigDecimal(subSeries.getLastBar().getClosePrice().doubleValue());
 
-                for(int i = 0;i < subSeries.getBarCount();i++){
+                for (int i = 0; i < subSeries.getBarCount(); i++) {
                     BigDecimal closePrice = BigDecimal.valueOf(subSeries.getBar(i).getClosePrice().doubleValue());
 
-                    if(closePrice.compareTo(highestPrice) > 0){
+                    if (closePrice.compareTo(highestPrice) > 0) {
                         highestPrice = closePrice;
                     }
-                    if(closePrice.compareTo(lowestPrice) <= 0){
+                    if (closePrice.compareTo(lowestPrice) <= 0) {
                         lowestPrice = closePrice;
                     }
 
-                    if(position.getEntry().isBuy()){
+                    if (position.getEntry().isBuy()) {
                         // 如果是买入操作，收益率 = (卖出价 - 买入价) / 买入价
                         lossRate = closePrice.subtract(entryPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
                         drawDownRate = closePrice.subtract(highestPrice).divide(highestPrice, 8, RoundingMode.HALF_UP);
-                    }else{
+                    } else {
                         // 如果是卖出操作（做空），收益率 = (买入价 - 卖出价) / 买入价
                         lossRate = closePrice.subtract(exitPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
                         drawDownRate = closePrice.subtract(lowestPrice).divide(lowestPrice, 8, RoundingMode.HALF_UP);
                     }
 
                     // 只关注亏损交易
-                    if(lossRate.compareTo(BigDecimal.ZERO) < 0){
+                    if (lossRate.compareTo(BigDecimal.ZERO) < 0) {
                         // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
-                        if(lossRate.compareTo(maxLoss) < 0){
+                        if (lossRate.compareTo(maxLoss) < 0) {
                             maxLoss = lossRate;
                         }
                     }
-                    if(drawDownRate.compareTo(BigDecimal.ZERO) < 0){
-                        if(drawDownRate.compareTo(maxDrawdown) < 0){
+                    if (drawDownRate.compareTo(BigDecimal.ZERO) < 0) {
+                        if (drawDownRate.compareTo(maxDrawdown) < 0) {
                             maxDrawdown = drawDownRate;
                         }
                     }
@@ -366,20 +365,20 @@ public class Ta4jBacktestService{
      * @param trades 交易记录列表
      * @return 最大损失金额（负值，表示亏损）
      */
-    public static BigDecimal calculateMaximumLossFromTrades(List<TradeRecordDTO> trades){
-        if(trades == null || trades.isEmpty()){
+    public static BigDecimal calculateMaximumLossFromTrades(List<TradeRecordDTO> trades) {
+        if (trades == null || trades.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         BigDecimal maxLoss = BigDecimal.ZERO;
 
-        for(TradeRecordDTO trade: trades){
+        for (TradeRecordDTO trade : trades) {
             BigDecimal profit = trade.getProfit();
 
             // 只考虑亏损交易
-            if(profit != null && profit.compareTo(BigDecimal.ZERO) < 0){
+            if (profit != null && profit.compareTo(BigDecimal.ZERO) < 0) {
                 // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
-                if(profit.compareTo(maxLoss) < 0){
+                if (profit.compareTo(maxLoss) < 0) {
                     maxLoss = profit;
                 }
             }
@@ -398,14 +397,14 @@ public class Ta4jBacktestService{
      * @return 交易记录DTO列表
      */
     private List<TradeRecordDTO> extractTradeRecords(BarSeries series, TradingRecord tradingRecord,
-                                                     BigDecimal initialAmount, BigDecimal feeRatio){
+                                                     BigDecimal initialAmount, BigDecimal feeRatio) {
         List<TradeRecordDTO> records = new ArrayList<>();
 
         int index = 1;
         BigDecimal tradeAmount = initialAmount;
 
-        for(Position position: tradingRecord.getPositions()){
-            if(position.isClosed()){
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
                 // 获取入场和出场信息
                 int entryIndex = position.getEntry().getIndex();
                 int exitIndex = position.getExit().getIndex();
@@ -428,14 +427,14 @@ public class Ta4jBacktestService{
                 // 交易盈亏百分比
                 BigDecimal profitPercentage;
 
-                if(position.getEntry().isBuy()){
+                if (position.getEntry().isBuy()) {
                     // 如果是买入操作，盈亏百分比 = (卖出价 - 买入价) / 买入价
                     profitPercentage = exitPrice.subtract(entryPrice)
-                        .divide(entryPrice, 4, RoundingMode.HALF_UP);
-                }else{
+                            .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                } else {
                     // 如果是卖出操作（做空），盈亏百分比 = (买入价 - 卖出价) / 买入价
                     profitPercentage = entryPrice.subtract(exitPrice)
-                        .divide(entryPrice, 4, RoundingMode.HALF_UP);
+                            .divide(entryPrice, 4, RoundingMode.HALF_UP);
                 }
 
                 // 计算出场金额（包含盈亏）
@@ -456,7 +455,7 @@ public class Ta4jBacktestService{
                 // 创建交易记录DTO
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
-                recordDTO.setType(position.getEntry().isBuy()?"BUY":"SELL");
+                recordDTO.setType(position.getEntry().isBuy() ? "BUY" : "SELL");
                 recordDTO.setEntryTime(entryTime.toLocalDateTime());
                 recordDTO.setExitTime(exitTime.toLocalDateTime());
                 recordDTO.setEntryPrice(entryPrice);
@@ -483,7 +482,7 @@ public class Ta4jBacktestService{
      *
      * @param result 回测结果
      */
-    private void printBacktestSummary(BacktestResultDTO result){
+    private void printBacktestSummary(BacktestResultDTO result) {
         StringBuilder summaryBuilder = new StringBuilder();
 
         // 构建分隔线
@@ -503,7 +502,7 @@ public class Ta4jBacktestService{
         String finalAmountFormatted = String.format("%,.2f", result.getFinalAmount());
         String totalProfitFormatted = String.format("%,.2f", result.getTotalProfit());
         String totalReturnFormatted = String.format("%.2f%%", result.getTotalReturn().multiply(new BigDecimal("100")));
-        String totalFeeFormatted = String.format("%,.2f", result.getTotalFee() != null?result.getTotalFee():BigDecimal.ZERO);
+        String totalFeeFormatted = String.format("%,.2f", result.getTotalFee() != null ? result.getTotalFee() : BigDecimal.ZERO);
 
         summaryBuilder.append("初始资金: ").append(initialAmountFormatted).append("\n");
         summaryBuilder.append("最终资金: ").append(finalAmountFormatted).append("\n");
@@ -515,7 +514,7 @@ public class Ta4jBacktestService{
         // 交易指标
         String winRateFormatted = String.format("%.2f%%", result.getWinRate().multiply(new BigDecimal("100")));
         String maxDrawdownFormatted = String.format("%.2f%%", result.getMaxDrawdown().multiply(new BigDecimal("100")));
-        String maximumLossFormatted = String.format("%,.2f", result.getMaximumLoss() != null?result.getMaximumLoss():BigDecimal.ZERO);
+        String maximumLossFormatted = String.format("%,.2f", result.getMaximumLoss() != null ? result.getMaximumLoss() : BigDecimal.ZERO);
 
         summaryBuilder.append("交易次数: ").append(result.getNumberOfTrades()).append("\n");
         summaryBuilder.append("盈利交易: ").append(result.getProfitableTrades()).append("\n");
@@ -526,11 +525,11 @@ public class Ta4jBacktestService{
         summaryBuilder.append("------------------------------------------------------\n");
         summaryBuilder.append("风险评估指标:\n");
         summaryBuilder.append("夏普比率: ").append(String.format("%.4f", result.getSharpeRatio())).append("\n");
-        summaryBuilder.append("索提诺比率: ").append(String.format("%.4f", result.getSortinoRatio() != null?result.getSortinoRatio():BigDecimal.ZERO)).append("\n");
-        summaryBuilder.append("卡玛比率: ").append(String.format("%.4f", result.getCalmarRatio() != null?result.getCalmarRatio():BigDecimal.ZERO)).append("\n");
+        summaryBuilder.append("索提诺比率: ").append(String.format("%.4f", result.getSortinoRatio() != null ? result.getSortinoRatio() : BigDecimal.ZERO)).append("\n");
+        summaryBuilder.append("卡玛比率: ").append(String.format("%.4f", result.getCalmarRatio() != null ? result.getCalmarRatio() : BigDecimal.ZERO)).append("\n");
         summaryBuilder.append("最大回撤: ").append(maxDrawdownFormatted).append("\n");
         summaryBuilder.append("最大单笔亏损: ").append(maximumLossFormatted).append("\n");
-        summaryBuilder.append("盈亏比: ").append(String.format("%.4f", result.getProfitFactor() != null?result.getProfitFactor():BigDecimal.ONE)).append("\n");
+        summaryBuilder.append("盈亏比: ").append(String.format("%.4f", result.getProfitFactor() != null ? result.getProfitFactor() : BigDecimal.ONE)).append("\n");
 
         summaryBuilder.append(separator).append("\n");
 
@@ -538,22 +537,22 @@ public class Ta4jBacktestService{
         log.info(summaryBuilder.toString());
     }
 
-    private static void loadLoggerConfiguration(){
-        LoggerContext context = (LoggerContext)LoggerFactory.getILoggerFactory();
+    private static void loadLoggerConfiguration() {
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
         context.reset();
 
         JoranConfigurator configurator = new JoranConfigurator();
         configurator.setContext(context);
-        try{
+        try {
             configurator.doConfigure(LOGBACK_CONF_FILE);
-        }catch(JoranException je){
+        } catch (JoranException je) {
             java.util.logging.Logger.getLogger(StrategyExecutionLogging.class.getName()).log(Level.SEVERE,
-                "Unable to load Logback configuration", je);
+                    "Unable to load Logback configuration", je);
         }
     }
 
-    private static void unloadLoggerConfiguration(){
-        LoggerContext context = (LoggerContext)LoggerFactory.getILoggerFactory();
+    private static void unloadLoggerConfiguration() {
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
         context.reset();
         JoranConfigurator configurator = new JoranConfigurator();
         configurator.setContext(context);
@@ -567,30 +566,28 @@ public class Ta4jBacktestService{
      * @param annualizationFactor 年化因子（例如 252 表示按每日）
      * @return Sharpe 比率（保留 6 位小数）
      */
-    public static BigDecimal calculateSharpeRatio(List<BigDecimal> dailyReturns,
-                                                  BigDecimal riskFreeRate,
-                                                  int annualizationFactor){
-        if(dailyReturns == null || dailyReturns.isEmpty()){
+    public static BigDecimal calculateSharpeRatio(List<BigDecimal> dailyReturns, BigDecimal riskFreeRate, int annualizationFactor) {
+        if (dailyReturns == null || dailyReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         // 平均收益率
         BigDecimal sum = BigDecimal.ZERO;
-        for(BigDecimal r: dailyReturns){
+        for (BigDecimal r : dailyReturns) {
             sum = sum.add(r);
         }
         BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
 
         // 收益率标准差（波动率）
         BigDecimal sumSquaredDiff = BigDecimal.ZERO;
-        for(BigDecimal r: dailyReturns){
+        for (BigDecimal r : dailyReturns) {
             BigDecimal diff = r.subtract(avgReturn);
             sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
         }
         BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
         BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
 
-        if(stdDev.compareTo(BigDecimal.ZERO) == 0){
+        if (stdDev.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
 
@@ -622,16 +619,14 @@ public class Ta4jBacktestService{
      * @param annualizationFactor 年化因子（例如 252 表示按每日）
      * @return Sortino 比率（保留 6 位小数）
      */
-    public static BigDecimal calculateSortinoRatio(List<BigDecimal> dailyReturns,
-                                                   BigDecimal riskFreeRate,
-                                                   int annualizationFactor){
-        if(dailyReturns == null || dailyReturns.isEmpty()){
+    public static BigDecimal calculateSortinoRatio(List<BigDecimal> dailyReturns, BigDecimal riskFreeRate, int annualizationFactor) {
+        if (dailyReturns == null || dailyReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         // 平均收益率
         BigDecimal sum = BigDecimal.ZERO;
-        for(BigDecimal r: dailyReturns){
+        for (BigDecimal r : dailyReturns) {
             sum = sum.add(r);
         }
         BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(dailyReturns.size()), 10, RoundingMode.HALF_UP);
@@ -640,9 +635,9 @@ public class Ta4jBacktestService{
         BigDecimal sumSquaredDownsideDiff = BigDecimal.ZERO;
         int downsideCount = 0;
 
-        for(BigDecimal r: dailyReturns){
+        for (BigDecimal r : dailyReturns) {
             // 只考虑低于目标收益率（通常为0或无风险利率）的收益
-            if(r.compareTo(riskFreeRate) < 0){
+            if (r.compareTo(riskFreeRate) < 0) {
                 BigDecimal diff = r.subtract(riskFreeRate);
                 sumSquaredDownsideDiff = sumSquaredDownsideDiff.add(diff.multiply(diff));
                 downsideCount++;
@@ -650,7 +645,7 @@ public class Ta4jBacktestService{
         }
 
         // 如果没有下行偏差，返回一个较大值或零
-        if(downsideCount == 0){
+        if (downsideCount == 0) {
             return new BigDecimal("999.999999"); // 表示极高的比率，因为没有下行风险
         }
 
@@ -658,7 +653,7 @@ public class Ta4jBacktestService{
         BigDecimal downsideVariance = sumSquaredDownsideDiff.divide(BigDecimal.valueOf(downsideCount), 10, RoundingMode.HALF_UP);
         BigDecimal downsideDeviation = BigDecimal.valueOf(Math.sqrt(downsideVariance.doubleValue()));
 
-        if(downsideDeviation.compareTo(BigDecimal.ZERO) == 0){
+        if (downsideDeviation.compareTo(BigDecimal.ZERO) == 0) {
             return new BigDecimal("999.999999");
         }
 
@@ -676,25 +671,25 @@ public class Ta4jBacktestService{
      * @param threshold    目标收益率阈值（如 0 或无风险日收益率）
      * @return Omega 比率（保留 6 位小数）
      */
-    public static BigDecimal calculateOmegaRatio(List<BigDecimal> dailyReturns, BigDecimal threshold){
-        if(dailyReturns == null || dailyReturns.isEmpty()){
+    public static BigDecimal calculateOmegaRatio(List<BigDecimal> dailyReturns, BigDecimal threshold) {
+        if (dailyReturns == null || dailyReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         BigDecimal gainSum = BigDecimal.ZERO;
         BigDecimal lossSum = BigDecimal.ZERO;
 
-        for(BigDecimal r: dailyReturns){
+        for (BigDecimal r : dailyReturns) {
             int cmp = r.compareTo(threshold);
-            if(cmp >= 0){
+            if (cmp >= 0) {
                 gainSum = gainSum.add(r.subtract(threshold));
-            }else{
+            } else {
                 lossSum = lossSum.add(threshold.subtract(r));
             }
         }
 
         // 如果没有亏损，则 Omega 无限大（无下行风险）
-        if(lossSum.compareTo(BigDecimal.ZERO) == 0){
+        if (lossSum.compareTo(BigDecimal.ZERO) == 0) {
             return new BigDecimal("999.999999");
         }
 
@@ -721,8 +716,8 @@ public class Ta4jBacktestService{
      * @param maxDrawdown      最大回撤（正值，例如0.2表示20%的回撤）
      * @return Calmar 比率（保留 6 位小数）
      */
-    public static BigDecimal calculateCalmarRatio(BigDecimal annualizedReturn, BigDecimal maxDrawdown){
-        if(maxDrawdown == null || maxDrawdown.compareTo(BigDecimal.ZERO) <= 0){
+    public static BigDecimal calculateCalmarRatio(BigDecimal annualizedReturn, BigDecimal maxDrawdown) {
+        if (maxDrawdown == null || maxDrawdown.compareTo(BigDecimal.ZERO) <= 0) {
             return new BigDecimal("999.999999"); // 如果没有回撤，返回一个较大值
         }
 
@@ -749,25 +744,25 @@ public class Ta4jBacktestService{
      * @param series BarSeries对象
      * @return 波动率（收盘价的标准差）
      */
-    private BigDecimal calculateVolatility(BarSeries series){
-        if(series == null || series.getBarCount() < 2){
+    private BigDecimal calculateVolatility(BarSeries series) {
+        if (series == null || series.getBarCount() < 2) {
             return BigDecimal.ZERO;
         }
 
         // 收集所有收盘价
         List<BigDecimal> closePrices = new ArrayList<>();
-        for(int i = 0;i < series.getBarCount();i++){
+        for (int i = 0; i < series.getBarCount(); i++) {
             double closePrice = series.getBar(i).getClosePrice().doubleValue();
             closePrices.add(BigDecimal.valueOf(closePrice));
         }
 
         // 计算收盘价的对数收益率
         List<BigDecimal> logReturns = new ArrayList<>();
-        for(int i = 1;i < closePrices.size();i++){
+        for (int i = 1; i < closePrices.size(); i++) {
             BigDecimal today = closePrices.get(i);
             BigDecimal yesterday = closePrices.get(i - 1);
 
-            if(yesterday.compareTo(BigDecimal.ZERO) <= 0){
+            if (yesterday.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
@@ -775,20 +770,20 @@ public class Ta4jBacktestService{
             logReturns.add(BigDecimal.valueOf(logReturn));
         }
 
-        if(logReturns.isEmpty()){
+        if (logReturns.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         // 计算对数收益率的平均值
         BigDecimal sum = BigDecimal.ZERO;
-        for(BigDecimal r: logReturns){
+        for (BigDecimal r : logReturns) {
             sum = sum.add(r);
         }
         BigDecimal mean = sum.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
 
         // 计算对数收益率的方差
         BigDecimal sumSquaredDiff = BigDecimal.ZERO;
-        for(BigDecimal r: logReturns){
+        for (BigDecimal r : logReturns) {
             BigDecimal diff = r.subtract(mean);
             sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
         }
@@ -811,8 +806,8 @@ public class Ta4jBacktestService{
      * @param endTime     结束时间
      * @return 年化收益率（百分比）
      */
-    private BigDecimal calculateAnnualizedReturn(BigDecimal totalReturn, LocalDateTime startTime, LocalDateTime endTime){
-        if(totalReturn == null || startTime == null || endTime == null || startTime.isAfter(endTime)){
+    private BigDecimal calculateAnnualizedReturn(BigDecimal totalReturn, LocalDateTime startTime, LocalDateTime endTime) {
+        if (totalReturn == null || startTime == null || endTime == null || startTime.isAfter(endTime)) {
             log.warn("计算年化收益率的参数无效");
             return BigDecimal.ZERO;
         }
@@ -827,7 +822,7 @@ public class Ta4jBacktestService{
         long daysBetween = ChronoUnit.DAYS.between(startTime, endTime);
 
         // 避免除以零错误
-        if(daysBetween <= 0){
+        if (daysBetween <= 0) {
             return totalReturn; // 如果时间跨度小于1天，直接返回总收益率
         }
 
@@ -842,7 +837,7 @@ public class Ta4jBacktestService{
         // 计算(1 + returnRate)^(365/daysBetween)
         // 使用对数计算幂: exp(exponent * ln(base))
         BigDecimal result;
-        try{
+        try {
             double baseDouble = base.doubleValue();
             double exponentDouble = exponent.doubleValue();
             double power = Math.pow(baseDouble, exponentDouble);
@@ -850,7 +845,7 @@ public class Ta4jBacktestService{
             // 转换回BigDecimal并减去1
             result = new BigDecimal(power).subtract(BigDecimal.ONE);
 
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("计算年化收益率时出错", e);
             return BigDecimal.ZERO;
         }
@@ -866,21 +861,21 @@ public class Ta4jBacktestService{
      * @param benchmarkReturns 基准每日收益率序列
      * @return 包含Alpha和Beta的数组 [Alpha, Beta]
      */
-    public static double[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns){
+    public static double[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
         // 添加空值检查和长度验证，避免抛出异常
-        if(strategyReturns == null || strategyReturns.isEmpty()){
+        if (strategyReturns == null || strategyReturns.isEmpty()) {
             System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
             return new double[]{0.0, 1.0};
         }
 
-        if(benchmarkReturns == null || benchmarkReturns.isEmpty()){
+        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
             System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
             return new double[]{0.0, 1.0};
         }
 
         // 如果长度不匹配，取较短的长度，避免抛出异常
         int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
-        if(minLength == 0){
+        if (minLength == 0) {
             System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
             return new double[]{0.0, 1.0};
         }
@@ -901,7 +896,7 @@ public class Ta4jBacktestService{
         double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
 
         // 计算协方差和基准方差
-        for(int i = 0;i < n;i++){
+        for (int i = 0; i < n; i++) {
             double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
             double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
 
@@ -913,7 +908,7 @@ public class Ta4jBacktestService{
         varianceBenchmark /= n; // 求平均方差
 
         // 防止除以0
-        double beta = varianceBenchmark == 0?0:covariance / varianceBenchmark;
+        double beta = varianceBenchmark == 0 ? 0 : covariance / varianceBenchmark;
 
         // Alpha = 策略平均收益 - Beta * 基准平均收益
         double alpha = meanStrategy - beta * meanBenchmark;
@@ -931,8 +926,8 @@ public class Ta4jBacktestService{
      * @param beta            策略的Beta值
      * @return Treynor比率，如果Beta为0返回0
      */
-    public static double calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, double beta){
-        if(strategyReturns == null || strategyReturns.isEmpty() || beta == 0){
+    public static double calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, double beta) {
+        if (strategyReturns == null || strategyReturns.isEmpty() || beta == 0) {
             return 0.0;
         }
         // 计算策略平均收益率
@@ -949,16 +944,16 @@ public class Ta4jBacktestService{
      * @param prices 收盘价序列
      * @return Ulcer Index（百分比形式）
      */
-    public static double calculateUlcerIndex(List<BigDecimal> prices){
-        if(prices == null || prices.isEmpty()) return 0.0;
+    public static double calculateUlcerIndex(List<BigDecimal> prices) {
+        if (prices == null || prices.isEmpty()) return 0.0;
 
         BigDecimal maxPeak = prices.get(0);           // 当前观察到的最大峰值价格
         double sumSquaredDrawdown = 0.0;          // 回撤平方和，用于计算均方根
         int n = prices.size();
 
-        for(BigDecimal price: prices){
+        for (BigDecimal price : prices) {
             // 更新峰值，如果当前价格高于峰值则更新峰值
-            if(price.compareTo(maxPeak) > 0){
+            if (price.compareTo(maxPeak) > 0) {
                 maxPeak = price;
             }
             // 计算当前回撤百分比 (负数表示跌幅)
@@ -978,15 +973,15 @@ public class Ta4jBacktestService{
      * @param returns 日收益率序列
      * @return 偏度值，接近0表示近似对称分布
      */
-    public static double calculateSkewness(List<BigDecimal> returns){
-        if(returns == null || returns.size() < 3) return 0.0;
+    public static double calculateSkewness(List<BigDecimal> returns) {
+        if (returns == null || returns.size() < 3) return 0.0;
 
         int n = returns.size();
         double mean = returns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
         double m2 = 0.0;  // 二阶中心矩（方差的分子）
         double m3 = 0.0;  // 三阶中心矩
 
-        for(BigDecimal x: returns){
+        for (BigDecimal x : returns) {
             double diff = x.doubleValue() - mean;
             m2 += diff * diff;
             m3 += diff * diff * diff;
@@ -996,7 +991,7 @@ public class Ta4jBacktestService{
         m3 /= n;
 
         double sd = Math.sqrt(m2); // 标准差
-        if(sd == 0.0) return 0.0;
+        if (sd == 0.0) return 0.0;
 
         return m3 / (sd * sd * sd);
     }
@@ -1009,15 +1004,15 @@ public class Ta4jBacktestService{
      * @param returns 日收益率序列
      * @return 超额峰度值
      */
-    public static double calculateKurtosis(List<Double> returns){
-        if(returns == null || returns.size() < 4) return 0.0;
+    public static double calculateKurtosis(List<Double> returns) {
+        if (returns == null || returns.size() < 4) return 0.0;
 
         int n = returns.size();
         double mean = returns.stream().mapToDouble(d -> d).average().orElse(0.0);
         double m2 = 0.0;  // 二阶中心矩
         double m4 = 0.0;  // 四阶中心矩
 
-        for(double x: returns){
+        for (double x : returns) {
             double diff = x - mean;
             m2 += diff * diff;
             m4 += diff * diff * diff * diff;
@@ -1026,7 +1021,7 @@ public class Ta4jBacktestService{
         m2 /= n;
         m4 /= n;
 
-        if(m2 == 0.0) return 0.0;
+        if (m2 == 0.0) return 0.0;
 
         return (m4 / (m2 * m2)) - 3.0; // 超额峰度
     }
@@ -1038,15 +1033,15 @@ public class Ta4jBacktestService{
      * @param returns 日收益率序列
      * @return R平方值，范围[0,1]
      */
-    public static double calculateStabilityOfReturn(List<Double> returns){
-        if(returns == null || returns.size() < 2) return 0.0;
+    public static double calculateStabilityOfReturn(List<Double> returns) {
+        if (returns == null || returns.size() < 2) return 0.0;
 
         int n = returns.size();
 
         // 时间序列X，收益序列Y
         double sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0, sumY2 = 0.0;
 
-        for(int i = 0;i < n;i++){
+        for (int i = 0; i < n; i++) {
             double x = i + 1;           // 时间从1开始
             double y = returns.get(i);
 
@@ -1060,7 +1055,7 @@ public class Ta4jBacktestService{
         double numerator = n * sumXY - sumX * sumY;
         double denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
 
-        if(denominator == 0.0) return 0.0;
+        if (denominator == 0.0) return 0.0;
 
         double r = numerator / denominator;
 

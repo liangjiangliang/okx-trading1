@@ -16,6 +16,8 @@ import java.time.temporal.ChronoUnit;
 import java.time.ZonedDateTime;
 import java.util.*;
 
+import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
+
 /**
  * 回测指标计算器
  * 负责计算各种回测指标，包括收益率、风险指标、交易统计等
@@ -34,6 +36,7 @@ public class BacktestMetricsCalculator {
     private final String strategyType;
     private final String paramDescription;
     private final BigDecimal feeRatio;
+    private final String interval;
 
     // 中间计算结果
     private List<TradeRecordDTO> tradeRecords;
@@ -56,13 +59,14 @@ public class BacktestMetricsCalculator {
      */
     public BacktestMetricsCalculator(BarSeries series, TradingRecord tradingRecord,
                                      BigDecimal initialAmount, String strategyType,
-                                     String paramDescription, BigDecimal feeRatio) {
+                                     String paramDescription, BigDecimal feeRatio, String interval) {
         this.series = series;
         this.tradingRecord = tradingRecord;
         this.initialAmount = initialAmount;
         this.strategyType = strategyType;
         this.paramDescription = paramDescription;
         this.feeRatio = feeRatio;
+        this.interval = interval;
 
         // 在构造器中完成所有指标计算
         calculateAllMetrics();
@@ -440,13 +444,17 @@ public class BacktestMetricsCalculator {
 
         BigDecimal riskFreeRate = BigDecimal.valueOf(0.0001);
 
+        // 动态检测年化因子
+        int annualizationFactor = detectAnnualizationFactor(series);
+        log.info("检测到的年化因子: {}", annualizationFactor);
+
         // 计算夏普比率和索提诺比例 - 全周期策略收益率（包括未持仓期间的0收益）
         fullPeriodStrategyReturns = calculateFullPeriodStrategyReturns(series, tradingRecord, true);
-        metrics.sharpeRatio = Ta4jBacktestService.calculateSharpeRatio(fullPeriodStrategyReturns, riskFreeRate, 252);
+        metrics.sharpeRatio = Ta4jBacktestService.calculateSharpeRatio(fullPeriodStrategyReturns, riskFreeRate, annualizationFactor);
         metrics.omega = Ta4jBacktestService.calculateOmegaRatio(fullPeriodStrategyReturns, riskFreeRate);
 
         // 计算Sortino比率
-        metrics.sortinoRatio = Ta4jBacktestService.calculateSortinoRatio(fullPeriodStrategyReturns, riskFreeRate, 252);
+        metrics.sortinoRatio = Ta4jBacktestService.calculateSortinoRatio(fullPeriodStrategyReturns, riskFreeRate, annualizationFactor);
 
         // 计算所有日期的价格数据用于其他指标计算
         dailyPrices = new ArrayList<>();
@@ -456,7 +464,7 @@ public class BacktestMetricsCalculator {
         }
 
         // 计算波动率（基于收盘价）
-        metrics.volatility = calculateVolatility(series);
+        metrics.volatility = calculateVolatility(series, annualizationFactor);
 
         // Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
         // 暂时禁用基准数据获取，避免API限制问题
@@ -598,9 +606,63 @@ public class BacktestMetricsCalculator {
     }
 
     /**
+     * 动态检测年化因子
+     * 根据BarSeries的时间间隔自动检测合适的年化因子
+     */
+    private int detectAnnualizationFactor(BarSeries series) {
+        if (series == null || series.getBarCount() < 2) {
+            return 252; // 默认日级别
+        }
+
+        try {
+            // 获取前两个Bar的时间间隔
+            long minutesBetween = parseIntervalToMinutes(interval);
+
+            // 根据时间间隔判断数据周期
+            if (minutesBetween <= 1) {
+                // 1分钟级别: 1年 = 365天 * 24小时 * 60分钟 = 525,600
+                return 525600;
+            } else if (minutesBetween <= 5) {
+                // 5分钟级别: 525,600 / 5 = 105,120
+                return 105120;
+            } else if (minutesBetween <= 15) {
+                // 15分钟级别: 525,600 / 15 = 35,040
+                return 35040;
+            } else if (minutesBetween <= 30) {
+                // 30分钟级别: 525,600 / 30 = 17,520
+                return 17520;
+            } else if (minutesBetween <= 60) {
+                // 1小时级别: 365天 * 24小时 = 8,760
+                return 8760;
+            } else if (minutesBetween <= 240) {
+                // 4小时级别: 8,760 / 4 = 2,190
+                return 2190;
+            } else if (minutesBetween <= 360) {
+                // 6小时级别: 8,760 / 6 = 1,460
+                return 1460;
+            } else if (minutesBetween <= 720) {
+                // 12小时级别: 8,760 / 12 = 730
+                return 730;
+            } else if (minutesBetween <= 1440) {
+                // 1天级别: 365天
+                return 365;
+            } else if (minutesBetween <= 10080) {
+                // 1周级别: 52周
+                return 52;
+            } else {
+                // 1月级别: 12个月
+                return 12;
+            }
+        } catch (Exception e) {
+            log.warn("检测年化因子时出错，使用默认值252: {}", e.getMessage());
+            return 252; // 出错时使用默认日级别
+        }
+    }
+
+    /**
      * 计算波动率（基于收盘价）
      */
-    private BigDecimal calculateVolatility(BarSeries series) {
+    private BigDecimal calculateVolatility(BarSeries series, int annualizationFactor) {
         if (series == null || series.getBarCount() < 2) {
             return BigDecimal.ZERO;
         }
@@ -648,8 +710,8 @@ public class BacktestMetricsCalculator {
         // 计算标准差（波动率）
         BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
 
-        // 年化波动率（假设252个交易日）
-        BigDecimal annualizedVolatility = stdDev.multiply(BigDecimal.valueOf(Math.sqrt(252)));
+        // 年化波动率（使用动态年化因子）
+        BigDecimal annualizedVolatility = stdDev.multiply(BigDecimal.valueOf(Math.sqrt(annualizationFactor)));
 
         return annualizedVolatility.setScale(4, RoundingMode.HALF_UP);
     }
