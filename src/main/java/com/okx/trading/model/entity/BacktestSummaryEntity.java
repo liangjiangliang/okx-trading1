@@ -183,6 +183,48 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal totalFee;
 
     /**
+     * Omega比率（收益与风险的比值）
+     */
+    @Column(name = "omega", precision = 10, scale = 4)
+    private BigDecimal omega;
+
+    /**
+     * Alpha值（超额收益）
+     */
+    @Column(name = "alpha", precision = 10, scale = 4)
+    private BigDecimal alpha;
+
+    /**
+     * Beta值（系统性风险）
+     */
+    @Column(name = "beta", precision = 10, scale = 4)
+    private BigDecimal beta;
+
+    /**
+     * Treynor比率（风险调整收益指标）
+     */
+    @Column(name = "treynor_ratio", precision = 10, scale = 4)
+    private BigDecimal treynorRatio;
+
+    /**
+     * Ulcer指数（回撤深度和持续时间的综合指标）
+     */
+    @Column(name = "ulcer_index", precision = 10, scale = 4)
+    private BigDecimal ulcerIndex;
+
+    /**
+     * 偏度（收益分布的偏斜程度）
+     */
+    @Column(name = "skewness", precision = 10, scale = 4)
+    private BigDecimal skewness;
+
+    /**
+     * 盈利因子（总盈利/总亏损）
+     */
+    @Column(name = "profit_factor", precision = 10, scale = 4)
+    private BigDecimal profitFactor;
+
+    /**
      * 创建时间
      */
     @Column(name = "create_time")

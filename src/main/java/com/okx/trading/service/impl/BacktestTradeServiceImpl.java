@@ -147,6 +147,14 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .maximumLoss(backtestResult.getMaximumLoss())
                 .volatility(backtestResult.getVolatility())
                 .totalFee(backtestResult.getTotalFee())
+                // 新增指标字段
+                .omega(backtestResult.getOmega())
+                .alpha(backtestResult.getAlpha())
+                .beta(backtestResult.getBeta())
+                .treynorRatio(backtestResult.getTreynorRatio())
+                .ulcerIndex(backtestResult.getUlcerIndex())
+                .skewness(backtestResult.getSkewness())
+                .profitFactor(backtestResult.getProfitFactor())
                 .build();
 
         // 保存汇总信息
