@@ -318,7 +318,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         long intervalMinutes = getIntervalMinutes(interval);
         long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
         log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
-        List<CandlestickEntity> cachedData = new ArrayList<>();
+        TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
 
         // 先检查Redis Sorted Set缓存
         try {
@@ -338,11 +338,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                 }
 
                 if (!cachedData.isEmpty() && totalExpectedCount == cachedData.size()) {
-                    // 按时间排序
-                    cachedData.sort(CandlestickEntity::compareTo);
                     log.info("📦 从Redis Sorted Set获取历史K线数据, symbol: {}, interval: {}, 数量: {}, 时间范围: {} ~ {}",
                             symbol, interval, cachedData.size(), startTimeStr, endTime.toString());
-                    return cachedData;
+                    return cachedData.stream().collect(Collectors.toList());
                 }
             }
         } catch (Exception e) {

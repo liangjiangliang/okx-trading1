@@ -43,7 +43,7 @@ public class CandlestickBarSeriesConverter {
         }
 
         // 按时间排序
-        List<CandlestickEntity> sortedCandles = candlesticks.stream()
+        List<CandlestickEntity> sortedCandles = candlesticks.stream().distinct()
                 .sorted(Comparator.comparing(CandlestickEntity::getOpenTime))
                 .collect(Collectors.toList());
 
