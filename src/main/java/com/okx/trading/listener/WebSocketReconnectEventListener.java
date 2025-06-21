@@ -30,8 +30,8 @@ public class WebSocketReconnectEventListener {
     public void handleWebSocketReconnectEvent(WebSocketReconnectEvent event) {
         try {
             if (event.getType() == WebSocketReconnectEvent.ReconnectType.PUBLIC) {
-                log.info("检测到WebSocket公共频道重连，开始恢复价格数据");
-                
+//                log.info("检测到WebSocket公共频道重连，开始恢复价格数据");
+
                 // 强制更新所有订阅币种的价格
                 priceUpdateService.forceUpdateAllPrices();
             }
@@ -39,4 +39,4 @@ public class WebSocketReconnectEventListener {
             log.error("处理WebSocket重连事件失败", e);
         }
     }
-} 
+}

@@ -307,7 +307,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         log.info("预期数据点数量: {}", expectedTimes.size());
 
         // 获取数据库中已存在的时间点
-        List<LocalDateTime> existingTimes = data.stream().map(CandlestickEntity::getOpenTime).collect(Collectors.toList());
+        List<LocalDateTime> existingTimes = data.stream().filter(candlestick -> candlestick.getOpenTime() == null)
+                .map(CandlestickEntity::getOpenTime).collect(Collectors.toList());
         log.info("数据库中已有数据点数量: {}", existingTimes.size());
 
         // 计算缺失的时间点

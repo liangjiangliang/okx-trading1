@@ -281,7 +281,7 @@ public class MarketController {
         try {
             // 1. 计算需要获取的K线数量（基于时间范围和间隔）
             long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes +1;
+            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
             log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
 
             // 2. 从MySQL获取已经有的K线数量
@@ -296,7 +296,7 @@ public class MarketController {
             // 如果MySQL的数据已经足够，直接返回
             if (neededCount <= 0) {
                 log.info("✅ 数据已完整，无需获取新数据，直接返回MySQL中的 {} 条数据", existingCount);
-                // 将结果存入缓存（10分钟过期）
+                // 将结果存入缓存（10分钟过期）trades
                 try {
                     String cacheData = JSONArray.toJSONString(existingData);
                     redisCacheService.setCache(cacheKey, cacheData, 10);
@@ -309,6 +309,12 @@ public class MarketController {
             }
 
             // 4. 检查数据完整性，找出缺失的时间范围
+            if (existingData.isEmpty()) {
+                CandlestickEntity candlestick = new CandlestickEntity();
+                candlestick.setSymbol(symbol);
+                candlestick.setIntervalVal(interval);
+                existingData.add(candlestick);
+            }
             List<LocalDateTime> missingTimePoints = historicalDataService.checkDataIntegrity(existingData, startTime, endTime);
             log.info("🔍 发现 {} 个缺失的时间点需要获取", missingTimePoints.size());
 
@@ -331,7 +337,8 @@ public class MarketController {
                 if (range.isEmpty()) continue;
 
                 LocalDateTime rangeStart = range.get(0);
-                LocalDateTime rangeEnd = range.get(range.size() - 1).plusMinutes(intervalMinutes);
+                LocalDateTime rangeEnd = range.get(range.size() - 1);
+//                        .plusMinutes(intervalMinutes);
 
                 log.info("🔄 处理第 {} 个时间范围: {} 到 {} ({} 个数据点)",
                         i + 1, rangeStart, rangeEnd, range.size());
@@ -354,8 +361,8 @@ public class MarketController {
             // 6. 合并所有数据并按时间排序
             List<CandlestickEntity> allData = new ArrayList<>(existingData);
             allData.addAll(newlyFetchedData);
-            allData=allData.stream().distinct().collect(Collectors.toList());
-            allData.sort((a, b) -> a.getOpenTime().compareTo(b.getOpenTime()));
+            allData = allData.stream().distinct().collect(Collectors.toList());
+            Collections.sort(allData);
 
             log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",
                     allData.size(), existingCount, totalNewlyFetched, totalExpectedCount, totalExpectedCount - allData.size());
