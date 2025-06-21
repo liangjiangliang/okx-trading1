@@ -92,4 +92,34 @@ public interface RedisCacheService {
      * @return 删除是否成功
      */
     boolean deleteCache(String key);
+
+    /**
+     * 批量添加K线数据到Redis Sorted Set
+     *
+     * @param symbol 交易对符号，如 BTC-USDT
+     * @param interval K线间隔，如 1m, 5m, 1H, 1D
+     * @param candlesticks K线数据列表
+     * @param timeoutMinutes 过期时间（分钟）
+     */
+    void batchAddKlineToSortedSet(String symbol, String interval, java.util.List<com.okx.trading.model.entity.CandlestickEntity> candlesticks, long timeoutMinutes);
+
+    /**
+     * 从Redis Sorted Set获取K线数据
+     *
+     * @param symbol 交易对符号，如 BTC-USDT
+     * @param interval K线间隔，如 1m, 5m, 1H, 1D
+     * @param startScore 开始时间戳
+     * @param endScore 结束时间戳
+     * @return K线数据JSON字符串列表
+     */
+    Set<String> getKlineFromSortedSet(String symbol, String interval, double startScore, double endScore);
+
+    /**
+     * 清除指定符号和间隔的K线数据
+     *
+     * @param symbol 交易对符号，如 BTC-USDT
+     * @param interval K线间隔，如 1m, 5m, 1H, 1D
+     * @return 删除是否成功
+     */
+    boolean clearKlineSortedSet(String symbol, String interval);
 }

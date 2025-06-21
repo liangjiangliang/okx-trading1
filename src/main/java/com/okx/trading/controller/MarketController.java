@@ -15,6 +15,9 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,8 +33,10 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 
 import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 
@@ -50,6 +55,21 @@ public class MarketController {
     private final OkxApiService okxApiService;
     private final HistoricalDataService historicalDataService;
     private final RedisCacheService redisCacheService;
+
+    // 注入历史数据查询线程池
+    @Qualifier("historicalDataExecutorService")
+    private final ExecutorService historicalDataExecutorService;
+
+    // 判断是否为开发环境，用于控制日志详细程度
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
+
+    /**
+     * 判断是否为开发环境
+     */
+    private boolean isDevelopmentEnvironment() {
+        return "dev".equals(activeProfile) || "development".equals(activeProfile);
+    }
 
     /**
      * 获取K线数据
@@ -262,27 +282,45 @@ public class MarketController {
             log.info("⚠️ 检测到查询时间包含未完成的周期，已调整结束时间: {} → {}", endTime, adjustedEndTime);
             endTime = adjustedEndTime;
         }
-        // 生成缓存键
-        String cacheKey = String.format("history_data:%s:%s:%s:%s", symbol, interval, startTimeStr, endTime.toString());
-        // 先检查缓存
+
+        // 计算需要获取的K线数量（基于时间范围和间隔）
+        long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
+        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
+        log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
+        List<CandlestickEntity> cachedData = new ArrayList<>();
+
+        // 先检查Redis Sorted Set缓存
         try {
-            List<CandlestickEntity> fromCacheData = JSONArray.parseArray(redisCacheService.getCache(cacheKey, String.class), CandlestickEntity.class);
-            ApiResponse<List<CandlestickEntity>> cachedResult = ApiResponse.success(fromCacheData);
-            if (cachedResult != null && cachedResult.getData() != null && cachedResult.getData().size() > 0) {
-//                log.info("📦 从缓存获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",symbol, interval, startTimeStr, endTimeStr);
-                return cachedResult;
+            long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+            Set<String> cachedJsonSet = redisCacheService.getKlineFromSortedSet(symbol, interval, startTimestamp, endTimestamp);
+
+            if (!cachedJsonSet.isEmpty()) {
+                for (String jsonStr : cachedJsonSet) {
+                    try {
+                        CandlestickEntity entity = CandlestickEntity.fromJSONObject(jsonStr);
+                        cachedData.add(entity);
+                    } catch (Exception e) {
+                        log.warn("⚠️ 解析缓存K线数据失败: {}", e.getMessage());
+                    }
+                }
+
+                if (!cachedData.isEmpty() && totalExpectedCount == cachedData.size()) {
+                    // 按时间排序
+                    cachedData.sort(CandlestickEntity::compareTo);
+                    log.info("📦 从Redis Sorted Set获取历史K线数据, symbol: {}, interval: {}, 数量: {}, 时间范围: {} ~ {}",
+                            symbol, interval, cachedData.size(), startTimeStr, endTime.toString());
+                    return ApiResponse.success(cachedData);
+                }
             }
         } catch (Exception e) {
-            log.warn("⚠️ 获取缓存失败，继续执行原逻辑: {}", e.getMessage());
+            log.warn("⚠️ 从Redis Sorted Set获取缓存失败，继续执行原逻辑: {}", e.getMessage());
         }
 
         log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}", symbol, interval, startTimeStr, endTimeStr);
 
         try {
-            // 1. 计算需要获取的K线数量（基于时间范围和间隔）
-            long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-            long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
-            log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
 
             // 2. 从MySQL获取已经有的K线数量
             List<CandlestickEntity> existingData = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
@@ -296,13 +334,14 @@ public class MarketController {
             // 如果MySQL的数据已经足够，直接返回
             if (neededCount <= 0) {
                 log.info("✅ 数据已完整，无需获取新数据，直接返回MySQL中的 {} 条数据", existingCount);
-                // 将结果存入缓存（10分钟过期）trades
+                // 将结果存入Redis Sorted Set（24小时过期）
                 try {
-                    String cacheData = JSONArray.toJSONString(existingData);
-                    redisCacheService.setCache(cacheKey, cacheData, 10);
-                    log.info("💾 历史K线数据已缓存，key: {}, 过期时间: 10分钟", cacheKey);
+                    List<CandlestickEntity> cacheData = existingData.stream().filter(entity -> !cachedData.contains(entity)).collect(Collectors.toList());
+                    redisCacheService.batchAddKlineToSortedSet(symbol, interval, cacheData, 24 * 60);
+                    log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
+                            symbol, interval, existingData.size());
                 } catch (Exception e) {
-                    log.warn("⚠️ 缓存历史K线数据失败: {}", e.getMessage());
+                    log.warn("⚠️ 存储历史K线数据到Redis Sorted Set失败: {}", e.getMessage());
                 }
 
                 return ApiResponse.success(existingData);
@@ -323,14 +362,16 @@ public class MarketController {
                 return ApiResponse.success(existingData);
             }
 
-            // 5. 按每批300条分批获取缺失数据
-            List<CandlestickEntity> newlyFetchedData = new ArrayList<>();
+            // 5. 使用多线程并行获取缺失数据
+            List<CandlestickEntity> newlyFetchedData = Collections.synchronizedList(new ArrayList<>());
             int batchSize = 300;
-            int totalNewlyFetched = 0;
 
             // 将缺失时间点按连续范围分组，便于批量处理
             List<List<LocalDateTime>> timeRanges = groupConsecutiveTimePoints(missingTimePoints, intervalMinutes);
             log.info("📦 缺失数据被分为 {} 个连续时间范围", timeRanges.size());
+
+            // 创建并行任务列表
+            List<CompletableFuture<List<CandlestickEntity>>> futures = new ArrayList<>();
 
             for (int i = 0; i < timeRanges.size(); i++) {
                 List<LocalDateTime> range = timeRanges.get(i);
@@ -338,45 +379,93 @@ public class MarketController {
 
                 LocalDateTime rangeStart = range.get(0);
                 LocalDateTime rangeEnd = range.get(range.size() - 1);
-//                        .plusMinutes(intervalMinutes);
+                final int rangeIndex = i + 1;
 
-                log.info("🔄 处理第 {} 个时间范围: {} 到 {} ({} 个数据点)",
-                        i + 1, rangeStart, rangeEnd, range.size());
+                log.info("🔄 准备并行处理第 {} 个时间范围: {} 到 {} ({} 个数据点)",
+                        rangeIndex, rangeStart, rangeEnd, range.size());
 
-                // 按批次获取这个范围的数据，每批100条
-                List<CandlestickEntity> rangeData = fetchRangeDataInBatches(
-                        symbol, interval, rangeStart, rangeEnd, batchSize, intervalMinutes);
+                // 创建异步任务
+                CompletableFuture<List<CandlestickEntity>> future = CompletableFuture
+                        .supplyAsync(() -> {
+                            try {
+                                if (isDevelopmentEnvironment()) {
+                                    log.info("🧵 线程 {} 开始处理第 {} 个时间范围", Thread.currentThread().getName(), rangeIndex);
+                                }
 
-                newlyFetchedData.addAll(rangeData);
-                totalNewlyFetched += rangeData.size();
+                                // 按批次获取这个范围的数据
+                                List<CandlestickEntity> rangeData = fetchRangeDataInBatches(
+                                        symbol, interval, rangeStart, rangeEnd, batchSize, intervalMinutes);
 
-                // 添加延迟避免API限制
-                if (i < timeRanges.size() - 1) {
-                    Thread.sleep(200); // 200ms延迟
-                }
+                                if (isDevelopmentEnvironment()) {
+                                    log.info("✅ 线程 {} 完成第 {} 个时间范围，获取了 {} 条数据",
+                                            Thread.currentThread().getName(), rangeIndex, rangeData.size());
+                                }
+
+                                return rangeData;
+                            } catch (Exception e) {
+                                log.error("❌ 线程 {} 处理第 {} 个时间范围失败: {}",
+                                        Thread.currentThread().getName(), rangeIndex, e.getMessage(), e);
+                                return new ArrayList<>();
+                            }
+                        }, historicalDataExecutorService);
+
+                futures.add(future);
             }
 
-            log.info("🎉 API调用完成，总共新获取了 {} 条K线数据", totalNewlyFetched);
+            // 等待所有任务完成并收集结果
+            log.info("⏳ 等待 {} 个并行任务完成...", futures.size());
+            CompletableFuture<Void> allTasks = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+            try {
+                allTasks.join(); // 等待所有任务完成
+
+                // 收集所有结果
+                for (CompletableFuture<List<CandlestickEntity>> future : futures) {
+                    List<CandlestickEntity> rangeData = future.get();
+                    newlyFetchedData.addAll(rangeData);
+                }
+
+                log.info("🎉 所有并行任务完成，总共新获取了 {} 条K线数据", newlyFetchedData.size());
+
+            } catch (Exception e) {
+                log.error("❌ 等待并行任务完成时发生错误: {}", e.getMessage(), e);
+                throw new RuntimeException("并行获取数据失败", e);
+            }
 
             // 6. 合并所有数据并按时间排序
             List<CandlestickEntity> allData = new ArrayList<>(existingData);
             allData.addAll(newlyFetchedData);
-            allData = allData.stream().distinct().collect(Collectors.toList());
-            Collections.sort(allData);
+
+            // 过滤掉时间字段为null的数据，避免排序时出现NullPointerException
+            allData = allData.stream()
+                    .filter(Objects::nonNull)  // 过滤null对象
+                    .filter(entity -> entity.getOpenTime() != null)  // 过滤开盘时间字段为null的对象
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 安全地进行排序
+            try {
+                Collections.sort(allData);
+                log.info("📊 数据排序完成，最终有效数据: {} 条", allData.size());
+            } catch (Exception e) {
+                log.error("❌ 数据排序失败: {}", e.getMessage(), e);
+                // 如果排序失败，至少返回未排序的数据
+                log.warn("⚠️ 使用未排序的数据返回");
+            }
 
             log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",
-                    allData.size(), existingCount, totalNewlyFetched, totalExpectedCount, totalExpectedCount - allData.size());
+                    allData.size(), existingCount, newlyFetchedData.size(), totalExpectedCount, totalExpectedCount - allData.size());
 
             // 创建成功响应
             ApiResponse<List<CandlestickEntity>> successResponse = ApiResponse.success(allData);
 
-            // 将结果存入缓存（10分钟过期）
+            // 将结果存入Codis的Sorted Set（24小时过期）
             try {
-                String cacheData = JSONArray.toJSONString(allData);
-                redisCacheService.setCache(cacheKey, cacheData, 10);
-                log.info("💾 历史K线数据已缓存，key: {}, 过期时间: 10分钟", cacheKey);
+                redisCacheService.batchAddKlineToSortedSet(symbol, interval, allData, 24 * 60); // 24小时 = 1440分钟
+                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
+                        symbol, interval, allData.size());
             } catch (Exception e) {
-                log.warn("⚠️ 缓存历史K线数据失败: {}", e.getMessage());
+                log.warn("⚠️ 存储历史K线数据到Redis Sorted Set失败: {}", e.getMessage());
             }
 
             return successResponse;
@@ -423,56 +512,98 @@ public class MarketController {
     }
 
     /**
-     * 按每批100条分批获取指定时间范围的数据
+     * 按每批100条分批获取指定时间范围的数据（使用多线程并行处理）
      */
     private List<CandlestickEntity> fetchRangeDataInBatches(String symbol, String interval,
                                                             LocalDateTime startTime, LocalDateTime endTime, int batchSize, long intervalMinutes) {
-        List<CandlestickEntity> result = new ArrayList<>();
+        List<CandlestickEntity> result = Collections.synchronizedList(new ArrayList<>());
+        List<CompletableFuture<List<CandlestickEntity>>> batchFutures = new ArrayList<>();
 
         LocalDateTime currentStart = startTime;
         int batchCount = 0;
 
+        // 准备所有批次的任务
         while (currentStart.isBefore(endTime)) {
             batchCount++;
+            final int currentBatchNumber = batchCount;
 
-            // 计算当前批次的结束时间 (每批100条)
+            // 计算当前批次的结束时间
             LocalDateTime currentEnd = currentStart.plusMinutes(intervalMinutes * batchSize);
             if (currentEnd.isAfter(endTime)) {
                 currentEnd = endTime;
             }
 
+            final LocalDateTime finalCurrentStart = currentStart;
+            final LocalDateTime finalCurrentEnd = currentEnd;
+
             // 计算实际需要获取的条数
-            long expectedCount = ChronoUnit.MINUTES.between(currentStart, currentEnd) / intervalMinutes;
+            long expectedCount = ChronoUnit.MINUTES.between(finalCurrentStart, finalCurrentEnd) / intervalMinutes;
 
-            try {
-                log.info("  📥 获取第 {} 批数据: {} 到 {} (预期 {} 条)",
-                        batchCount, currentStart, currentEnd, expectedCount);
+            // 创建异步任务
+            CompletableFuture<List<CandlestickEntity>> batchFuture = CompletableFuture
+                    .supplyAsync(() -> {
+                        try {
+                            if (log.isDebugEnabled()) {
+                                log.debug("  📥 线程 {} 获取第 {} 批数据: {} 到 {} (预期 {} 条)",
+                                        Thread.currentThread().getName(), currentBatchNumber,
+                                        finalCurrentStart, finalCurrentEnd, expectedCount);
+                            }
 
-                // 调用API获取数据 (将LocalDateTime转换为时间戳)
-                long startTimestamp = currentStart.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-                long endTimestamp = currentEnd.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-                List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
+                            // 调用API获取数据 (将LocalDateTime转换为时间戳)
+                            long startTimestamp = finalCurrentStart.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                            long endTimestamp = finalCurrentEnd.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-                if (apiData != null && !apiData.isEmpty()) {
-                    // 转换并保存数据到MySQL
-                    List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
-                    result.addAll(entities);
-                    log.info("  ✅ 第 {} 批数据获取成功，实际获得 {} 条数据", batchCount, entities.size());
-                } else {
-                    log.warn("  ⚠️ 第 {} 批数据获取结果为空: {} 到 {}", batchCount, currentStart, currentEnd);
-                }
+                            // 添加随机延迟避免API限制（50-150ms）
+                            Thread.sleep(50 + (int) (Math.random() * 100));
 
-                // 添加延迟避免API限制
-                Thread.sleep(100);
+                            List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
 
-            } catch (Exception e) {
-                log.error("  ❌ 第 {} 批数据获取失败: {} 到 {}, 错误: {}", batchCount, currentStart, currentEnd, e.getMessage());
-            }
+                            if (apiData != null && !apiData.isEmpty()) {
+                                // 转换并保存数据到MySQL
+                                List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
 
-            currentStart = currentEnd;
+                                if (log.isDebugEnabled()) {
+                                    log.debug("  ✅ 线程 {} 第 {} 批数据获取成功，实际获得 {} 条数据",
+                                            Thread.currentThread().getName(), currentBatchNumber, entities.size());
+                                }
+
+                                return entities;
+                            } else {
+                                log.warn("  ⚠️ 线程 {} 第 {} 批数据获取结果为空: {} 到 {}",
+                                        Thread.currentThread().getName(), currentBatchNumber, finalCurrentStart, finalCurrentEnd);
+                                return new ArrayList<>();
+                            }
+
+                        } catch (Exception e) {
+                            log.error("  ❌ 线程 {} 第 {} 批数据获取失败: {} 到 {}, 错误: {}",
+                                    Thread.currentThread().getName(), currentBatchNumber, finalCurrentStart, finalCurrentEnd, e.getMessage());
+                            return new ArrayList<>();
+                        }
+                    }, historicalDataExecutorService);
+
+            batchFutures.add(batchFuture);
+            currentStart = finalCurrentEnd;
         }
 
-        log.info("  🏁 范围数据获取完成，共处理 {} 批，获得 {} 条数据", batchCount, result.size());
+        // 等待所有批次任务完成
+        log.info("  ⏳ 准备并行执行 {} 个批次任务...", batchFutures.size());
+        CompletableFuture<Void> allBatches = CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0]));
+
+        try {
+            allBatches.join(); // 等待所有批次完成
+
+            // 收集所有批次结果
+            for (CompletableFuture<List<CandlestickEntity>> future : batchFutures) {
+                List<CandlestickEntity> batchData = future.get();
+                result.addAll(batchData);
+            }
+
+            log.info("  🏁 范围数据获取完成，共处理 {} 批，获得 {} 条数据", batchCount, result.size());
+
+        } catch (Exception e) {
+            log.error("  ❌ 等待批次任务完成时发生错误: {}", e.getMessage(), e);
+        }
+
         return result;
     }
 
@@ -578,20 +709,30 @@ public class MarketController {
         List<CandlestickEntity> entities = new ArrayList<>();
 
         for (Candlestick candlestick : candlesticks) {
-            CandlestickEntity entity = new CandlestickEntity();
-            entity.setSymbol(symbol);
-            entity.setIntervalVal(interval);
-            entity.setOpenTime(candlestick.getOpenTime());
-            entity.setCloseTime(candlestick.getCloseTime());
-            entity.setOpen(candlestick.getOpen());
-            entity.setHigh(candlestick.getHigh());
-            entity.setLow(candlestick.getLow());
-            entity.setClose(candlestick.getClose());
-            entity.setVolume(candlestick.getVolume());
-            entity.setQuoteVolume(candlestick.getQuoteVolume());
-            entity.setTrades(candlestick.getTrades());
-            entity.setFetchTime(LocalDateTime.now());
-            entities.add(entity);
+            try {
+                // 验证必要字段不为空
+                if (candlestick == null || candlestick.getOpenTime() == null) {
+                    log.warn("⚠️ 跳过无效的K线数据: openTime为null");
+                    continue;
+                }
+
+                CandlestickEntity entity = new CandlestickEntity();
+                entity.setSymbol(symbol);
+                entity.setIntervalVal(interval);
+                entity.setOpenTime(candlestick.getOpenTime());
+                entity.setCloseTime(candlestick.getCloseTime());
+                entity.setOpen(candlestick.getOpen());
+                entity.setHigh(candlestick.getHigh());
+                entity.setLow(candlestick.getLow());
+                entity.setClose(candlestick.getClose());
+                entity.setVolume(candlestick.getVolume());
+                entity.setQuoteVolume(candlestick.getQuoteVolume());
+                entity.setTrades(candlestick.getTrades());
+                entity.setFetchTime(LocalDateTime.now());
+                entities.add(entity);
+            } catch (Exception e) {
+                log.error("❌ 转换K线数据失败: {}", e.getMessage(), e);
+            }
         }
 
         try {
