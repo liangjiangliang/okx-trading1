@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@Component
 public class HistoricalDataServiceImpl implements HistoricalDataService {
 
     private final OkxApiService okxApiService;
@@ -347,7 +346,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
             log.warn("⚠️ 从Redis Sorted Set获取缓存失败，继续执行原逻辑: {}", e.getMessage());
         }
 
-        log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}", symbol, interval, startTimeStr, endTimeStr);
+//        log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}", symbol, interval, startTimeStr, endTimeStr);
 
 
         // 2. 从MySQL获取已经有的K线数量
@@ -504,9 +503,11 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     public List<LocalDateTime> checkDataIntegrity(List<CandlestickEntity> data, LocalDateTime startTime, LocalDateTime endTime) {
         String symbol = data.get(0).getSymbol();
         String interval = data.get(0).getIntervalVal();
-        log.info("检查数据完整性: symbol={}, interval={}, startTime={}, endTime={}",
-                data.get(0), interval, startTime, endTime);
-
+//        log.info("检查数据完整性: symbol={}, interval={}, startTime={}, endTime={}", data.get(0), interval, startTime, endTime);
+        LocalDateTime endBound = LocalDateTime.now().minusDays(1);
+        if (endTime.isAfter(endBound)) {
+            endTime = LocalDateTime.of(endBound.getYear(), endBound.getMonth(), endBound.getDayOfMonth(), 0, 0, 0);
+        }
         // 获取预期的所有时间点
         List<LocalDateTime> expectedTimes = generateExpectedTimePoints(interval, startTime, endTime);
         log.info("预期数据点数量: {}", expectedTimes.size());
@@ -728,7 +729,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     }
 
     /**
-     * 获取间隔对应的分钟数
+     * 获取间隔对应的分钟数  周期间隔分钟数 月期间隔分钟数  年期间隔分钟数  默认1分钟  Ralph
      */
     @Override
     public long getIntervalMinutes(String interval) {

@@ -3,6 +3,7 @@ package com.okx.trading.service.impl;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
+import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.RealTimeOrderService;
 import com.okx.trading.controller.TradeController;
 import lombok.extern.slf4j.Slf4j;
@@ -34,13 +35,15 @@ public class RealTimeStrategyManager {
     private final OkxApiWebSocketServiceImpl webSocketService;
     private final RealTimeOrderService realTimeOrderService;
     private final TradeController tradeController;
+    private final HistoricalDataService historicalDataService;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
-                                   TradeController tradeController) {
+                                   TradeController tradeController, HistoricalDataService historicalDataService) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
+        this.historicalDataService = historicalDataService;
     }
 
     // 存储正在运行的策略信息
@@ -343,13 +346,14 @@ public class RealTimeStrategyManager {
     }
 
     /**
-     * 从Candlestick创建Bar
+     * 从Candlestick创建Bar  实时k线数据没有endTime，bar要求有endTime，所以需要创建一个endTime
      */
     private Bar createBarFromCandlestick(Candlestick candlestick) {
+        long intervalMinutes = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal());
         return BaseBar.builder()
-                .timePeriod(java.time.Duration.ofMinutes(1)) // 根据实际interval调整
-                .endTime(candlestick.getCloseTime().atZone(ZoneId.systemDefault()))
+                .timePeriod(java.time.Duration.ofMinutes(intervalMinutes)) // 根据实际interval调整
                 .openPrice(DecimalNum.valueOf(candlestick.getOpen()))
+                .endTime(candlestick.getCloseTime().atZone(ZoneId.systemDefault()))
                 .highPrice(DecimalNum.valueOf(candlestick.getHigh()))
                 .lowPrice(DecimalNum.valueOf(candlestick.getLow()))
                 .closePrice(DecimalNum.valueOf(candlestick.getClose()))

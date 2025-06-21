@@ -42,8 +42,10 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.Strategy;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.TimeoutException;
@@ -1110,15 +1112,16 @@ public class Ta4jBacktestController {
         String strategyCode = (String) state.get("strategyCode");
         String symbol = (String) state.get("symbol");
         String interval = (String) state.get("interval");
-        LocalDateTime endTime = (LocalDateTime) state.get("endTime");
+        String endTime = (String) state.get("endTime");
         Boolean simulated = (Boolean) state.get("simulated");
         String orderType = (String) state.get("orderType");
         BigDecimal tradeAmount = (BigDecimal) state.get("tradeAmount");
+        LocalDateTime endTimeFormated = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         try {
             // 启动实时策略管理器
             String strategyKey = realTimeStrategyManager.startRealTimeStrategy(
-                    strategyCode, symbol, interval, strategy, series, endTime,
+                    strategyCode, symbol, interval, strategy, series, endTimeFormated,
                     simulated, orderType, tradeAmount);
 
             log.info("实时策略已启动，策略键: {}", strategyKey);
@@ -1135,7 +1138,7 @@ public class Ta4jBacktestController {
             // 等待策略执行完成或超时
             try {
                 // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
-                long timeoutMillis = Duration.between(LocalDateTime.now(), endTime).toMillis() + 60000;
+                long timeoutMillis = Duration.between(LocalDateTime.now(), endTimeFormated).toMillis() + 60000;
                 return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 log.warn("实时策略执行超时，强制停止: strategyCode={}, symbol={}, interval={}",
