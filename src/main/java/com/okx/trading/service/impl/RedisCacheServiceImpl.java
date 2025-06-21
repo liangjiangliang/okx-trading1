@@ -10,11 +10,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Redis缓存服务实现类
@@ -219,6 +221,50 @@ public class RedisCacheServiceImpl implements RedisCacheService{
             }
         }catch(Exception e){
             log.error("初始化默认订阅币种失败: {}", e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void setCache(String key, Object value, long timeoutMinutes) {
+        try {
+            redisTemplate.opsForValue().set(key, value, timeoutMinutes, TimeUnit.MINUTES);
+            log.debug("设置缓存成功，key: {}, 过期时间: {} 分钟", key, timeoutMinutes);
+        } catch (Exception e) {
+            log.error("设置缓存失败，key: {}, error: {}", key, e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> T getCache(String key, Class<T> clazz) {
+        try {
+            Object value = redisTemplate.opsForValue().get(key);
+            if (value == null) {
+                log.debug("缓存不存在或已过期，key: {}", key);
+                return null;
+            }
+            log.debug("获取缓存成功，key: {}", key);
+            return (T) value;
+        } catch (Exception e) {
+            log.error("获取缓存失败，key: {}, error: {}", key, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    @Override
+    public boolean deleteCache(String key) {
+        try {
+            Boolean deleted = redisTemplate.delete(key);
+            boolean success = Boolean.TRUE.equals(deleted);
+            if (success) {
+                log.debug("删除缓存成功，key: {}", key);
+            } else {
+                log.debug("缓存不存在，key: {}", key);
+            }
+            return success;
+        } catch (Exception e) {
+            log.error("删除缓存失败，key: {}, error: {}", key, e.getMessage(), e);
+            return false;
         }
     }
 }

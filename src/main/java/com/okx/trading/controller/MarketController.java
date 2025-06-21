@@ -1,11 +1,13 @@
 package com.okx.trading.controller;
 
+import com.alibaba.fastjson.JSONArray;
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.OkxApiService;
+import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
@@ -24,10 +26,7 @@ import javax.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,6 +47,7 @@ public class MarketController {
 
     private final OkxApiService okxApiService;
     private final HistoricalDataService historicalDataService;
+    private final RedisCacheService redisCacheService;
 
     /**
      * 获取K线数据
@@ -249,6 +249,23 @@ public class MarketController {
             @NotBlank(message = "开始时间不能为空") @RequestParam String startTimeStr,
             @NotBlank(message = "结束时间不能为空") @RequestParam String endTimeStr) {
 
+        // 生成缓存键
+        String cacheKey = String.format("history_data:%s:%s:%s:%s", symbol, interval, startTimeStr, endTimeStr);
+
+        // 先检查缓存
+        try {
+
+            List<CandlestickEntity> fromCacheData = JSONArray.parseArray(redisCacheService.getCache(cacheKey, String.class), CandlestickEntity.class);
+            ApiResponse<List<CandlestickEntity>> cachedResult = ApiResponse.success(fromCacheData);
+            if (cachedResult != null && cachedResult.getData() != null && cachedResult.getData().size() > 0) {
+                log.info("📦 从缓存获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}",
+                        symbol, interval, startTimeStr, endTimeStr);
+                return cachedResult;
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ 获取缓存失败，继续执行原逻辑: {}", e.getMessage());
+        }
+
         log.info("🚀 智能获取历史K线数据开始, symbol: {}, interval: {}, startTime: {}, endTime: {}",
                 symbol, interval, startTimeStr, endTimeStr);
 
@@ -282,6 +299,16 @@ public class MarketController {
             // 如果MySQL的数据已经足够，直接返回
             if (neededCount <= 0) {
                 log.info("✅ 数据已完整，无需获取新数据，直接返回MySQL中的 {} 条数据", existingCount);
+                // 将结果存入缓存（10分钟过期）
+                try {
+
+                    String cacheData = JSONArray.toJSONString(existingData);
+                    redisCacheService.setCache(cacheKey, cacheData, 10);
+                    log.info("💾 历史K线数据已缓存，key: {}, 过期时间: 10分钟", cacheKey);
+                } catch (Exception e) {
+                    log.warn("⚠️ 缓存历史K线数据失败: {}", e.getMessage());
+                }
+
                 return ApiResponse.success(existingData);
             }
 
@@ -336,7 +363,19 @@ public class MarketController {
             log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",
                     allData.size(), existingCount, totalNewlyFetched, totalExpectedCount, totalExpectedCount - allData.size());
 
-            return ApiResponse.success(allData);
+            // 创建成功响应
+            ApiResponse<List<CandlestickEntity>> successResponse = ApiResponse.success(allData);
+
+            // 将结果存入缓存（10分钟过期）
+            try {
+                String cacheData = JSONArray.toJSONString(allData);
+                redisCacheService.setCache(cacheKey, cacheData, 10);
+                log.info("💾 历史K线数据已缓存，key: {}, 过期时间: 10分钟", cacheKey);
+            } catch (Exception e) {
+                log.warn("⚠️ 缓存历史K线数据失败: {}", e.getMessage());
+            }
+
+            return successResponse;
 
         } catch (Exception e) {
             log.error("❌ 智能获取历史K线数据失败: {}", e.getMessage(), e);

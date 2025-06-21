@@ -1,5 +1,6 @@
 package com.okx.trading.model.entity;
 
+import com.alibaba.fastjson.JSONObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "candlestick_history")
-public class CandlestickEntity implements Comparable<CandlestickEntity>{
+public class CandlestickEntity implements Comparable<CandlestickEntity> {
 
     /**
      * 自增主键ID
@@ -103,7 +104,16 @@ public class CandlestickEntity implements Comparable<CandlestickEntity>{
     private LocalDateTime fetchTime;
 
     @Override
-    public int compareTo(@NotNull CandlestickEntity o){
+    public int compareTo(@NotNull CandlestickEntity o) {
         return this.getOpenTime().compareTo(o.getOpenTime());
+    }
+
+    @Override
+    public String toString() {
+        return JSONObject.toJSONString(this);
+    }
+
+    public static CandlestickEntity fromJSONObject(String text) {
+        return JSONObject.parseObject(text, CandlestickEntity.class);
     }
 }

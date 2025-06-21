@@ -66,4 +66,30 @@ public interface RedisCacheService {
      * 仅当订阅列表为空时添加默认币种
      */
     void initDefaultSubscribedCoins();
+
+    /**
+     * 设置缓存数据
+     *
+     * @param key 缓存键
+     * @param value 缓存值
+     * @param timeoutMinutes 过期时间（分钟）
+     */
+    void setCache(String key, Object value, long timeoutMinutes);
+
+    /**
+     * 获取缓存数据
+     *
+     * @param key 缓存键
+     * @param clazz 返回值类型
+     * @return 缓存值，如果不存在或已过期返回null
+     */
+    <T> T getCache(String key, Class<T> clazz);
+
+    /**
+     * 删除缓存数据
+     *
+     * @param key 缓存键
+     * @return 删除是否成功
+     */
+    boolean deleteCache(String key);
 }
