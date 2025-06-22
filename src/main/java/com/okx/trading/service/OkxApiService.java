@@ -114,7 +114,7 @@ public interface OkxApiService {
      * @param interval  K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
      * @param startTime 开始时间戳（毫秒）
      * @param endTime   结束时间戳（毫秒）
-     * @param limit     获取数据条数，最大为1000
+     * @param limit     获取数据条数，最大为300
      * @return K线数据列表
      */
     List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);

@@ -315,7 +315,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 计算需要获取的K线数量（基于时间范围和间隔）
         long intervalMinutes = getIntervalMinutes(interval);
-        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes + 1;
+        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
         log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
         TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
 
@@ -364,7 +364,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
             // 将结果存入Redis Sorted Set（24小时过期）
             try {
                 List<CandlestickEntity> cacheData = existingData.stream().filter(entity -> !cachedData.contains(entity)).collect(Collectors.toList());
-                redisCacheService.batchAddKlineToSortedSet(symbol, interval, cacheData, 24 * 60);
+                if (!cacheData.isEmpty()) {
+                    redisCacheService.batchAddKlineToSortedSet(symbol, interval, cacheData, 24 * 60);
+                }
                 log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
                         symbol, interval, existingData.size());
             } catch (Exception e) {
@@ -504,10 +506,6 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         String symbol = data.get(0).getSymbol();
         String interval = data.get(0).getIntervalVal();
 //        log.info("检查数据完整性: symbol={}, interval={}, startTime={}, endTime={}", data.get(0), interval, startTime, endTime);
-        LocalDateTime endBound = LocalDateTime.now().minusDays(1);
-        if (endTime.isAfter(endBound)) {
-            endTime = LocalDateTime.of(endBound.getYear(), endBound.getMonth(), endBound.getDayOfMonth(), 0, 0, 0);
-        }
         // 获取预期的所有时间点
         List<LocalDateTime> expectedTimes = generateExpectedTimePoints(interval, startTime, endTime);
         log.info("预期数据点数量: {}", expectedTimes.size());
@@ -1146,57 +1144,57 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         switch (interval.toUpperCase()) {
             case "1W":
                 // 周线: 排除当前周 (周一为一周开始)
-                adjustedEndTime = now.with(java.time.DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.with(java.time.DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0).minusWeeks(1);
                 break;
             case "1D":
                 // 日线: 排除当前日
-                adjustedEndTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0).minusDays(1);
                 break;
             case "12H":
                 // 12小时线: 排除当前12小时周期 (0点或12点开始)
                 int currentHour = now.getHour();
                 int alignedHour = (currentHour >= 12) ? 12 : 0;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(12);
                 break;
             case "6H":
                 // 6小时线: 排除当前6小时周期 (0,6,12,18点开始)
                 currentHour = now.getHour();
                 alignedHour = (currentHour / 6) * 6;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(6);
                 break;
             case "4H":
                 // 4小时线: 排除当前4小时周期 (0,4,8,12,16,20点开始)
                 currentHour = now.getHour();
                 alignedHour = (currentHour / 4) * 4;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(4);
                 break;
             case "2H":
                 // 2小时线: 排除当前2小时周期
                 currentHour = now.getHour();
                 alignedHour = (currentHour / 2) * 2;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(2);
                 break;
             case "1H":
                 // 1小时线: 排除当前小时
-                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0).minusHours(1);
                 break;
             case "30M":
                 // 30分钟线: 排除当前30分钟周期 (0或30分开始)
                 int currentMinute = now.getMinute();
                 int alignedMinute = (currentMinute >= 30) ? 30 : 0;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(30);
                 break;
             case "15M":
                 // 15分钟线: 排除当前15分钟周期 (0,15,30,45分开始)
                 currentMinute = now.getMinute();
                 alignedMinute = (currentMinute / 15) * 15;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(15);
                 break;
             case "5M":
                 // 5分钟线: 排除当前5分钟周期
                 currentMinute = now.getMinute();
                 alignedMinute = (currentMinute / 5) * 5;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0);
+                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(5);
                 break;
             case "1M":
                 // 包含两种情况: 月线和1分钟线，通过上下文判断
@@ -1204,19 +1202,19 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                     // 如果结束时间是近期，可能是月线，排除当前月
                     LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
                     if (endTime.isAfter(monthStart)) {
-                        adjustedEndTime = monthStart;
+                        adjustedEndTime = monthStart.minusMonths(1);
                     } else {
                         // 1分钟线: 排除当前分钟
-                        adjustedEndTime = now.withSecond(0).withNano(0);
+                        adjustedEndTime = now.withSecond(0).withNano(0).minusMinutes(1);
                     }
                 } else {
                     // 1分钟线: 排除当前分钟
-                    adjustedEndTime = now.withSecond(0).withNano(0);
+                    adjustedEndTime = now.withSecond(0).withNano(0).minusMinutes(1);
                 }
                 break;
             default:
                 // 未知间隔，保守起见排除当前小时
-                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0);
+                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0).minusHours(1);
                 break;
         }
 
@@ -1271,85 +1269,33 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         int batchCount = 0;
 
         // 准备所有批次的任务
-        while (currentStart.isBefore(endTime)) {
-            batchCount++;
-            final int currentBatchNumber = batchCount;
+        // 调用API获取数据 (将LocalDateTime转换为时间戳)
+        long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        if (startTimestamp == endTimestamp) {
+            List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
+            // 转换并保存数据到MySQL
+            if (apiData != null && !apiData.isEmpty()) {
+                // 转换并保存数据到MySQL
+                List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
 
-            // 计算当前批次的结束时间
-            LocalDateTime currentEnd = currentStart.plusMinutes(intervalMinutes * batchSize);
-            if (currentEnd.isAfter(endTime)) {
-                currentEnd = endTime;
+                result.addAll(entities);
             }
+        } else {
+            while (currentStart.isBefore(endTime)) {
+                try {
+                    List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
 
-            final LocalDateTime finalCurrentStart = currentStart;
-            final LocalDateTime finalCurrentEnd = currentEnd;
-
-            // 计算实际需要获取的条数
-            long expectedCount = ChronoUnit.MINUTES.between(finalCurrentStart, finalCurrentEnd) / intervalMinutes;
-
-            // 创建异步任务
-            CompletableFuture<List<CandlestickEntity>> batchFuture = CompletableFuture
-                    .supplyAsync(() -> {
-                        try {
-                            if (log.isDebugEnabled()) {
-                                log.debug("  📥 线程 {} 获取第 {} 批数据: {} 到 {} (预期 {} 条)",
-                                        Thread.currentThread().getName(), currentBatchNumber,
-                                        finalCurrentStart, finalCurrentEnd, expectedCount);
-                            }
-
-                            // 调用API获取数据 (将LocalDateTime转换为时间戳)
-                            long startTimestamp = finalCurrentStart.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-                            long endTimestamp = finalCurrentEnd.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-                            // 添加随机延迟避免API限制（50-150ms）
-                            Thread.sleep(50 + (int) (Math.random() * 100));
-
-                            List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
-
-                            if (apiData != null && !apiData.isEmpty()) {
-                                // 转换并保存数据到MySQL
-                                List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
-
-                                if (log.isDebugEnabled()) {
-                                    log.debug("  ✅ 线程 {} 第 {} 批数据获取成功，实际获得 {} 条数据",
-                                            Thread.currentThread().getName(), currentBatchNumber, entities.size());
-                                }
-
-                                return entities;
-                            } else {
-                                log.warn("  ⚠️ 线程 {} 第 {} 批数据获取结果为空: {} 到 {}",
-                                        Thread.currentThread().getName(), currentBatchNumber, finalCurrentStart, finalCurrentEnd);
-                                return new ArrayList<>();
-                            }
-
-                        } catch (Exception e) {
-                            log.error("  ❌ 线程 {} 第 {} 批数据获取失败: {} 到 {}, 错误: {}",
-                                    Thread.currentThread().getName(), currentBatchNumber, finalCurrentStart, finalCurrentEnd, e.getMessage());
-                            return new ArrayList<>();
-                        }
-                    }, historicalDataExecutorService);
-
-            batchFutures.add(batchFuture);
-            currentStart = finalCurrentEnd;
-        }
-
-        // 等待所有批次任务完成
-        log.info("  ⏳ 准备并行执行 {} 个批次任务...", batchFutures.size());
-        CompletableFuture<Void> allBatches = CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0]));
-
-        try {
-            allBatches.join(); // 等待所有批次完成
-
-            // 收集所有批次结果
-            for (CompletableFuture<List<CandlestickEntity>> future : batchFutures) {
-                List<CandlestickEntity> batchData = future.get();
-                result.addAll(batchData);
+                    if (apiData != null && !apiData.isEmpty()) {
+                        // 转换并保存数据到MySQL
+                        List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
+                        result.addAll(entities);
+                    }
+                    currentStart = currentStart.plusMinutes(intervalMinutes);
+                } catch (Exception e) {
+                    log.error("  数据获取失败: {}", e.getMessage());
+                }
             }
-
-            log.info("  🏁 范围数据获取完成，共处理 {} 批，获得 {} 条数据", batchCount, result.size());
-
-        } catch (Exception e) {
-            log.error("  ❌ 等待批次任务完成时发生错误: {}", e.getMessage(), e);
         }
 
         return result;

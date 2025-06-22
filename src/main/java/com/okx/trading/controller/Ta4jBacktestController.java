@@ -44,6 +44,8 @@ import org.ta4j.core.Strategy;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.Duration;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -1034,8 +1036,18 @@ public class Ta4jBacktestController {
             StrategyInfoEntity strategy = strategyOpt.get();
 
             // 2. 获取历史100根K线数据作为基础数据
-            String startTime = LocalDateTime.now().minusMinutes(historicalDataService.getIntervalMinutes(interval) * kLineNum).format(dateFormat);
-            String endTime = LocalDateTime.now().format(dateFormat);
+            // 计算最近完整周期的开始时间作为endTime
+            LocalDateTime now = LocalDateTime.now();
+            long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
+
+            // 根据周期类型计算最近完整周期的开始时间
+            LocalDateTime endDateTime = calculateLastCompletePeriodStart(now, interval, intervalMinutes);
+
+            // 往前100个周期作为startTime
+            LocalDateTime startDateTime = endDateTime.minusMinutes(intervalMinutes * kLineNum);
+
+            String startTime = startDateTime.format(dateFormat);
+            String endTime = endDateTime.format(dateFormat);
 
             List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime, endTime);
             if (historicalData.isEmpty()) {
@@ -1264,6 +1276,51 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("获取实时订单记录失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "获取实时订单记录失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 计算最近完整周期的开始时间
+     *
+     * @param now             当前时间
+     * @param interval        周期字符串 (如: 1m, 5m, 1H, 1D, 1W, 1M)
+     * @param intervalMinutes 周期对应的分钟数
+     * @return 最近完整周期的开始时间
+     */
+    private LocalDateTime calculateLastCompletePeriodStart(LocalDateTime now, String interval, long intervalMinutes) {
+        String unit = interval.substring(interval.length() - 1);
+        int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+
+        switch (unit) {
+            case "m": // 分钟
+                // 对齐到最近的完整分钟周期
+                int currentMinute = now.getMinute();
+                int alignedMinute = (currentMinute / amount) * amount;
+                return now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(amount);
+
+            case "H": // 小时
+                // 对齐到最近的完整小时周期
+                int currentHour = now.getHour();
+                int alignedHour = (currentHour / amount) * amount;
+                return now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(amount);
+
+            case "D": // 天
+                // 对齐到最近的完整天周期 (UTC 0点开始)
+                return now.toLocalDate().atStartOfDay().minusDays(1);
+
+            case "W": // 周
+                // 对齐到最近的完整周周期 (周一开始)
+                LocalDate currentDate = now.toLocalDate();
+                LocalDate monday = currentDate.with(DayOfWeek.MONDAY);
+                return monday.atStartOfDay().minusWeeks(1);
+
+            case "M": // 月
+                // 对齐到最近的完整月周期 (月初开始)
+                return now.toLocalDate().withDayOfMonth(1).atStartOfDay().minusMonths(1);
+
+            default:
+                // 默认返回当前时间的分钟对齐
+                return now.withSecond(0).withNano(0).minusMinutes(1);
         }
     }
 

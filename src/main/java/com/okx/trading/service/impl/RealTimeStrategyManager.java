@@ -557,9 +557,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
             realTimeStrategyService.createRealTimeStrategy(strategyCode, symbol, interval, tradeAmount);
 
-            log.info("策略已保存到数据库: strategyCode={}, symbol={}, interval={}",
-                    strategyCode, symbol, interval);
-
         } catch (Exception e) {
             log.error("保存策略到数据库失败: strategyCode={}, error={}", strategyCode, e.getMessage(), e);
             throw e;

@@ -1109,6 +1109,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         return new HashSet<>(subscribedSymbols);
     }
 
+    /**
+     *
+     * @param symbol    交易对，如BTC-USDT
+     * @param interval  K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
+     * @param startTime 开始时间戳（毫秒） 不包括
+     * @param endTime   结束时间戳（毫秒） 不包括
+     * @param limit     获取数据条数，最大为300
+     * @return
+     */
     @Override
     public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit){
         try{
@@ -1118,7 +1127,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}",
                 symbol, interval, startTime, endTime, limit);
 
-            // 使用现有的已经注入的依赖，向REST API发起请求
+            // 使用现有的已经注入的依赖，向REST API发起请求  beafore 开始时间 after 结束时间  左开右开
             String url = okxApiConfig.getBaseUrl() + "/api/v5/market/history-candles";
             url = url + "?instId=" + symbol + "&bar=" + interval;
 

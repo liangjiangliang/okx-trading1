@@ -306,12 +306,6 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
             throw new IllegalArgumentException("策略信息代码、交易对和K线周期不能为空");
         }
-
-        // 检查策略代码是否已存在
-        if (existsByStrategyCodeAndSymbolAndInterval(strategyCode, symbol, interval)) {
-            throw new IllegalArgumentException("策略代码已存在: " + strategyCode);
-        }
-
         // 创建实时策略实体
         RealTimeStrategyEntity realTimeStrategy = RealTimeStrategyEntity.builder()
                 .strategyCode(strategyCode)
@@ -321,8 +315,15 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
                 .status("STOPPED")
                 .isActive(true)
                 .build();
+        // 检查策略代码是否已存在
+        if (!existsByStrategyCodeAndSymbolAndInterval(strategyCode, symbol, interval)) {
+            return saveRealTimeStrategy(realTimeStrategy);
+        } else {
+            log.warn("相同策略代码，相同币对，相同周期的实时策略已存在: {}, 跳过创建重复", strategyCode);
+            return realTimeStrategy;
+        }
 
-        return saveRealTimeStrategy(realTimeStrategy);
+
     }
 
     /**
