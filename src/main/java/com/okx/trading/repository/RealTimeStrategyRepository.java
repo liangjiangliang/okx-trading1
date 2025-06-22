@@ -34,10 +34,10 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
     /**
      * 根据策略信息代码查询有效的实时策略
      *
-     * @param strategyInfoCode 策略信息代码
+     * @param strategyCode 策略信息代码
      * @return 有效的实时策略列表
      */
-    List<RealTimeStrategyEntity> findByStrategyInfoCodeAndIsActiveTrueOrderByCreateTimeDesc(String strategyInfoCode);
+    List<RealTimeStrategyEntity> findByStrategyCodeAndIsActiveTrueOrderByCreateTimeDesc(String strategyCode);
 
     /**
      * 根据交易对查询有效的实时策略
@@ -75,7 +75,7 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      * 查询指定时间范围内创建的实时策略
      *
      * @param startTime 开始时间
-     * @param endTime 结束时间
+     * @param endTime   结束时间
      * @return 实时策略列表
      */
     List<RealTimeStrategyEntity> findByCreateTimeBetweenOrderByCreateTimeDesc(LocalDateTime startTime, LocalDateTime endTime);
@@ -91,12 +91,12 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
     /**
      * 根据策略信息代码和交易对查询是否存在运行中的策略
      *
-     * @param strategyInfoCode 策略信息代码
-     * @param symbol 交易对符号
-     * @param status 运行状态
+     * @param strategyCode 策略信息代码
+     * @param symbol       交易对符号
+     * @param status       运行状态
      * @return 是否存在
      */
-    boolean existsByStrategyInfoCodeAndSymbolAndStatusAndIsActiveTrue(String strategyInfoCode, String symbol, String status);
+    boolean existsByStrategyCodeAndSymbolAndStatusAndIsActiveTrue(String strategyCode, String symbol, String status);
 
     /**
      * 查询需要自动启动的策略（程序启动时加载）
@@ -113,11 +113,4 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      * @param strategyCode 策略代码
      */
     void deleteByStrategyCode(String strategyCode);
-
-    /**
-     * 根据策略信息代码删除相关的实时策略
-     *
-     * @param strategyInfoCode 策略信息代码
-     */
-    void deleteByStrategyInfoCode(String strategyInfoCode);
 }

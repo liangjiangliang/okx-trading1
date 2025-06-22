@@ -99,7 +99,7 @@ public class CandlestickBarSeriesConverter {
      */
     private Bar convertToBar(CandlestickEntity candle, Duration duration) {
         // 获取ZonedDateTime
-        ZonedDateTime dateTime = candle.getOpenTime().atZone(ZoneId.systemDefault());
+        ZonedDateTime endTime = candle.getCloseTime().atZone(ZoneId.systemDefault());
 
         // 获取价格和成交量数据
         Num openPrice = CandlestickAdapter.getOpen(candle);
@@ -116,7 +116,7 @@ public class CandlestickBarSeriesConverter {
                 .closePrice(closePrice)
                 .volume(DecimalNum.valueOf(volume != null ? volume : BigDecimal.ZERO))
                 .timePeriod(duration)
-                .endTime(dateTime)
+                .endTime(endTime)
                 .build();
     }
 

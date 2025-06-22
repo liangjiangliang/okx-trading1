@@ -44,10 +44,10 @@ public interface RealTimeStrategyService {
     /**
      * 根据策略信息代码获取有效的实时策略
      *
-     * @param strategyInfoCode 策略信息代码
+     * @param strategyCode 策略信息代码
      * @return 有效的实时策略列表
      */
-    List<RealTimeStrategyEntity> getActiveRealTimeStrategiesByInfoCode(String strategyInfoCode);
+    List<RealTimeStrategyEntity> getActiveRealTimeStrategiesByCode(String strategyCode);
 
     /**
      * 根据交易对获取有效的实时策略
@@ -85,7 +85,7 @@ public interface RealTimeStrategyService {
      * 获取指定时间范围内创建的实时策略
      *
      * @param startTime 开始时间
-     * @param endTime 结束时间
+     * @param endTime   结束时间
      * @return 实时策略列表
      */
     List<RealTimeStrategyEntity> getRealTimeStrategiesByTimeRange(LocalDateTime startTime, LocalDateTime endTime);
@@ -126,7 +126,7 @@ public interface RealTimeStrategyService {
      * 更新策略状态
      *
      * @param strategyCode 策略代码
-     * @param status 新状态
+     * @param status       新状态
      * @return 是否更新成功
      */
     boolean updateStrategyStatus(String strategyCode, String status);
@@ -135,7 +135,7 @@ public interface RealTimeStrategyService {
      * 更新策略状态和错误信息
      *
      * @param strategyCode 策略代码
-     * @param status 新状态
+     * @param status       新状态
      * @param errorMessage 错误信息
      * @return 是否更新成功
      */
@@ -168,10 +168,10 @@ public interface RealTimeStrategyService {
     /**
      * 根据策略信息代码删除相关的实时策略
      *
-     * @param strategyInfoCode 策略信息代码
+     * @param strategyCode 策略信息代码
      * @return 删除的策略数量
      */
-    int deleteRealTimeStrategiesByInfoCode(String strategyInfoCode);
+    int deleteRealTimeStrategiesByCode(String strategyCode);
 
     /**
      * 检查策略代码是否已存在
@@ -184,11 +184,11 @@ public interface RealTimeStrategyService {
     /**
      * 检查是否存在运行中的策略
      *
-     * @param strategyInfoCode 策略信息代码
-     * @param symbol 交易对符号
+     * @param strategyCode 策略信息代码
+     * @param symbol           交易对符号
      * @return 是否存在运行中的策略
      */
-    boolean hasRunningStrategy(String strategyInfoCode, String symbol);
+    boolean hasRunningStrategy(String strategyCode, String symbol);
 
     /**
      * 获取需要自动启动的策略（程序启动时加载）
@@ -200,17 +200,15 @@ public interface RealTimeStrategyService {
     /**
      * 创建新的实时策略
      *
-     * @param strategyCode 策略代码
-     * @param strategyInfoCode 策略信息代码
-     * @param symbol 交易对符号
-     * @param interval K线周期
-     * @param description 描述
-     * @param isSimulated 是否模拟交易
-     * @param orderType 订单类型
-     * @param tradeAmount 交易金额
+     * @param strategyCode     策略代码
+     * @param strategyCode 策略信息代码
+     * @param symbol           交易对符号
+     * @param interval         K线周期
+     * @param description      描述
+     * @param isSimulated      是否模拟交易
+     * @param orderType        订单类型
+     * @param tradeAmount      交易金额
      * @return 创建的实时策略
      */
-    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String strategyInfoCode, 
-                                                  String symbol, String interval, String description,
-                                                  Boolean isSimulated, String orderType, Double tradeAmount);
+    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount);
 }

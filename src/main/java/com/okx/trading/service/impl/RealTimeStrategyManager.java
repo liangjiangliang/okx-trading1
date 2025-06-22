@@ -3,9 +3,13 @@ package com.okx.trading.service.impl;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
+import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.RealTimeOrderService;
+import com.okx.trading.service.RealTimeStrategyService;
 import com.okx.trading.controller.TradeController;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -16,6 +20,7 @@ import org.ta4j.core.BaseBar;
 import org.ta4j.core.num.DecimalNum;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Map;
@@ -30,20 +35,24 @@ import java.util.ArrayList;
  */
 @Slf4j
 @Service
-public class RealTimeStrategyManager {
+public class RealTimeStrategyManager implements ApplicationRunner {
 
     private final OkxApiWebSocketServiceImpl webSocketService;
     private final RealTimeOrderService realTimeOrderService;
     private final TradeController tradeController;
     private final HistoricalDataService historicalDataService;
+    private final RealTimeStrategyService realTimeStrategyService;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
-                                   TradeController tradeController, HistoricalDataService historicalDataService) {
+                                   TradeController tradeController,
+                                   HistoricalDataService historicalDataService,
+                                   RealTimeStrategyService realTimeStrategyService) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
         this.historicalDataService = historicalDataService;
+        this.realTimeStrategyService = realTimeStrategyService;
     }
 
     // 存储正在运行的策略信息
@@ -59,9 +68,7 @@ public class RealTimeStrategyManager {
         private String interval;
         private Strategy strategy;
         private BarSeries series;
-        private LocalDateTime endTime;
-        private Boolean simulated;
-        private String orderType;
+        private LocalDateTime startTime;
         private BigDecimal tradeAmount;
         private Boolean isInPosition;
         private int totalTrades;
@@ -73,22 +80,19 @@ public class RealTimeStrategyManager {
 
         // 构造函数
         public StrategyRunningState(String strategyCode, String symbol, String interval,
-                                    Strategy strategy, BarSeries series, LocalDateTime endTime,
-                                    Boolean simulated, String orderType, BigDecimal tradeAmount) {
+                                    Strategy strategy, BarSeries series, BigDecimal tradeAmount, LocalDateTime startTime) {
             this.strategyCode = strategyCode;
             this.symbol = symbol;
             this.interval = interval;
             this.strategy = strategy;
             this.series = series;
-            this.endTime = endTime;
-            this.simulated = simulated;
-            this.orderType = orderType;
             this.tradeAmount = tradeAmount;
             this.isInPosition = false;
             this.totalTrades = 0;
             this.successfulTrades = 0;
             this.orders = new ArrayList<>();
             this.lastUpdateTime = LocalDateTime.now();
+            this.startTime = startTime;
         }
 
         // Getters and Setters
@@ -98,6 +102,22 @@ public class RealTimeStrategyManager {
 
         public String getSymbol() {
             return symbol;
+        }
+
+        public Boolean getInPosition() {
+            return isInPosition;
+        }
+
+        public void setInPosition(Boolean inPosition) {
+            isInPosition = inPosition;
+        }
+
+        public BigDecimal getTradeAmount() {
+            return tradeAmount;
+        }
+
+        public void setTradeAmount(BigDecimal tradeAmount) {
+            this.tradeAmount = tradeAmount;
         }
 
         public String getInterval() {
@@ -110,30 +130,6 @@ public class RealTimeStrategyManager {
 
         public BarSeries getSeries() {
             return series;
-        }
-
-        public LocalDateTime getEndTime() {
-            return endTime;
-        }
-
-        public Boolean getSimulated() {
-            return simulated;
-        }
-
-        public String getOrderType() {
-            return orderType;
-        }
-
-        public BigDecimal getTradeAmount() {
-            return tradeAmount;
-        }
-
-        public Boolean getIsInPosition() {
-            return isInPosition;
-        }
-
-        public void setIsInPosition(Boolean isInPosition) {
-            this.isInPosition = isInPosition;
         }
 
         public int getTotalTrades() {
@@ -185,8 +181,7 @@ public class RealTimeStrategyManager {
      * 启动实时策略
      */
     public String startRealTimeStrategy(String strategyCode, String symbol, String interval,
-                                        Strategy strategy, BarSeries series, LocalDateTime endTime,
-                                        Boolean simulated, String orderType, BigDecimal tradeAmount) {
+                                        Strategy strategy, BarSeries series, BigDecimal tradeAmount, LocalDateTime startTime) {
         String key = buildStrategyKey(strategyCode, symbol, interval);
 
         // 检查是否已经在运行
@@ -196,9 +191,14 @@ public class RealTimeStrategyManager {
         }
 
         // 创建策略运行状态
-        StrategyRunningState state = new StrategyRunningState(
-                strategyCode, symbol, interval, strategy, series, endTime,
-                simulated, orderType, tradeAmount);
+        StrategyRunningState state = new StrategyRunningState(strategyCode, symbol, interval, strategy, series, tradeAmount, startTime);
+
+        // 保存策略到MySQL（如果不存在）
+        try {
+            saveStrategyToDatabase(strategyCode, symbol, interval, tradeAmount.doubleValue());
+        } catch (Exception e) {
+            log.warn("保存策略到数据库失败: {}", e.getMessage());
+        }
 
         // 订阅K线数据
         try {
@@ -271,16 +271,11 @@ public class RealTimeStrategyManager {
      * 处理策略信号
      */
     private void processStrategySignal(String key, StrategyRunningState state, Candlestick candlestick) {
-        // 检查是否超过结束时间
-        if (LocalDateTime.now().isAfter(state.getEndTime())) {
-            log.info("策略已到达结束时间，停止运行: {}", key);
-            stopRealTimeStrategy(state.getStrategyCode(), state.getSymbol(), state.getInterval());
-            return;
-        }
 
-        // 更新BarSeries
+        // 更新BarSeries - 智能判断是更新还是添加新bar
         Bar newBar = createBarFromCandlestick(candlestick);
-        state.getSeries().addBar(newBar, true);
+        boolean shouldReplace = shouldReplaceLastBar(state.getSeries(), newBar, state.getInterval());
+        state.getSeries().addBar(newBar, shouldReplace);
 
         // 检查交易信号
         int currentIndex = state.getSeries().getEndIndex();
@@ -288,12 +283,12 @@ public class RealTimeStrategyManager {
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
         // 处理买入信号
-        if (shouldBuy && !state.getIsInPosition()) {
+        if (shouldBuy) {
             executeTradeSignal(state, candlestick, "BUY");
         }
 
         // 处理卖出信号
-        if (shouldSell && state.getIsInPosition()) {
+        if (shouldSell) {
             executeTradeSignal(state, candlestick, "SELL");
         }
 
@@ -303,19 +298,92 @@ public class RealTimeStrategyManager {
     }
 
     /**
+     * 判断是否应该替换最后一个bar（同一周期更新）还是添加新bar（不同周期）
+     *
+     * @param series   BarSeries
+     * @param newBar   新的Bar
+     * @param interval K线间隔
+     * @return true表示替换最后一个bar（同一周期），false表示添加新bar（不同周期）
+     */
+    private boolean shouldReplaceLastBar(BarSeries series, Bar newBar, String interval) {
+        // 如果series为空或没有bar，直接添加新bar
+        if (series.isEmpty()) {
+            return false;
+        }
+
+        Bar lastBar = series.getLastBar();
+        LocalDateTime newBarStartTime = newBar.getBeginTime().toLocalDateTime();
+        LocalDateTime lastBarStartTime = lastBar.getBeginTime().toLocalDateTime();
+
+        // 计算周期的开始时间
+        LocalDateTime newPeriodStart = getPeriodStartTime(newBarStartTime, interval);
+        LocalDateTime lastPeriodStart = getPeriodStartTime(lastBarStartTime, interval);
+
+        // 如果是同一个周期，则替换；否则添加新bar
+        return newPeriodStart.equals(lastPeriodStart);
+    }
+
+    /**
+     * 根据时间和间隔计算周期的开始时间
+     *
+     * @param dateTime 时间
+     * @param interval K线间隔（如1m, 5m, 1H, 1D等）
+     * @return 周期开始时间
+     */
+    private LocalDateTime getPeriodStartTime(LocalDateTime dateTime, String interval) {
+        if (dateTime == null || interval == null) {
+            return dateTime;
+        }
+
+        // 解析时间单位和数量
+        String unit = interval.substring(interval.length() - 1);
+        int amount;
+        try {
+            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+        } catch (NumberFormatException e) {
+            amount = 1;
+        }
+
+        switch (unit) {
+            case "m": // 分钟
+                int minute = dateTime.getMinute();
+                int periodMinute = (minute / amount) * amount;
+                return dateTime.withMinute(periodMinute).withSecond(0).withNano(0);
+
+            case "H": // 小时
+                int hour = dateTime.getHour();
+                int periodHour = (hour / amount) * amount;
+                return dateTime.withHour(periodHour).withMinute(0).withSecond(0).withNano(0);
+
+            case "D": // 天
+                return dateTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            case "W": // 周
+                // 计算本周的周一
+                return dateTime.with(DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            case "M": // 月
+                return dateTime.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            default:
+                return dateTime.withSecond(0).withNano(0);
+        }
+    }
+
+    /**
      * 执行交易信号
      */
     private void executeTradeSignal(StrategyRunningState state, Candlestick candlestick, String side) {
         try {
             Order order = tradeController.createSpotOrder(
                     state.getSymbol(),
-                    state.getOrderType(),
+                    null,
                     side,
-                    "LIMIT".equals(state.getOrderType()) ? candlestick.getClose() : null,
+                    null,
                     null,
                     state.getTradeAmount(),
                     null, null, null, null,
-                    state.getSimulated()
+                    false
             ).getData();
 
             if (order != null) {
@@ -326,11 +394,11 @@ public class RealTimeStrategyManager {
                         order,
                         side + "_SIGNAL",
                         candlestick.getClose().toString(),
-                        state.getSimulated());
+                        false);
                 state.getOrders().add(orderEntity);
 
                 // 更新持仓状态
-                state.setIsInPosition("BUY".equals(side));
+                state.setInPosition("BUY".equals(side));
                 state.setTotalTrades(state.getTotalTrades() + 1);
                 if ("FILLED".equals(order.getStatus())) {
                     state.setSuccessfulTrades(state.getSuccessfulTrades() + 1);
@@ -346,19 +414,63 @@ public class RealTimeStrategyManager {
     }
 
     /**
-     * 从Candlestick创建Bar  实时k线数据没有endTime，bar要求有endTime，所以需要创建一个endTime
+     * 从Candlestick创建Bar
      */
     private Bar createBarFromCandlestick(Candlestick candlestick) {
         long intervalMinutes = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal());
+
+        // 计算endTime：如果closeTime为null，则根据openTime和interval计算
+        LocalDateTime endTime;
+        if (candlestick.getCloseTime() != null) {
+            endTime = candlestick.getCloseTime();
+        } else {
+            // 根据openTime和interval计算closeTime
+            endTime = calculateEndTimeFromInterval(candlestick.getOpenTime(), candlestick.getIntervalVal());
+        }
+
         return BaseBar.builder()
                 .timePeriod(java.time.Duration.ofMinutes(intervalMinutes)) // 根据实际interval调整
                 .openPrice(DecimalNum.valueOf(candlestick.getOpen()))
-                .endTime(candlestick.getCloseTime().atZone(ZoneId.systemDefault()))
+                .endTime(endTime.atZone(ZoneId.systemDefault()))
                 .highPrice(DecimalNum.valueOf(candlestick.getHigh()))
                 .lowPrice(DecimalNum.valueOf(candlestick.getLow()))
                 .closePrice(DecimalNum.valueOf(candlestick.getClose()))
                 .volume(DecimalNum.valueOf(candlestick.getVolume()))
                 .build();
+    }
+
+    /**
+     * 根据开盘时间和K线间隔计算收盘时间
+     */
+    private LocalDateTime calculateEndTimeFromInterval(LocalDateTime openTime, String interval) {
+        if (openTime == null || interval == null) {
+            return LocalDateTime.now();
+        }
+
+        // 解析时间单位和数量
+        String unit = interval.substring(interval.length() - 1);
+        int amount;
+        try {
+            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+        } catch (NumberFormatException e) {
+            // 如果解析失败，使用默认值1
+            amount = 1;
+        }
+
+        switch (unit) {
+            case "m":
+                return openTime.plusMinutes(amount);
+            case "H":
+                return openTime.plusHours(amount);
+            case "D":
+                return openTime.plusDays(amount);
+            case "W":
+                return openTime.plusWeeks(amount);
+            case "M":
+                return openTime.plusMonths(amount);
+            default:
+                return openTime.plusMinutes(1); // 默认1分钟
+        }
     }
 
     /**
@@ -387,8 +499,71 @@ public class RealTimeStrategyManager {
         result.put("successRate", state.getTotalTrades() > 0 ?
                 (double) state.getSuccessfulTrades() / state.getTotalTrades() : 0.0);
         result.put("orders", state.getOrders());
-        result.put("endTime", LocalDateTime.now());
         return result;
+    }
+
+    /**
+     * 程序启动时执行，从MySQL加载有效策略
+     */
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        log.info("程序启动，开始加载有效的实时策略...");
+
+        try {
+            List<RealTimeStrategyEntity> strategies = realTimeStrategyService.getStrategiesToAutoStart();
+
+            if (strategies.isEmpty()) {
+                log.info("没有找到需要自动启动的策略");
+                return;
+            }
+
+            log.info("找到 {} 个需要自动启动的策略", strategies.size());
+
+            for (RealTimeStrategyEntity strategyEntity : strategies) {
+                try {
+                    // 这里需要根据实际情况构建Strategy对象和BarSeries
+                    // 由于Strategy和BarSeries的创建逻辑比较复杂，这里只是记录日志
+                    // 实际使用时需要根据strategyInfoCode等信息来构建具体的策略对象
+
+                    log.info("准备启动策略: strategyCode={}, symbol={}, interval={}",
+                            strategyEntity.getStrategyCode(),
+                            strategyEntity.getSymbol(),
+                            strategyEntity.getInterval());
+
+                    // TODO: 根据strategyInfoCode创建具体的Strategy实例
+                    // TODO: 创建对应的BarSeries
+                    // TODO: 调用startRealTimeStrategy方法启动策略
+
+                } catch (Exception e) {
+                    log.error("启动策略失败: strategyCode={}, error={}",
+                            strategyEntity.getStrategyCode(), e.getMessage(), e);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("加载策略失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 保存策略到数据库
+     */
+    private void saveStrategyToDatabase(String strategyCode,
+                                        String symbol, String interval, Double tradeAmount) {
+        try {
+            // 检查策略是否已存在
+            // 这里假设RealTimeStrategyService有相应的查询方法
+            // 如果没有，可能需要先实现或者直接创建
+
+            realTimeStrategyService.createRealTimeStrategy(strategyCode, symbol, interval, tradeAmount);
+
+            log.info("策略已保存到数据库: strategyCode={}, symbol={}, interval={}",
+                    strategyCode, symbol, interval);
+
+        } catch (Exception e) {
+            log.error("保存策略到数据库失败: strategyCode={}, error={}", strategyCode, e.getMessage(), e);
+            throw e;
+        }
     }
 
     /**

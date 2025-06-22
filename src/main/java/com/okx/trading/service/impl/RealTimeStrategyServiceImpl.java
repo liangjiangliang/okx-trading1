@@ -52,11 +52,11 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     }
 
     @Override
-    public List<RealTimeStrategyEntity> getActiveRealTimeStrategiesByInfoCode(String strategyInfoCode) {
-        if (StringUtils.isBlank(strategyInfoCode)) {
+    public List<RealTimeStrategyEntity> getActiveRealTimeStrategiesByCode(String strategyCode) {
+        if (StringUtils.isBlank(strategyCode)) {
             return Collections.emptyList();
         }
-        return realTimeStrategyRepository.findByStrategyInfoCodeAndIsActiveTrueOrderByCreateTimeDesc(strategyInfoCode);
+        return realTimeStrategyRepository.findByStrategyCodeAndIsActiveTrueOrderByCreateTimeDesc(strategyCode);
     }
 
     @Override
@@ -102,7 +102,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (realTimeStrategy == null) {
             throw new IllegalArgumentException("实时策略不能为空");
         }
-        
+
         try {
             RealTimeStrategyEntity saved = realTimeStrategyRepository.save(realTimeStrategy);
             log.info("保存实时策略成功: {}", saved.getStrategyCode());
@@ -119,7 +119,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (realTimeStrategy == null || realTimeStrategy.getId() == null) {
             throw new IllegalArgumentException("实时策略ID不能为空");
         }
-        
+
         try {
             RealTimeStrategyEntity updated = realTimeStrategyRepository.save(realTimeStrategy);
             log.info("更新实时策略成功: {}", updated.getStrategyCode());
@@ -158,7 +158,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(status)) {
             return false;
         }
-        
+
         Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
@@ -178,7 +178,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(status)) {
             return false;
         }
-        
+
         Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
@@ -198,7 +198,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode)) {
             return false;
         }
-        
+
         Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
@@ -217,7 +217,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode)) {
             return false;
         }
-        
+
         Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
@@ -238,7 +238,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (StringUtils.isBlank(strategyCode)) {
             return false;
         }
-        
+
         try {
             realTimeStrategyRepository.deleteByStrategyCode(strategyCode);
             log.info("删除实时策略成功: {}", strategyCode);
@@ -251,19 +251,19 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public int deleteRealTimeStrategiesByInfoCode(String strategyInfoCode) {
-        if (StringUtils.isBlank(strategyInfoCode)) {
+    public int deleteRealTimeStrategiesByCode(String strategyCode) {
+        if (StringUtils.isBlank(strategyCode)) {
             return 0;
         }
-        
+
         try {
-            List<RealTimeStrategyEntity> strategies = getActiveRealTimeStrategiesByInfoCode(strategyInfoCode);
+            List<RealTimeStrategyEntity> strategies = getActiveRealTimeStrategiesByCode(strategyCode);
             int count = strategies.size();
-            realTimeStrategyRepository.deleteByStrategyInfoCode(strategyInfoCode);
-            log.info("根据策略信息代码删除实时策略成功: {}, 删除数量: {}", strategyInfoCode, count);
+            realTimeStrategyRepository.deleteByStrategyCode(strategyCode);
+            log.info("根据策略信息代码删除实时策略成功: {}, 删除数量: {}", strategyCode, count);
             return count;
         } catch (Exception e) {
-            log.error("根据策略信息代码删除实时策略失败: {}", strategyInfoCode, e);
+            log.error("根据策略信息代码删除实时策略失败: {}", strategyCode, e);
             return 0;
         }
     }
@@ -277,12 +277,12 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     }
 
     @Override
-    public boolean hasRunningStrategy(String strategyInfoCode, String symbol) {
-        if (StringUtils.isBlank(strategyInfoCode) || StringUtils.isBlank(symbol)) {
+    public boolean hasRunningStrategy(String strategyCode, String symbol) {
+        if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol)) {
             return false;
         }
-        return realTimeStrategyRepository.existsByStrategyInfoCodeAndSymbolAndStatusAndIsActiveTrue(
-                strategyInfoCode, symbol, "RUNNING");
+        return realTimeStrategyRepository.existsByStrategyCodeAndSymbolAndStatusAndIsActiveTrue(
+                strategyCode, symbol, "RUNNING");
     }
 
     @Override
@@ -292,47 +292,42 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String strategyInfoCode, 
-                                                        String symbol, String interval, String description,
-                                                        Boolean isSimulated, String orderType, Double tradeAmount) {
+    public RealTimeStrategyEntity createRealTimeStrategy(String strategyCode,
+                                                         String symbol, String interval, Double tradeAmount) {
         // 参数验证
-        if (StringUtils.isBlank(strategyInfoCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
+        if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
             throw new IllegalArgumentException("策略信息代码、交易对和K线周期不能为空");
         }
-        
+
         // 如果没有提供策略代码，自动生成
         if (StringUtils.isBlank(strategyCode)) {
-            strategyCode = generateStrategyCode(strategyInfoCode, symbol, interval);
+            strategyCode = generateStrategyCode(strategyCode, symbol, interval);
         }
-        
+
         // 检查策略代码是否已存在
         if (existsByStrategyCode(strategyCode)) {
             throw new IllegalArgumentException("策略代码已存在: " + strategyCode);
         }
-        
+
         // 创建实时策略实体
         RealTimeStrategyEntity realTimeStrategy = RealTimeStrategyEntity.builder()
                 .strategyCode(strategyCode)
-                .strategyInfoCode(strategyInfoCode)
                 .symbol(symbol)
                 .interval(interval)
-                .description(description)
-                .isSimulated(isSimulated != null ? isSimulated : true)
-                .orderType(StringUtils.isNotBlank(orderType) ? orderType : "market")
                 .tradeAmount(tradeAmount)
                 .status("STOPPED")
                 .isActive(true)
                 .build();
-        
+
         return saveRealTimeStrategy(realTimeStrategy);
     }
-    
+
     /**
      * 生成策略代码
-     * 格式: {strategyInfoCode}_{symbol}_{interval}_{timestamp}
+     * 格式: {strategyCode}_{symbol}_{interval}_{timestamp}
      */
-    private String generateStrategyCode(String strategyInfoCode, String symbol, String interval) {
+    private String generateStrategyCode(String strategyCode, String symbol, String interval) {
         String timestamp = String.valueOf(System.currentTimeMillis());
-        return String.format("%s_%s_%s_%s", strategyInfoCode, symbol.replace("-", ""), interval, timestamp);
+        return String.format("%s_%s_%s_%s", strategyCode, symbol.replace("-", ""), interval, timestamp);
     }
 }

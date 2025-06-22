@@ -89,6 +89,9 @@ public class Ta4jBacktestController {
     @Autowired
     private ExecutorService realTimeTradeScheduler;
 
+    private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final int kLineNum = 100;
+
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")
@@ -1018,17 +1021,10 @@ public class Ta4jBacktestController {
             @ApiParam(value = "策略代码", required = true, example = "STOCHASTIC") @RequestParam String strategyCode,
             @ApiParam(value = "交易对", required = true, example = "BTC-USDT") @RequestParam String symbol,
             @ApiParam(value = "时间间隔", required = true, example = "1D") @RequestParam String interval,
-            @ApiParam(value = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)", required = true, defaultValue = "2025-06-01 00:00:00") @RequestParam String startTime,
-            @ApiParam(value = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)", required = true, defaultValue = "2026-06-01 00:00:00") @RequestParam String endTime,
-            @ApiParam(value = "初始资金", required = false, example = "10000") @RequestParam(required = false, defaultValue = "10000") BigDecimal initialCapital,
-            @ApiParam(value = "手续费率", required = false, example = "0.001") @RequestParam(required = false, defaultValue = "0.001") BigDecimal feeRatio,
-            @ApiParam(value = "是否模拟交易", required = false, example = "false") @RequestParam(required = false, defaultValue = "false") Boolean simulated,
-            @ApiParam(value = "订单类型", required = false, example = "MARKET") @RequestParam(required = false, defaultValue = "MARKET") String orderType,
-            @ApiParam(value = "交易金额", required = false, example = "100") @RequestParam(required = false) BigDecimal tradeAmount) {
-
+            @ApiParam(value = "交易金额", required = false, example = "20") @RequestParam(required = true) BigDecimal tradeAmount) {
         try {
-            log.info("开始实时策略回测: strategyCode={}, symbol={}, interval={}, startTime={}, endTime={}",
-                    strategyCode, symbol, interval, startTime, endTime);
+
+            log.info("开始实时策略回测: strategyCode={}, symbol={}, interval={}", strategyCode, symbol, interval);
 
             // 1. 验证策略是否存在
             Optional<StrategyInfoEntity> strategyOpt = strategyInfoService.getStrategyByCode(strategyCode);
@@ -1037,8 +1033,11 @@ public class Ta4jBacktestController {
             }
             StrategyInfoEntity strategy = strategyOpt.get();
 
-            // 2. 获取历史300根K线数据作为基础数据
-            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.toString(), endTime.toString());
+            // 2. 获取历史100根K线数据作为基础数据
+            String startTime = LocalDateTime.now().minusMinutes(historicalDataService.getIntervalMinutes(interval) * kLineNum).format(dateFormat);
+            String endTime = LocalDateTime.now().format(dateFormat);
+
+            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime, endTime);
             if (historicalData.isEmpty()) {
                 return ApiResponse.error(400, "无法获取历史K线数据");
             }
@@ -1064,17 +1063,7 @@ public class Ta4jBacktestController {
             backtestState.put("symbol", symbol);
             backtestState.put("interval", interval);
             backtestState.put("startTime", startTime);
-            backtestState.put("endTime", endTime);
-            backtestState.put("initialCapital", initialCapital);
-            backtestState.put("currentCapital", initialCapital);
-            backtestState.put("feeRatio", feeRatio);
-            backtestState.put("simulated", simulated);
-            backtestState.put("orderType", orderType);
-            backtestState.put("tradeAmount", tradeAmount != null ? tradeAmount : initialCapital.multiply(new BigDecimal("0.1")));
-            backtestState.put("isInPosition", false);
-            backtestState.put("totalTrades", 0);
-            backtestState.put("successfulTrades", 0);
-            backtestState.put("orders", new ArrayList<RealTimeOrderEntity>());
+            backtestState.put("tradeAmount", tradeAmount);
 
             // 6. 开始实时监控和交易
             CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
@@ -1088,10 +1077,9 @@ public class Ta4jBacktestController {
             response.put("strategyCode", strategyCode);
             response.put("symbol", symbol);
             response.put("interval", interval);
-            response.put("initialCapital", initialCapital);
-            response.put("simulated", simulated);
+            response.put("tradeAmount", tradeAmount);
             response.put("status", "RUNNING");
-            response.put("startTime", LocalDateTime.now());
+            response.put("startTime", startTime);
 
             return ApiResponse.success(response);
 
@@ -1112,17 +1100,13 @@ public class Ta4jBacktestController {
         String strategyCode = (String) state.get("strategyCode");
         String symbol = (String) state.get("symbol");
         String interval = (String) state.get("interval");
-        String endTime = (String) state.get("endTime");
-        Boolean simulated = (Boolean) state.get("simulated");
-        String orderType = (String) state.get("orderType");
+        LocalDateTime startTime = LocalDateTime.parse((String) state.get("startTime"), dateFormat);
         BigDecimal tradeAmount = (BigDecimal) state.get("tradeAmount");
-        LocalDateTime endTimeFormated = LocalDateTime.parse(endTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         try {
             // 启动实时策略管理器
             String strategyKey = realTimeStrategyManager.startRealTimeStrategy(
-                    strategyCode, symbol, interval, strategy, series, endTimeFormated,
-                    simulated, orderType, tradeAmount);
+                    strategyCode, symbol, interval, strategy, series, tradeAmount, startTime);
 
             log.info("实时策略已启动，策略键: {}", strategyKey);
 
@@ -1138,8 +1122,7 @@ public class Ta4jBacktestController {
             // 等待策略执行完成或超时
             try {
                 // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
-                long timeoutMillis = Duration.between(LocalDateTime.now(), endTimeFormated).toMillis() + 60000;
-                return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+                return future.get(60000, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 log.warn("实时策略执行超时，强制停止: strategyCode={}, symbol={}, interval={}",
                         strategyCode, symbol, interval);

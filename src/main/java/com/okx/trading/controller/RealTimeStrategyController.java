@@ -147,7 +147,7 @@ public class RealTimeStrategyController {
     /**
      * 根据策略信息代码获取有效的实时策略
      */
-    @GetMapping("/info-code/{strategyInfoCode}")
+    @GetMapping("/info-code/{strategyCode}")
     @ApiOperation(value = "根据策略信息代码获取有效的实时策略", notes = "通过策略信息代码查询所有关联的有效实时策略")
     @ApiResponses({
             @ApiResponse(code = 200, message = "获取成功"),
@@ -155,16 +155,16 @@ public class RealTimeStrategyController {
             @ApiResponse(code = 500, message = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getActiveRealTimeStrategiesByInfoCode(
-            @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @PathVariable String strategyInfoCode) {
+            @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @PathVariable String strategyCode) {
         try {
-            if (StringUtils.isBlank(strategyInfoCode)) {
+            if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略信息代码不能为空");
             }
 
-            List<RealTimeStrategyEntity> strategies = realTimeStrategyService.getActiveRealTimeStrategiesByInfoCode(strategyInfoCode);
+            List<RealTimeStrategyEntity> strategies = realTimeStrategyService.getActiveRealTimeStrategiesByCode(strategyCode);
             return com.okx.trading.util.ApiResponse.success(strategies);
         } catch (Exception e) {
-            log.error("根据策略信息代码获取实时策略失败: {}", strategyInfoCode, e);
+            log.error("根据策略信息代码获取实时策略失败: {}", strategyCode, e);
             return com.okx.trading.util.ApiResponse.error(503, "获取实时策略失败: " + e.getMessage());
         }
     }
@@ -264,9 +264,6 @@ public class RealTimeStrategyController {
             @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @RequestParam String strategyInfoCode,
             @ApiParam(value = "交易对符号", required = true, example = "BTC-USDT") @RequestParam String symbol,
             @ApiParam(value = "K线周期", required = true, example = "1m", allowableValues = "1m,5m,15m,30m,1h,4h,1d") @RequestParam String interval,
-            @ApiParam(value = "策略描述", example = "移动平均线交叉策略") @RequestParam(required = false) String description,
-            @ApiParam(value = "是否模拟交易", example = "true") @RequestParam(defaultValue = "true") Boolean isSimulated,
-            @ApiParam(value = "订单类型", example = "market", allowableValues = "market,limit") @RequestParam(defaultValue = "market") String orderType,
             @ApiParam(value = "交易金额", example = "100.0") @RequestParam(required = false) Double tradeAmount) {
         try {
             if (StringUtils.isBlank(strategyInfoCode)) {
@@ -280,8 +277,7 @@ public class RealTimeStrategyController {
             }
 
             RealTimeStrategyEntity strategy = realTimeStrategyService.createRealTimeStrategy(
-                    strategyCode, strategyInfoCode, symbol, interval, description,
-                    isSimulated, orderType, tradeAmount);
+                    strategyCode,symbol, interval, tradeAmount);
 
             return com.okx.trading.util.ApiResponse.success(strategy);
         } catch (Exception e) {

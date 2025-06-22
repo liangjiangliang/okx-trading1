@@ -25,16 +25,10 @@ public class RealTimeStrategyEntity {
     private Long id;
 
     /**
-     * 实时策略唯一代码
+     * 关联的策略代码
      */
     @Column(name = "strategy_code", nullable = false, unique = true, length = 50)
     private String strategyCode;
-
-    /**
-     * 关联的策略信息代码
-     */
-    @Column(name = "strategy_info_code", nullable = false, length = 50)
-    private String strategyInfoCode;
 
     /**
      * 交易对符号，如BTC-USDT
@@ -68,20 +62,6 @@ public class RealTimeStrategyEntity {
     private Boolean isActive = true;
 
     /**
-     * 是否为模拟交易
-     */
-    @Column(name = "is_simulated", nullable = false)
-    @Builder.Default
-    private Boolean isSimulated = true;
-
-    /**
-     * 订单类型：market(市价), limit(限价)
-     */
-    @Column(name = "order_type", length = 10)
-    @Builder.Default
-    private String orderType = "market";
-
-    /**
      * 交易金额
      */
     @Column(name = "trade_amount")
@@ -93,12 +73,6 @@ public class RealTimeStrategyEntity {
     @Column(name = "status", length = 20)
     @Builder.Default
     private String status = "STOPPED";
-
-    /**
-     * 策略描述
-     */
-    @Column(name = "description", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-    private String description;
 
     /**
      * 错误信息
