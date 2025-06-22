@@ -50,12 +50,6 @@ public class RealTimeOrderEntity {
     private String clientOrderId;
 
     /**
-     * 订单类型 (MARKET, LIMIT)
-     */
-    @Column(name = "order_type", nullable = false, length = 10)
-    private String orderType;
-
-    /**
      * 交易方向 (BUY, SELL)
      */
     @Column(name = "side", nullable = false, length = 10)
@@ -120,12 +114,6 @@ public class RealTimeOrderEntity {
      */
     @Column(name = "signal_price", precision = 20, scale = 8)
     private BigDecimal signalPrice;
-
-    /**
-     * 是否为模拟交易
-     */
-    @Column(name = "simulated", nullable = false)
-    private Boolean simulated = false;
 
     /**
      * 创建时间

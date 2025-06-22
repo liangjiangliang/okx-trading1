@@ -68,8 +68,4 @@ public interface RealTimeOrderRepository extends JpaRepository<RealTimeOrderEnti
      */
     List<RealTimeOrderEntity> findByStatusOrderByCreateTimeDesc(String status);
 
-    /**
-     * 查询模拟交易订单
-     */
-    List<RealTimeOrderEntity> findBySimulatedOrderByCreateTimeDesc(Boolean simulated);
 }

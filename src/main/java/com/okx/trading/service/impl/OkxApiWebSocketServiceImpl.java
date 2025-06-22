@@ -13,7 +13,6 @@ import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
-import com.okx.trading.service.TechnicalIndicatorService;
 import com.okx.trading.util.HttpUtil;
 import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
@@ -56,11 +55,6 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
     private final OkHttpClient okHttpClient;
-
-    @Lazy
-    private final IndicatorCalculationServiceImpl indicatorCalculationServiceImpl;
-
-    private final TechnicalIndicatorService technicalIndicatorService;
 
     @Lazy
     @Autowired(required = false)

@@ -41,7 +41,6 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
                     .symbol(symbol)
                     .orderId(order.getOrderId())
                     .clientOrderId(order.getClientOrderId())
-                    .orderType(order.getType())
                     .side(order.getSide())
                     .price(order.getPrice())
                     .quantity(order.getOrigQty())
@@ -51,7 +50,6 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
                     .executedAmount(order.getCummulativeQuoteQty())
                     .signalType(signalType)
                     .signalPrice(signalPrice != null ? new BigDecimal(signalPrice) : null)
-                    .simulated(simulated != null ? simulated : false)
                     .createTime(LocalDateTime.now())
                     .build();
 
