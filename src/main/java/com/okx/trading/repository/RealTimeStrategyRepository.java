@@ -88,6 +88,9 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      */
     boolean existsByStrategyCode(String strategyCode);
 
+
+    boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval);
+
     /**
      * 根据策略信息代码和交易对查询是否存在运行中的策略
      *

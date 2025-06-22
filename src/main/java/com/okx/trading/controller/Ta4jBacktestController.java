@@ -1119,26 +1119,72 @@ public class Ta4jBacktestController {
             if (runningState != null) {
                 runningState.setFuture(future);
             }
-            // 等待策略执行完成或超时
-            try {
-                // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
-                return future.get(60000, TimeUnit.MILLISECONDS);
-            } catch (TimeoutException e) {
-                log.warn("实时策略执行超时，强制停止: strategyCode={}, symbol={}, interval={}",
-                        strategyCode, symbol, interval);
-                realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
+            // 等待策略执行完成或超时，支持重启机制
+            int maxRetries = 3; // 最大重试次数
+            int retryCount = 0;
 
-                // 返回当前状态
-                if (runningState != null) {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("status", "TIMEOUT");
-                    result.put("totalTrades", runningState.getTotalTrades());
-                    result.put("successfulTrades", runningState.getSuccessfulTrades());
-                    result.put("successRate", runningState.getTotalTrades() > 0 ?
-                            (double) runningState.getSuccessfulTrades() / runningState.getTotalTrades() : 0.0);
-                    result.put("orders", runningState.getOrders());
-                    result.put("endTime", LocalDateTime.now());
-                    return result;
+            while (retryCount <= maxRetries) {
+                try {
+                    // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
+                    return future.get(120000, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    retryCount++;
+                    log.warn("实时策略执行超时 (第{}次), strategyCode={}, symbol={}, interval={}",
+                            retryCount, strategyCode, symbol, interval);
+
+                    if (retryCount <= maxRetries) {
+                        log.info("尝试重启策略 (第{}次重试): strategyCode={}, symbol={}, interval={}",
+                                retryCount, strategyCode, symbol, interval);
+
+                        // 停止当前策略
+                        realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
+
+                        // 等待一段时间后重启
+                        try {
+                            Thread.sleep(2000); // 等待2秒
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+
+                        // 重新启动策略
+                        try {
+                            String newStrategyKey = realTimeStrategyManager.startRealTimeStrategy(
+                                    strategyCode, symbol, interval, strategy, series, tradeAmount, startTime);
+                            log.info("策略重启成功，新策略键: {}", newStrategyKey);
+
+                            // 创建新的CompletableFuture
+                            future = new CompletableFuture<>();
+
+                            // 获取新的策略运行状态并设置Future
+                            runningState = realTimeStrategyManager.getRunningStrategy(strategyCode, symbol, interval);
+                            if (runningState != null) {
+                                runningState.setFuture(future);
+                            }
+                        } catch (Exception restartEx) {
+                            log.error("策略重启失败: {}", restartEx.getMessage(), restartEx);
+                            break;
+                        }
+                    } else {
+                        log.error("策略超时重试次数已达上限，强制停止: strategyCode={}, symbol={}, interval={}",
+                                strategyCode, symbol, interval);
+                        realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
+
+                        // 返回超时状态
+                        if (runningState != null) {
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("status", "TIMEOUT_AFTER_RETRIES");
+                            result.put("retryCount", retryCount - 1);
+                            result.put("totalTrades", runningState.getTotalTrades());
+                            result.put("successfulTrades", runningState.getSuccessfulTrades());
+                            result.put("successRate", runningState.getTotalTrades() > 0 ?
+                                    (double) runningState.getSuccessfulTrades() / runningState.getTotalTrades() : 0.0);
+                            result.put("orders", runningState.getOrders());
+                            result.put("endTime", LocalDateTime.now());
+                            return result;
+                        }
+                        break;
+                    }
                 }
             }
 

@@ -277,6 +277,14 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     }
 
     @Override
+    public boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval) {
+        if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
+            return false;
+        }
+        return realTimeStrategyRepository.existsByStrategyCodeAndSymbolAndInterval(strategyCode, symbol, interval);
+    }
+
+    @Override
     public boolean hasRunningStrategy(String strategyCode, String symbol) {
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol)) {
             return false;
@@ -299,13 +307,8 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             throw new IllegalArgumentException("策略信息代码、交易对和K线周期不能为空");
         }
 
-        // 如果没有提供策略代码，自动生成
-        if (StringUtils.isBlank(strategyCode)) {
-            strategyCode = generateStrategyCode(strategyCode, symbol, interval);
-        }
-
         // 检查策略代码是否已存在
-        if (existsByStrategyCode(strategyCode)) {
+        if (existsByStrategyCodeAndSymbolAndInterval(strategyCode, symbol, interval)) {
             throw new IllegalArgumentException("策略代码已存在: " + strategyCode);
         }
 

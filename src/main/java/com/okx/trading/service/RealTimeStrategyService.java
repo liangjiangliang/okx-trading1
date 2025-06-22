@@ -181,6 +181,8 @@ public interface RealTimeStrategyService {
      */
     boolean existsByStrategyCode(String strategyCode);
 
+
+    boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval);
     /**
      * 检查是否存在运行中的策略
      *
