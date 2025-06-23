@@ -312,7 +312,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
                 .symbol(symbol)
                 .interval(interval)
                 .tradeAmount(tradeAmount)
-                .status("STOPPED")
+                .status("RUNNING")
                 .isActive(true)
                 .build();
         // 检查策略代码是否已存在

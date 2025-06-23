@@ -36,7 +36,7 @@ public class ApiResponse<T> {
      * @return API响应
      */
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(200, "success", data);
+        return new ApiResponse<>(200, "SUCCESS", data);
     }
 
     /**

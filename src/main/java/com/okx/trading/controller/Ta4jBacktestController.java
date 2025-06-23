@@ -10,6 +10,7 @@ import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.entity.StrategyConversationEntity;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
+import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.BacktestTradeService;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.MarketDataService;
@@ -81,6 +82,7 @@ public class Ta4jBacktestController {
     private final OkxApiService okxApiService;
     private final TradeController tradeController;
     private final RealTimeStrategyManager realTimeStrategyManager;
+    private final RealTimeStrategyRepository realTimeStrategyRepository;
 
     // 线程池
     @Qualifier("tradeIndicatorCalculateScheduler")
@@ -1033,6 +1035,11 @@ public class Ta4jBacktestController {
             Optional<StrategyInfoEntity> strategyOpt = strategyInfoService.getStrategyByCode(strategyCode);
             if (!strategyOpt.isPresent()) {
                 return ApiResponse.error(404, "策略不存在: " + strategyCode);
+            }
+
+            boolean alreadyExist = realTimeStrategyRepository.existsByStrategyCodeAndSymbolAndIntervalAndIsActiveTrue(strategyCode, symbol, interval);
+            if (alreadyExist) {
+                return ApiResponse.success("策略已存在: " + strategyCode, new HashMap<>());
             }
             StrategyInfoEntity strategy = strategyOpt.get();
 

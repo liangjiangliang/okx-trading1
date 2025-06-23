@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 历史数据服务实现类
@@ -325,14 +326,15 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         long intervalMinutes = getIntervalMinutes(interval);
         long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
         log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
-        TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
 
+        TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
+        long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        Set<String> cachedJsonSet = redisCacheService.getKlineFromSortedSet(symbol, interval, startTimestamp, endTimestamp);
         // 先检查Redis Sorted Set缓存
         try {
-            long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-            long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-            Set<String> cachedJsonSet = redisCacheService.getKlineFromSortedSet(symbol, interval, startTimestamp, endTimestamp);
 
             if (!cachedJsonSet.isEmpty()) {
                 for (String jsonStr : cachedJsonSet) {
@@ -492,9 +494,11 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 将结果存入Codis的Sorted Set（24小时过期）
         try {
-            redisCacheService.batchAddKlineToSortedSet(symbol, interval, allData, 24 * 60); // 24小时 = 1440分钟
+            Set<String> existTime = cachedData.stream().map(x -> x.getOpenTime().format(dateFormatPattern)).collect(Collectors.toSet());
+            List<CandlestickEntity> saveToCache = allData.stream().filter(x -> existTime.contains(x.getOpenTime().format(dateFormatPattern))).collect(Collectors.toList());
+            redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 24 * 60); // 24小时 = 1440分钟
             log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
-                    symbol, interval, allData.size());
+                    symbol, interval, saveToCache.size());
         } catch (Exception e) {
             log.warn("⚠️ 存储历史K线数据到Redis Sorted Set失败: {}", e.getMessage());
         }
