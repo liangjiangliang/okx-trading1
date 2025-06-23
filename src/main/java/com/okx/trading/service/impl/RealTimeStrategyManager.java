@@ -4,6 +4,9 @@ import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
+import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.strategy.StrategyRegisterCenter;
+import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.RealTimeOrderService;
 import com.okx.trading.service.RealTimeStrategyService;
@@ -42,17 +45,20 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final TradeController tradeController;
     private final HistoricalDataService historicalDataService;
     private final RealTimeStrategyService realTimeStrategyService;
+    private final CandlestickBarSeriesConverter barSeriesConverter;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
                                    TradeController tradeController,
                                    HistoricalDataService historicalDataService,
-                                   RealTimeStrategyService realTimeStrategyService) {
+                                   RealTimeStrategyService realTimeStrategyService,
+                                   CandlestickBarSeriesConverter barSeriesConverter) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
         this.historicalDataService = historicalDataService;
         this.realTimeStrategyService = realTimeStrategyService;
+        this.barSeriesConverter = barSeriesConverter;
     }
 
     // 存储正在运行的策略信息
@@ -269,6 +275,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
     /**
      * 处理策略信号
+     * 真正执行实时策略逻辑，判断买卖信号的地方
      */
     private void processStrategySignal(String key, StrategyRunningState state, Candlestick candlestick) {
 

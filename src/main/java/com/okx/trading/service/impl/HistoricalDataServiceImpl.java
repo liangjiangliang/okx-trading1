@@ -60,6 +60,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     private RedisCacheService redisCacheService;
 
 
+    private DateTimeFormatter dateFormatPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     /**
      * 时间分片类
      */
@@ -832,17 +834,17 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                         .findBySymbolAndIntervalAndOpenTimeBetweenOrderByOpenTimeAsc(symbol, interval, minTime, maxTime);
 
                 // 创建已存在数据的时间点集合，用于过滤
-                Set<LocalDateTime> existingTimePoints = existingEntities.stream()
-                        .map(CandlestickEntity::getOpenTime)
+                Set<String> existingTimePoints = existingEntities.stream()
+                        .map(CandlestickEntity::getOpenTime).map(time -> time.format(dateFormatPattern))
                         .collect(Collectors.toSet());
 
                 // 过滤出不存在的数据
                 List<CandlestickEntity> newEntities = entities.stream()
-                        .filter(entity -> !existingTimePoints.contains(entity.getOpenTime()))
+                        .filter(entity -> !existingTimePoints.contains(entity.getOpenTime().format(dateFormatPattern)))
                         .collect(Collectors.toList());
 
                 log.info("时间范围 {} ~ {} 内已有 {} 条数据, 查询获取 {} 条数据，新增 {} 条数据",
-                        minTime, maxTime, existingEntities.size(), entities.size(), newEntities.size());
+                        minTime.format(dateFormatPattern), maxTime.format(dateFormatPattern), existingEntities.size(), entities.size(), newEntities.size());
 
                 List<Candlestick> candlestickEntities = newEntities.stream().map(x -> {
                     Candlestick candlestick = new Candlestick();
@@ -852,12 +854,6 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
                 // 只保存新数据
                 if (!newEntities.isEmpty()) {
-
-                    // 同步更新缓存
-                    for (Candlestick candlestick : candlestickEntities) {
-                        redisCacheService.updateCandlestick(candlestick);
-                    }
-
                     return candlestickRepository.saveAll(newEntities);
                 } else {
                     return Collections.emptyList();
@@ -1270,8 +1266,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 准备所有批次的任务
         // 调用API获取数据 (将LocalDateTime转换为时间戳)
-        long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-        long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        ZoneId zoneId = ZoneId.systemDefault();
+        long startTimestamp = startTime.atZone(zoneId).toInstant().toEpochMilli();
+        long endTimestamp = endTime.atZone(zoneId).toInstant().toEpochMilli();
         if (startTimestamp == endTimestamp) {
             List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
             // 转换并保存数据到MySQL
@@ -1284,14 +1281,15 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         } else {
             while (currentStart.isBefore(endTime)) {
                 try {
-                    List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
-
+                    List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval,
+                            currentStart.atZone(zoneId).toEpochSecond() * 1000,
+                            currentStart.plusMinutes(intervalMinutes * batchSize).atZone(zoneId).toEpochSecond() * 1000, batchSize);
                     if (apiData != null && !apiData.isEmpty()) {
                         // 转换并保存数据到MySQL
                         List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
                         result.addAll(entities);
                     }
-                    currentStart = currentStart.plusMinutes(intervalMinutes);
+                    currentStart = currentStart.plusMinutes(intervalMinutes* batchSize);
                 } catch (Exception e) {
                     log.error("  数据获取失败: {}", e.getMessage());
                 }
