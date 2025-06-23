@@ -212,5 +212,5 @@ public interface RealTimeStrategyService {
      * @param tradeAmount      交易金额
      * @return 创建的实时策略
      */
-    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount);
+    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount,String strategyName);
 }

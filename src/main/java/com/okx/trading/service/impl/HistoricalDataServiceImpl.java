@@ -496,9 +496,13 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         try {
             Set<String> existTime = cachedData.stream().map(x -> x.getOpenTime().format(dateFormatPattern)).collect(Collectors.toSet());
             List<CandlestickEntity> saveToCache = allData.stream().filter(x -> existTime.contains(x.getOpenTime().format(dateFormatPattern))).collect(Collectors.toList());
-            redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 24 * 60); // 24小时 = 1440分钟
-            log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
-                    symbol, interval, saveToCache.size());
+            if (!saveToCache.isEmpty()) {
+                redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 24 * 60); // 24小时 = 1440分钟
+                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
+                        symbol, interval, saveToCache.size());
+            } else {
+                log.info("💾 没有新增K线数据已存入，无需更新缓存");
+            }
         } catch (Exception e) {
             log.warn("⚠️ 存储历史K线数据到Redis Sorted Set失败: {}", e.getMessage());
         }

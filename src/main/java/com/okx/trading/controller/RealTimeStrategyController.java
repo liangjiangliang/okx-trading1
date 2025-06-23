@@ -260,14 +260,14 @@ public class RealTimeStrategyController {
             @ApiResponse(code = 500, message = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> createRealTimeStrategy(
-            @ApiParam(value = "策略代码（可选，为空时自动生成）", example = "STRATEGY_001") @RequestParam(required = false) String strategyCode,
-            @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @RequestParam String strategyInfoCode,
+            @ApiParam(value = "策略代码", example = "STRATEGY_001") @RequestParam(required = false) String strategyCode,
+            @ApiParam(value = "策略名称", example = "海龟交易策略") @RequestParam(required = false) String strategyName,
             @ApiParam(value = "交易对符号", required = true, example = "BTC-USDT") @RequestParam String symbol,
             @ApiParam(value = "K线周期", required = true, example = "1m", allowableValues = "1m,5m,15m,30m,1h,4h,1d") @RequestParam String interval,
             @ApiParam(value = "交易金额", example = "100.0") @RequestParam(required = false) Double tradeAmount) {
         try {
-            if (StringUtils.isBlank(strategyInfoCode)) {
-                return com.okx.trading.util.ApiResponse.error(503, "策略信息代码不能为空");
+            if (StringUtils.isBlank(strategyCode)) {
+                return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
             }
             if (StringUtils.isBlank(symbol)) {
                 return com.okx.trading.util.ApiResponse.error(503, "交易对符号不能为空");
@@ -277,11 +277,11 @@ public class RealTimeStrategyController {
             }
 
             RealTimeStrategyEntity strategy = realTimeStrategyService.createRealTimeStrategy(
-                    strategyCode,symbol, interval, tradeAmount);
+                    strategyCode, symbol, interval, tradeAmount, strategyName);
 
             return com.okx.trading.util.ApiResponse.success(strategy);
         } catch (Exception e) {
-            log.error("创建实时策略失败: {}", strategyInfoCode, e);
+            log.error("创建实时策略失败: {}", strategyName, e);
             return com.okx.trading.util.ApiResponse.error(503, "创建实时策略失败: " + e.getMessage());
         }
     }

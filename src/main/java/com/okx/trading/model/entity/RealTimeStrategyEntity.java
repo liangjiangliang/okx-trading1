@@ -1,6 +1,7 @@
 package com.okx.trading.model.entity;
 
 import javax.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,9 @@ public class RealTimeStrategyEntity {
      */
     @Column(name = "strategy_code", nullable = false, unique = true, length = 50)
     private String strategyCode;
+
+    @Column(name = "strategy_name", nullable = false, unique = false, length = 50)
+    private String strategyName;
 
     /**
      * 交易对符号，如BTC-USDT

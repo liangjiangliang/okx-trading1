@@ -301,7 +301,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     @Override
     @Transactional
     public RealTimeStrategyEntity createRealTimeStrategy(String strategyCode,
-                                                         String symbol, String interval, Double tradeAmount) {
+                                                         String symbol, String interval, Double tradeAmount,String strategyName) {
         // 参数验证
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
             throw new IllegalArgumentException("策略信息代码、交易对和K线周期不能为空");
@@ -309,6 +309,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         // 创建实时策略实体
         RealTimeStrategyEntity realTimeStrategy = RealTimeStrategyEntity.builder()
                 .strategyCode(strategyCode)
+                .strategyName(strategyName)
                 .symbol(symbol)
                 .interval(interval)
                 .tradeAmount(tradeAmount)

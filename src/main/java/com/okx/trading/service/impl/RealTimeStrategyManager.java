@@ -187,7 +187,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      * 启动实时策略
      */
     public String startRealTimeStrategy(String strategyCode, String symbol, String interval,
-                                        Strategy strategy, BarSeries series, BigDecimal tradeAmount, LocalDateTime startTime) {
+                                        Strategy strategy, BarSeries series, BigDecimal tradeAmount, LocalDateTime startTime, String strategyName) {
         String key = buildStrategyKey(strategyCode, symbol, interval);
 
         // 检查是否已经在运行
@@ -201,7 +201,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
         // 保存策略到MySQL（如果不存在）
         try {
-            saveStrategyToDatabase(strategyCode, symbol, interval, tradeAmount.doubleValue());
+            saveStrategyToDatabase(strategyCode, symbol, interval, tradeAmount.doubleValue(),strategyName);
         } catch (Exception e) {
             log.warn("保存策略到数据库失败: {}", e.getMessage());
         }
@@ -556,13 +556,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      * 保存策略到数据库
      */
     private void saveStrategyToDatabase(String strategyCode,
-                                        String symbol, String interval, Double tradeAmount) {
+                                        String symbol, String interval, Double tradeAmount,String strategyName) {
         try {
             // 检查策略是否已存在
             // 这里假设RealTimeStrategyService有相应的查询方法
             // 如果没有，可能需要先实现或者直接创建
 
-            realTimeStrategyService.createRealTimeStrategy(strategyCode, symbol, interval, tradeAmount);
+            realTimeStrategyService.createRealTimeStrategy(strategyCode, symbol, interval, tradeAmount,strategyName);
 
         } catch (Exception e) {
             log.error("保存策略到数据库失败: strategyCode={}, error={}", strategyCode, e.getMessage(), e);
