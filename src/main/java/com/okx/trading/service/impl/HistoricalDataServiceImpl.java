@@ -21,9 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -299,6 +297,14 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                                                      LocalDateTime startTime, LocalDateTime endTime) {
         return candlestickRepository.findBySymbolAndIntervalAndOpenTimeBetweenOrderByOpenTimeAsc(
                 symbol, interval, startTime, endTime);
+    }
+
+    @Override
+    public List<CandlestickEntity> fetchAndSaveHistoryWithIntegrityCheck(String symbol, String interval, String endTimeStr, int limit) {
+        String startTimeStr = LocalDateTime.parse(endTimeStr, dateFormatPattern).minusMinutes(getIntervalMinutes(interval) * limit).format(dateFormatPattern);
+        List<CandlestickEntity> candlestickEntities = fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTimeStr, endTimeStr);
+        return candlestickEntities;
+
     }
 
     @Override
@@ -1131,90 +1137,10 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         LocalDateTime now = LocalDateTime.now();
 
         // 如果结束时间在过去，无需调整
-        if (endTime.isBefore(now.minusHours(1))) {
+        if (endTime.isBefore(now.minusSeconds(1))) {
             return endTime;
         }
-
-        LocalDateTime adjustedEndTime;
-
-        switch (interval.toUpperCase()) {
-            case "1W":
-                // 周线: 排除当前周 (周一为一周开始)
-                adjustedEndTime = now.with(java.time.DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0).minusWeeks(1);
-                break;
-            case "1D":
-                // 日线: 排除当前日
-                adjustedEndTime = now.withHour(0).withMinute(0).withSecond(0).withNano(0).minusDays(1);
-                break;
-            case "12H":
-                // 12小时线: 排除当前12小时周期 (0点或12点开始)
-                int currentHour = now.getHour();
-                int alignedHour = (currentHour >= 12) ? 12 : 0;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(12);
-                break;
-            case "6H":
-                // 6小时线: 排除当前6小时周期 (0,6,12,18点开始)
-                currentHour = now.getHour();
-                alignedHour = (currentHour / 6) * 6;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(6);
-                break;
-            case "4H":
-                // 4小时线: 排除当前4小时周期 (0,4,8,12,16,20点开始)
-                currentHour = now.getHour();
-                alignedHour = (currentHour / 4) * 4;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(4);
-                break;
-            case "2H":
-                // 2小时线: 排除当前2小时周期
-                currentHour = now.getHour();
-                alignedHour = (currentHour / 2) * 2;
-                adjustedEndTime = now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(2);
-                break;
-            case "1H":
-                // 1小时线: 排除当前小时
-                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0).minusHours(1);
-                break;
-            case "30M":
-                // 30分钟线: 排除当前30分钟周期 (0或30分开始)
-                int currentMinute = now.getMinute();
-                int alignedMinute = (currentMinute >= 30) ? 30 : 0;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(30);
-                break;
-            case "15M":
-                // 15分钟线: 排除当前15分钟周期 (0,15,30,45分开始)
-                currentMinute = now.getMinute();
-                alignedMinute = (currentMinute / 15) * 15;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(15);
-                break;
-            case "5M":
-                // 5分钟线: 排除当前5分钟周期
-                currentMinute = now.getMinute();
-                alignedMinute = (currentMinute / 5) * 5;
-                adjustedEndTime = now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(5);
-                break;
-            case "1M":
-                // 包含两种情况: 月线和1分钟线，通过上下文判断
-                if (endTime.isAfter(now.minusDays(40))) {
-                    // 如果结束时间是近期，可能是月线，排除当前月
-                    LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-                    if (endTime.isAfter(monthStart)) {
-                        adjustedEndTime = monthStart.minusMonths(1);
-                    } else {
-                        // 1分钟线: 排除当前分钟
-                        adjustedEndTime = now.withSecond(0).withNano(0).minusMinutes(1);
-                    }
-                } else {
-                    // 1分钟线: 排除当前分钟
-                    adjustedEndTime = now.withSecond(0).withNano(0).minusMinutes(1);
-                }
-                break;
-            default:
-                // 未知间隔，保守起见排除当前小时
-                adjustedEndTime = now.withMinute(0).withSecond(0).withNano(0).minusHours(1);
-                break;
-        }
-
-        // 返回调整后的时间与原始结束时间的较小值
+        LocalDateTime adjustedEndTime = calculateLastCompletePeriodStart(endTime, interval);
         return endTime.isBefore(adjustedEndTime) ? endTime : adjustedEndTime;
     }
 
@@ -1289,7 +1215,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                         List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
                         result.addAll(entities);
                     }
-                    currentStart = currentStart.plusMinutes(intervalMinutes* batchSize);
+                    currentStart = currentStart.plusMinutes(intervalMinutes * batchSize);
                 } catch (Exception e) {
                     log.error("  数据获取失败: {}", e.getMessage());
                 }
@@ -1342,6 +1268,43 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         }
 
         return entities;
+    }
+
+    private LocalDateTime calculateLastCompletePeriodStart(LocalDateTime now, String interval) {
+        String unit = interval.substring(interval.length() - 1);
+        int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+
+        switch (unit) {
+            case "m": // 分钟
+                // 对齐到最近的完整分钟周期
+                int currentMinute = now.getMinute();
+                int alignedMinute = (currentMinute / amount) * amount;
+                return now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(amount);
+
+            case "H": // 小时
+                // 对齐到最近的完整小时周期
+                int currentHour = now.getHour();
+                int alignedHour = (currentHour / amount) * amount;
+                return now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(amount);
+
+            case "D": // 天
+                // 对齐到最近的完整天周期 (UTC 0点开始)
+                return now.toLocalDate().atStartOfDay().minusDays(1);
+
+            case "W": // 周
+                // 对齐到最近的完整周周期 (周一开始)
+                LocalDate currentDate = now.toLocalDate();
+                LocalDate monday = currentDate.with(DayOfWeek.MONDAY);
+                return monday.atStartOfDay().minusWeeks(1);
+
+            case "M": // 月
+                // 对齐到最近的完整月周期 (月初开始)
+                return now.toLocalDate().withDayOfMonth(1).atStartOfDay().minusMonths(1);
+
+            default:
+                // 默认返回当前时间的分钟对齐
+                return now.withSecond(0).withNano(0).minusMinutes(1);
+        }
     }
 
 }

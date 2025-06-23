@@ -71,6 +71,8 @@ public interface HistoricalDataService {
 
     List<CandlestickEntity> fetchAndSaveHistoryWithIntegrityCheck(String symbol, String interval, String startTimeStr, String endTimeStr);
 
+    List<CandlestickEntity> fetchAndSaveHistoryWithIntegrityCheck(String symbol, String interval,  String endTimeStr, int limit);
+
     /**
      * 查询数据库中存储的历史K线数据
      *

@@ -149,10 +149,10 @@ public class Ta4jBacktestController {
         try {
 
             // 获取历史数据
-            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+            List<CandlestickEntity> candlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             // 获取基准数据
-            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck("BTC-USDT", interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
@@ -257,12 +257,13 @@ public class Ta4jBacktestController {
 
         try {
             // 获取历史数据
-            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+            List<CandlestickEntity> candlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.format(dateFormat), endTime.format(dateFormat));
+
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
             }
             // 获取基准数据
-            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck("BTC-USDT", interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             // 生成唯一的系列名称
             String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));
@@ -1037,19 +1038,8 @@ public class Ta4jBacktestController {
 
             // 2. 获取历史100根K线数据作为基础数据
             // 计算最近完整周期的开始时间作为endTime
-            LocalDateTime now = LocalDateTime.now();
-            long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-
-            // 根据周期类型计算最近完整周期的开始时间
-            LocalDateTime endDateTime = calculateLastCompletePeriodStart(now, interval, intervalMinutes);
-
-            // 往前100个周期作为startTime
-            LocalDateTime startDateTime = endDateTime.minusMinutes(intervalMinutes * kLineNum);
-
-            String startTime = startDateTime.format(dateFormat);
-            String endTime = endDateTime.format(dateFormat);
-
-            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime, endTime);
+            String now = LocalDateTime.now().format(dateFormat);
+            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, now, kLineNum);
             if (historicalData.isEmpty()) {
                 return ApiResponse.error(400, "无法获取历史K线数据");
             }
@@ -1074,7 +1064,7 @@ public class Ta4jBacktestController {
             backtestState.put("strategyCode", strategyCode);
             backtestState.put("symbol", symbol);
             backtestState.put("interval", interval);
-            backtestState.put("startTime", startTime);
+            backtestState.put("startTime", now);
             backtestState.put("tradeAmount", tradeAmount);
 
             // 6. 开始实时监控和交易
@@ -1091,7 +1081,7 @@ public class Ta4jBacktestController {
             response.put("interval", interval);
             response.put("tradeAmount", tradeAmount);
             response.put("status", "RUNNING");
-            response.put("startTime", startTime);
+            response.put("startTime", now);
 
             return ApiResponse.success(response);
 
@@ -1287,41 +1277,6 @@ public class Ta4jBacktestController {
      * @param intervalMinutes 周期对应的分钟数
      * @return 最近完整周期的开始时间
      */
-    private LocalDateTime calculateLastCompletePeriodStart(LocalDateTime now, String interval, long intervalMinutes) {
-        String unit = interval.substring(interval.length() - 1);
-        int amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
 
-        switch (unit) {
-            case "m": // 分钟
-                // 对齐到最近的完整分钟周期
-                int currentMinute = now.getMinute();
-                int alignedMinute = (currentMinute / amount) * amount;
-                return now.withMinute(alignedMinute).withSecond(0).withNano(0).minusMinutes(amount);
-
-            case "H": // 小时
-                // 对齐到最近的完整小时周期
-                int currentHour = now.getHour();
-                int alignedHour = (currentHour / amount) * amount;
-                return now.withHour(alignedHour).withMinute(0).withSecond(0).withNano(0).minusHours(amount);
-
-            case "D": // 天
-                // 对齐到最近的完整天周期 (UTC 0点开始)
-                return now.toLocalDate().atStartOfDay().minusDays(1);
-
-            case "W": // 周
-                // 对齐到最近的完整周周期 (周一开始)
-                LocalDate currentDate = now.toLocalDate();
-                LocalDate monday = currentDate.with(DayOfWeek.MONDAY);
-                return monday.atStartOfDay().minusWeeks(1);
-
-            case "M": // 月
-                // 对齐到最近的完整月周期 (月初开始)
-                return now.toLocalDate().withDayOfMonth(1).atStartOfDay().minusMonths(1);
-
-            default:
-                // 默认返回当前时间的分钟对齐
-                return now.withSecond(0).withNano(0).minusMinutes(1);
-        }
-    }
 
 }

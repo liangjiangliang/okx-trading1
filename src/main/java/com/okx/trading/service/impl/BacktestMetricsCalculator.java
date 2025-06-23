@@ -294,8 +294,8 @@ public class BacktestMetricsCalculator {
                         }
                     }
                 }
-                maxLossList.add(maxLoss);
-                drawdownList.add(maxDrawdown);
+                maxLossList.add(maxLoss.abs());
+                drawdownList.add(maxDrawdown.abs());
             }
         }
 
@@ -391,8 +391,8 @@ public class BacktestMetricsCalculator {
         }
 
         // 计算最大损失和最大回撤
-        stats.maximumLoss = maxLossAndDrawdownList.get(0).stream().reduce(BigDecimal::min).orElse(BigDecimal.ZERO);
-        stats.maxDrawdown = maxLossAndDrawdownList.get(1).stream().reduce(BigDecimal::min).orElse(BigDecimal.ZERO);
+        stats.maximumLoss = maxLossAndDrawdownList.get(0).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
+        stats.maxDrawdown = maxLossAndDrawdownList.get(1).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
 
         return stats;
     }
