@@ -79,6 +79,52 @@ public class RealTimeStrategyEntity {
     private String status = "STOPPED";
 
     /**
+     * 当前金额（USDT）
+     */
+    @Column(name = "current_amount")
+    private Double currentAmount;
+
+    /**
+     * 总交易次数
+     */
+    @Column(name = "total_trades")
+    @Builder.Default
+    private Integer totalTrades = 0;
+
+    /**
+     * 成功交易次数
+     */
+    @Column(name = "successful_trades")
+    @Builder.Default
+    private Integer successfulTrades = 0;
+
+    /**
+     * 总手续费（USDT）
+     */
+    @Column(name = "total_fees")
+    @Builder.Default
+    private Double totalFees = 0.0;
+
+    /**
+     * 总盈利金额（USDT）
+     */
+    @Column(name = "total_profit")
+    @Builder.Default
+    private Double totalProfit = 0.0;
+
+    /**
+     * 最后交易价格
+     */
+    @Column(name = "last_trade_price")
+    private Double lastTradePrice;
+
+    /**
+     * 最后更新时间（策略运行状态）
+     */
+    @Column(name = "last_signal_time")
+    private LocalDateTime lastSignalTime;
+
+    /**
      * 错误信息
      */
     @Column(name = "error_message", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
