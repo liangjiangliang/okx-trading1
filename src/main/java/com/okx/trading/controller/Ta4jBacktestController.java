@@ -10,18 +10,11 @@ import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.entity.StrategyConversationEntity;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
-import com.okx.trading.service.BacktestTradeService;
-import com.okx.trading.service.HistoricalDataService;
-import com.okx.trading.service.MarketDataService;
-import com.okx.trading.service.StrategyInfoService;
-import com.okx.trading.service.RealTimeOrderService;
-import com.okx.trading.service.KlineCacheService;
-import com.okx.trading.service.OkxApiService;
+import com.okx.trading.service.*;
 import com.okx.trading.service.impl.DeepSeekApiService;
 import com.okx.trading.service.impl.DynamicStrategyService;
 import com.okx.trading.service.impl.JavaCompilerDynamicStrategyService;
 import com.okx.trading.service.impl.SmartDynamicStrategyService;
-import com.okx.trading.service.StrategyConversationService;
 import com.okx.trading.service.impl.RealTimeStrategyManager;
 import com.okx.trading.adapter.CandlestickAdapter;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
@@ -81,6 +74,7 @@ public class Ta4jBacktestController {
     private final OkxApiService okxApiService;
     private final TradeController tradeController;
     private final RealTimeStrategyManager realTimeStrategyManager;
+    private final RealTimeStrategyService realTimeStrategyService;
 
     // 线程池
     @Qualifier("tradeIndicatorCalculateScheduler")
@@ -1027,7 +1021,7 @@ public class Ta4jBacktestController {
         try {
 
             log.info("开始实时策略回测: strategyCode={}, symbol={}, interval={}", strategyCode, symbol, interval);
-
+            LocalDateTime now = LocalDateTime.now();
             // 1. 验证策略是否存在
             Optional<StrategyInfoEntity> strategyOpt = strategyInfoService.getStrategyByCode(strategyCode);
             if (!strategyOpt.isPresent()) {
@@ -1035,55 +1029,39 @@ public class Ta4jBacktestController {
             }
             StrategyInfoEntity strategy = strategyOpt.get();
 
-            // 2. 获取历史100根K线数据作为基础数据
-            // 计算最近完整周期的开始时间作为endTime
-            LocalDateTime now = LocalDateTime.now();
-            long intervalMinutes = historicalDataService.getIntervalMinutes(interval);
-
-            // 根据周期类型计算最近完整周期的开始时间
-            LocalDateTime endDateTime = calculateLastCompletePeriodStart(now, interval, intervalMinutes);
-
-            // 往前100个周期作为startTime
-            LocalDateTime startDateTime = endDateTime.minusMinutes(intervalMinutes * kLineNum);
-
-            String startTime = startDateTime.format(dateFormat);
-            String endTime = endDateTime.format(dateFormat);
-
-            List<CandlestickEntity> historicalData = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime, endTime);
-            if (historicalData.isEmpty()) {
-                return ApiResponse.error(400, "无法获取历史K线数据");
+            // 2 新增币种的barSeries
+            String barSeriesKey = symbol + "_" + interval;
+            if (!realTimeStrategyManager.getRunningBarSeries().containsKey(barSeriesKey)) {
+                BarSeries barSeries = historicalDataService.fetchLastestedBars(symbol, interval, kLineNum, now);
+                if (barSeries != null) {
+                    realTimeStrategyManager.getRunningBarSeries().put(barSeriesKey, barSeries);
+                }
             }
 
-            // 3. 转换为BarSeries
-            BarSeries series = barSeriesConverter.convert(historicalData, symbol);
-            if (series == null || series.getBarCount() < 2) {
-                return ApiResponse.error(400, "K线数据不足，无法进行回测");
-            }
-
-            // 4. 获取策略实例
+            // 3. 获取策略实例
             Strategy ta4jStrategy;
             try {
-                ta4jStrategy = StrategyRegisterCenter.createStrategy(series, strategyCode);
+                ta4jStrategy = StrategyRegisterCenter.createStrategy(realTimeStrategyManager.getRunningBarSeries().get(symbol), strategyCode);
             } catch (Exception e) {
                 log.error("获取策略失败: {}", e.getMessage(), e);
                 return ApiResponse.error(500, "获取策略失败: " + e.getMessage());
             }
 
-            // 5. 初始化实时回测状态
+            // 4. 初始化实时回测状态
             Map<String, Object> backtestState = new HashMap<>();
             backtestState.put("strategyCode", strategyCode);
-            backtestState.put("strategyName",strategy.getStrategyName());
+            backtestState.put("strategyName", strategy.getStrategyName());
             backtestState.put("symbol", symbol);
             backtestState.put("interval", interval);
-            backtestState.put("startTime", startTime);
+            backtestState.put("startTime", now.format(dateFormat));
             backtestState.put("tradeAmount", tradeAmount);
 
-            // 6. 开始实时监控和交易
+            // 5. 开始实时监控和交易
             CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
-                return executeRealTimeBacktest(ta4jStrategy, series, backtestState);
+                return realTimeStrategyService.executeRealTimeBacktest(ta4jStrategy, backtestState);
             }, realTimeTradeScheduler);
 
-            // 7. 返回初始状态
+            // 6. 返回初始状态
             Map<String, Object> response = new HashMap<>();
             response.put("message", "实时回测已启动");
             response.put("strategyName", strategy.getStrategyName());
@@ -1092,7 +1070,7 @@ public class Ta4jBacktestController {
             response.put("interval", interval);
             response.put("tradeAmount", tradeAmount);
             response.put("status", "RUNNING");
-            response.put("startTime", startTime);
+            response.put("startTime", now.format(dateFormat));
 
             return ApiResponse.success(response);
 
@@ -1100,127 +1078,6 @@ public class Ta4jBacktestController {
             log.error("实时回测启动失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "实时回测启动失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 执行实时回测逻辑
-     */
-    /**
-     * 执行实时回测逻辑
-     * 使用WebSocket订阅方式替代轮询获取K线数据
-     */
-    private Map<String, Object> executeRealTimeBacktest(Strategy strategy, BarSeries series, Map<String, Object> state) {
-        String strategyCode = (String) state.get("strategyCode");
-        String strategyName = (String) state.get("strategyName");
-        String symbol = (String) state.get("symbol");
-        String interval = (String) state.get("interval");
-        LocalDateTime startTime = LocalDateTime.parse((String) state.get("startTime"), dateFormat);
-        BigDecimal tradeAmount = (BigDecimal) state.get("tradeAmount");
-
-        try {
-            // 启动实时策略管理器
-            String strategyKey = realTimeStrategyManager.startRealTimeStrategy(
-                    strategyCode, symbol, interval, strategy, series, tradeAmount, startTime, strategyName);
-
-            log.info("实时策略已启动，策略键: {}", strategyKey);
-
-            // 创建CompletableFuture用于异步等待结果
-            CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
-
-            // 获取策略运行状态并设置Future
-            RealTimeStrategyManager.StrategyRunningState runningState =
-                    realTimeStrategyManager.getRunningStrategy(strategyCode, symbol, interval);
-            if (runningState != null) {
-                runningState.setFuture(future);
-            }
-            // 等待策略执行完成或超时，支持重启机制
-            int maxRetries = 3; // 最大重试次数
-            int retryCount = 0;
-
-            while (retryCount <= maxRetries) {
-                try {
-                    // 计算超时时间（到结束时间的毫秒数 + 额外缓冲时间）
-                    return future.get(120000, TimeUnit.MILLISECONDS);
-                } catch (TimeoutException e) {
-                    retryCount++;
-                    log.warn("实时策略执行超时 (第{}次), strategyCode={}, symbol={}, interval={}",
-                            retryCount, strategyCode, symbol, interval);
-
-                    if (retryCount <= maxRetries) {
-                        log.info("尝试重启策略 (第{}次重试): strategyCode={}, symbol={}, interval={}",
-                                retryCount, strategyCode, symbol, interval);
-
-                        // 停止当前策略
-                        realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
-
-                        // 等待一段时间后重启
-                        try {
-                            Thread.sleep(2000); // 等待2秒
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
-
-                        // 重新启动策略
-                        try {
-                            String newStrategyKey = realTimeStrategyManager.startRealTimeStrategy(
-                                    strategyCode, symbol, interval, strategy, series, tradeAmount, startTime,strategyName);
-                            log.info("策略重启成功，新策略键: {}", newStrategyKey);
-
-                            // 创建新的CompletableFuture
-                            future = new CompletableFuture<>();
-
-                            // 获取新的策略运行状态并设置Future
-                            runningState = realTimeStrategyManager.getRunningStrategy(strategyCode, symbol, interval);
-                            if (runningState != null) {
-                                runningState.setFuture(future);
-                            }
-                        } catch (Exception restartEx) {
-                            log.error("策略重启失败: {}", restartEx.getMessage(), restartEx);
-                            break;
-                        }
-                    } else {
-                        log.error("策略超时重试次数已达上限，强制停止: strategyCode={}, symbol={}, interval={}",
-                                strategyCode, symbol, interval);
-                        realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
-
-                        // 返回超时状态
-                        if (runningState != null) {
-                            Map<String, Object> result = new HashMap<>();
-                            result.put("status", "TIMEOUT_AFTER_RETRIES");
-                            result.put("retryCount", retryCount - 1);
-                            result.put("totalTrades", runningState.getTotalTrades());
-                            result.put("successfulTrades", runningState.getSuccessfulTrades());
-                            result.put("successRate", runningState.getTotalTrades() > 0 ?
-                                    (double) runningState.getSuccessfulTrades() / runningState.getTotalTrades() : 0.0);
-                            result.put("orders", runningState.getOrders());
-                            result.put("endTime", LocalDateTime.now());
-                            return result;
-                        }
-                        break;
-                    }
-                }
-            }
-
-        } catch (Exception e) {
-            log.error("实时回测执行异常: {}", e.getMessage(), e);
-            // 确保清理资源
-            try {
-                realTimeStrategyManager.stopRealTimeStrategy(strategyCode, symbol, interval);
-            } catch (Exception cleanupEx) {
-                log.error("清理实时策略失败: {}", cleanupEx.getMessage());
-            }
-        }
-
-        // 返回默认结果
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "ERROR");
-        result.put("totalTrades", 0);
-        result.put("successfulTrades", 0);
-        result.put("successRate", 0.0);
-        result.put("orders", new ArrayList<>());
-        result.put("endTime", LocalDateTime.now());
-        return result;
     }
 
 

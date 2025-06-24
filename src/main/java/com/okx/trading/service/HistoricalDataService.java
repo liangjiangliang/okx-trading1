@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
+import org.ta4j.core.BarSeries;
 
 /**
  * 历史K线数据服务
@@ -94,6 +95,9 @@ public interface HistoricalDataService {
     List<LocalDateTime> checkDataIntegrity(List<CandlestickEntity> data,
                                            LocalDateTime startTime, LocalDateTime endTime);
 
+
+
+    BarSeries fetchLastestedBars(String symbol, String interval,int kLineNum,LocalDateTime now);
     /**
      * 单独获取缺失的数据点
      *

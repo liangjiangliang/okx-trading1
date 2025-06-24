@@ -1,9 +1,11 @@
 package com.okx.trading.service;
 
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
+import org.ta4j.core.Strategy;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -213,4 +215,7 @@ public interface RealTimeStrategyService {
      * @return 创建的实时策略
      */
     RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount,String strategyName);
+
+
+    Map<String, Object> executeRealTimeBacktest(Strategy strategy, Map<String, Object> state);
 }

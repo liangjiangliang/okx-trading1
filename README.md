@@ -434,7 +434,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## 📞 Contact Us
 
 - **GitHub Issues**: [Project Issues Page](https://github.com/your-repo/okx-trading/issues)
-- **Email**: your-email@example.com
+- **Email**: ralph_jungle@163.com
 - **WeChat Group**: Scan QR code to join technical discussion group
 
 ---

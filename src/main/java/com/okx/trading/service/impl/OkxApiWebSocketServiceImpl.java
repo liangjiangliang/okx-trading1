@@ -45,11 +45,11 @@ import okhttp3.Response;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-    name = "okx.api.connection-mode",
-    havingValue = "WEBSOCKET",
-    matchIfMissing = true
+        name = "okx.api.connection-mode",
+        havingValue = "WEBSOCKET",
+        matchIfMissing = true
 )
-public class OkxApiWebSocketServiceImpl implements OkxApiService{
+public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
     private final OkxApiConfig okxApiConfig;
     private final WebSocketUtil webSocketUtil;
@@ -61,56 +61,56 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     private RealTimeStrategyManager realTimeStrategyManager;
 
     // 缓存和回调
-    private final Map<String,CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
-    private final Map<String,CompletableFuture<List<Candlestick>>> klineFutures = new ConcurrentHashMap<>();
-    private final Map<String,CompletableFuture<AccountBalance>> balanceFutures = new ConcurrentHashMap<>();
-    private final Map<String,CompletableFuture<List<Order>>> ordersFutures = new ConcurrentHashMap<>();
-    private final Map<String,CompletableFuture<Order>> orderFutures = new ConcurrentHashMap<>();
-    private final Map<String,CompletableFuture<Boolean>> cancelOrderFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<List<Candlestick>>> klineFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<AccountBalance>> balanceFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<List<Order>>> ordersFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Order>> orderFutures = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Boolean>> cancelOrderFutures = new ConcurrentHashMap<>();
 
-    // 跟踪当前已订阅的币种
+    // 跟踪当前已订阅的币种+周期
     private final Set<String> subscribedSymbols = Collections.synchronizedSet(new HashSet<>());
 
     // 消息ID生成
     private final AtomicLong messageIdGenerator = new AtomicLong(1);
 
     @PostConstruct
-    public void init(){
+    public void init() {
         // 注册消息处理器
-        webSocketUtil.registerHandler("tickers", this :: handleTickerMessage);
+        webSocketUtil.registerHandler("tickers", this::handleTickerMessage);
 
         // 注册标准K线处理器
-        webSocketUtil.registerHandler("candle1m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle5m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle15m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle30m", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle1H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle2H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle4H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle6H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle12H", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle1D", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle1W", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle1M", this :: handleKlineMessage);
-        webSocketUtil.registerHandler("candle3M", this :: handleKlineMessage);
+        webSocketUtil.registerHandler("candle1m", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle5m", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle15m", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle30m", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle1H", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle2H", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle4H", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle6H", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle12H", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle1D", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle1W", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle1M", this::handleKlineMessage);
+        webSocketUtil.registerHandler("candle3M", this::handleKlineMessage);
 
         // 注册标记价格K线处理器
-        webSocketUtil.registerHandler("mark-price", this :: handleTickerMessage);
+        webSocketUtil.registerHandler("mark-price", this::handleTickerMessage);
 
-        webSocketUtil.registerHandler("account", this :: handleAccountMessage);
-        webSocketUtil.registerHandler("orders", this :: handleOrdersMessage);
-        webSocketUtil.registerHandler("order", this :: handleOrderMessage);
+        webSocketUtil.registerHandler("account", this::handleAccountMessage);
+        webSocketUtil.registerHandler("orders", this::handleOrdersMessage);
+        webSocketUtil.registerHandler("order", this::handleOrderMessage);
     }
 
     /**
      * 处理Ticker消息
      */
-    private void handleTickerMessage(JSONObject message){
-        try{
+    private void handleTickerMessage(JSONObject message) {
+        try {
             String channel = message.getJSONObject("arg").getString("channel");
             String symbol = message.getJSONObject("arg").getString("instId");
             JSONArray data = message.getJSONArray("data");
-            if(data != null && ! data.isEmpty()){
+            if (data != null && !data.isEmpty()) {
                 JSONObject tickerData = data.getJSONObject(0);
                 Ticker ticker = parseTicker(tickerData, symbol, channel);
 
@@ -118,17 +118,17 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                 // 将最新价格写入Redis缓存
                 BigDecimal lastPrice = ticker.getLastPrice();
-                if(lastPrice != null){
+                if (lastPrice != null) {
 //                    redisCacheService.updateCoinPrice(symbol, lastPrice);
                 }
 
 
                 CompletableFuture<Ticker> future = tickerFutures.get(channel + "_" + symbol);
-                if(future != null && ! future.isDone()){
+                if (future != null && !future.isDone()) {
                     future.complete(ticker);
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("处理Ticker消息失败", e);
         }
     }
@@ -136,9 +136,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 处理K线消息,实时行情消息,都是标记价格
      */
-    private void handleKlineMessage(JSONObject message){
-        try{
-            if(! message.containsKey("arg") || ! message.containsKey("data")){
+    private void handleKlineMessage(JSONObject message) {
+        try {
+            if (!message.containsKey("arg") || !message.containsKey("data")) {
                 log.debug("忽略不包含必要字段的K线消息: {}", message);
                 return;
             }
@@ -159,37 +159,37 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             Object dataObj = message.get("data");
 
             // 数组格式 - 可能是数组的数组或对象的数组
-            JSONArray dataArray = (JSONArray)dataObj;
-            for(int i = 0;i < dataArray.size();i++){
+            JSONArray dataArray = (JSONArray) dataObj;
+            for (int i = 0; i < dataArray.size(); i++) {
                 Object item = dataArray.get(i);
                 Candlestick candlestick = null;
 
                 // 标准K线格式：数组的数组
-                JSONArray candleData = (JSONArray)item;
+                JSONArray candleData = (JSONArray) item;
                 candlestick = parseCandlestick(candleData, symbol, channel);
 
 
-                if(candlestick != null){
+                if (candlestick != null) {
                     candlestick.setIntervalVal(interval);
                     redisCacheService.updateCandlestick(candlestick);
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
                     candlesticks.add(candlestick);
 
                     // 通知实时策略管理器处理新的K线数据
-                    if(realTimeStrategyManager != null){
+                    if (realTimeStrategyManager != null) {
                         realTimeStrategyManager.handleNewKlineData(symbol, interval, candlestick);
                     }
                 }
             }
             // 如果解析到了数据，完成等待中的Future
-            if(! candlesticks.isEmpty()){
+            if (!candlesticks.isEmpty()) {
                 CompletableFuture<List<Candlestick>> future = klineFutures.get(key);
-                if(future != null && ! future.isDone()){
+                if (future != null && !future.isDone()) {
                     log.debug("完成K线数据Future，符号: {}, 间隔: {}, 数据量: {}", symbol, interval, candlesticks.size());
                     future.complete(candlesticks);
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("处理K线消息失败: {}", e.getMessage(), e);
         }
     }
@@ -198,21 +198,21 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * 从JSONObject解析K线数据
      * 用于处理非标准格式的K线数据
      */
-    private Candlestick parseCandlestickFromObject(JSONObject candleObj, String symbol, String channel){
-        try{
+    private Candlestick parseCandlestickFromObject(JSONObject candleObj, String symbol, String channel) {
+        try {
             Candlestick candlestick = new Candlestick();
             candlestick.setSymbol(symbol);
             candlestick.setChannel(channel);
 
             // 解析时间戳
-            if(candleObj.containsKey("ts")){
+            if (candleObj.containsKey("ts")) {
                 long timestamp = candleObj.getLongValue("ts");
                 LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
                 candlestick.setOpenTime(time);
             }
 
             // 解析标记价格K线特有字段
-            if(candleObj.containsKey("markPx")){
+            if (candleObj.containsKey("markPx")) {
                 BigDecimal markPrice = new BigDecimal(candleObj.getString("markPx"));
                 candlestick.setOpen(markPrice);
                 candlestick.setHigh(markPrice);
@@ -224,24 +224,24 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             }
 
             // 解析标准K线字段
-            if(candleObj.containsKey("o")){
+            if (candleObj.containsKey("o")) {
                 candlestick.setOpen(new BigDecimal(candleObj.getString("o")));
             }
-            if(candleObj.containsKey("h")){
+            if (candleObj.containsKey("h")) {
                 candlestick.setHigh(new BigDecimal(candleObj.getString("h")));
             }
-            if(candleObj.containsKey("l")){
+            if (candleObj.containsKey("l")) {
                 candlestick.setLow(new BigDecimal(candleObj.getString("l")));
             }
-            if(candleObj.containsKey("c")){
+            if (candleObj.containsKey("c")) {
                 candlestick.setClose(new BigDecimal(candleObj.getString("c")));
             }
-            if(candleObj.containsKey("vol")){
+            if (candleObj.containsKey("vol")) {
                 candlestick.setVolume(new BigDecimal(candleObj.getString("vol")));
             }
 
             return candlestick;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("解析K线对象失败: {}", e.getMessage());
             return null;
         }
@@ -250,20 +250,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 处理账户消息
      */
-    private void handleAccountMessage(JSONObject message){
-        try{
+    private void handleAccountMessage(JSONObject message) {
+        try {
             JSONArray data = message.getJSONArray("data");
-            if(data != null && ! data.isEmpty()){
+            if (data != null && !data.isEmpty()) {
                 JSONObject balanceData = data.getJSONObject(0);
                 AccountBalance accountBalance = parseAccountBalance(balanceData);
 
-                String key = message.getJSONObject("arg").containsKey("simulated")?"simulated":"real";
+                String key = message.getJSONObject("arg").containsKey("simulated") ? "simulated" : "real";
                 CompletableFuture<AccountBalance> future = balanceFutures.get(key);
-                if(future != null && ! future.isDone()){
+                if (future != null && !future.isDone()) {
                     future.complete(accountBalance);
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("处理账户消息失败", e);
         }
     }
@@ -271,13 +271,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 处理订单列表消息
      */
-    private void handleOrdersMessage(JSONObject message){
-        try{
+    private void handleOrdersMessage(JSONObject message) {
+        try {
             String symbol = message.getJSONObject("arg").getString("instId");
             JSONArray data = message.getJSONArray("data");
-            if(data != null){
+            if (data != null) {
                 List<Order> orders = new ArrayList<>();
-                for(int i = 0;i < data.size();i++){
+                for (int i = 0; i < data.size(); i++) {
                     JSONObject orderData = data.getJSONObject(i);
                     Order order = parseOrder(orderData);
                     orders.add(order);
@@ -285,11 +285,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                 String key = symbol + "_orders";
                 CompletableFuture<List<Order>> future = ordersFutures.get(key);
-                if(future != null && ! future.isDone()){
+                if (future != null && !future.isDone()) {
                     future.complete(orders);
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("处理订单列表消息失败", e);
         }
     }
@@ -297,43 +297,43 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 处理订单消息
      */
-    private void handleOrderMessage(JSONObject message){
-        try{
+    private void handleOrderMessage(JSONObject message) {
+        try {
             JSONArray data = message.getJSONArray("data");
-            if(data != null && ! data.isEmpty()){
+            if (data != null && !data.isEmpty()) {
                 JSONObject orderData = data.getJSONObject(0);
                 Order order = parseOrder(orderData);
 
                 // 使用clOrdId查找对应的future，而不是ordId
                 String clientOrderId = orderData.getString("clOrdId");
                 log.info("收到订单消息: orderId={}, clientOrderId={}, status={}, sMsg={}",
-                    orderData.getString("ordId"), clientOrderId, orderData.getString("state"), orderData.getString("sMsg"));
-                if(order.getSCode() != 0){
+                        orderData.getString("ordId"), clientOrderId, orderData.getString("state"), orderData.getString("sMsg"));
+                if (order.getSCode() != 0) {
                     throw new BusinessException(order.getSCode(), order.getClientOrderId() + ": " + order.getSMsg());
                 }
 
                 CompletableFuture<Order> future = orderFutures.get(clientOrderId);
-                if(future != null && ! future.isDone()){
+                if (future != null && !future.isDone()) {
                     future.complete(order);
                 }
 
                 // 处理取消订单的响应
-                if("canceled".equals(orderData.getString("state"))){
+                if ("canceled".equals(orderData.getString("state"))) {
                     String orderId = orderData.getString("ordId");
                     CompletableFuture<Boolean> cancelFuture = cancelOrderFutures.get(orderId);
-                    if(cancelFuture != null && ! cancelFuture.isDone()){
+                    if (cancelFuture != null && !cancelFuture.isDone()) {
                         cancelFuture.complete(true);
                     }
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("处理订单消息失败", e);
         }
     }
 
     @Override
-    public List<Candlestick> getKlineData(String symbol, String interval, Integer limit){
-        try{
+    public List<Candlestick> getKlineData(String symbol, String interval, Integer limit) {
+        try {
             // 构建标记价格K线的正确频道名和参数
             String channel = "candle" + interval;
             // 确保键格式统一
@@ -351,10 +351,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 获取K线数据通常需要更长时间，使用配置值的1.5倍
-            int klineTimeout = (int)(okxApiConfig.getTimeout() * 1.5);
+            int klineTimeout = (int) (okxApiConfig.getTimeout() * 1.5);
             klineTimeout = Math.max(15, klineTimeout); // 至少15秒
 
-            try{
+            try {
                 List<Candlestick> candlesticks = future.get(klineTimeout, TimeUnit.SECONDS);
                 klineFutures.remove(key);
 
@@ -362,27 +362,27 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 candlesticks.forEach(c -> c.setIntervalVal(interval));
 
                 // 限制返回数量
-                int size = limit != null && limit > 0?Math.min(limit, candlesticks.size()):candlesticks.size();
+                int size = limit != null && limit > 0 ? Math.min(limit, candlesticks.size()) : candlesticks.size();
                 return candlesticks.subList(0, size);
-            }catch(TimeoutException e){
+            } catch (TimeoutException e) {
                 log.error("获取K线数据超时，符号: {}, 间隔: {}, 超时时间: {}秒", symbol, interval, klineTimeout);
                 throw new OkxApiException("获取K线数据超时，请稍后重试", e);
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取K线数据失败: {}", e.getMessage(), e);
             throw new OkxApiException("获取K线数据失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public Ticker getTicker(String symbol){
-        try{
+    public Ticker getTicker(String symbol) {
+        try {
             // 检查是否已订阅，避免重复订阅
-            if(subscribedSymbols.contains(symbol)){
+            if (subscribedSymbols.contains(symbol)) {
                 log.debug("币种 {} 已经订阅，跳过重复订阅", symbol);
                 // 从Redis获取最新价格
                 BigDecimal price = redisCacheService.getCoinPrice(symbol);
-                if(price != null){
+                if (price != null) {
                     Ticker ticker = new Ticker();
                     ticker.setSymbol(symbol);
                     ticker.setLastPrice(price);
@@ -408,20 +408,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             subscribedSymbols.add(symbol);
 
             // 获取配置的超时时间，默认为10秒
-            int timeout = okxApiConfig.getTimeout() > 0?okxApiConfig.getTimeout():10;
+            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
 
             // 添加重试逻辑
             Ticker ticker = null;
             int retryCount = 0;
             int maxRetries = 3;
 
-            while(ticker == null && retryCount < maxRetries){
-                try{
+            while (ticker == null && retryCount < maxRetries) {
+                try {
                     // 等待获取数据，使用配置中的超时时间
                     ticker = future.get(timeout, TimeUnit.SECONDS);
-                }catch(TimeoutException e){
+                } catch (TimeoutException e) {
                     retryCount++;
-                    if(retryCount >= maxRetries){
+                    if (retryCount >= maxRetries) {
                         log.error("获取行情数据超时，已重试{}次", retryCount);
                         throw e;
                     }
@@ -433,35 +433,35 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             tickerFutures.remove(key);
             return ticker;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取行情数据失败", e);
             throw new OkxApiException("获取行情数据失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public AccountBalance getAccountBalance(){
-        try{
+    public AccountBalance getAccountBalance() {
+        try {
             CompletableFuture<AccountBalance> future = new CompletableFuture<>();
             balanceFutures.put("real", future);
 
             webSocketUtil.subscribePrivateTopic("account");
 
             // 获取配置的超时时间
-            int timeout = okxApiConfig.getTimeout() > 0?okxApiConfig.getTimeout():10;
+            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
             AccountBalance accountBalance = future.get(timeout, TimeUnit.SECONDS);
             balanceFutures.remove("real");
 
             return accountBalance;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取账户余额失败", e);
             throw new OkxApiException("获取账户余额失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public AccountBalance getSimulatedAccountBalance(){
-        try{
+    public AccountBalance getSimulatedAccountBalance() {
+        try {
             CompletableFuture<AccountBalance> future = new CompletableFuture<>();
             balanceFutures.put("simulated", future);
 
@@ -481,20 +481,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
             // 获取配置的超时时间
-            int timeout = okxApiConfig.getTimeout() > 0?okxApiConfig.getTimeout():10;
+            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
             AccountBalance accountBalance = future.get(timeout, TimeUnit.SECONDS);
             balanceFutures.remove("simulated");
 
             return accountBalance;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取模拟账户余额失败", e);
             throw new OkxApiException("获取模拟账户余额失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public List<Order> getOrders(String symbol, String status, Integer limit){
-        try{
+    public List<Order> getOrders(String symbol, String status, Integer limit) {
+        try {
             String key = symbol + "_orders";
             CompletableFuture<List<Order>> future = new CompletableFuture<>();
             ordersFutures.put(key, future);
@@ -507,10 +507,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             JSONObject arg = new JSONObject();
             arg.put("channel", "orders");
             arg.put("instId", symbol);
-            if(status != null && ! status.isEmpty()){
+            if (status != null && !status.isEmpty()) {
                 arg.put("state", mapToOkxOrderStatus(status));
             }
-            if(limit != null && limit > 0){
+            if (limit != null && limit > 0) {
                 arg.put("limit", limit.toString());
             }
 
@@ -521,36 +521,36 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
             // 获取配置的超时时间
-            int timeout = okxApiConfig.getTimeout() > 0?okxApiConfig.getTimeout():10;
+            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
             List<Order> orders = future.get(timeout, TimeUnit.SECONDS);
             ordersFutures.remove(key);
 
             return orders;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取订单列表失败", e);
             throw new OkxApiException("获取订单列表失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public Order createSpotOrder(OrderRequest orderRequest){
+    public Order createSpotOrder(OrderRequest orderRequest) {
         return createOrder(orderRequest, "SPOT", orderRequest.getSimulated() != null && orderRequest.getSimulated());
     }
 
     @Override
-    public Order createFuturesOrder(OrderRequest orderRequest){
+    public Order createFuturesOrder(OrderRequest orderRequest) {
         return createOrder(orderRequest, "SWAP", orderRequest.getSimulated() != null && orderRequest.getSimulated());
     }
 
     /**
      * 创建订单
      */
-    private Order createOrder(OrderRequest orderRequest, String instType, boolean isSimulated){
-        try{
+    private Order createOrder(OrderRequest orderRequest, String instType, boolean isSimulated) {
+        try {
             // 生成订单ID
             String orderId = UUID.randomUUID().toString();
-            String clientOrderId = orderRequest.getClientOrderId() != null?
-                orderRequest.getClientOrderId():System.currentTimeMillis() + orderId.substring(0, 8);
+            String clientOrderId = orderRequest.getClientOrderId() != null ?
+                    orderRequest.getClientOrderId() : System.currentTimeMillis() + orderId.substring(0, 8);
 
             CompletableFuture<Order> future = new CompletableFuture<>();
 
@@ -558,7 +558,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             orderFutures.put(clientOrderId, future);
 
             log.info("准备创建订单, symbol: {}, type: {}, side: {}, clientOrderId: {}",
-                orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), clientOrderId);
+                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(), clientOrderId);
 
             // 构建订单请求
             JSONObject requestMessage = new JSONObject();
@@ -569,25 +569,25 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             arg.put("instId", orderRequest.getSymbol());
             arg.put("tdMode", "cash"); // 资金模式，cash为现钞
             arg.put("side", orderRequest.getSide().toLowerCase());
-            if(orderRequest.getType() != null){
+            if (orderRequest.getType() != null) {
                 arg.put("ordType", mapToOkxOrderType(orderRequest.getType())); // MARKET LIMIT
-            }else{
+            } else {
                 arg.put("ordType", "market");
             }
 
 
             //币币市价单委托数量sz的单位,base_ccy: 交易货币 ；quote_ccy：计价货币,仅适用于币币市价订单,默认买单为quote_ccy，卖单为base_ccy
-            if(orderRequest.getAmount() != null){
+            if (orderRequest.getAmount() != null) {
                 // 市价\限价,指定金额
                 arg.put("sz", orderRequest.getAmount().toString());
                 arg.put("tgtCcy", "quote_ccy");
-            }else if(orderRequest.getQuantity() != null){
+            } else if (orderRequest.getQuantity() != null) {
                 //指定数量,市价单不指定价格,限价单指定价格
                 arg.put("sz", orderRequest.getQuantity().toString());
                 arg.put("tgtCcy", "base_ccy");
-                if(orderRequest.getPrice() != null){
+                if (orderRequest.getPrice() != null) {
                     arg.put("px", orderRequest.getPrice().toString());
-                }else{
+                } else {
                     BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
                     arg.put("px", coinPrice.toString());
                 }
@@ -597,12 +597,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             arg.put("clOrdId", clientOrderId);
 
             // 设置杠杆倍数（合约交易）
-            if("SWAP".equals(instType) && orderRequest.getLeverage() != null){
+            if ("SWAP".equals(instType) && orderRequest.getLeverage() != null) {
                 arg.put("lever", orderRequest.getLeverage().toString());
             }
 
             // 设置模拟交易
-            if(isSimulated){
+            if (isSimulated) {
                 arg.put("simulated", "1");
             }
 
@@ -613,7 +613,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             log.info("发送订单请求: {}", requestMessage.toJSONString());
 
             // 检查WebSocket连接状态
-            if(! webSocketUtil.isPrivateSocketConnected()){
+            if (!webSocketUtil.isPrivateSocketConnected()) {
                 log.error("私有WebSocket未连接，无法发送订单请求");
                 throw new OkxApiException("WebSocket连接已断开，请重新连接后再尝试");
             }
@@ -623,29 +623,29 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
             // 增加订单超时处理
             Order order = null;
-            try{
+            try {
                 // 订单超时时间需要更长，使用配置值的2倍，但不少于20秒
                 int orderTimeout = Math.max(20, okxApiConfig.getTimeout() * 2);
                 log.info("等待订单响应, 超时{}秒, clientOrderId: {}", orderTimeout, clientOrderId);
                 order = future.get(orderTimeout, TimeUnit.SECONDS);
                 log.info("成功收到订单响应, clientOrderId: {}, orderId: {}, status: {}, sMsg: {}",
-                    clientOrderId, order.getOrderId(), order.getStatus(), order.getSMsg());
-            }catch(TimeoutException e){
+                        clientOrderId, order.getOrderId(), order.getStatus(), order.getSMsg());
+            } catch (TimeoutException e) {
                 log.warn("订单请求首次超时({}秒), 尝试通过REST API查询订单状态, clientOrderId: {}",
-                    Math.max(20, okxApiConfig.getTimeout() * 2), clientOrderId);
+                        Math.max(20, okxApiConfig.getTimeout() * 2), clientOrderId);
 
                 // 通过REST API查询订单信息
-                try{
+                try {
                     // 睡眠1秒确保订单有时间处理
                     Thread.sleep(1000);
 
                     // 使用正确的API接口：直接使用order接口按clientOrderId查询单个订单
                     // 构建API请求路径
                     StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
-                        .append("/api/v5/trade/order?instId=")
-                        .append(orderRequest.getSymbol())
-                        .append("&clOrdId=")
-                        .append(clientOrderId);
+                            .append("/api/v5/trade/order?instId=")
+                            .append(orderRequest.getSymbol())
+                            .append("&clOrdId=")
+                            .append(clientOrderId);
 
                     // 记录API请求路径
                     log.info("查询订单API URL: {}", apiUrlBuilder.toString());
@@ -655,89 +655,89 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
 
                     // 构建请求路径（不含baseUrl，用于签名）
                     String requestPath = "/api/v5/trade/order?instId="
-                        + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
+                            + orderRequest.getSymbol() + "&clOrdId=" + clientOrderId;
 
                     // 生成签名
                     String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
 
                     Request.Builder requestBuilder = new Request.Builder()
-                        .url(apiUrlBuilder.toString())
-                        .addHeader("Content-Type", "application/json")
-                        .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
-                        .addHeader("OK-ACCESS-SIGN", sign)
-                        .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
-                        .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
+                            .url(apiUrlBuilder.toString())
+                            .addHeader("Content-Type", "application/json")
+                            .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
+                            .addHeader("OK-ACCESS-SIGN", sign)
+                            .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
+                            .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
 
                     // 如果是模拟交易需要额外添加标志
-                    if(isSimulated){
+                    if (isSimulated) {
                         requestBuilder.addHeader("x-simulated-trading", "1");
                     }
 
                     Request request = requestBuilder.get().build();
 
-                    try(Response response = okHttpClient.newCall(request).execute()){
-                        if(response.isSuccessful() && response.body() != null){
+                    try (Response response = okHttpClient.newCall(request).execute()) {
+                        if (response.isSuccessful() && response.body() != null) {
                             String responseBody = response.body().string();
                             log.info("REST API查询订单响应: {}", responseBody);
 
                             JSONObject responseJson = JSONObject.parseObject(responseBody);
 
-                            if("0".equals(responseJson.getString("code"))){
+                            if ("0".equals(responseJson.getString("code"))) {
                                 JSONArray data = responseJson.getJSONArray("data");
-                                if(data != null && ! data.isEmpty()){
+                                if (data != null && !data.isEmpty()) {
                                     // 直接解析第一个订单，因为是按clientOrderId精确查询的
                                     JSONObject orderData = data.getJSONObject(0);
                                     order = parseOrder(orderData);
                                     log.info("通过REST API查询到订单: clientOrderId={}, orderId={}, status={}",
-                                        clientOrderId, order.getOrderId(), order.getStatus());
-                                }else{
+                                            clientOrderId, order.getOrderId(), order.getStatus());
+                                } else {
                                     // 尝试查询活跃订单
                                     log.info("通过clientOrderId未查询到订单，尝试查询活跃订单列表");
                                     Order pendingOrder = findOrderInPendingList(clientOrderId, orderRequest.getSymbol(), isSimulated);
-                                    if(pendingOrder != null){
+                                    if (pendingOrder != null) {
                                         order = pendingOrder;
-                                    }else{
+                                    } else {
                                         log.error("REST API未查询到订单, clientOrderId: {}", clientOrderId);
                                         throw new OkxApiException("订单请求超时且未找到对应订单，请稍后通过查询接口确认订单状态");
                                     }
                                 }
-                            }else{
+                            } else {
                                 log.error("REST API查询订单失败, code: {}, msg: {}",
-                                    responseJson.getString("code"), responseJson.getString("msg"));
+                                        responseJson.getString("code"), responseJson.getString("msg"));
                                 throw new OkxApiException("查询订单失败: " + responseJson.getString("msg"));
                             }
-                        }else{
+                        } else {
                             log.error("REST API请求失败, 状态码: {}", response.code());
                             throw new OkxApiException("REST API请求失败，状态码: " + response.code());
                         }
                     }
-                }catch(Exception ex){
+                } catch (Exception ex) {
                     log.error("查询订单状态失败: {}", ex.getMessage(), ex);
                     // 提示用户主动查询订单状态
                     throw new OkxApiException("订单提交后未收到确认，但请求可能已成功处理。请通过订单查询接口确认订单状态，clientOrderId: " + clientOrderId);
                 }
-            }catch(Exception e){
+            } catch (Exception e) {
                 log.error("订单请求异常, symbol: {}, type: {}, side: {}, clientOrderId: {}, 错误: {}",
-                    orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
-                    clientOrderId, e.getMessage(), e);
+                        orderRequest.getSymbol(), orderRequest.getType(), orderRequest.getSide(),
+                        clientOrderId, e.getMessage(), e);
                 throw new OkxApiException("订单请求异常: " + e.getMessage(), e);
-            }finally{
+            } finally {
                 // 清理资源
                 orderFutures.remove(clientOrderId);
             }
 
             return order;
-        }catch(OkxApiException e){
+        } catch (OkxApiException e) {
             throw e;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("创建订单失败: {}", e.getMessage(), e);
             throw new OkxApiException("创建订单失败: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public boolean cancelOrder(String symbol, String orderId){
-        try{
+    public boolean cancelOrder(String symbol, String orderId) {
+        try {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             cancelOrderFutures.put(orderId, future);
 
@@ -757,12 +757,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             webSocketUtil.sendPrivateRequest(requestMessage.toJSONString());
 
             // 获取配置的超时时间
-            int timeout = okxApiConfig.getTimeout() > 0?okxApiConfig.getTimeout():10;
+            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
             boolean success = future.get(timeout, TimeUnit.SECONDS);
             cancelOrderFutures.remove(orderId);
 
             return success;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("取消订单失败", e);
             throw new OkxApiException("取消订单失败: " + e.getMessage(), e);
         }
@@ -771,7 +771,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析Ticker数据
      */
-    private Ticker parseTicker(JSONObject tickerData, String symbol, String channel){
+    private Ticker parseTicker(JSONObject tickerData, String symbol, String channel) {
         Ticker ticker = new Ticker();
         ticker.setSymbol(symbol);
         ticker.setChannel(channel);
@@ -789,10 +789,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
         ticker.setTimestamp(time);
 
         // 计算24小时涨跌幅
-        if(tickerData.containsKey("open24h") && tickerData.containsKey("last")){
+        if (tickerData.containsKey("open24h") && tickerData.containsKey("last")) {
             BigDecimal open = new BigDecimal(tickerData.getString("open24h"));
             BigDecimal last = new BigDecimal(tickerData.getString("last"));
-            if(open.compareTo(BigDecimal.ZERO) > 0){
+            if (open.compareTo(BigDecimal.ZERO) > 0) {
                 ticker.setPriceChange(last.subtract(open));
                 ticker.setPriceChangePercent(last.subtract(open).divide(open, 4, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("100")));
             }
@@ -804,7 +804,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析K线数据
      */
-    private Candlestick parseCandlestick(JSONArray candleData, String symbol, String channel){
+    private Candlestick parseCandlestick(JSONArray candleData, String symbol, String channel) {
         Candlestick candlestick = new Candlestick();
         candlestick.setSymbol(symbol);
         candlestick.setChannel(channel);
@@ -829,14 +829,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析账户余额数据
      */
-    private AccountBalance parseAccountBalance(JSONObject balanceData){
+    private AccountBalance parseAccountBalance(JSONObject balanceData) {
         AccountBalance accountBalance = new AccountBalance();
         accountBalance.setTotalEquity(new BigDecimal(balanceData.getString("totalEq")));
 
         List<AssetBalance> assetBalances = new ArrayList<>();
         JSONArray detailsArray = balanceData.getJSONArray("details");
 
-        for(int i = 0;i < detailsArray.size();i++){
+        for (int i = 0; i < detailsArray.size(); i++) {
             JSONObject detail = detailsArray.getJSONObject(i);
             AssetBalance assetBalance = new AssetBalance();
             assetBalance.setAsset(detail.getString("ccy"));
@@ -847,7 +847,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             assetBalances.add(assetBalance);
         }
 
-        accountBalance.setAvailableBalance(assetBalances.stream().map(x -> x.getAvailable().divide(x.getTotal(), 8, RoundingMode.HALF_UP).multiply(x.getUsdValue())).reduce(BigDecimal :: add).orElseGet(() -> BigDecimal.ZERO));
+        accountBalance.setAvailableBalance(assetBalances.stream().map(x -> x.getAvailable().divide(x.getTotal(), 8, RoundingMode.HALF_UP).multiply(x.getUsdValue())).reduce(BigDecimal::add).orElseGet(() -> BigDecimal.ZERO));
         accountBalance.setFrozenBalance(accountBalance.getTotalEquity().subtract(accountBalance.getAvailableBalance()));
         accountBalance.setAssetBalances(assetBalances);
         return accountBalance;
@@ -856,64 +856,64 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 解析订单数据
      */
-    private Order parseOrder(JSONObject orderData){
+    private Order parseOrder(JSONObject orderData) {
         Order order = new Order();
         order.setOrderId(orderData.getString("ordId"));
         order.setClientOrderId(orderData.getString("clOrdId"));
-        if(orderData.containsKey("instId")){
+        if (orderData.containsKey("instId")) {
             order.setSymbol(orderData.getString("instId"));
         }
 
-        if(orderData.containsKey("sMsg")){
+        if (orderData.containsKey("sMsg")) {
             order.setSMsg(orderData.getString("sMsg"));
         }
 
-        if(orderData.containsKey("sCode")){
+        if (orderData.containsKey("sCode")) {
             order.setSCode(Integer.parseInt(orderData.getString("sCode")));
         }
 
-        if(orderData.containsKey("px") && ! orderData.getString("px").isEmpty()){
+        if (orderData.containsKey("px") && !orderData.getString("px").isEmpty()) {
             order.setPrice(new BigDecimal(orderData.getString("px")));
         }
-        if(orderData.containsKey("sz") && ! orderData.getString("sz").isEmpty()){
+        if (orderData.containsKey("sz") && !orderData.getString("sz").isEmpty()) {
             order.setOrigQty(new BigDecimal(orderData.getString("sz")));
         }
 
-        if(orderData.containsKey("accFillSz")){
+        if (orderData.containsKey("accFillSz")) {
             order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")));
         }
 
-        if(orderData.containsKey("fillPx") && ! orderData.getString("fillPx").isEmpty()){
+        if (orderData.containsKey("fillPx") && !orderData.getString("fillPx").isEmpty()) {
             BigDecimal fillPrice = new BigDecimal(orderData.getString("fillPx"));
             BigDecimal fillSize = new BigDecimal(orderData.getString("accFillSz"));
             order.setCummulativeQuoteQty(fillPrice.multiply(fillSize));
         }
 
-        if(orderData.containsKey("state")){
+        if (orderData.containsKey("state")) {
             order.setStatus(mapOrderStatus(orderData.getString("state")));
         }
-        if(orderData.containsKey("ordType")){
+        if (orderData.containsKey("ordType")) {
             order.setType(mapOrderType(orderData.getString("ordType")));
         }
-        if(orderData.containsKey("side")){
+        if (orderData.containsKey("side")) {
             order.setSide(orderData.getString("side").toUpperCase());
         }
 
-        if(orderData.containsKey("fee") && ! orderData.getString("fee").isEmpty()){
+        if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
             order.setFee(new BigDecimal(orderData.getString("fee")));
         }
 
-        if(orderData.containsKey("feeCcy")){
+        if (orderData.containsKey("feeCcy")) {
             order.setFeeCurrency(orderData.getString("feeCcy"));
         }
 
         // 解析时间戳
-        if(orderData.containsKey("cTime")){
+        if (orderData.containsKey("cTime")) {
             long createTime = Long.parseLong(orderData.getString("cTime"));
             order.setCreateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(createTime), ZoneId.systemDefault()));
         }
 
-        if(orderData.containsKey("uTime")){
+        if (orderData.containsKey("uTime")) {
             long updateTime = Long.parseLong(orderData.getString("uTime"));
             order.setUpdateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(updateTime), ZoneId.systemDefault()));
         }
@@ -924,15 +924,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 格式化K线间隔
      */
-    private String formatInterval(String interval){
+    private String formatInterval(String interval) {
         return interval;
     }
 
     /**
      * 映射OKX订单状态到标准状态
      */
-    private String mapOrderStatus(String okxStatus){
-        switch(okxStatus){
+    private String mapOrderStatus(String okxStatus) {
+        switch (okxStatus) {
             case "live":
                 return "NEW";
             case "partially_filled":
@@ -951,8 +951,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 映射标准订单状态到OKX订单状态
      */
-    private String mapToOkxOrderStatus(String standardStatus){
-        switch(standardStatus.toUpperCase()){
+    private String mapToOkxOrderStatus(String standardStatus) {
+        switch (standardStatus.toUpperCase()) {
             case "NEW":
                 return "live";
             case "PARTIALLY_FILLED":
@@ -971,8 +971,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 映射OKX订单类型到标准类型
      */
-    private String mapOrderType(String okxType){
-        switch(okxType){
+    private String mapOrderType(String okxType) {
+        switch (okxType) {
             case "limit":
                 return "LIMIT";
             case "market":
@@ -985,8 +985,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 映射标准订单类型到OKX订单类型
      */
-    private String mapToOkxOrderType(String standardType){
-        switch(standardType.toUpperCase()){
+    private String mapToOkxOrderType(String standardType) {
+        switch (standardType.toUpperCase()) {
             case "LIMIT":
                 return "limit";
             case "MARKET":
@@ -997,10 +997,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     }
 
     @Override
-    public boolean unsubscribeTicker(String symbol){
-        try{
+    public boolean unsubscribeTicker(String symbol) {
+        try {
             // 检查是否已订阅
-            if(! subscribedSymbols.contains(symbol)){
+            if (!subscribedSymbols.contains(symbol)) {
                 log.debug("币种 {} 未订阅，无需取消", symbol);
                 return true;
             }
@@ -1017,21 +1017,21 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             // 清理相关Future
             tickerFutures.remove(key);
             return true;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("取消订阅行情数据失败: {}", e.getMessage(), e);
             return false;
         }
     }
 
     @Override
-    public boolean subscribeKlineData(String symbol, String interval){
-        try{
+    public boolean subscribeKlineData(String symbol, String interval) {
+        try {
             // 订阅K线数据
             String channel = "candle" + interval;
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅
-            if(subscribedSymbols.contains(symbol)){
+            if (subscribedSymbols.contains(symbol + ":" + interval)) {
                 log.debug("币种 {} 已订阅，无需重复订阅", symbol);
                 return true;
             }
@@ -1047,24 +1047,24 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 添加已订阅标记
-            subscribedSymbols.add(symbol);
+            subscribedSymbols.add(symbol + ":" + interval);
 
             return true;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("订阅K线数据失败: {}", e.getMessage(), e);
             return false;
         }
     }
 
     @Override
-    public boolean unsubscribeKlineData(String symbol, String interval){
-        try{
+    public boolean unsubscribeKlineData(String symbol, String interval) {
+        try {
             // 取消订阅标记价格K线数据
             String channel = "candle" + interval;
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅
-            if(! subscribedSymbols.contains(symbol)){
+            if (!subscribedSymbols.contains(symbol)) {
                 log.debug("币种 {} 未订阅，无需取消", symbol);
                 return true;
             }
@@ -1084,7 +1084,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             klineFutures.remove(key);
 
             return true;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("取消订阅K线数据失败: {}", e.getMessage(), e);
             return false;
         }
@@ -1096,7 +1096,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * @param symbol 交易对符号
      * @return 是否已订阅
      */
-    public boolean isSymbolSubscribed(String symbol){
+    public boolean isSymbolSubscribed(String symbol) {
         return subscribedSymbols.contains(symbol);
     }
 
@@ -1105,12 +1105,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      *
      * @return 已订阅币种集合
      */
-    public Set<String> getSubscribedSymbols(){
+    public Set<String> getSubscribedSymbols() {
         return new HashSet<>(subscribedSymbols);
     }
 
     /**
-     *
      * @param symbol    交易对，如BTC-USDT
      * @param interval  K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
      * @param startTime 开始时间戳（毫秒） 不包括
@@ -1119,28 +1118,28 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * @return
      */
     @Override
-    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit){
-        try{
+    public List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit) {
+        try {
             // WebSocket模式下，历史K线通过REST API获取
             startTime = startTime - 1;
             endTime = endTime + 1;
             log.info("获取历史K线数据, symbol: {}, interval: {}, startTime: {}, endTime: {}, limit: {}",
-                symbol, interval, startTime, endTime, limit);
+                    symbol, interval, startTime, endTime, limit);
 
             // 使用现有的已经注入的依赖，向REST API发起请求  beafore 开始时间 after 结束时间  左开右开
             String url = okxApiConfig.getBaseUrl() + "/api/v5/market/history-candles";
             url = url + "?instId=" + symbol + "&bar=" + interval;
 
-            if(startTime != null){
+            if (startTime != null) {
                 url = url + "&before=" + startTime;
 
             }
 
-            if(endTime != null){
+            if (endTime != null) {
                 url = url + "&after=" + endTime;
             }
 
-            if(limit != null && limit > 0){
+            if (limit != null && limit > 0) {
                 url = url + "&limit=" + limit;
             }
 
@@ -1148,14 +1147,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             String response = HttpUtil.get(okHttpClient, url, null);
             JSONObject jsonResponse = JSONObject.parseObject(response);
 
-            if(! "0".equals(jsonResponse.getString("code"))){
+            if (!"0".equals(jsonResponse.getString("code"))) {
                 throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
             }
 
             JSONArray dataArray = jsonResponse.getJSONArray("data");
             List<Candlestick> result = new ArrayList<>();
 
-            for(int i = 0;i < dataArray.size();i++){
+            for (int i = 0; i < dataArray.size(); i++) {
                 JSONArray item = dataArray.getJSONArray(i);
 
                 // OKX API返回格式：[时间戳, 开盘价, 最高价, 最低价, 收盘价, 成交量, 成交额]
@@ -1166,8 +1165,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
                 // 转换时间戳为LocalDateTime
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
-                    Instant.ofEpochMilli(timestamp),
-                    ZoneId.systemDefault());
+                        Instant.ofEpochMilli(timestamp),
+                        ZoneId.systemDefault());
 
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));
@@ -1187,7 +1186,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             }
 
             return result;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("获取历史K线数据异常", e);
             throw new OkxApiException("获取历史K线数据失败: " + e.getMessage(), e);
         }
@@ -1196,18 +1195,18 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
     /**
      * 根据开盘时间和K线间隔计算收盘时间
      */
-    private LocalDateTime calculateCloseTimeFromInterval(LocalDateTime openTime, String interval){
+    private LocalDateTime calculateCloseTimeFromInterval(LocalDateTime openTime, String interval) {
         // 解析时间单位和数量
         String unit = interval.substring(interval.length() - 1);
         int amount;
-        try{
+        try {
             amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
-        }catch(NumberFormatException e){
+        } catch (NumberFormatException e) {
             // 如果解析失败，使用默认值1
             amount = 1;
         }
 
-        switch(unit){
+        switch (unit) {
             case "m":
                 return openTime.plusMinutes(amount);
             case "H":
@@ -1231,12 +1230,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
      * @param isSimulated   是否是模拟交易
      * @return 找到的订单，未找到则返回null
      */
-    private Order findOrderInPendingList(String clientOrderId, String symbol, boolean isSimulated){
-        try{
+    private Order findOrderInPendingList(String clientOrderId, String symbol, boolean isSimulated) {
+        try {
             // 构建API请求路径，查询活跃订单
             StringBuilder apiUrlBuilder = new StringBuilder(okxApiConfig.getBaseUrl())
-                .append("/api/v5/trade/orders-pending?instType=SPOT&instId=")
-                .append(symbol);
+                    .append("/api/v5/trade/orders-pending?instType=SPOT&instId=")
+                    .append(symbol);
 
             log.info("查询活跃订单API URL: {}", apiUrlBuilder.toString());
 
@@ -1250,53 +1249,53 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService{
             String sign = SignatureUtil.sign(timestamp, "GET", requestPath, "", okxApiConfig.getSecretKey());
 
             Request.Builder requestBuilder = new Request.Builder()
-                .url(apiUrlBuilder.toString())
-                .addHeader("Content-Type", "application/json")
-                .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
-                .addHeader("OK-ACCESS-SIGN", sign)
-                .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
-                .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
+                    .url(apiUrlBuilder.toString())
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("OK-ACCESS-KEY", okxApiConfig.getApiKey())
+                    .addHeader("OK-ACCESS-SIGN", sign)
+                    .addHeader("OK-ACCESS-TIMESTAMP", timestamp)
+                    .addHeader("OK-ACCESS-PASSPHRASE", okxApiConfig.getPassphrase());
 
             // 如果是模拟交易
-            if(isSimulated){
+            if (isSimulated) {
                 requestBuilder.addHeader("x-simulated-trading", "1");
             }
 
             Request request = requestBuilder.get().build();
 
-            try(Response response = okHttpClient.newCall(request).execute()){
-                if(response.isSuccessful() && response.body() != null){
+            try (Response response = okHttpClient.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
                     String responseBody = response.body().string();
                     log.info("活跃订单查询响应: {}", responseBody);
 
                     JSONObject responseJson = JSONObject.parseObject(responseBody);
 
-                    if("0".equals(responseJson.getString("code"))){
+                    if ("0".equals(responseJson.getString("code"))) {
                         JSONArray data = responseJson.getJSONArray("data");
-                        if(data != null && ! data.isEmpty()){
+                        if (data != null && !data.isEmpty()) {
                             // 遍历所有活跃订单，查找匹配的clientOrderId
-                            for(int i = 0;i < data.size();i++){
+                            for (int i = 0; i < data.size(); i++) {
                                 JSONObject orderData = data.getJSONObject(i);
                                 String respClientOrderId = orderData.getString("clOrdId");
 
-                                if(clientOrderId.equals(respClientOrderId)){
+                                if (clientOrderId.equals(respClientOrderId)) {
                                     Order order = parseOrder(orderData);
                                     log.info("在活跃订单中找到匹配订单: clientOrderId={}, orderId={}, status={}",
-                                        clientOrderId, order.getOrderId(), order.getStatus());
+                                            clientOrderId, order.getOrderId(), order.getStatus());
                                     return order;
                                 }
                             }
                         }
-                    }else{
+                    } else {
                         log.warn("活跃订单查询失败: code={}, msg={}",
-                            responseJson.getString("code"), responseJson.getString("msg"));
+                                responseJson.getString("code"), responseJson.getString("msg"));
                     }
                 }
             }
 
             // 如果没找到，返回null
             return null;
-        }catch(Exception e){
+        } catch (Exception e) {
             log.warn("查询活跃订单列表异常", e);
             return null;
         }

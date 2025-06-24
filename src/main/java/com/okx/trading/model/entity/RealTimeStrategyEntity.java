@@ -26,7 +26,7 @@ public class RealTimeStrategyEntity {
     private Long id;
 
     /**
-     * 关联的策略代码
+     * 关联的策略代码，不是这条数据的代码
      */
     @Column(name = "strategy_code", nullable = false, unique = true, length = 50)
     private String strategyCode;

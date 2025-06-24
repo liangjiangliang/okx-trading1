@@ -1,7 +1,9 @@
 package com.okx.trading.service.impl;
 
+import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.repository.CandlestickRepository;
 import com.okx.trading.service.HistoricalDataService;
@@ -20,6 +22,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.ta4j.core.BarSeries;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -58,8 +61,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
     @Autowired
     private RedisCacheService redisCacheService;
 
-
-    private DateTimeFormatter dateFormatPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final CandlestickBarSeriesConverter barSeriesConverter;
+    private DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
      * 时间分片类
@@ -82,12 +85,13 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                                      @Qualifier("historicalDataExecutorService") ExecutorService executorService,
                                      @Qualifier("batchHistoricalDataExecutorService") ExecutorService batchExecutorService,
                                      @Qualifier("historicalDataExecutorService")
-                                     ExecutorService historicalDataExecutorService) {
+                                     ExecutorService historicalDataExecutorService, CandlestickBarSeriesConverter barSeriesConverter) {
         this.okxApiService = okxApiService;
         this.candlestickRepository = candlestickRepository;
         this.executorService = executorService;
         this.batchExecutorService = batchExecutorService;
         this.historicalDataExecutorService = historicalDataExecutorService;
+        this.barSeriesConverter = barSeriesConverter;
     }
 
     @Override
@@ -302,7 +306,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
     @Override
     public List<CandlestickEntity> fetchAndSaveHistoryWithIntegrityCheck(String symbol, String interval, String endTimeStr, int limit) {
-        String startTimeStr = LocalDateTime.parse(endTimeStr, dateFormatPattern).minusMinutes(getIntervalMinutes(interval) * limit).format(dateFormatPattern);
+        String startTimeStr = LocalDateTime.parse(endTimeStr, dateFormat).minusMinutes(getIntervalMinutes(interval) * limit).format(dateFormat);
         List<CandlestickEntity> candlestickEntities = fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTimeStr, endTimeStr);
         return candlestickEntities;
 
@@ -494,8 +498,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 将结果存入Codis的Sorted Set（24小时过期）
         try {
-            Set<String> existTime = cachedData.stream().map(x -> x.getOpenTime().format(dateFormatPattern)).collect(Collectors.toSet());
-            List<CandlestickEntity> saveToCache = allData.stream().filter(x -> existTime.contains(x.getOpenTime().format(dateFormatPattern))).collect(Collectors.toList());
+            Set<String> existTime = cachedData.stream().map(x -> x.getOpenTime().format(dateFormat)).collect(Collectors.toSet());
+            List<CandlestickEntity> saveToCache = allData.stream().filter(x -> existTime.contains(x.getOpenTime().format(dateFormat))).collect(Collectors.toList());
             if (!saveToCache.isEmpty()) {
                 redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 24 * 60); // 24小时 = 1440分钟
                 log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
@@ -509,6 +513,37 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         return allData;
 
+
+    }
+
+    public BarSeries fetchLastestedBars(String symbol, String interval, int kLineNum ,LocalDateTime now) {
+
+        // 2. 获取历史100根K线数据作为基础数据
+        // 计算最近完整周期的开始时间作为endTime
+        long intervalMinutes = getIntervalMinutes(interval);
+
+        // 根据周期类型计算最近完整周期的开始时间
+        LocalDateTime endDateTime = calculateLastCompletePeriodStart(now, interval);
+
+        // 往前100个周期作为startTime
+        LocalDateTime startDateTime = endDateTime.minusMinutes(intervalMinutes * kLineNum);
+
+        String startTime = startDateTime.format(dateFormat);
+        String endTime = endDateTime.format(dateFormat);
+
+        try {
+            List<CandlestickEntity> historicalData = fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime, endTime);
+
+            // 3. 转换为BarSeries
+            BarSeries series = barSeriesConverter.convert(historicalData, symbol);
+
+            return series;
+
+        } catch (Exception e) {
+            log.error("获取历史K线数据转换Bar失败: {}", e.getMessage(), e);
+        }
+
+        return null;
 
     }
 
@@ -849,16 +884,16 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
                 // 创建已存在数据的时间点集合，用于过滤
                 Set<String> existingTimePoints = existingEntities.stream()
-                        .map(CandlestickEntity::getOpenTime).map(time -> time.format(dateFormatPattern))
+                        .map(CandlestickEntity::getOpenTime).map(time -> time.format(dateFormat))
                         .collect(Collectors.toSet());
 
                 // 过滤出不存在的数据
                 List<CandlestickEntity> newEntities = entities.stream()
-                        .filter(entity -> !existingTimePoints.contains(entity.getOpenTime().format(dateFormatPattern)))
+                        .filter(entity -> !existingTimePoints.contains(entity.getOpenTime().format(dateFormat)))
                         .collect(Collectors.toList());
 
                 log.info("时间范围 {} ~ {} 内已有 {} 条数据, 查询获取 {} 条数据，新增 {} 条数据",
-                        minTime.format(dateFormatPattern), maxTime.format(dateFormatPattern), existingEntities.size(), entities.size(), newEntities.size());
+                        minTime.format(dateFormat), maxTime.format(dateFormat), existingEntities.size(), entities.size(), newEntities.size());
 
                 List<Candlestick> candlestickEntities = newEntities.stream().map(x -> {
                     Candlestick candlestick = new Candlestick();
