@@ -332,8 +332,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                         state.getSymbol(),
                         order,
                         side + "_SIGNAL",
+                        side,
                         candlestick.getClose().toString(),
-                        false);
+                        false,
+                        state.tradeAmount);
                 state.getOrders().add(orderEntity);
 
                 // 更新持仓状态

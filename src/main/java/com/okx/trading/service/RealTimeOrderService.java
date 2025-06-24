@@ -3,6 +3,7 @@ package com.okx.trading.service;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.trade.Order;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,8 +20,8 @@ public interface RealTimeOrderService {
     /**
      * 根据订单信息创建并保存订单记录
      */
-    RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order, 
-                                         String signalType, String signalPrice, Boolean simulated);
+    RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order,
+                                         String signalType, String side,String signalPrice, Boolean simulated, BigDecimal tradeAmount);
 
     /**
      * 更新订单状态

@@ -24,6 +24,89 @@ public class RealTimeOrderEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    /**
+     * 客户端订单ID
+     */
+    @Column(name = "client_order_id", length = 50)
+    private String clientOrderId;
+
+    /**
+     * 金额
+     */
+    @Column(name = "amount", precision = 20, scale = 8)
+    private BigDecimal amount;
+
+
+    /**
+     * 已执行金额
+     */
+    @Column(name = "executed_amount", precision = 20, scale = 8)
+    private BigDecimal executedAmount;
+
+
+    /**
+     * 已执行数量
+     */
+    @Column(name = "executed_qty", precision = 20, scale = 8)
+    private BigDecimal executedQty;
+    /**
+     * 手续费
+     */
+    @Column(name = "fee", precision = 20, scale = 8)
+    private BigDecimal fee;
+
+    /**
+     * 手续费币种
+     */
+    @Column(name = "fee_currency", length = 10)
+    private String feeCurrency;
+
+    /**
+     * 订单ID
+     */
+    @Column(name = "order_id", length = 50)
+    private String orderId;
+
+    @Column(name = "order_type", length = 50)
+    private String orderType;
+    /**
+     * 价格
+     */
+    @Column(name = "price", precision = 20, scale = 8)
+    private BigDecimal price;
+
+    /**
+     * 数量
+     */
+    @Column(name = "quantity", precision = 20, scale = 8)
+    private BigDecimal quantity;
+
+
+    /**
+     * 备注
+     */
+    @Column(name = "remark", length = 500)
+    private String remark;
+
+
+    /**
+     * 交易方向 (BUY, SELL)
+     */
+    @Column(name = "side", nullable = false, length = 10)
+    private String side;
+
+
+    /**
+     * 触发信号时的价格
+     */
+    @Column(name = "signal_price", precision = 20, scale = 8)
+    private BigDecimal signalPrice;
+
+    /**
+     * 交易信号类型 (BUY_SIGNAL, SELL_SIGNAL)
+     */
+    @Column(name = "signal_type", length = 20)
+    private String signalType;
 
     /**
      * 策略代码
@@ -38,82 +121,10 @@ public class RealTimeOrderEntity {
     private String symbol;
 
     /**
-     * 订单ID
-     */
-    @Column(name = "order_id", length = 50)
-    private String orderId;
-
-    /**
-     * 客户端订单ID
-     */
-    @Column(name = "client_order_id", length = 50)
-    private String clientOrderId;
-
-    /**
-     * 交易方向 (BUY, SELL)
-     */
-    @Column(name = "side", nullable = false, length = 10)
-    private String side;
-
-    /**
-     * 价格
-     */
-    @Column(name = "price", precision = 20, scale = 8)
-    private BigDecimal price;
-
-    /**
-     * 数量
-     */
-    @Column(name = "quantity", precision = 20, scale = 8)
-    private BigDecimal quantity;
-
-    /**
-     * 金额
-     */
-    @Column(name = "amount", precision = 20, scale = 8)
-    private BigDecimal amount;
-
-    /**
      * 订单状态
      */
     @Column(name = "status", length = 20)
     private String status;
-
-    /**
-     * 已执行数量
-     */
-    @Column(name = "executed_qty", precision = 20, scale = 8)
-    private BigDecimal executedQty;
-
-    /**
-     * 已执行金额
-     */
-    @Column(name = "executed_amount", precision = 20, scale = 8)
-    private BigDecimal executedAmount;
-
-    /**
-     * 手续费
-     */
-    @Column(name = "fee", precision = 20, scale = 8)
-    private BigDecimal fee;
-
-    /**
-     * 手续费币种
-     */
-    @Column(name = "fee_currency", length = 10)
-    private String feeCurrency;
-
-    /**
-     * 交易信号类型 (BUY_SIGNAL, SELL_SIGNAL)
-     */
-    @Column(name = "signal_type", length = 20)
-    private String signalType;
-
-    /**
-     * 触发信号时的价格
-     */
-    @Column(name = "signal_price", precision = 20, scale = 8)
-    private BigDecimal signalPrice;
 
     /**
      * 创建时间
@@ -126,12 +137,6 @@ public class RealTimeOrderEntity {
      */
     @Column(name = "update_time")
     private LocalDateTime updateTime;
-
-    /**
-     * 备注
-     */
-    @Column(name = "remark", length = 500)
-    private String remark;
 
     @PrePersist
     protected void onCreate() {

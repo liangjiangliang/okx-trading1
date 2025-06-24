@@ -34,23 +34,27 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
 
     @Override
     public RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order,
-                                                 String signalType, String signalPrice, Boolean simulated) {
+                                                 String signalType, String side, String signalPrice, Boolean simulated,BigDecimal tradeAmount) {
         try {
             RealTimeOrderEntity orderEntity = RealTimeOrderEntity.builder()
+                    .clientOrderId(order.getClientOrderId())
+                    .executedAmount(order.getCummulativeQuoteQty())
+                    .executedQty(order.getExecutedQty())
+                    .fee(order.getFee())
+                    .feeCurrency(order.getFeeCurrency())
+                    .orderId(order.getOrderId())
+                    .orderType(order.getType())
+                    .price(order.getPrice())
+                    .amount(tradeAmount)
+                    .quantity(order.getOrigQty())
+                    .side(order.getSide())
+                    .signalPrice(signalPrice != null ? new BigDecimal(signalPrice) : null)
+                    .signalType(signalType)
                     .strategyCode(strategyCode)
                     .symbol(symbol)
-                    .orderId(order.getOrderId())
-                    .clientOrderId(order.getClientOrderId())
-                    .side(order.getSide())
-                    .price(order.getPrice())
-                    .quantity(order.getOrigQty())
-                    .amount(order.getCummulativeQuoteQty())
                     .status(order.getStatus())
-                    .executedQty(order.getExecutedQty())
-                    .executedAmount(order.getCummulativeQuoteQty())
-                    .signalType(signalType)
-                    .signalPrice(signalPrice != null ? new BigDecimal(signalPrice) : null)
-                    .createTime(LocalDateTime.now())
+                    .remark(order.getSMsg())
+                    .createTime(order.getCreateTime())
                     .build();
 
             return saveOrder(orderEntity);
