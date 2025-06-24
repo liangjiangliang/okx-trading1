@@ -328,8 +328,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 计算需要获取的K线数量（基于时间范围和间隔）
         long intervalMinutes = getIntervalMinutes(interval);
-        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
-        log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", totalExpectedCount);
+//        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
+        List<String> rangePoints = calculateTimeRangePoints(startTime, endTime, interval);
+        log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", rangePoints.size());
 
         TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
         long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -350,7 +351,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                     }
                 }
 
-                if (!cachedData.isEmpty() && totalExpectedCount == cachedData.size()) {
+                if (!cachedData.isEmpty() && rangePoints.size() == cachedData.size()) {
                     log.info("📦 从Redis Sorted Set获取历史K线数据, symbol: {}, interval: {}, 数量: {}, 时间范围: {} ~ {}",
                             symbol, interval, cachedData.size(), startTimeStr, endTime.toString());
                     return cachedData.stream().collect(Collectors.toList());
@@ -369,7 +370,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         log.info("💾 MySQL中已存在的K线数量: {}", existingCount);
 
         // 3. 计算需要新获取的数量
-        long neededCount = totalExpectedCount - existingCount;
+        long neededCount = rangePoints.size() - existingCount;
         log.info("🔢 需要新获取的K线数量: {}", neededCount);
 
         // 如果MySQL的数据已经足够，直接返回
@@ -494,7 +495,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         }
 
         log.info("✨ 智能获取历史K线数据完成，最终返回 {} 条数据 (原有: {}, 新获取: {})，预期返回{} 条数据，还差{}条",
-                allData.size(), existingCount, newlyFetchedData.size(), totalExpectedCount, totalExpectedCount - allData.size());
+                allData.size(), existingCount, newlyFetchedData.size(), rangePoints.size(), rangePoints.size() - allData.size());
 
         // 将结果存入Codis的Sorted Set（24小时过期）
         try {
@@ -516,11 +517,12 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
     }
 
-    public BarSeries fetchLastestedBars(String symbol, String interval, int kLineNum ,LocalDateTime now) {
+    public BarSeries fetchLastestedBars(String symbol, String interval, int kLineNum) {
 
         // 2. 获取历史100根K线数据作为基础数据
         // 计算最近完整周期的开始时间作为endTime
         long intervalMinutes = getIntervalMinutes(interval);
+        LocalDateTime now = LocalDateTime.now();
 
         // 根据周期类型计算最近完整周期的开始时间
         LocalDateTime endDateTime = calculateLastCompletePeriodStart(now, interval);
@@ -1348,6 +1350,18 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                 // 默认返回当前时间的分钟对齐
                 return now.withSecond(0).withNano(0).minusMinutes(1);
         }
+    }
+
+    public List<String> calculateTimeRangePoints(LocalDateTime startTime, LocalDateTime endTime, String interval) {
+        List<String> timePoints = new ArrayList<>();
+        while (startTime.isBefore(endTime)) {
+            timePoints.add(endTime.format(dateFormat));
+            endTime = endTime.minusMinutes(getIntervalMinutes(interval));
+        }
+        if (startTime.equals(endTime)) {
+            timePoints.add(endTime.format(dateFormat));
+        }
+        return timePoints;
     }
 
 }

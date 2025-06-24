@@ -185,11 +185,12 @@ public interface RealTimeStrategyService {
 
 
     boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval);
+
     /**
      * 检查是否存在运行中的策略
      *
      * @param strategyCode 策略信息代码
-     * @param symbol           交易对符号
+     * @param symbol       交易对符号
      * @return 是否存在运行中的策略
      */
     boolean hasRunningStrategy(String strategyCode, String symbol);
@@ -204,18 +205,18 @@ public interface RealTimeStrategyService {
     /**
      * 创建新的实时策略
      *
-     * @param strategyCode     策略代码
+     * @param strategyCode 策略代码
      * @param strategyCode 策略信息代码
-     * @param symbol           交易对符号
-     * @param interval         K线周期
-     * @param description      描述
-     * @param isSimulated      是否模拟交易
-     * @param orderType        订单类型
-     * @param tradeAmount      交易金额
+     * @param symbol       交易对符号
+     * @param interval     K线周期
+     * @param description  描述
+     * @param isSimulated  是否模拟交易
+     * @param orderType    订单类型
+     * @param tradeAmount  交易金额
      * @return 创建的实时策略
      */
-    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount,String strategyName);
+    RealTimeStrategyEntity createRealTimeStrategy(String strategyCode, String symbol, String interval, Double tradeAmount, String strategyName);
 
 
-    Map<String, Object> executeRealTimeBacktest(Strategy strategy, Map<String, Object> state);
+    Map<String, Object> executeRealTimeBacktest(Map<String, Object> state);
 }

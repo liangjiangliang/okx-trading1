@@ -3,6 +3,7 @@ package com.okx.trading.service.impl;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.RealTimeStrategyService;
+import com.okx.trading.strategy.StrategyRegisterCenter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -29,6 +30,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     private final RealTimeStrategyRepository realTimeStrategyRepository;
     private final RealTimeStrategyManager realTimeStrategyManager;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     @Override
     public List<RealTimeStrategyEntity> getAllRealTimeStrategies() {
         return realTimeStrategyRepository.findAll();
@@ -305,7 +307,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     @Override
     @Transactional
     public RealTimeStrategyEntity createRealTimeStrategy(String strategyCode,
-                                                         String symbol, String interval, Double tradeAmount, String strategyName ) {
+                                                         String symbol, String interval, Double tradeAmount, String strategyName) {
         // 参数验证
         if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(symbol) || StringUtils.isBlank(interval)) {
             throw new IllegalArgumentException("策略信息代码、交易对和K线周期不能为空");
@@ -347,7 +349,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
      * 执行实时回测逻辑
      * 使用WebSocket订阅方式替代轮询获取K线数据
      */
-    public Map<String, Object> executeRealTimeBacktest(Strategy strategy, Map<String, Object> state) {
+    public Map<String, Object> executeRealTimeBacktest( Map<String, Object> state) {
         String strategyCode = (String) state.get("strategyCode");
         String strategyName = (String) state.get("strategyName");
         String symbol = (String) state.get("symbol");
@@ -357,6 +359,9 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
         try {
             // 启动实时策略管理器
+            Strategy strategy = StrategyRegisterCenter.
+                    createStrategy(realTimeStrategyManager.getRunningBarSeries().get(symbol + "_" + interval), strategyCode);
+
             String strategyKey = realTimeStrategyManager.startRealTimeStrategy(
                     strategyCode, symbol, interval, strategy, tradeAmount, startTime, strategyName);
 

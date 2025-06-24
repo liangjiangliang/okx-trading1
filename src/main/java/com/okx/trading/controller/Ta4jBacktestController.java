@@ -3,12 +3,7 @@ package com.okx.trading.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.dto.BacktestResultDTO;
-import com.okx.trading.model.entity.BacktestTradeEntity;
-import com.okx.trading.model.entity.CandlestickEntity;
-import com.okx.trading.model.entity.BacktestSummaryEntity;
-import com.okx.trading.model.entity.StrategyInfoEntity;
-import com.okx.trading.model.entity.StrategyConversationEntity;
-import com.okx.trading.model.entity.RealTimeOrderEntity;
+import com.okx.trading.model.entity.*;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
 import com.okx.trading.service.*;
 import com.okx.trading.service.impl.DeepSeekApiService;
@@ -86,7 +81,6 @@ public class Ta4jBacktestController {
     private ExecutorService realTimeTradeScheduler;
 
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final int kLineNum = 100;
 
 
     @GetMapping("/run")
@@ -143,10 +137,10 @@ public class Ta4jBacktestController {
         try {
 
             // 获取历史数据
-            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
+            List<CandlestickEntity> candlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             // 获取基准数据
-            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck("BTC-USDT", interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             if (candlesticks == null || candlesticks.isEmpty()) {
                 return ApiResponse.error(404, "未找到指定条件的历史数据");
@@ -1028,24 +1022,8 @@ public class Ta4jBacktestController {
                 return ApiResponse.error(404, "策略不存在: " + strategyCode);
             }
             StrategyInfoEntity strategy = strategyOpt.get();
-
-            // 2 新增币种的barSeries
-            String barSeriesKey = symbol + "_" + interval;
-            if (!realTimeStrategyManager.getRunningBarSeries().containsKey(barSeriesKey)) {
-                BarSeries barSeries = historicalDataService.fetchLastestedBars(symbol, interval, kLineNum, now);
-                if (barSeries != null) {
-                    realTimeStrategyManager.getRunningBarSeries().put(barSeriesKey, barSeries);
-                }
-            }
-
-            // 3. 获取策略实例
-            Strategy ta4jStrategy;
-            try {
-                ta4jStrategy = StrategyRegisterCenter.createStrategy(realTimeStrategyManager.getRunningBarSeries().get(symbol), strategyCode);
-            } catch (Exception e) {
-                log.error("获取策略失败: {}", e.getMessage(), e);
-                return ApiResponse.error(500, "获取策略失败: " + e.getMessage());
-            }
+            RealTimeStrategyEntity realTimeStrategy = new RealTimeStrategyEntity(strategyCode, symbol, interval, now, tradeAmount.doubleValue());
+            realTimeStrategyManager.addStrategy(realTimeStrategy);
 
             // 4. 初始化实时回测状态
             Map<String, Object> backtestState = new HashMap<>();
@@ -1056,9 +1034,10 @@ public class Ta4jBacktestController {
             backtestState.put("startTime", now.format(dateFormat));
             backtestState.put("tradeAmount", tradeAmount);
 
+
             // 5. 开始实时监控和交易
             CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
-                return realTimeStrategyService.executeRealTimeBacktest(ta4jStrategy, backtestState);
+                return realTimeStrategyService.executeRealTimeBacktest(backtestState);
             }, realTimeTradeScheduler);
 
             // 6. 返回初始状态

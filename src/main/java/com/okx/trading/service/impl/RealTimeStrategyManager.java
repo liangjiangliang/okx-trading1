@@ -46,15 +46,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final RealTimeOrderService realTimeOrderService;
     private final TradeController tradeController;
     private final HistoricalDataService historicalDataService;
+    @Lazy
     private final RealTimeStrategyService realTimeStrategyService;
     private final CandlestickBarSeriesConverter barSeriesConverter;
     private final StrategyInfoService strategyInfoService;
+    private final int kLineNum = 100;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
                                    TradeController tradeController,
                                    HistoricalDataService historicalDataService,
-                                   RealTimeStrategyService realTimeStrategyService,
+                                   @Lazy RealTimeStrategyService realTimeStrategyService,
                                    CandlestickBarSeriesConverter barSeriesConverter, StrategyInfoService strategyInfoService) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
@@ -79,7 +81,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         private String symbol;
         private String interval;
         private Strategy strategy;
-        private BarSeries series;
         private LocalDateTime startTime;
         private BigDecimal tradeAmount;
         private Boolean isInPosition;
@@ -180,19 +181,21 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      */
     public void handleNewKlineData(String symbol, String interval, Candlestick candlestick) {
         // 查找使用该symbol和interval的所有策略
+        if (runningStrategies.isEmpty()) {
+            return;
+        }
+
         runningStrategies.entrySet().stream()
                 .filter(entry -> {
                     StrategyRunningState state = entry.getValue();
                     return state.getSymbol().equals(symbol) && state.getInterval().equals(interval);
                 })
                 .forEach(entry -> {
-                    String key = entry.getKey();
                     StrategyRunningState state = entry.getValue();
-
                     try {
-                        processStrategySignal(key, state, candlestick);
+                        processStrategySignal(state, candlestick);
                     } catch (Exception e) {
-                        log.error("处理策略信号失败: key={}, error={}", key, e.getMessage(), e);
+                        log.error("处理策略信号失败: key={}, error={}", buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval()), e.getMessage(), e);
                     }
                 });
     }
@@ -201,15 +204,20 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      * 处理策略信号
      * 真正执行实时策略逻辑，判断买卖信号的地方
      */
-    private void processStrategySignal(String key, StrategyRunningState state, Candlestick candlestick) {
+    private void processStrategySignal(StrategyRunningState state, Candlestick candlestick) {
 
         // 更新BarSeries - 智能判断是更新还是添加新bar
         Bar newBar = createBarFromCandlestick(candlestick);
-        boolean shouldReplace = shouldReplaceLastBar(state.getSeries(), newBar, state.getInterval());
-        state.getSeries().addBar(newBar, shouldReplace);
+        BarSeries series = runningBarSeries.get(state.getSymbol() + "_" + state.getInterval());
+        boolean shouldReplace = shouldReplaceLastBar(series, newBar, state.getInterval());
+        series.addBar(newBar, shouldReplace);
+        if (!shouldReplace) {
+            series = series.getSubSeries(series.getBeginIndex() + 1, series.getEndIndex() + 1);
+        }
+
 
         // 检查交易信号
-        int currentIndex = state.getSeries().getEndIndex();
+        int currentIndex = series.getEndIndex();
         boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
@@ -238,7 +246,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      */
     private boolean shouldReplaceLastBar(BarSeries series, Bar newBar, String interval) {
         // 如果series为空或没有bar，直接添加新bar
-        if (series.isEmpty()) {
+        if (series == null || series.isEmpty()) {
             return false;
         }
 
@@ -449,38 +457,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             }
             log.info("找到 {} 个需要自动启动的策略", strategies.size());
 
+            LocalDateTime now = LocalDateTime.now();
             for (RealTimeStrategyEntity strategyEntity : strategies) {
                 try {
                     log.info("准备启动策略: strategyCode={}, symbol={}, interval={}",
                             strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-
-                    // 订阅K线数据，已订阅过会跳过
-                    try {
-                        webSocketService.subscribeKlineData(strategyEntity.getSymbol(), strategyEntity.getInterval());
-                        log.info("已订阅K线数据: symbol={}, interval={}", strategyEntity.getSymbol(), strategyEntity.getInterval());
-                    } catch (Exception e) {
-                        log.error("订阅K线数据失败: {}", e.getMessage(), e);
-                        throw new RuntimeException("订阅K线数据失败: " + e.getMessage());
+                    boolean successs = addStrategy(strategyEntity);
+                    if (successs) {
+                        log.info("策略启动成功: strategyCode={}", strategyEntity.getStrategyCode());
+                    } else {
+                        log.info("策略启动失败: strategyCode={}", strategyEntity.getStrategyCode());
                     }
-
-                    // 根据strategyEntity创建具体的Strategy实例
-                    Strategy ta4jStrategy;
-                    try {
-                        ta4jStrategy = StrategyRegisterCenter.
-                                createStrategy(runningBarSeries.get(strategyEntity.getSymbol() + "_" + strategyEntity.getInterval()), strategyEntity.getStrategyCode());
-                    } catch (Exception e) {
-                        log.error("获取策略失败: {}", e.getMessage(), e);
-                        throw new IllegalArgumentException("获取策略失败： " + strategyEntity.getStrategyCode());
-                    }
-
-                    StrategyRunningState runningState = new StrategyRunningState(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval(), ta4jStrategy,
-                            BigDecimal.valueOf(strategyEntity.getTradeAmount()), strategyEntity.getStartTime());
-
-                    // 添加到运行中策略列表
-                    String strategyKey = buildStrategyKey(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-                    runningStrategies.put(strategyKey, runningState);
-
-
                 } catch (Exception e) {
                     log.error("启动策略失败: strategyCode={}, error={}",
                             strategyEntity.getStrategyCode(), e.getMessage(), e);
@@ -520,5 +507,47 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      */
     public Map<String, StrategyRunningState> getAllRunningStrategies() {
         return new ConcurrentHashMap<>(runningStrategies);
+    }
+
+    public boolean addStrategy(RealTimeStrategyEntity strategyEntity) {
+        // 新增币种的barSeries
+        String barSeriesKey = strategyEntity.getSymbol() + "_" + strategyEntity.getInterval();
+        if (!runningBarSeries.containsKey(barSeriesKey)) {
+            BarSeries barSeries = historicalDataService.fetchLastestedBars(strategyEntity.getSymbol(), strategyEntity.getInterval(), kLineNum);
+            if (barSeries != null) {
+                runningBarSeries.put(barSeriesKey, barSeries);
+            }
+        }
+
+        // 订阅K线数据，已订阅过会跳过
+        try {
+            webSocketService.subscribeKlineData(strategyEntity.getSymbol(), strategyEntity.getInterval());
+            log.info("已订阅K线数据: symbol={}, interval={}", strategyEntity.getSymbol(), strategyEntity.getInterval());
+        } catch (Exception e) {
+            log.error("订阅K线数据失败: {}", e.getMessage(), e);
+            return false;
+        }
+
+        // 根据strategyEntity创建具体的Strategy实例
+        Strategy ta4jStrategy;
+        try {
+            ta4jStrategy = StrategyRegisterCenter.
+                    createStrategy(runningBarSeries.get(strategyEntity.getSymbol() + "_" + strategyEntity.getInterval()), strategyEntity.getStrategyCode());
+        } catch (Exception e) {
+            log.error("获取策略失败: {}", e.getMessage(), e);
+            return false;
+        }
+
+        StrategyRunningState runningState = new StrategyRunningState(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval(), ta4jStrategy,
+                BigDecimal.valueOf(strategyEntity.getTradeAmount()), strategyEntity.getStartTime());
+
+        // 添加到运行中策略列表
+        String strategyKey = buildStrategyKey(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
+        runningStrategies.put(strategyKey, runningState);
+
+        log.info("已添加策略: strategyCode={}, symbol={}, interval={}", strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
+
+
+        return runningStrategies.containsKey(strategyKey);
     }
 }

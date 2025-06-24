@@ -97,7 +97,7 @@ public interface HistoricalDataService {
 
 
 
-    BarSeries fetchLastestedBars(String symbol, String interval,int kLineNum,LocalDateTime now);
+    BarSeries fetchLastestedBars(String symbol, String interval,int kLineNum);
     /**
      * 单独获取缺失的数据点
      *

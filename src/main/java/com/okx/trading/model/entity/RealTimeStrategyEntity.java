@@ -156,4 +156,13 @@ public class RealTimeStrategyEntity {
     public void preUpdate() {
         this.updateTime = LocalDateTime.now();
     }
+
+
+    public RealTimeStrategyEntity(String strategyCode,String symbol,String interval, LocalDateTime startTime,Double tradeAmount) {
+        this.strategyCode = strategyCode;
+        this.symbol = symbol;
+        this.interval=interval;
+        this.startTime = startTime;
+        this.tradeAmount = tradeAmount;
+    }
 }
