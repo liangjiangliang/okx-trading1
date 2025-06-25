@@ -10,6 +10,12 @@ import java.util.Map;
 @Component
 public class IndicatorInfo {
 
+    public static final String BUY = "BUY";
+    public static final String SELL = "SELL";
+    public static final String RUNNING = "RUNNING";
+    public static final String STOPPED = "STOPPED";
+    public static final String FILLED = "FILLED";
+
     public static final String SOURCE_KLINE_PREFIX = "coin-rt-kline:";
     public static final String TARGET_INDICATOR_PREFIX = "coin-rt-indicator:";
     public static final String INDICATOR_SUBSCRIPTION_KEY = "kline:subscriptions";

@@ -1,7 +1,5 @@
 package com.okx.trading.service.impl;
 
-import com.okx.trading.model.common.ApiResponse;
-import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
@@ -19,10 +17,7 @@ import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.Strategy;
-import org.ta4j.core.Bar;
-import org.ta4j.core.BaseBar;
+import org.ta4j.core.*;
 import org.ta4j.core.num.DecimalNum;
 
 import java.math.BigDecimal;
@@ -32,6 +27,9 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
+
+import static com.okx.trading.constant.IndicatorInfo.*;
+
 
 /**
  * 实时策略管理器
@@ -77,33 +75,35 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      */
     @Data
     public static class StrategyRunningState {
+        private Long id;
         private String strategyCode;
         private String symbol;
         private String interval;
         private Strategy strategy;
+        private BigDecimal tradeAmount=BigDecimal.ZERO;
         private LocalDateTime startTime;
-        private BigDecimal tradeAmount;
-        private Boolean isInPosition;
-        private int totalTrades;
-        private int successfulTrades;
-        private List<RealTimeOrderEntity> orders;
-        private LocalDateTime lastUpdateTime;
-        private BigDecimal currentPrice;
+        private Boolean isInPosition = false;
+        private int totalTrades = 0;
+        private int successfulTrades = 0;
+        private String lastTradeType; // 最后一次交易类型：BUY/SELL
+        private BigDecimal lastTradeAmount=BigDecimal.ZERO;
+        private BigDecimal lastTradeQuantity=BigDecimal.ZERO; // 最后一次交易数量
+        private BigDecimal lastTradePrice=BigDecimal.ZERO;
+        private BigDecimal totalProfit=BigDecimal.ZERO;
+        private BigDecimal totalProFee=BigDecimal.ZERO;
+
+
         private CompletableFuture<Map<String, Object>> future;
 
         // 构造函数
-        public StrategyRunningState(String strategyCode, String symbol, String interval,
+        public StrategyRunningState(Long id, String strategyCode, String symbol, String interval,
                                     Strategy strategy, BigDecimal tradeAmount, LocalDateTime startTime) {
+            this.id = id;
             this.strategyCode = strategyCode;
             this.symbol = symbol;
             this.interval = interval;
             this.strategy = strategy;
             this.tradeAmount = tradeAmount;
-            this.isInPosition = false;
-            this.totalTrades = 0;
-            this.successfulTrades = 0;
-            this.orders = new ArrayList<>();
-            this.lastUpdateTime = LocalDateTime.now();
             this.startTime = startTime;
         }
     }
@@ -111,18 +111,18 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 启动实时策略
      */
-    public String startRealTimeStrategy(String strategyCode, String symbol, String interval,
-                                        Strategy strategy, BigDecimal tradeAmount, LocalDateTime startTime, String strategyName) {
+    public void startRealTimeStrategy(String strategyCode, String symbol, String interval,
+                                      Strategy strategy, BigDecimal tradeAmount, LocalDateTime startTime, String strategyName) {
         String key = buildStrategyKey(strategyCode, symbol, interval);
 
         // 检查是否已经在运行
         if (runningStrategies.containsKey(key)) {
             log.warn("策略已在运行: {}", key);
-            return key;
+            return;
         }
 
         // 创建策略运行状态
-        StrategyRunningState state = new StrategyRunningState(strategyCode, symbol, interval, strategy, tradeAmount, startTime);
+        StrategyRunningState state = new StrategyRunningState(null, strategyCode, symbol, interval, strategy, tradeAmount, startTime);
 
         // 保存策略到MySQL（如果不存在）
         try {
@@ -144,7 +144,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         runningStrategies.put(key, state);
 
         log.info("实时策略已启动: {}", key);
-        return key;
     }
 
     /**
@@ -184,7 +183,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         if (runningStrategies.isEmpty()) {
             return;
         }
-
         runningStrategies.entrySet().stream()
                 .filter(entry -> {
                     StrategyRunningState state = entry.getValue();
@@ -215,25 +213,20 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             series = series.getSubSeries(series.getBeginIndex() + 1, series.getEndIndex() + 1);
         }
 
-
         // 检查交易信号
         int currentIndex = series.getEndIndex();
         boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
-        // 处理买入信号
-        if (shouldBuy) {
-            executeTradeSignal(state, candlestick, "BUY");
+        // 处理买入信号 - 只有在上一次不是买入时才触发
+        if (shouldBuy && !BUY.equals(state.getLastTradeType())) {
+            executeTradeSignal(state, candlestick, BUY);
         }
 
-        // 处理卖出信号
-        if (shouldSell) {
-            executeTradeSignal(state, candlestick, "SELL");
+        // 处理卖出信号 - 只有在上一次是买入时才触发
+        if (shouldSell && BUY.equals(state.getLastTradeType())) {
+            executeTradeSignal(state, candlestick, BUY);
         }
-
-        // 更新状态
-        state.setCurrentPrice(candlestick.getClose());
-        state.setLastUpdateTime(LocalDateTime.now());
     }
 
     /**
@@ -314,13 +307,30 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      */
     private void executeTradeSignal(StrategyRunningState state, Candlestick candlestick, String side) {
         try {
+            BigDecimal preAmount = null;
+            BigDecimal preQuantity = null;
+
+            // 计算交易数量
+            if (BUY.equals(side)) {
+                // 买入：按照给定金额买入
+                preAmount = state.getTradeAmount();
+            } else {
+                // 卖出：全仓卖出买入的数量
+                if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity().compareTo(BigDecimal.ZERO) > 0) {
+                    preQuantity = state.getLastTradeQuantity();
+                } else {
+                    log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
+                    return;
+                }
+            }
+
             Order order = tradeController.createSpotOrder(
                     state.getSymbol(),
                     null,
                     side,
                     null,
-                    null,
-                    state.getTradeAmount(),
+                    preQuantity,
+                    preAmount,
                     null, null, null, null,
                     false
             ).getData();
@@ -335,19 +345,40 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                         side,
                         candlestick.getClose().toString(),
                         false,
-                        state.tradeAmount);
-                state.getOrders().add(orderEntity);
+                        preAmount,
+                        preQuantity);  // 打算买入金额，不是成交金额
 
-                // 更新持仓状态
-                state.setIsInPosition("BUY".equals(side));
+                // 利润统计
+                // 更新累计统计信息
+                if (orderEntity.getSide().equals(SELL)) {
+                    state.setTotalProfit(state.getTotalProfit().add(orderEntity.getExecutedAmount().subtract(state.getLastTradeAmount())));
+                }
+                // 费用每次都有
+                state.setTotalProFee(state.getTotalProFee().add(orderEntity.getFee()));
+                // 更新策略状态
+                state.setLastTradeType(orderEntity.getSide());
+                // 买入时记录购买数量
+                state.setLastTradeAmount(orderEntity.getExecutedAmount());
+                state.setLastTradeQuantity(orderEntity.getExecutedQty());
+                state.setLastTradePrice(orderEntity.getPrice());
+                if (BUY.equals(side)) {
+                    state.setIsInPosition(true);
+                } else {
+                    state.setIsInPosition(false);
+                }
+                // 成交次数统计
                 state.setTotalTrades(state.getTotalTrades() + 1);
-                if ("FILLED".equals(order.getStatus())) {
+                if (FILLED.equals(order.getStatus())) {
                     state.setSuccessfulTrades(state.getSuccessfulTrades() + 1);
                 }
+                // 更新数据库中的交易信息
+                RealTimeStrategyEntity realTimeStrategy = realTimeStrategyService.updateTradeInfo(state);
+                // 更新订单信息
+                orderEntity.setId(realTimeStrategy.getId());
+                realTimeOrderService.saveOrder(orderEntity);
 
-                log.info("执行{}订单: symbol={}, price={}, amount={}, orderId={}",
-                        side, state.getSymbol(), candlestick.getClose(),
-                        state.getTradeAmount(), order.getOrderId());
+                log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
+                        state.getLastTradeAmount(), state.getLastTradeQuantity());
             }
         } catch (Exception e) {
             log.error("执行{}订单失败: {}", side, e.getMessage(), e);
@@ -436,10 +467,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         Map<String, Object> result = new ConcurrentHashMap<>();
         result.put("status", "COMPLETED");
         result.put("totalTrades", state.getTotalTrades());
+        result.put("totalProfit", state.getTotalProfit());
         result.put("successfulTrades", state.getSuccessfulTrades());
         result.put("successRate", state.getTotalTrades() > 0 ?
                 (double) state.getSuccessfulTrades() / state.getTotalTrades() : 0.0);
-        result.put("orders", state.getOrders());
         return result;
     }
 
@@ -540,7 +571,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             return false;
         }
 
-        StrategyRunningState runningState = new StrategyRunningState(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval(), ta4jStrategy,
+        StrategyRunningState runningState = new StrategyRunningState(null, strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval(), ta4jStrategy,
                 BigDecimal.valueOf(strategyEntity.getTradeAmount()), strategyEntity.getStartTime());
 
         // 添加到运行中策略列表

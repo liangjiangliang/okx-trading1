@@ -47,42 +47,53 @@ public class RealTimeStrategyEntity {
     private String interval;
 
     /**
-     * 策略运行开始时间
+     * 投资金额
      */
-    @Column(name = "start_time", nullable = false)
-    private LocalDateTime startTime;
-
-    /**
-     * 策略运行结束时间
-     */
-    @Column(name = "end_time")
-    private LocalDateTime endTime;
-
-    /**
-     * 是否有效/启用
-     */
-    @Column(name = "is_active", nullable = false)
-    @Builder.Default
-    private Boolean isActive = true;
+    @Column(name = "trade_amount")
+    private Double tradeAmount = 0.0;
 
     /**
      * 交易金额
      */
-    @Column(name = "trade_amount")
-    private Double tradeAmount;
+    @Column(name = "last_trade_amount")
+    private Double lastTradeAmount = 0.0;
+
 
     /**
-     * 策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)
+     * 最后交易价格
      */
-    @Column(name = "status", length = 20)
+    @Column(name = "last_trade_price")
+    private Double lastTradePrice = 0.0;
+
+
+    /**
+     * 最后一次交易数量
+     */
+    @Column(name = "last_trade_quantity")
+    private Double lastTradeQuantity = 0.0;
+
+
+    /**
+     * 最后一次交易类型：BUY(买入), SELL(卖出)
+     */
+    @Column(name = "last_trade_type", length = 10)
+    private String lastTradeType;
+
+
+    /**
+     * 总盈利金额（USDT）
+     */
+    @Column(name = "total_profit")
     @Builder.Default
-    private String status = "STOPPED";
+    private Double totalProfit = 0.0;
+
 
     /**
-     * 当前金额（USDT）
+     * 总手续费（USDT）
      */
-    @Column(name = "current_amount")
-    private Double currentAmount;
+    @Column(name = "total_fees")
+    @Builder.Default
+    private Double totalFees = 0.0;
 
     /**
      * 总交易次数
@@ -99,36 +110,23 @@ public class RealTimeStrategyEntity {
     private Integer successfulTrades = 0;
 
     /**
-     * 总手续费（USDT）
+     * 策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)
      */
-    @Column(name = "total_fees")
+    @Column(name = "status", length = 20)
     @Builder.Default
-    private Double totalFees = 0.0;
+    private String status = "RUNNING";
 
     /**
-     * 总盈利金额（USDT）
+     * 策略运行开始时间
      */
-    @Column(name = "total_profit")
-    @Builder.Default
-    private Double totalProfit = 0.0;
+    @Column(name = "start_time", nullable = false)
+    private LocalDateTime startTime;
 
     /**
-     * 最后交易价格
+     * 策略运行结束时间
      */
-    @Column(name = "last_trade_price")
-    private Double lastTradePrice;
-
-    /**
-     * 最后更新时间（策略运行状态）
-     */
-    @Column(name = "last_signal_time")
-    private LocalDateTime lastSignalTime;
-
-    /**
-     * 错误信息
-     */
-    @Column(name = "error_message", columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-    private String errorMessage;
+    @Column(name = "end_time")
+    private LocalDateTime endTime;
 
     /**
      * 创建时间
@@ -158,10 +156,10 @@ public class RealTimeStrategyEntity {
     }
 
 
-    public RealTimeStrategyEntity(String strategyCode,String symbol,String interval, LocalDateTime startTime,Double tradeAmount) {
+    public RealTimeStrategyEntity(String strategyCode, String symbol, String interval, LocalDateTime startTime, Double tradeAmount) {
         this.strategyCode = strategyCode;
         this.symbol = symbol;
-        this.interval=interval;
+        this.interval = interval;
         this.startTime = startTime;
         this.tradeAmount = tradeAmount;
     }

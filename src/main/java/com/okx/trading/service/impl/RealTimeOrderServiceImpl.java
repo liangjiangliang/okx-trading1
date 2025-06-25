@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -34,19 +35,19 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
 
     @Override
     public RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order,
-                                                 String signalType, String side, String signalPrice, Boolean simulated,BigDecimal tradeAmount) {
+                                                 String signalType, String side, String signalPrice, Boolean simulated,BigDecimal preAmount,BigDecimal preQuantity) {
         try {
             RealTimeOrderEntity orderEntity = RealTimeOrderEntity.builder()
                     .clientOrderId(order.getClientOrderId())
+                    .preAmount(preAmount)
+                    .preQuantity(preQuantity)
                     .executedAmount(order.getCummulativeQuoteQty())
                     .executedQty(order.getExecutedQty())
+                    .price(order.getPrice())
                     .fee(order.getFee())
                     .feeCurrency(order.getFeeCurrency())
                     .orderId(order.getOrderId())
                     .orderType(order.getType())
-                    .price(order.getPrice())
-                    .amount(tradeAmount)
-                    .quantity(order.getOrigQty())
                     .side(order.getSide())
                     .signalPrice(signalPrice != null ? new BigDecimal(signalPrice) : null)
                     .signalType(signalType)
@@ -57,7 +58,7 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
                     .createTime(order.getCreateTime())
                     .build();
 
-            return saveOrder(orderEntity);
+            return orderEntity;
         } catch (Exception e) {
             log.error("创建订单记录失败: strategyCode={}, symbol={}, orderId={}, error={}",
                     strategyCode, symbol, order.getOrderId(), e.getMessage(), e);
@@ -115,6 +116,11 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
     @Override
     public List<RealTimeOrderEntity> getLatestOrdersByStrategy(String strategyCode) {
         return realTimeOrderRepository.findLatestOrdersByStrategy(strategyCode);
+    }
+
+    @Override
+    public List<RealTimeOrderEntity> getLatestOrdersByStrategyId(Long strategyId) {
+        return realTimeOrderRepository.findLatestOrdersByStrategyId(strategyId);
     }
 
     @Override

@@ -24,6 +24,9 @@ public class RealTimeOrderEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "strategy_id")
+    private Long strategyId;
     /**
      * 客户端订单ID
      */
@@ -31,11 +34,16 @@ public class RealTimeOrderEntity {
     private String clientOrderId;
 
     /**
-     * 金额
+     * 金额，准备买入金额，不是实际成交金额，区别 executedAmount
      */
-    @Column(name = "amount", precision = 20, scale = 8)
-    private BigDecimal amount;
+    @Column(name = "pre_amount", precision = 20, scale = 8)
+    private BigDecimal preAmount;
 
+    /**
+     * 数量,准备买入、卖出数量，不是实际成交数量，区别 executedQty
+     */
+    @Column(name = "pre_quantity", precision = 20, scale = 8)
+    private BigDecimal preQuantity;
 
     /**
      * 已执行金额
@@ -43,12 +51,18 @@ public class RealTimeOrderEntity {
     @Column(name = "executed_amount", precision = 20, scale = 8)
     private BigDecimal executedAmount;
 
-
     /**
      * 已执行数量
      */
     @Column(name = "executed_qty", precision = 20, scale = 8)
     private BigDecimal executedQty;
+
+    /**
+     * 价格
+     */
+    @Column(name = "price", precision = 20, scale = 8)
+    private BigDecimal price;
+
     /**
      * 手续费
      */
@@ -69,25 +83,6 @@ public class RealTimeOrderEntity {
 
     @Column(name = "order_type", length = 50)
     private String orderType;
-    /**
-     * 价格
-     */
-    @Column(name = "price", precision = 20, scale = 8)
-    private BigDecimal price;
-
-    /**
-     * 数量
-     */
-    @Column(name = "quantity", precision = 20, scale = 8)
-    private BigDecimal quantity;
-
-
-    /**
-     * 备注
-     */
-    @Column(name = "remark", length = 500)
-    private String remark;
-
 
     /**
      * 交易方向 (BUY, SELL)
@@ -125,6 +120,13 @@ public class RealTimeOrderEntity {
      */
     @Column(name = "status", length = 20)
     private String status;
+
+    /**
+     * 备注
+     */
+    @Column(name = "remark", length = 500)
+    private String remark;
+
 
     /**
      * 创建时间

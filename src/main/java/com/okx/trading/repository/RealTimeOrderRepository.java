@@ -57,6 +57,9 @@ public interface RealTimeOrderRepository extends JpaRepository<RealTimeOrderEnti
     @Query("SELECT o FROM RealTimeOrderEntity o WHERE o.strategyCode = :strategyCode ORDER BY o.createTime DESC")
     List<RealTimeOrderEntity> findLatestOrdersByStrategy(@Param("strategyCode") String strategyCode);
 
+    @Query("SELECT o FROM RealTimeOrderEntity o WHERE o.strategyId = :strategyId ORDER BY o.createTime DESC")
+    List<RealTimeOrderEntity> findLatestOrdersByStrategyId(Long strategyId);
+
     /**
      * 统计策略的订单数量
      */

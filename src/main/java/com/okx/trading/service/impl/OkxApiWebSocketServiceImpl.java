@@ -585,12 +585,16 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 //指定数量,市价单不指定价格,限价单指定价格
                 arg.put("sz", orderRequest.getQuantity().toString());
                 arg.put("tgtCcy", "base_ccy");
-                if (orderRequest.getPrice() != null) {
-                    arg.put("px", orderRequest.getPrice().toString());
-                } else {
-                    BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
-                    arg.put("px", coinPrice.toString());
+                // 限价单指定价格
+                if (orderRequest.getType() != null && orderRequest.getType().equals("LIMIT")) {
+                    if (orderRequest.getPrice() != null) {
+                        arg.put("px", orderRequest.getPrice().toString());
+                    } else {
+                        BigDecimal coinPrice = redisCacheService.getCoinPrice(orderRequest.getSymbol());
+                        arg.put("px", coinPrice.toString());
+                    }
                 }
+
             }
 
             // 设置客户端订单ID
