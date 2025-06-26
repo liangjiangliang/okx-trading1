@@ -22,7 +22,12 @@ public class WebSocketReconnectEvent extends ApplicationEvent {
         /**
          * 私有频道重连
          */
-        PRIVATE
+        PRIVATE,
+        
+        /**
+         * 业务频道重连
+         */
+        BUSINESS
     }
     
     /**

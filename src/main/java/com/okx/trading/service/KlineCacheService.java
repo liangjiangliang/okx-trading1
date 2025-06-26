@@ -53,7 +53,7 @@ public interface KlineCacheService {
      *
      * @return Map, key为symbol, value为该symbol订阅的时间间隔列表
      */
-    Map<String, List<String>> getAllSubscribedKlines();
+    Set<String> getAllSubscribedKlines();
 
     /**
      * 获取指定交易对的所有已订阅K线间隔
@@ -61,7 +61,7 @@ public interface KlineCacheService {
      * @param symbol 交易对符号，如 BTC-USDT
      * @return 已订阅的K线间隔列表
      */
-    List<String> getSubscribedIntervals(String symbol);
+    Set<String> getSubscribedIntervals(String symbol);
 
     List<CandlestickEntity> getKlineData(String symbol, String interval, int klineLimit);
     /**
@@ -126,17 +126,4 @@ public interface KlineCacheService {
      */
     boolean clearKlineCache(String symbol, String interval);
 
-    /**
-     * 获取当前所有已订阅的交易对
-     *
-     * @return 已订阅的交易对集合
-     */
-    Set<String> getAllSubscribedSymbols();
-
-    /**
-     * 获取所有已订阅的交易对和对应的时间间隔
-     *
-     * @return 交易对与时间间隔的映射，key为交易对，value为该交易对订阅的时间间隔集合
-     */
-    Map<String, Set<String>> getAllSubscribedSymbolsWithIntervals();
 }

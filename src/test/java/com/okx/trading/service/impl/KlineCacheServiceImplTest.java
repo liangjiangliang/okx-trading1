@@ -224,29 +224,7 @@ public class KlineCacheServiceImplTest {
         verify(zSetOperations).add(key, candlestick, score);
     }
 
-    @Test
-    void testGetAllSubscribedKlines() {
-        // 准备
-        Map<Object, Object> redisEntries = new HashMap<>();
-        redisEntries.put("BTC-USDT:1m", "1");
-        redisEntries.put("BTC-USDT:5m", "1");
-        redisEntries.put("ETH-USDT:1m", "1");
 
-        when(hashOperations.entries(anyString())).thenReturn(redisEntries);
-
-        // 执行
-        Map<String, List<String>> result = klineCacheService.getAllSubscribedKlines();
-
-        // 验证
-        assertEquals(2, result.size());
-        assertTrue(result.containsKey("BTC-USDT"));
-        assertTrue(result.containsKey("ETH-USDT"));
-        assertEquals(2, result.get("BTC-USDT").size());
-        assertEquals(1, result.get("ETH-USDT").size());
-        assertTrue(result.get("BTC-USDT").contains("1m"));
-        assertTrue(result.get("BTC-USDT").contains("5m"));
-        assertTrue(result.get("ETH-USDT").contains("1m"));
-    }
 
     @Test
     void testGetLatestKlineData() {

@@ -72,44 +72,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final Map<String, BarSeries> runningBarSeries = new ConcurrentHashMap<>();
 
     /**
-     * 策略运行状态
-     */
-    @Data
-    public static class StrategyRunningState {
-        private Long id;
-        private String strategyCode;
-        private String symbol;
-        private String interval;
-        private Strategy strategy;
-        private BigDecimal tradeAmount = BigDecimal.ZERO;
-        private LocalDateTime startTime;
-        private Boolean isInPosition = false;
-        private int totalTrades = 0;
-        private int successfulTrades = 0;
-        private String lastTradeType; // 最后一次交易类型：BUY/SELL
-        private BigDecimal lastTradeAmount = BigDecimal.ZERO;
-        private BigDecimal lastTradeQuantity = BigDecimal.ZERO; // 最后一次交易数量
-        private BigDecimal lastTradePrice = BigDecimal.ZERO;
-        private BigDecimal totalProfit = BigDecimal.ZERO;
-        private BigDecimal totalProFee = BigDecimal.ZERO;
-
-
-        private CompletableFuture<Map<String, Object>> future;
-
-        // 构造函数
-        public StrategyRunningState(Long id, String strategyCode, String symbol, String interval,
-                                    Strategy strategy, BigDecimal tradeAmount, LocalDateTime startTime) {
-            this.id = id;
-            this.strategyCode = strategyCode;
-            this.symbol = symbol;
-            this.interval = interval;
-            this.strategy = strategy;
-            this.tradeAmount = tradeAmount;
-            this.startTime = startTime;
-        }
-    }
-
-    /**
      * 启动实时策略
      */
     public void startRealTimeStrategy(String strategyCode, String symbol, String interval,
@@ -379,28 +341,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     }
 
     /**
-     * 检查symbol和interval是否还在使用中
-     */
-    private boolean isSymbolIntervalInUse(String symbol, String interval) {
-        return runningStrategies.values().stream()
-                .anyMatch(state -> state.getSymbol().equals(symbol) && state.getInterval().equals(interval));
-    }
-
-    /**
-     * 构建最终结果
-     */
-    private Map<String, Object> buildFinalResult(RealTimeStrategyEntity state) {
-        Map<String, Object> result = new ConcurrentHashMap<>();
-        result.put("status", "COMPLETED");
-        result.put("totalTrades", state.getTotalTrades());
-        result.put("totalProfit", state.getTotalProfit());
-        result.put("successfulTrades", state.getSuccessfulTrades());
-        result.put("successRate", state.getTotalTrades() > 0 ?
-                (double) state.getSuccessfulTrades() / state.getTotalTrades() : 0.0);
-        return result;
-    }
-
-    /**
      * 程序启动时执行，从MySQL加载有效策略
      */
     @Override
@@ -587,5 +527,27 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             default:
                 return openTime.plusMinutes(1); // 默认1分钟
         }
+    }
+
+    /**
+     * 检查symbol和interval是否还在使用中
+     */
+    private boolean isSymbolIntervalInUse(String symbol, String interval) {
+        return runningStrategies.values().stream()
+                .anyMatch(state -> state.getSymbol().equals(symbol) && state.getInterval().equals(interval));
+    }
+
+    /**
+     * 构建最终结果
+     */
+    private Map<String, Object> buildFinalResult(RealTimeStrategyEntity state) {
+        Map<String, Object> result = new ConcurrentHashMap<>();
+        result.put("status", "COMPLETED");
+        result.put("totalTrades", state.getTotalTrades());
+        result.put("totalProfit", state.getTotalProfit());
+        result.put("successfulTrades", state.getSuccessfulTrades());
+        result.put("successRate", state.getTotalTrades() > 0 ?
+                (double) state.getSuccessfulTrades() / state.getTotalTrades() : 0.0);
+        return result;
     }
 }

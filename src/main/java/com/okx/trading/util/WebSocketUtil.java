@@ -1059,6 +1059,24 @@ public class WebSocketUtil{
     }
 
     /**
+     * 恢复业务频道的操作
+     */
+    private void restoreBusinessOperations(){
+        logger.info("开始恢复业务频道操作");
+
+        if(! bussinessConnected.get()){
+            logger.info("业务频道连接尚未就绪，等待连接建立后再恢复");
+            return;
+        }
+
+        // 目前业务频道没有特定的待执行操作队列
+        // 可以在这里添加业务频道相关的恢复逻辑
+        logger.info("业务频道操作恢复完成");
+
+        // 发布WebSocket重连事件（已在调用处处理）
+    }
+
+    /**
      * 检查私有WebSocket是否已连接
      *
      * @return 如果私有WebSocket已连接则返回true，否则返回false
@@ -1259,6 +1277,19 @@ public class WebSocketUtil{
                     // 重连成功，重置重试计数器
                     businessRetryCount.set(0);
                     logger.info("业务频道重连成功");
+                    
+                    // 恢复业务频道的操作（如果有）
+                    restoreBusinessOperations();
+                    
+                    // 发布业务频道重连事件
+                    try{
+                        if(applicationEventPublisher != null){
+                            logger.info("发布WebSocket业务频道重连事件");
+                            applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.BUSINESS));
+                        }
+                    }catch(Exception e){
+                        logger.error("发布WebSocket业务频道重连事件失败", e);
+                    }
                 } else {
                     // 如果重连失败，继续安排下一次重试
                     logger.warn("业务频道重连失败，将安排下一次重试");

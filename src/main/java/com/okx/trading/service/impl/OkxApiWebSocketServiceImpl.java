@@ -11,6 +11,7 @@ import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
+import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.strategy.RealTimeStrategyManager;
@@ -56,6 +57,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
     private final OkHttpClient okHttpClient;
+    private final KlineCacheService klineCacheService;
 
     @Lazy
     @Autowired(required = false)
@@ -172,9 +174,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
                 if (candlestick != null) {
                     candlestick.setIntervalVal(interval);
-                    redisCacheService.updateCandlestick(candlestick);
-                    log.debug("获取实时标记价格k线数据: {}", candlestick);
-                    candlesticks.add(candlestick);
+//                    redisCacheService.updateCandlestick(candlestick);
+//                    log.debug("获取实时标记价格k线数据: {}", candlestick);
+//                    candlesticks.add(candlestick);
 
                     // 通知实时策略管理器处理新的K线数据
                     if (realTimeStrategyManager != null) {
@@ -1025,7 +1027,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅
-            if (subscribedSymbols.contains(symbol + ":" + interval)) {
+            if (klineCacheService.getAllSubscribedKlines().contains(symbol + ":" + interval)) {
                 log.debug("币种 {} 已订阅，无需重复订阅", symbol);
                 return true;
             }
@@ -1041,7 +1043,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 添加已订阅标记
-            subscribedSymbols.add(symbol + ":" + interval);
+            klineCacheService.subscribeKline(symbol, interval);
 
             return true;
         } catch (Exception e) {
@@ -1058,7 +1060,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅
-            if (!subscribedSymbols.contains(symbol)) {
+            if (!klineCacheService.getAllSubscribedKlines().contains(symbol + ":" + interval)) {
                 log.debug("币种 {} 未订阅，无需取消", symbol);
                 return true;
             }
@@ -1074,7 +1076,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             webSocketUtil.unsubscribePublicTopicWithArgs(arg, symbol);
 
             // 移除已订阅标记
-            subscribedSymbols.remove(symbol);
+            klineCacheService.getAllSubscribedKlines().remove(symbol + ":" + interval);
             klineFutures.remove(key);
 
             return true;
