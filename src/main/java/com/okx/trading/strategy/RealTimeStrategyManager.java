@@ -1,4 +1,4 @@
-package com.okx.trading.service.impl;
+package com.okx.trading.strategy;
 
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
@@ -10,7 +10,7 @@ import com.okx.trading.service.RealTimeOrderService;
 import com.okx.trading.service.RealTimeStrategyService;
 import com.okx.trading.controller.TradeController;
 import com.okx.trading.service.StrategyInfoService;
-import com.okx.trading.strategy.StrategyRegisterCenter;
+import com.okx.trading.service.impl.OkxApiWebSocketServiceImpl;
 import lombok.Data;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;

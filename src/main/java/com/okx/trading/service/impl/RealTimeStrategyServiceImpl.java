@@ -4,6 +4,7 @@ import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.RealTimeStrategyService;
+import com.okx.trading.strategy.RealTimeStrategyManager;
 import com.okx.trading.strategy.StrategyRegisterCenter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
