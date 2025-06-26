@@ -12,6 +12,7 @@ import com.okx.trading.controller.TradeController;
 import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.service.impl.OkxApiWebSocketServiceImpl;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +68,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
     // 存储正在运行的策略信息
     // key: strategyCode_symbol_interval, value: 策略运行状态
-    private final Map<String, StrategyRunningState> runningStrategies = new ConcurrentHashMap<>();
+    private final Map<String, RealTimeStrategyEntity> runningStrategies = new ConcurrentHashMap<>();
     private final Map<String, BarSeries> runningBarSeries = new ConcurrentHashMap<>();
 
     /**
@@ -80,17 +81,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         private String symbol;
         private String interval;
         private Strategy strategy;
-        private BigDecimal tradeAmount=BigDecimal.ZERO;
+        private BigDecimal tradeAmount = BigDecimal.ZERO;
         private LocalDateTime startTime;
         private Boolean isInPosition = false;
         private int totalTrades = 0;
         private int successfulTrades = 0;
         private String lastTradeType; // 最后一次交易类型：BUY/SELL
-        private BigDecimal lastTradeAmount=BigDecimal.ZERO;
-        private BigDecimal lastTradeQuantity=BigDecimal.ZERO; // 最后一次交易数量
-        private BigDecimal lastTradePrice=BigDecimal.ZERO;
-        private BigDecimal totalProfit=BigDecimal.ZERO;
-        private BigDecimal totalProFee=BigDecimal.ZERO;
+        private BigDecimal lastTradeAmount = BigDecimal.ZERO;
+        private BigDecimal lastTradeQuantity = BigDecimal.ZERO; // 最后一次交易数量
+        private BigDecimal lastTradePrice = BigDecimal.ZERO;
+        private BigDecimal totalProfit = BigDecimal.ZERO;
+        private BigDecimal totalProFee = BigDecimal.ZERO;
 
 
         private CompletableFuture<Map<String, Object>> future;
@@ -122,7 +123,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         // 创建策略运行状态
-        StrategyRunningState state = new StrategyRunningState(null, strategyCode, symbol, interval, strategy, tradeAmount, startTime);
+        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue());
 
         // 保存策略到MySQL（如果不存在）
         try {
@@ -152,7 +153,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     public void stopRealTimeStrategy(String strategyCode, String symbol, String interval) {
         String key = buildStrategyKey(strategyCode, symbol, interval);
 
-        StrategyRunningState state = runningStrategies.remove(key);
+        RealTimeStrategyEntity state = runningStrategies.remove(key);
         if (state != null) {
             // 取消订阅K线数据（如果没有其他策略使用）
             if (!isSymbolIntervalInUse(symbol, interval)) {
@@ -185,11 +186,11 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
         runningStrategies.entrySet().stream()
                 .filter(entry -> {
-                    StrategyRunningState state = entry.getValue();
+                    RealTimeStrategyEntity state = entry.getValue();
                     return state.getSymbol().equals(symbol) && state.getInterval().equals(interval);
                 })
                 .forEach(entry -> {
-                    StrategyRunningState state = entry.getValue();
+                    RealTimeStrategyEntity state = entry.getValue();
                     try {
                         processStrategySignal(state, candlestick);
                     } catch (Exception e) {
@@ -202,7 +203,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      * 处理策略信号
      * 真正执行实时策略逻辑，判断买卖信号的地方
      */
-    private void processStrategySignal(StrategyRunningState state, Candlestick candlestick) {
+    private void processStrategySignal(RealTimeStrategyEntity state, Candlestick candlestick) {
 
         // 更新BarSeries - 智能判断是更新还是添加新bar
         Bar newBar = createBarFromCandlestick(candlestick);
@@ -219,13 +220,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
         // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && !BUY.equals(state.getLastTradeType())) {
+        if (shouldBuy && (state.getLastTradeType() == null || !BUY.equals(state.getLastTradeType()))) {
             executeTradeSignal(state, candlestick, BUY);
         }
 
         // 处理卖出信号 - 只有在上一次是买入时才触发
         if (shouldSell && BUY.equals(state.getLastTradeType())) {
-            executeTradeSignal(state, candlestick, BUY);
+            executeTradeSignal(state, candlestick, SELL);
         }
     }
 
@@ -256,56 +257,9 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     }
 
     /**
-     * 根据时间和间隔计算周期的开始时间
-     *
-     * @param dateTime 时间
-     * @param interval K线间隔（如1m, 5m, 1H, 1D等）
-     * @return 周期开始时间
-     */
-    private LocalDateTime getPeriodStartTime(LocalDateTime dateTime, String interval) {
-        if (dateTime == null || interval == null) {
-            return dateTime;
-        }
-
-        // 解析时间单位和数量
-        String unit = interval.substring(interval.length() - 1);
-        int amount;
-        try {
-            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
-        } catch (NumberFormatException e) {
-            amount = 1;
-        }
-
-        switch (unit) {
-            case "m": // 分钟
-                int minute = dateTime.getMinute();
-                int periodMinute = (minute / amount) * amount;
-                return dateTime.withMinute(periodMinute).withSecond(0).withNano(0);
-
-            case "H": // 小时
-                int hour = dateTime.getHour();
-                int periodHour = (hour / amount) * amount;
-                return dateTime.withHour(periodHour).withMinute(0).withSecond(0).withNano(0);
-
-            case "D": // 天
-                return dateTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
-
-            case "W": // 周
-                // 计算本周的周一
-                return dateTime.with(DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0);
-
-            case "M": // 月
-                return dateTime.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-
-            default:
-                return dateTime.withSecond(0).withNano(0);
-        }
-    }
-
-    /**
      * 执行交易信号
      */
-    private void executeTradeSignal(StrategyRunningState state, Candlestick candlestick, String side) {
+    private void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
         try {
             BigDecimal preAmount = null;
             BigDecimal preQuantity = null;
@@ -313,11 +267,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             // 计算交易数量
             if (BUY.equals(side)) {
                 // 买入：按照给定金额买入
-                preAmount = state.getTradeAmount();
+                if (state.getLastTradeType().equals(SELL)) {
+                    // 上次卖出剩下的钱
+                    preAmount = BigDecimal.valueOf(state.getLastTradeAmount());
+                } else {
+                    // 没有卖出记录，使用最初金额
+                    preAmount = BigDecimal.valueOf(state.getTradeAmount());
+                }
             } else {
                 // 卖出：全仓卖出买入的数量
-                if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity().compareTo(BigDecimal.ZERO) > 0) {
-                    preQuantity = state.getLastTradeQuantity();
+                if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity() > 0) {
+                    preQuantity = BigDecimal.valueOf(state.getLastTradeQuantity());
                 } else {
                     log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
                     return;
@@ -351,16 +311,16 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 // 利润统计
                 // 更新累计统计信息
                 if (orderEntity.getSide().equals(SELL)) {
-                    state.setTotalProfit(state.getTotalProfit().add(orderEntity.getExecutedAmount().subtract(state.getLastTradeAmount())));
+                    state.setTotalProfit(state.getTotalProfit() + (orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount()));
                 }
                 // 费用每次都有
-                state.setTotalProFee(state.getTotalProFee().add(orderEntity.getFee()));
+                state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
                 // 更新策略状态
                 state.setLastTradeType(orderEntity.getSide());
                 // 买入时记录购买数量
-                state.setLastTradeAmount(orderEntity.getExecutedAmount());
-                state.setLastTradeQuantity(orderEntity.getExecutedQty());
-                state.setLastTradePrice(orderEntity.getPrice());
+                state.setLastTradeAmount(orderEntity.getExecutedAmount().doubleValue());
+                state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
+                state.setLastTradePrice(orderEntity.getPrice().doubleValue());
                 if (BUY.equals(side)) {
                     state.setIsInPosition(true);
                 } else {
@@ -374,7 +334,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 // 更新数据库中的交易信息
                 RealTimeStrategyEntity realTimeStrategy = realTimeStrategyService.updateTradeInfo(state);
                 // 更新订单信息
-                orderEntity.setId(realTimeStrategy.getId());
+                orderEntity.setStrategyId(realTimeStrategy.getId());
                 realTimeOrderService.saveOrder(orderEntity);
 
                 log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
@@ -412,40 +372,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     }
 
     /**
-     * 根据开盘时间和K线间隔计算收盘时间
-     */
-    private LocalDateTime calculateEndTimeFromInterval(LocalDateTime openTime, String interval) {
-        if (openTime == null || interval == null) {
-            return LocalDateTime.now();
-        }
-
-        // 解析时间单位和数量
-        String unit = interval.substring(interval.length() - 1);
-        int amount;
-        try {
-            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
-        } catch (NumberFormatException e) {
-            // 如果解析失败，使用默认值1
-            amount = 1;
-        }
-
-        switch (unit) {
-            case "m":
-                return openTime.plusMinutes(amount);
-            case "H":
-                return openTime.plusHours(amount);
-            case "D":
-                return openTime.plusDays(amount);
-            case "W":
-                return openTime.plusWeeks(amount);
-            case "M":
-                return openTime.plusMonths(amount);
-            default:
-                return openTime.plusMinutes(1); // 默认1分钟
-        }
-    }
-
-    /**
      * 构建策略键
      */
     private String buildStrategyKey(String strategyCode, String symbol, String interval) {
@@ -463,7 +389,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 构建最终结果
      */
-    private Map<String, Object> buildFinalResult(StrategyRunningState state) {
+    private Map<String, Object> buildFinalResult(RealTimeStrategyEntity state) {
         Map<String, Object> result = new ConcurrentHashMap<>();
         result.put("status", "COMPLETED");
         result.put("totalTrades", state.getTotalTrades());
@@ -530,7 +456,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 获取运行中的策略状态
      */
-    public StrategyRunningState getRunningStrategy(String strategyCode, String symbol, String interval) {
+    public RealTimeStrategyEntity getRunningStrategy(String strategyCode, String symbol, String interval) {
         String key = buildStrategyKey(strategyCode, symbol, interval);
         return runningStrategies.get(key);
     }
@@ -538,7 +464,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 获取所有运行中的策略
      */
-    public Map<String, StrategyRunningState> getAllRunningStrategies() {
+    public Map<String, RealTimeStrategyEntity> getAllRunningStrategies() {
         return new ConcurrentHashMap<>(runningStrategies);
     }
 
@@ -566,21 +492,100 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         try {
             ta4jStrategy = StrategyRegisterCenter.
                     createStrategy(runningBarSeries.get(strategyEntity.getSymbol() + "_" + strategyEntity.getInterval()), strategyEntity.getStrategyCode());
+            strategyEntity.setStrategy(ta4jStrategy);
         } catch (Exception e) {
             log.error("获取策略失败: {}", e.getMessage(), e);
             return false;
         }
 
-        StrategyRunningState runningState = new StrategyRunningState(null, strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval(), ta4jStrategy,
-                BigDecimal.valueOf(strategyEntity.getTradeAmount()), strategyEntity.getStartTime());
-
         // 添加到运行中策略列表
         String strategyKey = buildStrategyKey(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-        runningStrategies.put(strategyKey, runningState);
+        runningStrategies.put(strategyKey, strategyEntity);
 
         log.info("已添加策略: strategyCode={}, symbol={}, interval={}", strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
 
 
         return runningStrategies.containsKey(strategyKey);
+    }
+
+    /**
+     * 根据时间和间隔计算周期的开始时间
+     *
+     * @param dateTime 时间
+     * @param interval K线间隔（如1m, 5m, 1H, 1D等）
+     * @return 周期开始时间
+     */
+    private LocalDateTime getPeriodStartTime(LocalDateTime dateTime, String interval) {
+        if (dateTime == null || interval == null) {
+            return dateTime;
+        }
+
+        // 解析时间单位和数量
+        String unit = interval.substring(interval.length() - 1);
+        int amount;
+        try {
+            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+        } catch (NumberFormatException e) {
+            amount = 1;
+        }
+
+        switch (unit) {
+            case "m": // 分钟
+                int minute = dateTime.getMinute();
+                int periodMinute = (minute / amount) * amount;
+                return dateTime.withMinute(periodMinute).withSecond(0).withNano(0);
+
+            case "H": // 小时
+                int hour = dateTime.getHour();
+                int periodHour = (hour / amount) * amount;
+                return dateTime.withHour(periodHour).withMinute(0).withSecond(0).withNano(0);
+
+            case "D": // 天
+                return dateTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            case "W": // 周
+                // 计算本周的周一
+                return dateTime.with(DayOfWeek.MONDAY).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            case "M": // 月
+                return dateTime.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+            default:
+                return dateTime.withSecond(0).withNano(0);
+        }
+    }
+
+    /**
+     * 根据开盘时间和K线间隔计算收盘时间
+     */
+    private LocalDateTime calculateEndTimeFromInterval(LocalDateTime openTime, String interval) {
+        if (openTime == null || interval == null) {
+            return LocalDateTime.now();
+        }
+
+        // 解析时间单位和数量
+        String unit = interval.substring(interval.length() - 1);
+        int amount;
+        try {
+            amount = Integer.parseInt(interval.substring(0, interval.length() - 1));
+        } catch (NumberFormatException e) {
+            // 如果解析失败，使用默认值1
+            amount = 1;
+        }
+
+        switch (unit) {
+            case "m":
+                return openTime.plusMinutes(amount);
+            case "H":
+                return openTime.plusHours(amount);
+            case "D":
+                return openTime.plusDays(amount);
+            case "W":
+                return openTime.plusWeeks(amount);
+            case "M":
+                return openTime.plusMonths(amount);
+            default:
+                return openTime.plusMinutes(1); // 默认1分钟
+        }
     }
 }

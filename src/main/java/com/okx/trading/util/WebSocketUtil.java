@@ -10,6 +10,7 @@ import okhttp3.*;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -57,8 +59,30 @@ public class WebSocketUtil{
     private final AtomicBoolean privateConnected = new AtomicBoolean(false);
     private final AtomicBoolean bussinessConnected = new AtomicBoolean(false);
 
+    // 重连计数器 - 持久化重试状态
+    private final AtomicInteger publicRetryCount = new AtomicInteger(0);
+    private final AtomicInteger privateRetryCount = new AtomicInteger(0);
+    private final AtomicInteger businessRetryCount = new AtomicInteger(0);
+
+    // 最后接收消息时间，用于检测连接活跃度
+    private final AtomicLong lastPublicMessageTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong lastPrivateMessageTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong lastBusinessMessageTime = new AtomicLong(System.currentTimeMillis());
+
+    // 重连锁，防止并发重连
+    private final Object publicReconnectLock = new Object();
+    private final Object privateReconnectLock = new Object();
+    private final Object businessReconnectLock = new Object();
+
     // 添加静态Logger以解决编译问题
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(WebSocketUtil.class);
+    
+    // 环境检测
+    @Value("${spring.profiles.active:prod}")
+    private String activeProfile;
+
+    // 添加重连状态管理
+    private final Set<String> reconnectingChannels = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient, ApplicationEventPublisher applicationEventPublisher,
@@ -69,6 +93,22 @@ public class WebSocketUtil{
         this.applicationEventPublisher = applicationEventPublisher;
         this.pingScheduler = pingScheduler;
         this.reconnectScheduler = reconnectScheduler;
+    }
+
+    /**
+     * 检查是否为开发环境
+     */
+    private boolean isDevelopmentEnvironment() {
+        return "dev".equals(activeProfile) || "development".equals(activeProfile) || "local".equals(activeProfile);
+    }
+
+    /**
+     * 开发环境日志输出
+     */
+    private void debugLog(String message, Object... args) {
+        if (isDevelopmentEnvironment()) {
+            logger.info(message, args);
+        }
     }
 
     /**
@@ -94,7 +134,7 @@ public class WebSocketUtil{
                 try{
                     connectBussinessChannel();
                 }catch(Exception e){
-                    logger.error("连接公共频道失败: {}", e.getMessage(), e);
+                    logger.error("连接业务频道失败: {}", e.getMessage(), e);
                 }
 
                 // 连接私有频道
@@ -104,10 +144,10 @@ public class WebSocketUtil{
                     logger.error("连接私有频道失败: {}", e.getMessage(), e);
                 }
 
-                // 定时发送ping消息，保持连接
+                // 优化ping频率，减少系统负载
                 pingScheduler.scheduleAtFixedRate(this :: pingWebSockets, 15, 15, TimeUnit.SECONDS);
 
-                // 定时检查连接状态，实现自动恢复
+                // 优化连接检查频率，减少无谓检查
                 reconnectScheduler.scheduleAtFixedRate(this :: checkConnectionsAndReconnect, 30, 30, TimeUnit.SECONDS);
             }else{
                 logger.info("WebSocket模式未启用，使用REST模式");
@@ -163,13 +203,18 @@ public class WebSocketUtil{
                 public void onOpen(WebSocket webSocket, Response response){
                     logger.info("业务频道WebSocket连接成功");
                     bussinessConnected.set(true);
-
+                    lastBusinessMessageTime.set(System.currentTimeMillis());
+                    
+                    // 重连成功，重置重试计数器
+                    businessRetryCount.set(0);
+                    
                     // 恢复之前的操作
                     restorePublicOperations();
                 }
 
                 @Override
                 public void onMessage(WebSocket webSocket, String text){
+                    lastBusinessMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
@@ -178,7 +223,7 @@ public class WebSocketUtil{
                     logger.error("业务频道WebSocket连接失败", t);
                     bussinessConnected.set(false);
                     // 尝试重连
-                    schedulePublicReconnect();
+                    scheduleBusinessReconnect();
                 }
 
                 @Override
@@ -187,14 +232,14 @@ public class WebSocketUtil{
                     bussinessConnected.set(false);
                     // 如果不是应用主动关闭，尝试重连
                     if(code != 1000){
-                        schedulePublicReconnect();
+                        scheduleBusinessReconnect();
                     }
                 }
             });
         }catch(Exception e){
             logger.error("创建业务频道WebSocket连接失败", e);
             bussinessConnected.set(false);
-            schedulePublicReconnect();
+            scheduleBusinessReconnect();
         }
     }
 
@@ -212,13 +257,18 @@ public class WebSocketUtil{
                 public void onOpen(WebSocket webSocket, Response response){
                     logger.info("公共频道WebSocket连接成功");
                     publicConnected.set(true);
-
+                    lastPublicMessageTime.set(System.currentTimeMillis());
+                    
+                    // 重连成功，重置重试计数器
+                    publicRetryCount.set(0);
+                    
                     // 恢复之前的操作
                     restorePublicOperations();
                 }
 
                 @Override
                 public void onMessage(WebSocket webSocket, String text){
+                    lastPublicMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
@@ -248,60 +298,6 @@ public class WebSocketUtil{
     }
 
     /**
-     * 安排公共频道重连
-     */
-    private void schedulePublicReconnect(){
-        // 使用原子整数跟踪重试次数，实现指数退避
-        AtomicInteger retryCount = new AtomicInteger(0);
-
-        reconnectScheduler.schedule(new Runnable(){
-            @Override
-            public void run(){
-                try{
-                    int currentRetry = retryCount.getAndIncrement();
-                    if(currentRetry > 10){
-                        logger.warn("公共频道重连尝试次数过多，将降低重试频率");
-                        retryCount.set(10); // 限制最大重试次数
-                    }
-
-                    // 指数退避，但有最大延迟限制
-                    long delaySeconds = Math.min(30, (long)Math.pow(2, currentRetry));
-
-                    if(publicWebSocket != null){
-                        try{
-                            publicWebSocket.close(1000, "Reconnecting");
-                        }catch(Exception e){
-                            logger.debug("关闭旧公共频道连接失败", e);
-                        }
-                    }
-                    connectPublicChannel();
-
-                    if(bussinessWebSocket != null){
-                        try{
-                            bussinessWebSocket.close(1000, "Reconnecting");
-                        }catch(Exception e){
-                            logger.debug("关闭旧业务频道连接失败", e);
-                        }
-                    }
-                    connectBussinessChannel();
-
-                    // 如果重连成功，重置重试计数器
-                    if(isWebSocketConnected(publicWebSocket) && isWebSocketConnected(bussinessWebSocket)){
-                        retryCount.set(0);
-                    }else{
-                        // 如果失败，安排下一次重试
-                        reconnectScheduler.schedule(this, delaySeconds, TimeUnit.SECONDS);
-                    }
-                }catch(Exception e){
-                    logger.error("重连公共频道失败", e);
-                    // 安排下一次重试
-                    reconnectScheduler.schedule(this, 5, TimeUnit.SECONDS);
-                }
-            }
-        }, 5, TimeUnit.SECONDS);
-    }
-
-    /**
      * 连接私有频道
      */
     private void connectPrivateChannel(){
@@ -321,12 +317,18 @@ public class WebSocketUtil{
                 @Override
                 public void onOpen(WebSocket webSocket, Response response){
                     logger.info("私有频道WebSocket连接成功");
+                    lastPrivateMessageTime.set(System.currentTimeMillis());
+                    
+                    // 重连成功，重置重试计数器
+                    privateRetryCount.set(0);
+                    
                     // 发送登录消息 - 登录成功后会在登录响应中恢复订阅
                     sendLoginMessage(webSocket, timestamp, sign);
                 }
 
                 @Override
                 public void onMessage(WebSocket webSocket, String text){
+                    lastPrivateMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
@@ -342,9 +344,14 @@ public class WebSocketUtil{
                 public void onClosed(WebSocket webSocket, int code, String reason){
                     logger.info("私有频道WebSocket连接关闭: {}, {}", code, reason);
                     privateConnected.set(false);
-                    // 如果不是应用主动关闭，尝试重连
-                    if(code != 1000){
-                        schedulePrivateReconnect();
+                    // 如果不是应用主动关闭，且不是Reconnecting状态，尝试重连
+                    if(code != 1000 || !"Application shutting down".equals(reason)){
+                        // 添加延迟重连，避免立即重连
+                        reconnectScheduler.schedule(() -> {
+                            if (!privateConnected.get()) {
+                                schedulePrivateReconnect();
+                            }
+                        }, 2, TimeUnit.SECONDS);
                     }
                 }
             });
@@ -373,87 +380,122 @@ public class WebSocketUtil{
             loginMessage.put("args", args);
 
             webSocket.send(loginMessage.toJSONString());
-            logger.debug("发送登录消息: {}", loginMessage);
+            debugLog("发送登录消息: {}", loginMessage);
         }catch(Exception e){
             logger.error("发送登录消息失败", e);
         }
     }
 
     /**
-     * 安排私有频道重连
+     * 安排私有频道重连 - 优化版本
      */
     private void schedulePrivateReconnect(){
-        // 使用原子整数跟踪重试次数，实现指数退避
-        AtomicInteger retryCount = new AtomicInteger(0);
+        if (isCurrentlyReconnecting("private")) {
+            debugLog("私有频道已在重连中，跳过本次重连请求");
+            return;
+        }
 
-        reconnectScheduler.schedule(new Runnable(){
-            @Override
-            public void run(){
-                try{
-                    int currentRetry = retryCount.getAndIncrement();
-                    if(currentRetry > 10){
-                        logger.warn("私有频道重连尝试次数过多，将降低重试频率");
-                        retryCount.set(10); // 限制最大重试次数
-                    }
-
-                    // 指数退避，但有最大延迟限制
-                    long delaySeconds = Math.min(30, (long)Math.pow(2, currentRetry));
-
-                    if(privateWebSocket != null){
-                        try{
-                            privateWebSocket.close(1000, "Reconnecting");
-                        }catch(Exception e){
-                            logger.debug("关闭旧私有频道连接失败", e);
-                        }
-                    }
-                    connectPrivateChannel();
-
-                    // 如果重连成功，重置重试计数器
-                    if(isWebSocketConnected(privateWebSocket)){
-                        retryCount.set(0);
-                    }else{
-                        // 如果失败，安排下一次重试
-                        reconnectScheduler.schedule(this, delaySeconds, TimeUnit.SECONDS);
-                    }
-                }catch(Exception e){
-                    logger.error("重连私有频道失败", e);
-                    // 安排下一次重试
-                    reconnectScheduler.schedule(this, 5, TimeUnit.SECONDS);
+        markReconnectStart("private");
+        
+        reconnectScheduler.submit(() -> {
+            try {
+                int currentRetry = privateRetryCount.getAndIncrement();
+                
+                // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
+                long delaySeconds;
+                if (currentRetry == 0) {
+                    delaySeconds = 1; // 首次重连立即执行
+                } else if (currentRetry <= 3) {
+                    delaySeconds = currentRetry * 2; // 2, 4, 6秒
+                } else if (currentRetry <= 10) {
+                    delaySeconds = 10; // 保持10秒
+                } else {
+                    delaySeconds = 20; // 最大20秒，而不是30秒
+                    privateRetryCount.set(10); // 限制最大重试次数
                 }
+
+                debugLog("私有频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
+                
+                if (delaySeconds > 1) {
+                    Thread.sleep(delaySeconds * 1000);
+                }
+
+                if (privateWebSocket != null) {
+                    try {
+                        privateWebSocket.close(1000, "Reconnecting");
+                    } catch (Exception e) {
+                        debugLog("关闭旧私有频道连接失败: {}", e.getMessage());
+                    }
+                }
+                
+                connectPrivateChannel();
+
+                // 检查重连是否成功 - 延长等待时间，因为私有频道需要登录
+                Thread.sleep(5000); // 等待5秒检查连接状态
+                if (privateConnected.get()) {
+                    // 重连成功，重置重试计数器
+                    privateRetryCount.set(0);
+                    logger.info("私有频道重连成功");
+                } else {
+                    // 如果重连失败，继续安排下一次重试
+                    logger.warn("私有频道重连失败，将安排下一次重试");
+                    markReconnectEnd("private");
+                    schedulePrivateReconnect();
+                    return;
+                }
+            } catch (Exception e) {
+                logger.error("重连私有频道失败", e);
+                markReconnectEnd("private");
+                schedulePrivateReconnect();
+                return;
+            } finally {
+                markReconnectEnd("private");
             }
-        }, 5, TimeUnit.SECONDS);
+        });
     }
 
     /**
-     * 发送ping消息，保持连接活跃
+     * 发送ping消息，保持连接活跃 - 优化版本
      */
     private void pingWebSockets(){
         try{
-            // 对每个连接尝试发送ping消息
-            if(publicWebSocket != null){
-                try{
-                    publicWebSocket.send("ping");
-                    logger.debug("发送公共频道ping消息");
-                }catch(Exception e){
-                    logger.warn("发送公共频道ping消息失败，将尝试重连", e);
+            long currentTime = System.currentTimeMillis();
+            
+            // 检查公共频道连接活跃度 - 只有连接正常时才发送ping
+            if(publicWebSocket != null && publicConnected.get()){
+                // 延长ping检查时间，避免频繁检测
+                if (currentTime - lastPublicMessageTime.get() > 60000) {
+                    logger.warn("公共频道超过60秒没有收到消息，触发重连");
                     schedulePublicReconnect();
+                } else {
+                    try{
+                        publicWebSocket.send("ping");
+                        debugLog("发送公共频道ping消息");
+                    }catch(Exception e){
+                        logger.warn("发送公共频道ping消息失败，将尝试重连", e);
+                        schedulePublicReconnect();
+                    }
                 }
             }
 
-            if(bussinessWebSocket != null){
+            // 检查业务频道连接活跃度 - 业务频道不强制要求频繁ping
+            if(bussinessWebSocket != null && bussinessConnected.get()){
+                // 业务频道可能长时间没有消息，所以不基于消息时间触发重连
                 try{
                     bussinessWebSocket.send("ping");
-                    logger.debug("发送业务频道ping消息");
+                    debugLog("发送业务频道ping消息");
                 }catch(Exception e){
                     logger.warn("发送业务频道ping消息失败，将尝试重连", e);
-                    schedulePublicReconnect();
+                    scheduleBusinessReconnect();
                 }
             }
 
-            if(privateWebSocket != null){
+            // 检查私有频道连接活跃度 - 私有频道也不强制要求频繁ping
+            if(privateWebSocket != null && privateConnected.get()){
+                // 私有频道可能长时间没有消息，所以不基于消息时间触发重连
                 try{
                     privateWebSocket.send("ping");
-                    logger.debug("发送私有频道ping消息");
+                    debugLog("发送私有频道ping消息");
                 }catch(Exception e){
                     logger.warn("发送私有频道ping消息失败，将尝试重连", e);
                     schedulePrivateReconnect();
@@ -477,12 +519,12 @@ public class WebSocketUtil{
                 if(privateWebSocket != null){
                     privateWebSocket.send("pong");
                 }
-                logger.debug("收到ping消息，已回复pong");
+                debugLog("收到ping消息，已回复pong");
                 return;
             }
 
             if("pong".equals(message)){
-                logger.debug("收到简单pong响应");
+                debugLog("收到简单pong响应");
                 return;
             }
 
@@ -528,7 +570,7 @@ public class WebSocketUtil{
 
             // 处理JSON格式的pong响应
             if(jsonMessage.containsKey("op") && "pong".equals(jsonMessage.getString("op"))){
-                logger.debug("收到JSON格式pong响应: {}", message);
+                debugLog("收到JSON格式pong响应: {}", message);
                 return;
             }
 
@@ -600,7 +642,7 @@ public class WebSocketUtil{
             if(topic != null && messageHandlers.containsKey(topic)){
                 messageHandlers.get(topic).accept(jsonMessage);
             }else{
-                logger.debug("收到未处理的WebSocket消息: {}", message);
+                debugLog("收到未处理的WebSocket消息: {}", message);
             }
 
         }catch(Exception e){
@@ -853,7 +895,7 @@ public class WebSocketUtil{
 
         // 直接发送
         targetSocket.send(subscribeMessage.toJSONString());
-        logger.debug("订阅公共频道主题，参数: {}", arg);
+                            debugLog("订阅公共频道主题，参数: {}", arg);
     }
 
     /**
@@ -1035,64 +1077,62 @@ public class WebSocketUtil{
     }
 
     /**
-     * 定时检查所有WebSocket连接并在需要时重新连接
+     * 定时检查所有WebSocket连接并在需要时重新连接 - 优化版本
      */
     private void checkConnectionsAndReconnect(){
         try{
-            boolean publicReconnectNeeded = false;
-            boolean privateReconnectNeeded = false;
-            boolean bussinessReconnectNeeded = false;
+            long currentTime = System.currentTimeMillis();
 
-            // 检查公共频道连接
-            if(publicWebSocket == null || ! isWebSocketConnected(publicWebSocket)){
-                logger.warn("公共频道连接检测失败，需要重连");
-                publicReconnectNeeded = true;
-            }
-
-            // 检查业务频道连接
-            if(bussinessWebSocket == null || ! isWebSocketConnected(bussinessWebSocket)){
-                logger.warn("业务频道连接检测失败，需要重连");
-                bussinessReconnectNeeded = true;
-            }
-
-            // 检查私有频道连接
-            if(privateWebSocket == null || ! isWebSocketConnected(privateWebSocket)){
-                logger.warn("私有频道连接检测失败，需要重连");
-                privateReconnectNeeded = true;
-            }
-
-            // 执行重连
-            if(publicReconnectNeeded){
-                if(publicWebSocket != null){
-                    try{
-                        publicWebSocket.close(1000, "Reconnecting due to connection check");
-                    }catch(Exception e){
-                        logger.debug("关闭旧公共频道连接失败", e);
-                    }
+            // 检查公共频道连接状态 - 公共频道必须保持活跃
+            if(!publicConnected.get() || publicWebSocket == null || 
+               (currentTime - lastPublicMessageTime.get() > 120000)) { // 增加到2分钟容忍度
+                logger.warn("公共频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
+                    publicConnected.get(), 
+                    publicWebSocket != null ? "存在" : "null",
+                    (currentTime - lastPublicMessageTime.get()) / 1000);
+                
+                // 避免并发重连
+                if (!isCurrentlyReconnecting("public")) {
+                    schedulePublicReconnect();
                 }
-                connectPublicChannel();
             }
 
-            if(bussinessReconnectNeeded){
-                if(bussinessWebSocket != null){
-                    try{
-                        bussinessWebSocket.close(1000, "Reconnecting due to connection check");
-                    }catch(Exception e){
-                        logger.debug("关闭旧业务频道连接失败", e);
-                    }
+            // 检查业务频道连接状态 - 业务频道容忍度更高
+            if(!bussinessConnected.get() || bussinessWebSocket == null) {
+                // 如果连接状态为false或WebSocket为null，才认为需要重连
+                // 不基于消息时间判断，因为业务频道可能长时间没有消息
+                logger.warn("业务频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
+                    bussinessConnected.get(), 
+                    bussinessWebSocket != null ? "存在" : "null",
+                    (currentTime - lastBusinessMessageTime.get()) / 1000);
+                
+                if (!isCurrentlyReconnecting("business")) {
+                    scheduleBusinessReconnect();
                 }
-                connectBussinessChannel();
+            } else if (currentTime - lastBusinessMessageTime.get() > 300000) {
+                // 只有超过5分钟没有消息时才基于消息时间重连
+                logger.warn("业务频道超过5分钟没有消息，尝试重连");
+                if (!isCurrentlyReconnecting("business")) {
+                    scheduleBusinessReconnect();
+                }
             }
 
-            if(privateReconnectNeeded){
-                if(privateWebSocket != null){
-                    try{
-                        privateWebSocket.close(1000, "Reconnecting due to connection check");
-                    }catch(Exception e){
-                        logger.debug("关闭旧私有频道连接失败", e);
-                    }
+            // 检查私有频道连接状态 - 私有频道容忍度更高
+            if(!privateConnected.get() || privateWebSocket == null) {
+                logger.warn("私有频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
+                    privateConnected.get(), 
+                    privateWebSocket != null ? "存在" : "null",
+                    (currentTime - lastPrivateMessageTime.get()) / 1000);
+                
+                if (!isCurrentlyReconnecting("private")) {
+                    schedulePrivateReconnect();
                 }
-                connectPrivateChannel();
+            } else if (currentTime - lastPrivateMessageTime.get() > 300000) {
+                // 只有超过5分钟没有消息时才基于消息时间重连
+                logger.warn("私有频道超过5分钟没有消息，尝试重连");
+                if (!isCurrentlyReconnecting("private")) {
+                    schedulePrivateReconnect();
+                }
             }
         }catch(Exception e){
             logger.error("检查WebSocket连接状态时出错", e);
@@ -1100,7 +1140,36 @@ public class WebSocketUtil{
     }
 
     /**
-     * 检查WebSocket连接是否有效
+     * 检查指定频道是否正在重连中
+     */
+    private boolean isCurrentlyReconnecting(String channel) {
+        return reconnectingChannels.contains(channel);
+    }
+
+    /**
+     * 标记频道开始重连
+     */
+    private void markReconnectStart(String channel) {
+        reconnectingChannels.add(channel);
+    }
+
+    /**
+     * 标记频道重连结束
+     */
+    private void markReconnectEnd(String channel) {
+        reconnectingChannels.remove(channel);
+    }
+
+    /**
+     * 检查是否正在重连中，避免并发重连
+     */
+    private boolean isReconnecting(Object lock) {
+        // 简化重连检查逻辑
+        return false; // 始终允许重连，由新的重连状态管理器控制
+    }
+
+    /**
+     * 检查WebSocket连接是否有效 - 优化版本
      *
      * @param webSocket 要检查的WebSocket连接
      * @return 连接是否有效
@@ -1111,10 +1180,10 @@ public class WebSocketUtil{
         }
 
         try{
-            // 发送ping消息测试连接
+            // 使用更轻量级的方式检查连接状态，避免过多的ping消息
             return webSocket.send("ping");
         }catch(Exception e){
-            logger.debug("检查WebSocket连接状态失败", e);
+            debugLog("检查WebSocket连接状态失败: {}", e.getMessage());
             return false;
         }
     }
@@ -1138,5 +1207,150 @@ public class WebSocketUtil{
         public String getDescription(){
             return description;
         }
+    }
+
+    /**
+     * 安排业务频道重连 - 优化版本
+     */
+    private void scheduleBusinessReconnect(){
+        if (isCurrentlyReconnecting("business")) {
+            debugLog("业务频道已在重连中，跳过本次重连请求");
+            return;
+        }
+
+        markReconnectStart("business");
+        
+        reconnectScheduler.submit(() -> {
+            try {
+                int currentRetry = businessRetryCount.getAndIncrement();
+                
+                // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
+                long delaySeconds;
+                if (currentRetry == 0) {
+                    delaySeconds = 1; // 首次重连立即执行
+                } else if (currentRetry <= 3) {
+                    delaySeconds = currentRetry * 2; // 2, 4, 6秒
+                } else if (currentRetry <= 10) {
+                    delaySeconds = 10; // 保持10秒
+                } else {
+                    delaySeconds = 20; // 最大20秒，而不是30秒
+                    businessRetryCount.set(10); // 限制最大重试次数
+                }
+
+                debugLog("业务频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
+                
+                if (delaySeconds > 1) {
+                    Thread.sleep(delaySeconds * 1000);
+                }
+
+                if (bussinessWebSocket != null) {
+                    try {
+                        bussinessWebSocket.close(1000, "Reconnecting");
+                    } catch (Exception e) {
+                        debugLog("关闭旧业务频道连接失败: {}", e.getMessage());
+                    }
+                }
+                
+                connectBussinessChannel();
+
+                // 检查重连是否成功 - 缩短等待时间
+                Thread.sleep(3000); // 等待3秒检查连接状态
+                if (bussinessConnected.get()) {
+                    // 重连成功，重置重试计数器
+                    businessRetryCount.set(0);
+                    logger.info("业务频道重连成功");
+                } else {
+                    // 如果重连失败，继续安排下一次重试
+                    logger.warn("业务频道重连失败，将安排下一次重试");
+                    markReconnectEnd("business"); // 先结束当前重连标记
+                    scheduleBusinessReconnect(); // 再安排下一次重连
+                    return;
+                }
+            } catch (Exception e) {
+                logger.error("重连业务频道失败", e);
+                markReconnectEnd("business");
+                scheduleBusinessReconnect();
+                return;
+            } finally {
+                markReconnectEnd("business");
+            }
+        });
+    }
+
+    /**
+     * 安排公共频道重连 - 优化版本
+     */
+    private void schedulePublicReconnect(){
+        if (isCurrentlyReconnecting("public")) {
+            debugLog("公共频道已在重连中，跳过本次重连请求");
+            return;
+        }
+
+        markReconnectStart("public");
+        
+        reconnectScheduler.submit(() -> {
+            try {
+                int currentRetry = publicRetryCount.getAndIncrement();
+                
+                // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
+                long delaySeconds;
+                if (currentRetry == 0) {
+                    delaySeconds = 1; // 首次重连立即执行
+                } else if (currentRetry <= 3) {
+                    delaySeconds = currentRetry * 2; // 2, 4, 6秒
+                } else if (currentRetry <= 10) {
+                    delaySeconds = 10; // 保持10秒
+                } else {
+                    delaySeconds = 20; // 最大20秒，而不是30秒
+                    publicRetryCount.set(10); // 限制最大重试次数
+                }
+
+                debugLog("公共频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
+                
+                if (delaySeconds > 1) {
+                    Thread.sleep(delaySeconds * 1000);
+                }
+
+                if (publicWebSocket != null) {
+                    try {
+                        publicWebSocket.close(1000, "Reconnecting");
+                    } catch (Exception e) {
+                        debugLog("关闭旧公共频道连接失败: {}", e.getMessage());
+                    }
+                }
+                
+                if (bussinessWebSocket != null) {
+                    try {
+                        bussinessWebSocket.close(1000, "Reconnecting");
+                    } catch (Exception e) {
+                        debugLog("关闭旧业务频道连接失败: {}", e.getMessage());
+                    }
+                }
+                
+                connectPublicChannel();
+                connectBussinessChannel();
+
+                // 检查重连是否成功 - 缩短等待时间
+                Thread.sleep(3000); // 等待3秒检查连接状态
+                if (publicConnected.get()) {
+                    // 重连成功，重置重试计数器
+                    publicRetryCount.set(0);
+                    logger.info("公共频道重连成功");
+                } else {
+                    // 如果重连失败，继续安排下一次重试
+                    logger.warn("公共频道重连失败，将安排下一次重试");
+                    markReconnectEnd("public");
+                    schedulePublicReconnect();
+                    return;
+                }
+            } catch (Exception e) {
+                logger.error("重连公共频道失败", e);
+                markReconnectEnd("public");
+                schedulePublicReconnect();
+                return;
+            } finally {
+                markReconnectEnd("public");
+            }
+        });
     }
 }

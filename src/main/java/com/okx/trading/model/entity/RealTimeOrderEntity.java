@@ -121,12 +121,6 @@ public class RealTimeOrderEntity {
     @Column(name = "status", length = 20)
     private String status;
 
-    /**
-     * 备注
-     */
-    @Column(name = "remark", length = 500)
-    private String remark;
-
 
     /**
      * 创建时间

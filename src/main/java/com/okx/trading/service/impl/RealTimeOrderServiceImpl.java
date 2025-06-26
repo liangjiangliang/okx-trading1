@@ -54,7 +54,6 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
                     .strategyCode(strategyCode)
                     .symbol(symbol)
                     .status(order.getStatus())
-                    .remark(order.getSMsg())
                     .createTime(order.getCreateTime())
                     .build();
 

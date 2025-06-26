@@ -96,10 +96,11 @@ public class ThreadPoolConfig {
     /**
      * WebSocket重连线程池
      * 用于WebSocket连接断开后的重连任务
+     * 优化: 使用多线程池避免阻塞，提高重连效率
      */
     @Bean(name = "websocketReconnectScheduler")
     public ScheduledExecutorService websocketReconnectScheduler() {
-        return Executors.newSingleThreadScheduledExecutor(
+        return Executors.newScheduledThreadPool(3,
                 createThreadFactory("WebSocket重连"));
     }
 

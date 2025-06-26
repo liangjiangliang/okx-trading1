@@ -1,6 +1,5 @@
 package com.okx.trading.service.impl;
 
-import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.RealTimeStrategyService;
@@ -20,8 +19,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static com.okx.trading.constant.IndicatorInfo.*;
 
 /**
  * 实时运行策略服务实现类
@@ -371,7 +368,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
 
             // 获取策略运行状态并设置Future
-            RealTimeStrategyManager.StrategyRunningState runningState =
+            RealTimeStrategyEntity runningState =
                     realTimeStrategyManager.getRunningStrategy(strategyCode, symbol, interval);
             if (runningState != null) {
                 runningState.setFuture(future);
@@ -467,27 +464,11 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyManager.StrategyRunningState state) {
+    public RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyEntity state) {
 
-        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyById(state.getId());
-        RealTimeStrategyEntity strategy = null;
-        if (optionalStrategy.isPresent()) {
-            strategy = optionalStrategy.get();
-        } else {
-            strategy = new RealTimeStrategyEntity(state.getStrategyCode(), state.getSymbol(), state.getInterval(), state.getStartTime(), state.getTradeAmount().doubleValue());
-        }
-        // 更新最后交易信息
-        strategy.setLastTradeType(state.getLastTradeType());
-        strategy.setLastTradePrice(state.getLastTradePrice().doubleValue());
-        strategy.setLastTradeQuantity(strategy.getLastTradeQuantity().doubleValue());
-        strategy.setTotalFees(strategy.getTotalFees());
-        strategy.setTotalProfit(strategy.getTotalProfit());
-        strategy.setTotalTrades(strategy.getTotalTrades());
-        strategy.setSuccessfulTrades(strategy.getSuccessfulTrades());
-
-        RealTimeStrategyEntity realTimeStrategy = realTimeStrategyRepository.save(strategy);
+        RealTimeStrategyEntity realTimeStrategy = realTimeStrategyRepository.save(state);
         log.info("更新策略交易信息成功: strategyCode={}, tradeType={}, price={}, quantity={}, profit={}, fees={}",
-                strategy.getStrategyCode(), strategy.getLastTradeType(), strategy.getLastTradePrice(), strategy.getLastTradeQuantity(), strategy.getTotalProfit(), strategy.getTotalFees());
+                state.getStrategyCode(), state.getLastTradeType(), state.getLastTradePrice(), state.getLastTradeQuantity(), state.getTotalProfit(), state.getTotalFees());
         return realTimeStrategy;
     }
 

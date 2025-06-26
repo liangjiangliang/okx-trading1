@@ -230,7 +230,7 @@ public interface RealTimeStrategyService {
      * @param fees         本次交易手续费
      * @return 是否更新成功
      */
-    RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyManager.StrategyRunningState state);
+    RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyEntity state);
 
     Map<String, Object> executeRealTimeBacktest(Map<String, Object> state);
 }

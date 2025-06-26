@@ -6,8 +6,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.ta4j.core.Strategy;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 实时运行策略实体
@@ -139,6 +142,15 @@ public class RealTimeStrategyEntity {
      */
     @Column(name = "update_time", nullable = false)
     private LocalDateTime updateTime;
+
+    @Transient
+    private CompletableFuture<Map<String, Object>> future;
+
+    @Transient
+    private Strategy strategy;
+
+    @Transient
+    private Boolean isInPosition = false;
 
     @PrePersist
     public void prePersist() {

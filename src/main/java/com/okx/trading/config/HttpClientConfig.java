@@ -56,7 +56,7 @@ public class HttpClientConfig {
 
     /**
      * 创建WebSocket专用HTTP客户端
-     * 为WebSocket连接配置更长的超时时间和更宽松的设置
+     * 优化：更快的连接超时和更频繁的ping间隔，提高连接稳定性
      *
      * @return WebSocket专用的OkHttpClient实例
      */
@@ -66,13 +66,13 @@ public class HttpClientConfig {
         loggingInterceptor.setLevel(Level.BASIC);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .pingInterval(15, TimeUnit.SECONDS)
+                .connectTimeout(15, TimeUnit.SECONDS)  // 减少连接超时时间，更快发现连接问题
+                .readTimeout(30, TimeUnit.SECONDS)     // 减少读取超时时间
+                .writeTimeout(15, TimeUnit.SECONDS)    // 减少写入超时时间
+                .pingInterval(10, TimeUnit.SECONDS)    // 更频繁的ping间隔，更快检测连接状态
                 .retryOnConnectionFailure(true)
                 .followRedirects(false)
-                .connectionPool(new ConnectionPool(5, 10, TimeUnit.MINUTES))
+                .connectionPool(new ConnectionPool(8, 15, TimeUnit.MINUTES)) // 增加连接池大小
                 .addInterceptor(loggingInterceptor);
 
         // 如果启用代理，则设置代理
