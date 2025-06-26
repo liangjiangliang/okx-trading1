@@ -103,12 +103,6 @@ public interface KlineCacheService {
     List<CandlestickEntity> getHistoricalKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
 
     /**
-     * 初始化默认K线订阅
-     * 为默认交易对和时间间隔创建订阅
-     */
-    void initDefaultKlineSubscriptions();
-
-    /**
      * 检查K线订阅状态
      *
      * @param symbol 交易对符号，如 BTC-USDT

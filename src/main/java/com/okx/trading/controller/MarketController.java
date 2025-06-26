@@ -8,15 +8,15 @@ import com.okx.trading.model.market.Ticker;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
+import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,14 +48,24 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 @Validated
 @RestController
 @RequestMapping("/market")
-@RequiredArgsConstructor
 @Api(tags = "市场数据接口", description = "提供K线数据获取和技术指标计算的接口")
 public class MarketController {
 
     private final OkxApiService okxApiService;
     private final HistoricalDataService historicalDataService;
     private final RedisCacheService redisCacheService;
+    private final KlineCacheService klineCacheService;
 
+    @Autowired
+    public MarketController(OkxApiService okxApiService,
+                           HistoricalDataService historicalDataService,
+                           RedisCacheService redisCacheService,
+                           KlineCacheService klineCacheService) {
+        this.okxApiService = okxApiService;
+        this.historicalDataService = historicalDataService;
+        this.redisCacheService = redisCacheService;
+        this.klineCacheService = klineCacheService;
+    }
 
     // 判断是否为开发环境，用于控制日志详细程度
     @Value("${spring.profiles.active:dev}")
@@ -276,6 +286,22 @@ public class MarketController {
             return ApiResponse.error(500, "获取历史K线数据失败: " + e.getMessage());
         }
 
+    }
+
+    /**
+     * 查看Redis中已有的K线订阅数据
+     * 用于调试和检查当前订阅状态
+     */
+    @ApiOperation(value = "查看已有订阅", notes = "查看Redis中已保存的K线订阅数据")
+    @GetMapping("/subscriptions")
+    public ApiResponse<Set<String>> getSubscriptions() {
+        log.info("查看Redis中已有的K线订阅数据");
+        
+        Set<String> subscriptions = klineCacheService.getAllSubscribedKlines();
+        
+        log.info("发现 {} 个订阅记录: {}", subscriptions.size(), subscriptions);
+        
+        return ApiResponse.success(subscriptions);
     }
 
 }

@@ -1028,7 +1028,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             String key = channel + "_" + symbol + "_" + interval;
 
             // 检查是否已订阅
-            if (klineCacheService.getAllSubscribedKlines().contains(symbol + ":" + interval)) {
+            String subscribedSymbol = symbol + ":" + interval;
+            if (klineCacheService.getAllSubscribedKlines().contains(subscribedSymbol) && subscribedSymbols.contains(subscribedSymbol)) {
                 log.debug("币种 {} 已订阅，无需重复订阅", symbol);
                 return true;
             }
@@ -1044,7 +1045,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 添加已订阅标记
-            klineCacheService.subscribeKline(symbol, interval);
+            klineCacheService.getAllSubscribedKlines().add(subscribedSymbol);
+            subscribedSymbols.add(subscribedSymbol);
 
             return true;
         } catch (Exception e) {
