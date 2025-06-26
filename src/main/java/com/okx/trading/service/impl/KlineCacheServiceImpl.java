@@ -6,10 +6,12 @@ import com.okx.trading.event.KlineSubscriptionEvent;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.KlineCacheService;
+import com.okx.trading.service.OkxApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -32,6 +34,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(KlineCacheServiceImpl.class);
 
+    private final OkxApiService okxApiService;
     private static final String KLINE_CACHE_KEY_PREFIX = "kline:data:";
     private static final String KLINE_SUBSCRIPTION_KEY = "kline:subscriptions";
     private static final Duration KLINE_CACHE_DURATION = Duration.ofHours(24);
@@ -50,9 +53,10 @@ public class KlineCacheServiceImpl implements KlineCacheService {
     private final Set<String> subscriptions = new HashSet<>();
 
     @Autowired
-    public KlineCacheServiceImpl(RedisTemplate<String, String> redisTemplate,
+    public KlineCacheServiceImpl(@Lazy OkxApiService okxApiService, RedisTemplate<String, String> redisTemplate,
                                  ObjectMapper objectMapper,
                                  ApplicationEventPublisher eventPublisher) {
+        this.okxApiService = okxApiService;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
@@ -94,13 +98,15 @@ public class KlineCacheServiceImpl implements KlineCacheService {
             // 添加到Redis缓存
             redisTemplate.opsForSet().add(KLINE_SUBSCRIPTION_KEY, key);
 
-            // 发布订阅事件
-            eventPublisher.publishEvent(new KlineSubscriptionEvent(
-                    this,
-                    symbol,
-                    interval,
-                    KlineSubscriptionEvent.EventType.SUBSCRIBE
-            ));
+
+            okxApiService.subscribeKlineData(symbol, interval);
+//            // 发布订阅事件
+//            eventPublisher.publishEvent(new KlineSubscriptionEvent(
+//                    this,
+//                    symbol,
+//                    interval,
+//                    KlineSubscriptionEvent.EventType.SUBSCRIBE
+//            ));
 
             log.info("已订阅K线数据: {} {}", symbol, interval);
             return true;
@@ -507,7 +513,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
             String[] split = member.split(":");
             String symbol = split[0];
             String interval = split[1];
-            batchSubscribeKline(symbol, Collections.singletonList(interval));
+            okxApiService.subscribeKlineData(symbol, interval);
         }
     }
 

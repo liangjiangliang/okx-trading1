@@ -78,7 +78,7 @@ public class WebSocketReconnectEventListener {
                 return;
             }
 
-            log.info("发现 {} 个交易对的K线订阅，开始重新订阅...", allSubscribedKlines.size());
+            log.info("发现 {} 个K线订阅记录，开始重新订阅...", allSubscribedKlines.size());
 
             int totalResubscribed = 0;
             int successCount = 0;
@@ -86,15 +86,29 @@ public class WebSocketReconnectEventListener {
             // 遍历所有订阅的交易对和时间间隔
             for (String symbolInterval : allSubscribedKlines) {
                 String[] split = symbolInterval.split(":", -1);
+                if (split.length != 2) {
+                    log.warn("无效的订阅格式: {}", symbolInterval);
+                    continue;
+                }
+                
                 String symbol = split[0];
                 String interval = split[1];
-                // 重新订阅K线数据
-                boolean success = okxApiService.subscribeKlineData(symbol, interval);
-                if (success) {
-                    successCount++;
-                    log.debug("重新订阅K线数据成功: {} {}", symbol, interval);
-                } else {
-                    log.warn("重新订阅K线数据失败: {} {}", symbol, interval);
+                
+                totalResubscribed++;
+                try {
+                    // 重新订阅K线数据
+                    boolean success = okxApiService.subscribeKlineData(symbol, interval);
+                    if (success) {
+                        successCount++;
+                        log.debug("重新订阅K线数据成功: {} {}", symbol, interval);
+                    } else {
+                        log.warn("重新订阅K线数据失败: {} {}", symbol, interval);
+                    }
+                    
+                    // 添加小延迟避免频率过高
+                    Thread.sleep(100);
+                } catch (Exception e) {
+                    log.error("重新订阅K线数据异常: {} {}, 错误: {}", symbol, interval, e.getMessage());
                 }
             }
 

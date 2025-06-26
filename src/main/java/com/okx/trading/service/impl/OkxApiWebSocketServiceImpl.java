@@ -57,6 +57,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     private final WebSocketUtil webSocketUtil;
     private final RedisCacheService redisCacheService;
     private final OkHttpClient okHttpClient;
+    @Lazy
     private final KlineCacheService klineCacheService;
 
     @Lazy

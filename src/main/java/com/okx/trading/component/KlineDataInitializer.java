@@ -11,8 +11,7 @@
 //import org.springframework.context.annotation.Lazy;
 //import org.springframework.stereotype.Component;
 //
-//import java.util.Map;
-//import java.util.List;
+//import java.util.Set;
 //
 ///**
 // * K线数据初始化组件
@@ -62,40 +61,44 @@
 //    private void restorePreviousKlineSubscriptions() {
 //        try {
 //            // 从缓存中获取所有之前订阅的K线数据
-//            Map<String, List<String>> allSubscribedKlines = klineCacheService.getAllSubscribedKlines();
+//            Set<String> allSubscribedKlines = klineCacheService.getAllSubscribedKlines();
 //
 //            if (allSubscribedKlines.isEmpty()) {
 //                log.info("没有发现之前的K线订阅记录");
 //                return;
 //            }
 //
-//            log.info("发现 {} 个交易对的K线订阅记录，开始恢复订阅...", allSubscribedKlines.size());
+//            log.info("发现 {} 个K线订阅记录，开始恢复订阅...", allSubscribedKlines.size());
 //
 //            int totalRestored = 0;
 //            int successCount = 0;
 //
 //            // 遍历所有订阅的交易对和时间间隔
-//            for (Map.Entry<String, List<String>> entry : allSubscribedKlines.entrySet()) {
-//                String symbol = entry.getKey();
-//                List<String> intervals = entry.getValue();
+//            for (String symbolInterval : allSubscribedKlines) {
+//                String[] split = symbolInterval.split(":", -1);
+//                if (split.length != 2) {
+//                    log.warn("无效的订阅格式: {}", symbolInterval);
+//                    continue;
+//                }
 //
-//                for (String interval : intervals) {
-//                    totalRestored++;
-//                    try {
-//                        // 重新订阅K线数据
-//                        boolean success = okxApiService.subscribeKlineData(symbol, interval);
-//                        if (success) {
-//                            successCount++;
-//                            log.debug("恢复K线订阅成功: {} {}", symbol, interval);
-//                        } else {
-//                            log.warn("恢复K线订阅失败: {} {}", symbol, interval);
-//                        }
+//                String symbol = split[0];
+//                String interval = split[1];
 //
-//                        // 添加小延迟避免频率过高
-//                        Thread.sleep(100);
-//                    } catch (Exception e) {
-//                        log.error("恢复K线订阅异常: {} {}, 错误: {}", symbol, interval, e.getMessage());
+//                totalRestored++;
+//                try {
+//                    // 重新订阅K线数据
+//                    boolean success = okxApiService.subscribeKlineData(symbol, interval);
+//                    if (success) {
+//                        successCount++;
+//                        log.debug("恢复K线订阅成功: {} {}", symbol, interval);
+//                    } else {
+//                        log.warn("恢复K线订阅失败: {} {}", symbol, interval);
 //                    }
+//
+//                    // 添加小延迟避免频率过高
+//                    Thread.sleep(100);
+//                } catch (Exception e) {
+//                    log.error("恢复K线订阅异常: {} {}, 错误: {}", symbol, interval, e.getMessage());
 //                }
 //            }
 //
