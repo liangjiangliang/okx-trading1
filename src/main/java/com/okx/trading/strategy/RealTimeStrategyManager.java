@@ -5,6 +5,7 @@ import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
+import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.HistoricalDataService;
 import com.okx.trading.service.RealTimeOrderService;
 import com.okx.trading.service.RealTimeStrategyService;
@@ -49,6 +50,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final RealTimeStrategyService realTimeStrategyService;
     private final CandlestickBarSeriesConverter barSeriesConverter;
     private final StrategyInfoService strategyInfoService;
+    private final RealTimeStrategyRepository realTimeStrategyRepository;
     private final int kLineNum = 100;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
@@ -56,7 +58,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                                    TradeController tradeController,
                                    HistoricalDataService historicalDataService,
                                    @Lazy RealTimeStrategyService realTimeStrategyService,
-                                   CandlestickBarSeriesConverter barSeriesConverter, StrategyInfoService strategyInfoService) {
+                                   CandlestickBarSeriesConverter barSeriesConverter, StrategyInfoService strategyInfoService, RealTimeStrategyRepository realTimeStrategyRepository) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
@@ -64,6 +66,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         this.realTimeStrategyService = realTimeStrategyService;
         this.barSeriesConverter = barSeriesConverter;
         this.strategyInfoService = strategyInfoService;
+        this.realTimeStrategyRepository = realTimeStrategyRepository;
     }
 
     // 存储正在运行的策略信息
@@ -85,7 +88,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         // 创建策略运行状态
-        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue());
+        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue(),strategyName);
 
         // 保存策略到MySQL（如果不存在）
         try {
@@ -154,7 +157,9 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 .forEach(entry -> {
                     RealTimeStrategyEntity state = entry.getValue();
                     try {
-                        processStrategySignal(state, candlestick);
+                        if (state.getStrategy() != null) {
+                            processStrategySignal(state, candlestick);
+                        }
                     } catch (Exception e) {
                         log.error("处理策略信号失败: key={}, error={}", buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval()), e.getMessage(), e);
                     }
@@ -432,6 +437,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         try {
             ta4jStrategy = StrategyRegisterCenter.
                     createStrategy(runningBarSeries.get(strategyEntity.getSymbol() + "_" + strategyEntity.getInterval()), strategyEntity.getStrategyCode());
+            strategyEntity = realTimeStrategyRepository.save(strategyEntity);
             strategyEntity.setStrategy(ta4jStrategy);
         } catch (Exception e) {
             log.error("获取策略失败: {}", e.getMessage(), e);

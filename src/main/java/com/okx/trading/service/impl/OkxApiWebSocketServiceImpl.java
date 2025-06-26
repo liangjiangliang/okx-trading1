@@ -176,7 +176,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 if (candlestick != null) {
                     candlestick.setIntervalVal(interval);
 //                    redisCacheService.updateCandlestick(candlestick);
-//                    log.debug("获取实时标记价格k线数据: {}", candlestick);
+                    redisCacheService.updateCoinPrice(symbol, candlestick.getClose());
+                    log.debug("获取实时标记价格k线数据: {}", candlestick);
 //                    candlesticks.add(candlestick);
 
                     // 通知实时策略管理器处理新的K线数据
@@ -1045,7 +1046,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             webSocketUtil.subscribePublicTopicWithArgs(arg, symbol);
 
             // 添加已订阅标记
-            klineCacheService.getAllSubscribedKlines().add(subscribedSymbol);
+            klineCacheService.subscribeKline(symbol, interval);
             subscribedSymbols.add(subscribedSymbol);
 
             return true;

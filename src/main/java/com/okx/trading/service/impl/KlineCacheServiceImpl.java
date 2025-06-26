@@ -97,14 +97,14 @@ public class KlineCacheServiceImpl implements KlineCacheService {
             redisTemplate.opsForSet().add(KLINE_SUBSCRIPTION_KEY, key);
 
             // 发布订阅事件
-            eventPublisher.publishEvent(new KlineSubscriptionEvent(
-                    this,
-                    symbol,
-                    interval,
-                    KlineSubscriptionEvent.EventType.SUBSCRIBE
-            ));
+//            eventPublisher.publishEvent(new KlineSubscriptionEvent(
+//                    this,
+//                    symbol,
+//                    interval,
+//                    KlineSubscriptionEvent.EventType.SUBSCRIBE
+//            ));
 
-            log.info("已订阅K线数据: {} {}", symbol, interval);
+//            log.info("已订阅K线数据: {} {}", symbol, interval);
             return true;
         } catch (Exception e) {
             log.error("订阅K线数据失败: {} {}, 错误: {}", symbol, interval, e.getMessage(), e);

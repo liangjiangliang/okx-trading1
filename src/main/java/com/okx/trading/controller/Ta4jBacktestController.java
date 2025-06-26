@@ -1018,7 +1018,7 @@ public class Ta4jBacktestController {
                 return ApiResponse.error(404, "策略不存在: " + strategyCode);
             }
             StrategyInfoEntity strategy = strategyOpt.get();
-            RealTimeStrategyEntity realTimeStrategy = new RealTimeStrategyEntity(strategyCode, symbol, interval, now, tradeAmount.doubleValue());
+            RealTimeStrategyEntity realTimeStrategy = new RealTimeStrategyEntity(strategyCode, symbol, interval, now, tradeAmount.doubleValue(),strategy.getStrategyName());
             realTimeStrategyManager.addStrategy(realTimeStrategy);
 
             // 4. 初始化实时回测状态

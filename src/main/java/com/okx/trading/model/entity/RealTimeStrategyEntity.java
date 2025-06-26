@@ -168,11 +168,12 @@ public class RealTimeStrategyEntity {
     }
 
 
-    public RealTimeStrategyEntity(String strategyCode, String symbol, String interval, LocalDateTime startTime, Double tradeAmount) {
+    public RealTimeStrategyEntity(String strategyCode, String symbol, String interval, LocalDateTime startTime, Double tradeAmount,String strategyName) {
         this.strategyCode = strategyCode;
         this.symbol = symbol;
         this.interval = interval;
         this.startTime = startTime;
         this.tradeAmount = tradeAmount;
+        this.strategyName = strategyName;
     }
 }
