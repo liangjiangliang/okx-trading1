@@ -2,7 +2,7 @@ package com.okx.trading.service;
 
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
-import com.okx.trading.service.impl.RealTimeStrategyManager;
+import com.okx.trading.strategy.RealTimeStrategyManager;
 import org.ta4j.core.Strategy;
 
 import java.time.LocalDateTime;
