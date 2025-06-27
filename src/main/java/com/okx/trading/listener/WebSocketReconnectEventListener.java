@@ -80,6 +80,7 @@ public class WebSocketReconnectEventListener {
 
             log.info("发现 {} 个K线订阅记录，开始重新订阅...", allSubscribedKlines.size());
 
+            okxApiService.clearSubscribeCache();
             int totalResubscribed = 0;
             int successCount = 0;
 

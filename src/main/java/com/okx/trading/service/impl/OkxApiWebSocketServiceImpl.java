@@ -1300,4 +1300,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             return null;
         }
     }
+
+
+    @Override
+    public void clearSubscribeCache() {
+        subscribedSymbols.clear();
+    }
 }

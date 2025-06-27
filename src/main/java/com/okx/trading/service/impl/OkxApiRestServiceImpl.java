@@ -765,4 +765,10 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 return openTime.plusMinutes(1); // 默认1分钟
         }
     }
+
+
+    @Override
+    public void clearSubscribeCache() {
+//        subscribedSymbols.clear();
+    }
 }

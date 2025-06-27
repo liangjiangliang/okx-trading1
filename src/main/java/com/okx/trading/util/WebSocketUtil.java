@@ -470,7 +470,7 @@ public class WebSocketUtil{
                 } else {
                     try{
                         publicWebSocket.send("ping");
-                        debugLog("发送公共频道ping消息");
+//                        debugLog("发送公共频道ping消息");
                     }catch(Exception e){
                         logger.warn("发送公共频道ping消息失败，将尝试重连", e);
                         schedulePublicReconnect();
@@ -483,7 +483,7 @@ public class WebSocketUtil{
                 // 业务频道可能长时间没有消息，所以不基于消息时间触发重连
                 try{
                     bussinessWebSocket.send("ping");
-                    debugLog("发送业务频道ping消息");
+//                    debugLog("发送业务频道ping消息");
                 }catch(Exception e){
                     logger.warn("发送业务频道ping消息失败，将尝试重连", e);
                     scheduleBusinessReconnect();
@@ -495,7 +495,7 @@ public class WebSocketUtil{
                 // 私有频道可能长时间没有消息，所以不基于消息时间触发重连
                 try{
                     privateWebSocket.send("ping");
-                    debugLog("发送私有频道ping消息");
+//                    debugLog("发送私有频道ping消息");
                 }catch(Exception e){
                     logger.warn("发送私有频道ping消息失败，将尝试重连", e);
                     schedulePrivateReconnect();
@@ -524,7 +524,7 @@ public class WebSocketUtil{
             }
 
             if("pong".equals(message)){
-                debugLog("收到简单pong响应");
+//                debugLog("收到简单pong响应");
                 return;
             }
 

@@ -560,4 +560,10 @@ public class OkxApiMockServiceImpl implements OkxApiService {
         int size = limit != null && limit > 0 ? Math.min(limit, filteredData.size()) : filteredData.size();
         return filteredData.subList(0, size);
     }
+
+
+    @Override
+    public void clearSubscribeCache() {
+//        subscribedSymbols.clear();
+    }
 }

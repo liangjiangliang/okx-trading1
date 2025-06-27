@@ -120,4 +120,6 @@ public interface OkxApiService {
      * @return K线数据列表
      */
     List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
+
+    void clearSubscribeCache();
 }
