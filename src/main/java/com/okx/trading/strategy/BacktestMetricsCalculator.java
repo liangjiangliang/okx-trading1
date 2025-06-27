@@ -1345,27 +1345,31 @@ public class BacktestMetricsCalculator {
                                                   TradeStatistics tradeStats, 
                                                   RiskMetrics riskMetrics) {
         
-        // 评分权重分配 (总计100%)
-        // 收益指标: 35%
-        // 风险指标: 35%  
-        // 交易质量: 20%
+        // 更新评分权重分配，使用所有指标 (总计100%)
+        // 收益指标: 25%
+        // 核心风险指标: 25%  
+        // 高级风险指标: 25%
+        // 交易质量: 15%
         // 稳定性: 10%
         
         double totalScore = 0.0;
         
-        // 1. 收益指标评分 (35分) - 年化收益率、总收益率、盈利因子
-        double returnScore = calculateReturnScore(returnMetrics, tradeStats) * 0.35;
+        // 1. 收益指标评分 (25分) - 年化收益率、总收益率、盈利因子
+        double returnScore = calculateReturnScore(returnMetrics, tradeStats) * 0.25;
         
-        // 2. 风险指标评分 (35分) - 夏普比率、最大回撤、波动率、VaR等
-        double riskScore = calculateRiskScore(riskMetrics, tradeStats) * 0.35;
+        // 2. 核心风险指标评分 (25分) - 夏普比率、最大回撤、Sortino比率等
+        double coreRiskScore = calculateCoreRiskScore(riskMetrics, tradeStats) * 0.25;
         
-        // 3. 交易质量评分 (20分) - 胜率、交易次数、平均盈利等
-        double tradeQualityScore = calculateTradeQualityScore(tradeStats) * 0.20;
+        // 3. 高级风险指标评分 (25分) - 新增的15个高级风险指标
+        double advancedRiskScore = calculateAdvancedRiskScore(riskMetrics) * 0.25;
         
-        // 4. 稳定性评分 (10分) - 偏度、峰度、痛苦指数等
+        // 4. 交易质量评分 (15分) - 胜率、交易次数、平均盈利等
+        double tradeQualityScore = calculateTradeQualityScore(tradeStats) * 0.15;
+        
+        // 5. 稳定性评分 (10分) - 偏度、峰度、痛苦指数等
         double stabilityScore = calculateStabilityScore(riskMetrics) * 0.10;
         
-        totalScore = returnScore + riskScore + tradeQualityScore + stabilityScore;
+        totalScore = returnScore + coreRiskScore + advancedRiskScore + tradeQualityScore + stabilityScore;
         
         // 确保评分在0-10之间
         totalScore = Math.max(0.0, Math.min(10.0, totalScore));
@@ -1378,85 +1382,271 @@ public class BacktestMetricsCalculator {
      */
     private double calculateReturnScore(ReturnMetrics returnMetrics, TradeStatistics tradeStats) {
         double score = 0.0;
+        int validIndicators = 0;
         
-        // 年化收益率评分 (40%) - 20%年化收益率得满分
+        // 年化收益率评分 - 20%年化收益率得满分
         if (returnMetrics.annualizedReturn != null) {
             double annualReturn = returnMetrics.annualizedReturn.doubleValue();
             if (annualReturn > 0) {
-                score += Math.min(10.0, (annualReturn / 0.20) * 10.0) * 0.4;
+                score += Math.min(10.0, (annualReturn / 0.20) * 10.0);
             }
+            validIndicators++;
         }
         
-        // 总收益率评分 (30%) - 50%总收益率得满分
+        // 总收益率评分 - 50%总收益率得满分
         if (returnMetrics.totalReturn != null) {
             double totalReturn = returnMetrics.totalReturn.doubleValue();
             if (totalReturn > 0) {
-                score += Math.min(10.0, (totalReturn / 0.50) * 10.0) * 0.3;
+                score += Math.min(10.0, (totalReturn / 0.50) * 10.0);
             }
+            validIndicators++;
         }
         
-        // 盈利因子评分 (30%) - 盈利因子2.0得满分
+        // 盈利因子评分 - 盈利因子2.0得满分
         if (tradeStats.profitFactor != null) {
             double profitFactor = tradeStats.profitFactor.doubleValue();
             if (profitFactor > 1.0) {
-                score += Math.min(10.0, ((profitFactor - 1.0) / 1.0) * 10.0) * 0.3;
+                score += Math.min(10.0, ((profitFactor - 1.0) / 1.0) * 10.0);
             }
+            validIndicators++;
         }
         
-        return score;
+        return validIndicators > 0 ? score / validIndicators : 0.0;
     }
 
     /**
-     * 计算风险指标评分 (0-10分) - 风险越低得分越高
+     * 计算核心风险指标评分 (0-10分) - 传统主要风险指标
      */
-    private double calculateRiskScore(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
+    private double calculateCoreRiskScore(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
         double score = 0.0;
+        int validIndicators = 0;
         
-        // 夏普比率评分 (30%) - 夏普比率2.0得满分
+        // 夏普比率评分 - 夏普比率2.0得满分
         if (riskMetrics.sharpeRatio != null) {
             double sharpe = riskMetrics.sharpeRatio.doubleValue();
             if (sharpe > 0) {
-                score += Math.min(10.0, (sharpe / 2.0) * 10.0) * 0.3;
+                score += Math.min(10.0, (sharpe / 2.0) * 10.0);
             }
+            validIndicators++;
         }
         
-        // 最大回撤评分 (25%) - 最大回撤越小得分越高，5%以下得满分
+        // 最大回撤评分 - 最大回撤越小得分越高，5%以下得满分
         if (tradeStats.maxDrawdown != null) {
             double maxDD = tradeStats.maxDrawdown.abs().doubleValue();
             if (maxDD <= 0.05) {
-                score += 10.0 * 0.25;
+                score += 10.0;
             } else if (maxDD <= 0.30) {
-                score += (1.0 - (maxDD - 0.05) / 0.25) * 10.0 * 0.25;
+                score += (1.0 - (maxDD - 0.05) / 0.25) * 10.0;
             }
+            validIndicators++;
         }
         
-        // Sortino比率评分 (20%) - Sortino比率1.5得满分
+        // Sortino比率评分 - Sortino比率1.5得满分
         if (riskMetrics.sortinoRatio != null) {
             double sortino = riskMetrics.sortinoRatio.doubleValue();
             if (sortino > 0) {
-                score += Math.min(10.0, (sortino / 1.5) * 10.0) * 0.2;
+                score += Math.min(10.0, (sortino / 1.5) * 10.0);
             }
+            validIndicators++;
         }
         
-        // VaR评分 (15%) - VaR95%在2%以下得满分
-        if (riskMetrics.var95 != null) {
-            double var95 = riskMetrics.var95.doubleValue();
-            if (var95 <= 0.02) {
-                score += 10.0 * 0.15;
-            } else if (var95 <= 0.10) {
-                score += (1.0 - (var95 - 0.02) / 0.08) * 10.0 * 0.15;
-            }
-        }
-        
-        // Calmar比率评分 (10%) - Calmar比率1.0得满分
+        // Calmar比率评分 - Calmar比率1.0得满分
         if (riskMetrics.calmarRatio != null) {
             double calmar = riskMetrics.calmarRatio.doubleValue();
             if (calmar > 0) {
-                score += Math.min(10.0, calmar * 10.0) * 0.1;
+                score += Math.min(10.0, calmar * 10.0);
             }
+            validIndicators++;
         }
         
-        return score;
+        // 波动率评分 - 波动率15%以下得满分
+        if (riskMetrics.volatility != null) {
+            double volatility = riskMetrics.volatility.doubleValue();
+            if (volatility <= 0.15) {
+                score += 10.0;
+            } else if (volatility <= 0.50) {
+                score += (1.0 - (volatility - 0.15) / 0.35) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // Treynor比率评分 - Treynor比率0.1得满分
+        if (riskMetrics.treynorRatio != null) {
+            double treynor = riskMetrics.treynorRatio.doubleValue();
+            if (treynor > 0) {
+                score += Math.min(10.0, (treynor / 0.1) * 10.0);
+            }
+            validIndicators++;
+        }
+        
+        return validIndicators > 0 ? score / validIndicators : 0.0;
+    }
+
+    /**
+     * 计算高级风险指标评分 (0-10分) - 新增的高级风险指标
+     */
+    private double calculateAdvancedRiskScore(RiskMetrics riskMetrics) {
+        double score = 0.0;
+        int validIndicators = 0;
+        
+        // VaR95评分 - VaR95%在2%以下得满分
+        if (riskMetrics.var95 != null) {
+            double var95 = riskMetrics.var95.doubleValue();
+            if (var95 <= 0.02) {
+                score += 10.0;
+            } else if (var95 <= 0.10) {
+                score += (1.0 - (var95 - 0.02) / 0.08) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // VaR99评分 - VaR99%在3%以下得满分
+        if (riskMetrics.var99 != null) {
+            double var99 = riskMetrics.var99.doubleValue();
+            if (var99 <= 0.03) {
+                score += 10.0;
+            } else if (var99 <= 0.15) {
+                score += (1.0 - (var99 - 0.03) / 0.12) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // CVaR评分 - CVaR在3%以下得满分
+        if (riskMetrics.cvar != null) {
+            double cvar = riskMetrics.cvar.doubleValue();
+            if (cvar <= 0.03) {
+                score += 10.0;
+            } else if (cvar <= 0.15) {
+                score += (1.0 - (cvar - 0.03) / 0.12) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // 信息比率评分 - 信息比率0.5得满分
+        if (riskMetrics.informationRatio != null) {
+            double informationRatio = riskMetrics.informationRatio.doubleValue();
+            if (informationRatio > 0) {
+                score += Math.min(10.0, (informationRatio / 0.5) * 10.0);
+            }
+            validIndicators++;
+        }
+        
+        // 跟踪误差评分 - 跟踪误差5%以下得满分
+        if (riskMetrics.trackingError != null) {
+            double trackingError = riskMetrics.trackingError.doubleValue();
+            if (trackingError <= 0.05) {
+                score += 10.0;
+            } else if (trackingError <= 0.20) {
+                score += (1.0 - (trackingError - 0.05) / 0.15) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // Sterling比率评分 - Sterling比率1.0得满分
+        if (riskMetrics.sterlingRatio != null) {
+            double sterlingRatio = riskMetrics.sterlingRatio.doubleValue();
+            if (sterlingRatio > 0) {
+                score += Math.min(10.0, sterlingRatio * 10.0);
+            }
+            validIndicators++;
+        }
+        
+        // Burke比率评分 - Burke比率1.0得满分
+        if (riskMetrics.burkeRatio != null) {
+            double burkeRatio = riskMetrics.burkeRatio.doubleValue();
+            if (burkeRatio > 0) {
+                score += Math.min(10.0, burkeRatio * 10.0);
+            }
+            validIndicators++;
+        }
+        
+        // 修正夏普比率评分 - 修正夏普比率1.5得满分
+        if (riskMetrics.modifiedSharpeRatio != null) {
+            double modifiedSharpe = riskMetrics.modifiedSharpeRatio.doubleValue();
+            if (modifiedSharpe > 0) {
+                score += Math.min(10.0, (modifiedSharpe / 1.5) * 10.0);
+            }
+            validIndicators++;
+        }
+        
+        // 下行偏差评分 - 下行偏差10%以下得满分
+        if (riskMetrics.downsideDeviation != null) {
+            double downsideDeviation = riskMetrics.downsideDeviation.doubleValue();
+            if (downsideDeviation <= 0.10) {
+                score += 10.0;
+            } else if (downsideDeviation <= 0.30) {
+                score += (1.0 - (downsideDeviation - 0.10) / 0.20) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // 上涨捕获率评分 - 上涨捕获率80%以上得满分
+        if (riskMetrics.uptrendCapture != null) {
+            double uptrendCapture = riskMetrics.uptrendCapture.doubleValue();
+            if (uptrendCapture >= 0.80) {
+                score += 10.0;
+            } else if (uptrendCapture >= 0.50) {
+                score += (uptrendCapture - 0.50) / 0.30 * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // 下跌捕获率评分 - 下跌捕获率50%以下得满分（越低越好）
+        if (riskMetrics.downtrendCapture != null) {
+            double downtrendCapture = riskMetrics.downtrendCapture.doubleValue();
+            if (downtrendCapture <= 0.50) {
+                score += 10.0;
+            } else if (downtrendCapture <= 1.00) {
+                score += (1.0 - (downtrendCapture - 0.50) / 0.50) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // 最大回撤持续期评分 - 持续期30天以下得满分
+        if (riskMetrics.maxDrawdownDuration != null) {
+            double duration = riskMetrics.maxDrawdownDuration.doubleValue();
+            if (duration <= 30) {
+                score += 10.0;
+            } else if (duration <= 180) {
+                score += (1.0 - (duration - 30) / 150) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // Ulcer指数评分 - Ulcer指数5%以下得满分
+        if (riskMetrics.ulcerIndex != null) {
+            double ulcerIndex = riskMetrics.ulcerIndex.doubleValue();
+            if (ulcerIndex <= 0.05) {
+                score += 10.0;
+            } else if (ulcerIndex <= 0.25) {
+                score += (1.0 - (ulcerIndex - 0.05) / 0.20) * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // 风险调整收益评分 - 风险调整收益15%以上得满分
+        if (riskMetrics.riskAdjustedReturn != null) {
+            double riskAdjustedReturn = riskMetrics.riskAdjustedReturn.doubleValue();
+            if (riskAdjustedReturn >= 0.15) {
+                score += 10.0;
+            } else if (riskAdjustedReturn >= 0.05) {
+                score += (riskAdjustedReturn - 0.05) / 0.10 * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        // Omega比率评分 - Omega比率1.3得满分
+        if (riskMetrics.omega != null) {
+            double omega = riskMetrics.omega.doubleValue();
+            if (omega >= 1.3) {
+                score += 10.0;
+            } else if (omega >= 1.0) {
+                score += (omega - 1.0) / 0.3 * 10.0;
+            }
+            validIndicators++;
+        }
+        
+        return validIndicators > 0 ? score / validIndicators : 0.0;
     }
 
     /**
@@ -1464,70 +1654,78 @@ public class BacktestMetricsCalculator {
      */
     private double calculateTradeQualityScore(TradeStatistics tradeStats) {
         double score = 0.0;
+        int validIndicators = 0;
         
-        // 胜率评分 (40%) - 胜率65%以上得满分
+        // 胜率评分 - 胜率65%以上得满分
         if (tradeStats.winRate != null) {
             double winRate = tradeStats.winRate.doubleValue();
             if (winRate >= 0.65) {
-                score += 10.0 * 0.4;
+                score += 10.0;
             } else if (winRate >= 0.30) {
-                score += (winRate - 0.30) / 0.35 * 10.0 * 0.4;
+                score += (winRate - 0.30) / 0.35 * 10.0;
             }
+            validIndicators++;
         }
         
-        // 交易次数评分 (30%) - 10-100次交易为最佳范围
+        // 交易次数评分 - 10-100次交易为最佳范围
         if (tradeStats.tradeCount >= 10 && tradeStats.tradeCount <= 100) {
-            score += 10.0 * 0.3;
+            score += 10.0;
         } else if (tradeStats.tradeCount > 100 && tradeStats.tradeCount <= 200) {
-            score += (1.0 - (tradeStats.tradeCount - 100) / 100.0) * 10.0 * 0.3;
+            score += (1.0 - (tradeStats.tradeCount - 100) / 100.0) * 10.0;
         } else if (tradeStats.tradeCount >= 5 && tradeStats.tradeCount < 10) {
-            score += (tradeStats.tradeCount - 5) / 5.0 * 10.0 * 0.3;
+            score += (tradeStats.tradeCount - 5) / 5.0 * 10.0;
         }
+        validIndicators++;
         
-        // 平均盈利评分 (30%) - 平均每笔交易盈利2%以上得满分
+        // 平均盈利评分 - 平均每笔交易盈利2%以上得满分
         if (tradeStats.averageProfit != null && tradeStats.tradeCount > 0) {
             double avgProfit = tradeStats.averageProfit.doubleValue();
             if (avgProfit > 0) {
-                score += Math.min(10.0, (avgProfit / 0.02) * 10.0) * 0.3;
+                score += Math.min(10.0, (avgProfit / 0.02) * 10.0);
             }
+            validIndicators++;
         }
         
-        return score;
+        return validIndicators > 0 ? score / validIndicators : 0.0;
     }
 
     /**
-     * 计算稳定性评分 (0-10分)
+     * 计算稳定性评分 (0-10分) - 包含更多稳定性指标
      */
     private double calculateStabilityScore(RiskMetrics riskMetrics) {
         double score = 0.0;
+        int validIndicators = 0;
         
-        // 偏度评分 (40%) - 偏度接近0得分最高
+        // 偏度评分 - 偏度接近0得分最高
         if (riskMetrics.skewness != null) {
             double skewness = Math.abs(riskMetrics.skewness.doubleValue());
             if (skewness <= 0.5) {
-                score += (1.0 - skewness / 0.5) * 10.0 * 0.4;
+                score += (1.0 - skewness / 0.5) * 10.0;
             }
+            validIndicators++;
         }
         
-        // 峰度评分 (30%) - 峰度接近0得分最高
+        // 峰度评分 - 峰度接近0得分最高
         if (riskMetrics.kurtosis != null) {
             double kurtosis = Math.abs(riskMetrics.kurtosis.doubleValue());
             if (kurtosis <= 2.0) {
-                score += (1.0 - kurtosis / 2.0) * 10.0 * 0.3;
+                score += (1.0 - kurtosis / 2.0) * 10.0;
             }
+            validIndicators++;
         }
         
-        // 痛苦指数评分 (30%) - 痛苦指数越低得分越高
+        // 痛苦指数评分 - 痛苦指数越低得分越高
         if (riskMetrics.painIndex != null) {
             double painIndex = riskMetrics.painIndex.doubleValue();
             if (painIndex <= 0.01) {
-                score += 10.0 * 0.3;
+                score += 10.0;
             } else if (painIndex <= 0.05) {
-                score += (1.0 - (painIndex - 0.01) / 0.04) * 10.0 * 0.3;
+                score += (1.0 - (painIndex - 0.01) / 0.04) * 10.0;
             }
+            validIndicators++;
         }
         
-        return score;
+        return validIndicators > 0 ? score / validIndicators : 0.0;
     }
 
     // ====================== 辅助计算方法 ======================
