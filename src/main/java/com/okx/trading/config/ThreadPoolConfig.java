@@ -105,6 +105,12 @@ public class ThreadPoolConfig{
             createThreadFactory("WebSocket重连"));
     }
 
+    @Bean(name = "websocketConnectScheduler")
+    public ScheduledExecutorService websocketConnectScheduler(){
+        return Executors.newScheduledThreadPool(1,
+                createThreadFactory("WebSocket初始化"));
+    }
+
     @Bean(name = "coinSubscribeScheduler")
     public ScheduledExecutorService coinSubscribeScheduler(){
         return Executors.newScheduledThreadPool(3,
@@ -132,5 +138,11 @@ public class ThreadPoolConfig{
     public ScheduledExecutorService indicatorCalculateScheduler(){
         return Executors.newSingleThreadScheduledExecutor(
             createThreadFactory("指标计算"));
+    }
+
+    @Bean(name = "klineHandleScheduler")
+    public ScheduledExecutorService klineHandleScheduler(){
+        return Executors.newSingleThreadScheduledExecutor(
+                createThreadFactory("k线处理"));
     }
 }

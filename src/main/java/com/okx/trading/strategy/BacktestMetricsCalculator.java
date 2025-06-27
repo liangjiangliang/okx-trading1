@@ -4,6 +4,7 @@ import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.service.impl.Ta4jBacktestService;
+import javafx.geometry.Pos;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,19 +176,16 @@ public class BacktestMetricsCalculator {
             // 1. 提取交易明细（包含手续费计算）
             tradeRecords = extractTradeRecords();
 
-            // 2. 计算最大损失和最大回撤
-            maxLossAndDrawdownList = calculateMaximumLossAndDrawdown();
-
-            // 3. 计算交易统计指标
+            // 2. 计算交易统计指标
             tradeStats = calculateTradeStatistics();
 
-            // 4. 计算收益率相关指标
+            // 3. 计算收益率相关指标
             returnMetrics = calculateReturnMetrics(tradeStats);
 
-            // 5. 计算风险指标
-            riskMetrics = calculateRiskMetrics();
+            // 4. 计算风险指标
+            riskMetrics = calculateRiskMetrics(tradeStats, returnMetrics);
 
-            // 6. 构建最终结果
+            // 5. 构建最终结果
             result = buildFinalResult();
 
         } catch (Exception e) {
@@ -332,79 +330,65 @@ public class BacktestMetricsCalculator {
     }
 
     /**
-     * 计算最大损失和最大回撤
+     * 基于strategyEquityCurve计算全周期的每日最大回撤和最大亏损
      */
     private List<ArrayList<BigDecimal>> calculateMaximumLossAndDrawdown() {
-        if (series == null || series.getBarCount() == 0 || tradingRecord == null || tradingRecord.getPositionCount() == 0) {
-            return Arrays.asList();
+        if (strategyEquityCurve == null || strategyEquityCurve.isEmpty()) {
+            return Arrays.asList(new ArrayList<>(), new ArrayList<>());
         }
 
-        ArrayList<BigDecimal> maxLossList = new ArrayList<>();
-        ArrayList<BigDecimal> drawdownList = new ArrayList<>();
+        ArrayList<BigDecimal> dailyLossList = new ArrayList<>();
+        ArrayList<BigDecimal> dailyDrawdownList = new ArrayList<>();
 
-        // 遍历每个已关闭的交易
-        for (Position position : tradingRecord.getPositions()) {
-            BigDecimal maxLoss = BigDecimal.ZERO;
-            BigDecimal maxDrawdown = BigDecimal.ZERO;
+        // 初始资金作为基准
+        BigDecimal initialAmount = strategyEquityCurve.get(0);
+        BigDecimal peakAmount = initialAmount; // 历史最高资金
 
-            if (position.isClosed()) {
-                // 获取入场和出场信息
-                int entryIndex = position.getEntry().getIndex();
-                int exitIndex = position.getExit().getIndex();
-                BarSeries subSeries = series.getSubSeries(entryIndex, exitIndex + 1);
+        // 遍历每日资金曲线
+        for (int i = 0; i < strategyEquityCurve.size(); i++) {
+            BigDecimal currentAmount = strategyEquityCurve.get(i);
 
-                // 获取入场和出场价格
-                BigDecimal entryPrice = new BigDecimal(subSeries.getFirstBar().getClosePrice().doubleValue());
-                BigDecimal exitPrice = new BigDecimal(subSeries.getLastBar().getClosePrice().doubleValue());
-
-                BigDecimal highestPrice = BigDecimal.ZERO;
-                BigDecimal lowestPrice = BigDecimal.valueOf(Long.MAX_VALUE);
-
-                for (int i = 0; i < subSeries.getBarCount(); i++) {
-                    BigDecimal closePrice = BigDecimal.valueOf(subSeries.getBar(i).getClosePrice().doubleValue());
-
-                    if (closePrice.compareTo(highestPrice) > 0) {
-                        highestPrice = closePrice;
-                    }
-                    if (closePrice.compareTo(lowestPrice) <= 0) {
-                        lowestPrice = closePrice;
-                    }
-
-                    BigDecimal lossRate;
-                    BigDecimal drawDownRate;
-
-                    if (position.getEntry().isBuy()) {
-                        // 如果是买入操作，收益率 = (卖出价 - 买入价) / 买入价
-                        lossRate = closePrice.subtract(entryPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
-                        drawDownRate = closePrice.subtract(highestPrice).divide(highestPrice, 8, RoundingMode.HALF_UP);
-                    } else {
-                        // 如果是卖出操作（做空），收益率 = (买入价 - 卖出价) / 买入价
-                        lossRate = closePrice.subtract(exitPrice).divide(entryPrice, 8, RoundingMode.HALF_UP);
-                        drawDownRate = closePrice.subtract(lowestPrice).divide(lowestPrice, 8, RoundingMode.HALF_UP);
-                    }
-
-                    // 只关注亏损交易
-                    if (lossRate.compareTo(BigDecimal.ZERO) < 0) {
-                        // 如果当前亏损大于已记录的最大亏损（更负），则更新最大亏损
-                        if (lossRate.compareTo(maxLoss) < 0) {
-                            maxLoss = lossRate;
-                        }
-                    }
-                    if (drawDownRate.compareTo(BigDecimal.ZERO) < 0) {
-                        if (drawDownRate.compareTo(maxDrawdown) < 0) {
-                            maxDrawdown = drawDownRate;
-                        }
-                    }
-                }
-                maxLossList.add(maxLoss.abs());
-                drawdownList.add(maxDrawdown.abs());
+            // 更新历史最高资金
+            if (currentAmount.compareTo(peakAmount) > 0) {
+                peakAmount = currentAmount;
             }
+
+            // 计算当日相对于初始资金的损失率
+            BigDecimal lossRate = BigDecimal.ZERO;
+            if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal returnRate = currentAmount.subtract(initialAmount).divide(initialAmount, 8, RoundingMode.HALF_UP);
+                if (returnRate.compareTo(BigDecimal.ZERO) < 0) {
+                    lossRate = returnRate.abs(); // 转为正值表示损失幅度
+                }
+            }
+
+            // 计算当日回撤率（从历史最高点到当前的下跌幅度）
+            BigDecimal drawdownRate = BigDecimal.ZERO;
+            if (peakAmount.compareTo(BigDecimal.ZERO) > 0) {
+                drawdownRate = peakAmount.subtract(currentAmount).divide(peakAmount, 8, RoundingMode.HALF_UP);
+                // 确保回撤率为非负值
+                if (drawdownRate.compareTo(BigDecimal.ZERO) < 0) {
+                    drawdownRate = BigDecimal.ZERO;
+                }
+            }
+
+            dailyLossList.add(lossRate);
+            dailyDrawdownList.add(drawdownRate);
         }
 
-        List<ArrayList<BigDecimal>> list = new ArrayList<>();
-        list.add(maxLossList);
-        list.add(drawdownList);
-        return list;
+        // 设置最大损失和最大回撤到交易记录中
+        for (int i = 0; i < tradeRecords.size(); i++) {
+            Position position = tradingRecord.getPositions().get(i);
+            List<BigDecimal> tradePeriodsLoss = dailyLossList.subList(position.getEntry().getIndex(), position.getExit().getIndex());
+            tradeRecords.get(i).setMaxLoss(tradePeriodsLoss.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+            List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(position.getEntry().getIndex(), position.getExit().getIndex());
+            tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+        }
+
+        List<ArrayList<BigDecimal>> result = new ArrayList<>();
+        result.add(dailyLossList);
+        result.add(dailyDrawdownList);
+        return result;
     }
 
     /**
@@ -430,13 +414,6 @@ public class BacktestMetricsCalculator {
      */
     private TradeStatistics calculateTradeStatistics() {
         TradeStatistics stats = new TradeStatistics();
-
-        // 设置最大损失和最大回撤到交易记录中
-        for (int i = 0; i < tradeRecords.size(); i++) {
-            TradeRecordDTO trade = tradeRecords.get(i);
-            trade.setMaxLoss(maxLossAndDrawdownList.get(0).get(i));
-            trade.setMaxDrowdown(maxLossAndDrawdownList.get(1).get(i));
-        }
 
         stats.tradeCount = tradeRecords.size();
         stats.profitableTrades = 0;
@@ -491,10 +468,6 @@ public class BacktestMetricsCalculator {
             }
             stats.averageProfit = totalReturn.divide(new BigDecimal(stats.tradeCount), 4, RoundingMode.HALF_UP);
         }
-
-        // 计算最大损失和最大回撤
-        stats.maximumLoss = maxLossAndDrawdownList.get(0).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
-        stats.maxDrawdown = maxLossAndDrawdownList.get(1).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
 
         return stats;
     }
@@ -710,7 +683,7 @@ public class BacktestMetricsCalculator {
     /**
      * 计算风险指标
      */
-    private RiskMetrics calculateRiskMetrics() {
+    private RiskMetrics calculateRiskMetrics(TradeStatistics tradeStats, ReturnMetrics returnMetrics) {
 
         RiskMetrics metrics = new RiskMetrics();
 
@@ -749,13 +722,10 @@ public class BacktestMetricsCalculator {
         metrics.treynorRatio = Ta4jBacktestService.calculateTreynorRatio(fullPeriodStrategyReturns, riskFreeRate, metrics.alphaBeta[1]);
 
         // 计算 Ulcer Index - 使用策略资金曲线
-        metrics.ulcerIndex = Ta4jBacktestService.calculateUlcerIndex(fullPeriodStrategyReturns);
+        metrics.ulcerIndex = Ta4jBacktestService.calculateUlcerIndex(strategyEquityCurve);
 
         // 计算收益率序列的偏度 (Skewness)
         metrics.skewness = Ta4jBacktestService.calculateSkewness(fullPeriodStrategyReturns);
-
-        // 计算Calmar比率
-        metrics.calmarRatio = Ta4jBacktestService.calculateCalmarRatio(returnMetrics.annualizedReturn, tradeStats.maxDrawdown.abs());
 
         // 新增风险指标计算
 
@@ -794,6 +764,16 @@ public class BacktestMetricsCalculator {
 
         // 计算风险调整收益
         metrics.riskAdjustedReturn = calculateRiskAdjustedReturn(returnMetrics.totalReturn, metrics);
+
+        // 计算最大损失和最大回撤
+        maxLossAndDrawdownList = calculateMaximumLossAndDrawdown();
+
+        // 计算最大损失和最大回撤
+        tradeStats.maximumLoss = maxLossAndDrawdownList.get(0).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
+        tradeStats.maxDrawdown = maxLossAndDrawdownList.get(1).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
+
+        // 计算Calmar比率
+        metrics.calmarRatio = Ta4jBacktestService.calculateCalmarRatio(returnMetrics.annualizedReturn, tradeStats.maxDrawdown);
 
         // 计算综合评分 (0-10分)
         metrics.comprehensiveScore = calculateComprehensiveScore(returnMetrics, tradeStats, metrics);
@@ -2127,13 +2107,13 @@ public class BacktestMetricsCalculator {
         for (BigDecimal dailyReturn : returns) {
             if (dailyReturn == null) {
                 dailyReturn = BigDecimal.ZERO;
-                // 对于对数收益率，使用指数函数还原equity(t) = equity(t-1) * exp(log_return)
-                double returnRate = dailyReturn.doubleValue();
-                if (returnRate != 0) {
-                    currentValue = currentValue.multiply(BigDecimal.valueOf(Math.exp(returnRate)));
-                }
-                equityCurve.add(currentValue);
             }
+            // 对于对数收益率，使用指数函数还原equity(t) = equity(t-1) * exp(log_return)
+            double returnRate = dailyReturn.doubleValue();
+            if (returnRate != 0) {
+                currentValue = currentValue.multiply(BigDecimal.valueOf(Math.exp(returnRate)));
+            }
+            equityCurve.add(currentValue);
         }
         return equityCurve;
     }
@@ -2195,15 +2175,16 @@ public class BacktestMetricsCalculator {
         }
 
         // 验证最终金额是否与实际交易收益一致
+        BigDecimal expectedFinalAmount = tradeRecords.get(tradeRecords.size() - 1).getExitAmount();
+        BigDecimal actualFinalAmount = equityCurve.get(equityCurve.size() - 1);
         if (!tradeRecords.isEmpty()) {
-            BigDecimal expectedFinalAmount = tradeRecords.get(tradeRecords.size() - 1).getExitAmount();
-            BigDecimal actualFinalAmount = equityCurve.get(equityCurve.size() - 1);
-
             if (expectedFinalAmount.subtract(actualFinalAmount).abs().compareTo(BigDecimal.valueOf(0.01)) > 0) {
                 log.warn("策略资金曲线最终金额与实际交易收益不一致！预期: {}, 实际: {}",
                         expectedFinalAmount, actualFinalAmount);
                 // 修正最终金额
                 equityCurve.set(equityCurve.size() - 1, expectedFinalAmount);
+            } else {
+                log.info("策略资金曲线最终金额与实际交易收益一致！预期: {}, 实际: {}", expectedFinalAmount, actualFinalAmount);
             }
         }
 

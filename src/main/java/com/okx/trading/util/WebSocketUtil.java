@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -32,7 +33,7 @@ import java.util.function.Consumer;
  */
 @Slf4j
 @Component
-public class WebSocketUtil{
+public class WebSocketUtil {
 
     private final OkxApiConfig okxApiConfig;
     private final OkHttpClient okHttpClient;
@@ -42,9 +43,10 @@ public class WebSocketUtil{
     private WebSocket bussinessWebSocket;
     private WebSocket privateWebSocket;
 
-    private final Map<String,Consumer<JSONObject>> messageHandlers = new ConcurrentHashMap<>();
+    private final Map<String, Consumer<JSONObject>> messageHandlers = new ConcurrentHashMap<>();
     private final ScheduledExecutorService pingScheduler;
     private final ScheduledExecutorService reconnectScheduler;
+    private final ScheduledExecutorService websocketConnectScheduler;
 
     // 添加队列存储待执行的操作
     private final ConcurrentLinkedQueue<PendingOperation> publicPendingOperations = new ConcurrentLinkedQueue<>();
@@ -87,12 +89,14 @@ public class WebSocketUtil{
     @Autowired
     public WebSocketUtil(OkxApiConfig okxApiConfig, @Qualifier("webSocketHttpClient") OkHttpClient okHttpClient, ApplicationEventPublisher applicationEventPublisher,
                          @Qualifier("websocketPingScheduler") ScheduledExecutorService pingScheduler,
-                         @Qualifier("websocketReconnectScheduler") ScheduledExecutorService reconnectScheduler){
+                         @Qualifier("websocketReconnectScheduler") ScheduledExecutorService reconnectScheduler,
+                         @Qualifier("websocketConnectScheduler") ScheduledExecutorService websocketConnectScheduler) {
         this.okxApiConfig = okxApiConfig;
         this.okHttpClient = okHttpClient;
         this.applicationEventPublisher = applicationEventPublisher;
         this.pingScheduler = pingScheduler;
         this.reconnectScheduler = reconnectScheduler;
+        this.websocketConnectScheduler = websocketConnectScheduler;
     }
 
     /**
@@ -115,76 +119,78 @@ public class WebSocketUtil{
      * 初始化WebSocket连接
      */
     @PostConstruct
-    public void init(){
-        try{
-            if(okxApiConfig.isWebSocketMode()){
-                logger.info("初始化WebSocket连接，模式: {}", okxApiConfig.getConnectionMode());
-                logger.info("公共频道URL: {}", okxApiConfig.getWs().getPublicChannel());
-                logger.info("业务频道URL: {}", okxApiConfig.getWs().getBussinessChannel());
-                logger.info("私有频道URL: {}", okxApiConfig.getWs().getPrivateChannel());
+    public void init() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (okxApiConfig.isWebSocketMode()) {
+                    logger.info("初始化WebSocket连接，模式: {}", okxApiConfig.getConnectionMode());
+                    logger.info("公共频道URL: {}", okxApiConfig.getWs().getPublicChannel());
+                    logger.info("业务频道URL: {}", okxApiConfig.getWs().getBussinessChannel());
+                    logger.info("私有频道URL: {}", okxApiConfig.getWs().getPrivateChannel());
 
-                // 连接公共频道
-                try{
-                    connectPublicChannel();
-                }catch(Exception e){
-                    logger.error("连接公共频道失败: {}", e.getMessage(), e);
+                    // 连接公共频道
+                    try {
+                        connectPublicChannel();
+                    } catch (Exception e) {
+                        logger.error("连接公共频道失败: {}", e.getMessage(), e);
+                    }
+
+                    // 连接业务频道
+                    try {
+                        connectBussinessChannel();
+                    } catch (Exception e) {
+                        logger.error("连接业务频道失败: {}", e.getMessage(), e);
+                    }
+
+                    // 连接私有频道
+                    try {
+                        connectPrivateChannel();
+                    } catch (Exception e) {
+                        logger.error("连接私有频道失败: {}", e.getMessage(), e);
+                    }
+
+                    // 优化ping频率，减少系统负载
+                    pingScheduler.scheduleAtFixedRate(this::pingWebSockets, 15, 15, TimeUnit.SECONDS);
+
+                    // 优化连接检查频率，减少无谓检查
+                    reconnectScheduler.scheduleAtFixedRate(this::checkConnectionsAndReconnect, 30, 30, TimeUnit.SECONDS);
+                } else {
+                    logger.info("WebSocket模式未启用，使用REST模式");
                 }
-
-                // 连接业务频道
-                try{
-                    connectBussinessChannel();
-                }catch(Exception e){
-                    logger.error("连接业务频道失败: {}", e.getMessage(), e);
-                }
-
-                // 连接私有频道
-                try{
-                    connectPrivateChannel();
-                }catch(Exception e){
-                    logger.error("连接私有频道失败: {}", e.getMessage(), e);
-                }
-
-                // 优化ping频率，减少系统负载
-                pingScheduler.scheduleAtFixedRate(this :: pingWebSockets, 15, 15, TimeUnit.SECONDS);
-
-                // 优化连接检查频率，减少无谓检查
-                reconnectScheduler.scheduleAtFixedRate(this :: checkConnectionsAndReconnect, 30, 30, TimeUnit.SECONDS);
-            }else{
-                logger.info("WebSocket模式未启用，使用REST模式");
+            } catch (Exception e) {
+                logger.error("初始化WebSocket连接失败: {}", e.getMessage(), e);
             }
-        }catch(Exception e){
-            logger.error("初始化WebSocket连接失败: {}", e.getMessage(), e);
-        }
+        }, websocketConnectScheduler);
     }
 
     /**
      * 清理资源
      */
     @PreDestroy
-    public void cleanup(){
+    public void cleanup() {
         pingScheduler.shutdown();
         reconnectScheduler.shutdown();
-        try{
-            if(! pingScheduler.awaitTermination(5, TimeUnit.SECONDS)){
+        try {
+            if (!pingScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 pingScheduler.shutdownNow();
             }
-            if(! reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)){
+            if (!reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 reconnectScheduler.shutdownNow();
             }
-        }catch(InterruptedException e){
+        } catch (InterruptedException e) {
             pingScheduler.shutdownNow();
             reconnectScheduler.shutdownNow();
         }
 
-        if(publicWebSocket != null){
+        if (publicWebSocket != null) {
             publicWebSocket.close(1000, "Application shutting down");
         }
 
-        if(bussinessWebSocket != null){
+        if (bussinessWebSocket != null) {
             bussinessWebSocket.close(1000, "Application shutting down");
         }
 
-        if(privateWebSocket != null){
+        if (privateWebSocket != null) {
             privateWebSocket.close(1000, "Application shutting down");
         }
     }
@@ -192,15 +198,15 @@ public class WebSocketUtil{
     /**
      * 连接bussiness频道
      */
-    private void connectBussinessChannel(){
-        try{
+    private void connectBussinessChannel() {
+        try {
             Request request = new Request.Builder()
-                .url(okxApiConfig.getWs().getBussinessChannel())
-                .build();
+                    .url(okxApiConfig.getWs().getBussinessChannel())
+                    .build();
 
-            bussinessWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener(){
+            bussinessWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
                 @Override
-                public void onOpen(WebSocket webSocket, Response response){
+                public void onOpen(WebSocket webSocket, Response response) {
                     logger.info("业务频道WebSocket连接成功");
                     bussinessConnected.set(true);
                     lastBusinessMessageTime.set(System.currentTimeMillis());
@@ -213,13 +219,13 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onMessage(WebSocket webSocket, String text){
+                public void onMessage(WebSocket webSocket, String text) {
                     lastBusinessMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
                 @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response){
+                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                     logger.error("业务频道WebSocket连接失败", t);
                     bussinessConnected.set(false);
                     // 尝试重连
@@ -227,16 +233,16 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onClosed(WebSocket webSocket, int code, String reason){
+                public void onClosed(WebSocket webSocket, int code, String reason) {
                     logger.info("业务频道WebSocket连接关闭: {}, {}", code, reason);
                     bussinessConnected.set(false);
                     // 如果不是应用主动关闭，尝试重连
-                    if(code != 1000){
+                    if (code != 1000) {
                         scheduleBusinessReconnect();
                     }
                 }
             });
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("创建业务频道WebSocket连接失败", e);
             bussinessConnected.set(false);
             scheduleBusinessReconnect();
@@ -246,15 +252,15 @@ public class WebSocketUtil{
     /**
      * 连接公共频道
      */
-    private void connectPublicChannel(){
-        try{
+    private void connectPublicChannel() {
+        try {
             Request request = new Request.Builder()
-                .url(okxApiConfig.getWs().getPublicChannel())
-                .build();
+                    .url(okxApiConfig.getWs().getPublicChannel())
+                    .build();
 
-            publicWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener(){
+            publicWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
                 @Override
-                public void onOpen(WebSocket webSocket, Response response){
+                public void onOpen(WebSocket webSocket, Response response) {
                     logger.info("公共频道WebSocket连接成功");
                     publicConnected.set(true);
                     lastPublicMessageTime.set(System.currentTimeMillis());
@@ -267,13 +273,13 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onMessage(WebSocket webSocket, String text){
+                public void onMessage(WebSocket webSocket, String text) {
                     lastPublicMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
                 @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response){
+                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                     logger.error("公共频道WebSocket连接失败", t);
                     publicConnected.set(false);
                     // 尝试重连
@@ -281,16 +287,16 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onClosed(WebSocket webSocket, int code, String reason){
+                public void onClosed(WebSocket webSocket, int code, String reason) {
                     logger.info("公共频道WebSocket连接关闭: {}, {}", code, reason);
                     publicConnected.set(false);
                     // 如果不是应用主动关闭，尝试重连
-                    if(code != 1000){
+                    if (code != 1000) {
                         schedulePublicReconnect();
                     }
                 }
             });
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("创建公共频道WebSocket连接失败", e);
             publicConnected.set(false);
             schedulePublicReconnect();
@@ -300,8 +306,8 @@ public class WebSocketUtil{
     /**
      * 连接私有频道
      */
-    private void connectPrivateChannel(){
-        try{
+    private void connectPrivateChannel() {
+        try {
             // 登录认证参数
             String timestamp = System.currentTimeMillis() / 1000 + "";
             String method = "GET";
@@ -310,12 +316,12 @@ public class WebSocketUtil{
             String sign = SignatureUtil.sign(timestamp, method, requestPath, body, okxApiConfig.getSecretKey());
 
             Request request = new Request.Builder()
-                .url(okxApiConfig.getWs().getPrivateChannel())
-                .build();
+                    .url(okxApiConfig.getWs().getPrivateChannel())
+                    .build();
 
-            privateWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener(){
+            privateWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
                 @Override
-                public void onOpen(WebSocket webSocket, Response response){
+                public void onOpen(WebSocket webSocket, Response response) {
                     logger.info("私有频道WebSocket连接成功");
                     lastPrivateMessageTime.set(System.currentTimeMillis());
 
@@ -327,13 +333,13 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onMessage(WebSocket webSocket, String text){
+                public void onMessage(WebSocket webSocket, String text) {
                     lastPrivateMessageTime.set(System.currentTimeMillis());
                     handleMessage(text);
                 }
 
                 @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response){
+                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                     logger.error("私有频道WebSocket连接失败", t);
                     privateConnected.set(false);
                     // 尝试重连
@@ -341,11 +347,11 @@ public class WebSocketUtil{
                 }
 
                 @Override
-                public void onClosed(WebSocket webSocket, int code, String reason){
+                public void onClosed(WebSocket webSocket, int code, String reason) {
                     logger.info("私有频道WebSocket连接关闭: {}, {}", code, reason);
                     privateConnected.set(false);
                     // 如果不是应用主动关闭，且不是Reconnecting状态，尝试重连
-                    if(code != 1000 || !"Application shutting down".equals(reason)){
+                    if (code != 1000 || !"Application shutting down".equals(reason)) {
                         // 添加延迟重连，避免立即重连
                         reconnectScheduler.schedule(() -> {
                             if (!privateConnected.get()) {
@@ -355,7 +361,7 @@ public class WebSocketUtil{
                     }
                 }
             });
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("连接私有频道失败", e);
             privateConnected.set(false);
             schedulePrivateReconnect();
@@ -365,8 +371,8 @@ public class WebSocketUtil{
     /**
      * 发送登录消息
      */
-    private void sendLoginMessage(WebSocket webSocket, String timestamp, String sign){
-        try{
+    private void sendLoginMessage(WebSocket webSocket, String timestamp, String sign) {
+        try {
             JSONObject loginMessage = new JSONObject();
             loginMessage.put("op", "login");
 
@@ -381,7 +387,7 @@ public class WebSocketUtil{
 
             webSocket.send(loginMessage.toJSONString());
             debugLog("发送登录消息: {}", loginMessage);
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("发送登录消息失败", e);
         }
     }
@@ -389,7 +395,7 @@ public class WebSocketUtil{
     /**
      * 安排私有频道重连 - 优化版本
      */
-    private void schedulePrivateReconnect(){
+    private void schedulePrivateReconnect() {
         if (isCurrentlyReconnecting("private")) {
             debugLog("私有频道已在重连中，跳过本次重连请求");
             return;
@@ -457,21 +463,21 @@ public class WebSocketUtil{
     /**
      * 发送ping消息，保持连接活跃 - 优化版本
      */
-    private void pingWebSockets(){
-        try{
+    private void pingWebSockets() {
+        try {
             long currentTime = System.currentTimeMillis();
 
             // 检查公共频道连接活跃度 - 只有连接正常时才发送ping
-            if(publicWebSocket != null && publicConnected.get()){
+            if (publicWebSocket != null && publicConnected.get()) {
                 // 延长ping检查时间，避免频繁检测
                 if (currentTime - lastPublicMessageTime.get() > 60000) {
                     logger.warn("公共频道超过60秒没有收到消息，触发重连");
                     schedulePublicReconnect();
                 } else {
-                    try{
+                    try {
                         publicWebSocket.send("ping");
 //                        debugLog("发送公共频道ping消息");
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         logger.warn("发送公共频道ping消息失败，将尝试重连", e);
                         schedulePublicReconnect();
                     }
@@ -479,29 +485,29 @@ public class WebSocketUtil{
             }
 
             // 检查业务频道连接活跃度 - 业务频道不强制要求频繁ping
-            if(bussinessWebSocket != null && bussinessConnected.get()){
+            if (bussinessWebSocket != null && bussinessConnected.get()) {
                 // 业务频道可能长时间没有消息，所以不基于消息时间触发重连
-                try{
+                try {
                     bussinessWebSocket.send("ping");
 //                    debugLog("发送业务频道ping消息");
-                }catch(Exception e){
+                } catch (Exception e) {
                     logger.warn("发送业务频道ping消息失败，将尝试重连", e);
                     scheduleBusinessReconnect();
                 }
             }
 
             // 检查私有频道连接活跃度 - 私有频道也不强制要求频繁ping
-            if(privateWebSocket != null && privateConnected.get()){
+            if (privateWebSocket != null && privateConnected.get()) {
                 // 私有频道可能长时间没有消息，所以不基于消息时间触发重连
-                try{
+                try {
                     privateWebSocket.send("ping");
 //                    debugLog("发送私有频道ping消息");
-                }catch(Exception e){
+                } catch (Exception e) {
                     logger.warn("发送私有频道ping消息失败，将尝试重连", e);
                     schedulePrivateReconnect();
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("发送ping消息失败", e);
         }
     }
@@ -509,51 +515,52 @@ public class WebSocketUtil{
     /**
      * 处理接收到的WebSocket消息
      */
-    private void handleMessage(String message){
-        try{
+    @Async("klineHandleScheduler")
+    private void handleMessage(String message) {
+        try {
             // 处理简单的ping-pong响应
-            if("ping".equals(message)){
-                if(publicWebSocket != null){
+            if ("ping".equals(message)) {
+                if (publicWebSocket != null) {
                     publicWebSocket.send("pong");
                 }
-                if(privateWebSocket != null){
+                if (privateWebSocket != null) {
                     privateWebSocket.send("pong");
                 }
                 debugLog("收到ping消息，已回复pong");
                 return;
             }
 
-            if("pong".equals(message)){
+            if ("pong".equals(message)) {
 //                debugLog("收到简单pong响应");
                 return;
             }
 
             JSONObject jsonMessage;
-            try{
+            try {
                 jsonMessage = JSON.parseObject(message);
-            }catch(Exception e){
+            } catch (Exception e) {
                 logger.warn("无法解析WebSocket消息为JSON: {}", message);
                 return;
             }
 
             // 处理错误消息
-            if(jsonMessage.containsKey("event") && "error".equals(jsonMessage.getString("event"))){
+            if (jsonMessage.containsKey("event") && "error".equals(jsonMessage.getString("event"))) {
                 String errorCode = jsonMessage.getString("code");
                 String errorMsg = jsonMessage.getString("msg");
 
 //                logger.error("收到WebSocket错误: code={}, msg={}", errorCode, errorMsg);
 
                 // 处理特定错误
-                switch(errorCode){
+                switch (errorCode) {
                     case "60004": // 时间戳错误
                         logger.info("时间戳错误，尝试重新连接私有频道");
                         // 立即尝试重新连接
-                        if(privateWebSocket != null){
+                        if (privateWebSocket != null) {
                             privateWebSocket.close(1000, "Reconnecting due to timestamp error");
                         }
 
                         // 使用短延迟重连
-                        reconnectScheduler.schedule(this :: connectPrivateChannel, 1, TimeUnit.SECONDS);
+                        reconnectScheduler.schedule(this::connectPrivateChannel, 1, TimeUnit.SECONDS);
                         break;
                     case "60012": // 非法请求
                     case "60018": // 非法请求
@@ -569,20 +576,20 @@ public class WebSocketUtil{
             }
 
             // 处理JSON格式的pong响应
-            if(jsonMessage.containsKey("op") && "pong".equals(jsonMessage.getString("op"))){
+            if (jsonMessage.containsKey("op") && "pong".equals(jsonMessage.getString("op"))) {
                 debugLog("收到JSON格式pong响应: {}", message);
                 return;
             }
 
             // 处理登录事件响应 - 处理 {"event":"login","msg":"","code":"0","connId":"b0a88f7d"} 格式
-            if(jsonMessage.containsKey("event") && "login".equals(jsonMessage.getString("event"))){
-                if(jsonMessage.containsKey("code") && "0".equals(jsonMessage.getString("code"))){
+            if (jsonMessage.containsKey("event") && "login".equals(jsonMessage.getString("event"))) {
+                if (jsonMessage.containsKey("code") && "0".equals(jsonMessage.getString("code"))) {
                     // 登录成功
                     logger.info("WebSocket登录成功(事件方式): connId={}", jsonMessage.getString("connId"));
                     privateConnected.set(true);
                     // 登录成功后恢复私有频道的订阅
                     restorePrivateOperations();
-                }else{
+                } else {
                     // 登录失败
                     String code = jsonMessage.getString("code");
                     String msg = jsonMessage.getString("msg");
@@ -590,7 +597,7 @@ public class WebSocketUtil{
                     privateConnected.set(false);
 
                     // 如果是时间戳错误，重新连接
-                    if("60004".equals(code)){
+                    if ("60004".equals(code)) {
                         logger.info("登录时间戳错误，重新连接");
                         schedulePrivateReconnect();
                     }
@@ -599,7 +606,7 @@ public class WebSocketUtil{
             }
 
             // 处理频道连接计数 - 处理 {"event":"channel-conn-count","channel":"account","connCount":"1","connId":"b0a88f7d"} 格式
-            if(jsonMessage.containsKey("event") && "channel-conn-count".equals(jsonMessage.getString("event"))){
+            if (jsonMessage.containsKey("event") && "channel-conn-count".equals(jsonMessage.getString("event"))) {
                 String channel = jsonMessage.getString("channel");
                 String connCount = jsonMessage.getString("connCount");
                 String connId = jsonMessage.getString("connId");
@@ -608,18 +615,18 @@ public class WebSocketUtil{
             }
 
             // 处理OP类型登录响应 - 处理 {"op":"login"} 格式
-            if(jsonMessage.containsKey("op") && "login".equals(jsonMessage.getString("op"))){
-                if(jsonMessage.containsKey("code") && ! "0".equals(jsonMessage.getString("code"))){
+            if (jsonMessage.containsKey("op") && "login".equals(jsonMessage.getString("op"))) {
+                if (jsonMessage.containsKey("code") && !"0".equals(jsonMessage.getString("code"))) {
                     // 登录失败
                     logger.error("WebSocket登录失败(op方式): {}", message);
                     privateConnected.set(false);
 
                     // 如果是时间戳错误，重新连接
-                    if("60004".equals(jsonMessage.getString("code"))){
+                    if ("60004".equals(jsonMessage.getString("code"))) {
                         logger.info("登录时间戳错误，重新连接");
                         schedulePrivateReconnect();
                     }
-                }else{
+                } else {
                     // 登录成功
                     logger.info("WebSocket登录成功(op方式): {}", message);
                     privateConnected.set(true);
@@ -631,21 +638,21 @@ public class WebSocketUtil{
 
             // 根据消息类型路由到相应的处理器
             String topic = null;
-            if(jsonMessage.containsKey("arg") && jsonMessage.getJSONObject("arg").containsKey("channel")){
+            if (jsonMessage.containsKey("arg") && jsonMessage.getJSONObject("arg").containsKey("channel")) {
                 topic = jsonMessage.getJSONObject("arg").getString("channel");
             }
 
-            if(jsonMessage.containsKey("op")){
+            if (jsonMessage.containsKey("op")) {
                 topic = jsonMessage.getString("op");
             }
 
-            if(topic != null && messageHandlers.containsKey(topic)){
+            if (topic != null && messageHandlers.containsKey(topic)) {
                 messageHandlers.get(topic).accept(jsonMessage);
-            }else{
+            } else {
                 debugLog("收到未处理的WebSocket消息: {}", message);
             }
 
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("解析WebSocket消息失败: {}", message, e);
         }
     }
@@ -656,7 +663,7 @@ public class WebSocketUtil{
      * @param topic   订阅主题
      * @param handler 消息处理器
      */
-    public void registerHandler(String topic, Consumer<JSONObject> handler){
+    public void registerHandler(String topic, Consumer<JSONObject> handler) {
         messageHandlers.put(topic, handler);
     }
 
@@ -666,7 +673,7 @@ public class WebSocketUtil{
      * @param topic  主题
      * @param symbol 交易对
      */
-    public void subscribePublicTopic(String topic, String symbol){
+    public void subscribePublicTopic(String topic, String symbol) {
         // 创建订阅消息
         JSONObject subscribeMessage = new JSONObject();
         subscribeMessage.put("op", "subscribe");
@@ -683,21 +690,21 @@ public class WebSocketUtil{
         publicSubscribedTopics.add(key);
 
         // 检查连接状态，决定是立即发送还是加入待执行队列
-        if(publicConnected.get() && publicWebSocket != null){
+        if (publicConnected.get() && publicWebSocket != null) {
             publicWebSocket.send(subscribeMessage.toJSONString());
             logger.info("订阅公共频道主题: {}, 交易对: {}", topic, symbol);
-        }else{
+        } else {
             // 如果未连接，加入待执行队列
             PendingOperation operation = new PendingOperation(
-                "公共频道订阅: " + key,
-                () -> {
-                    if(publicWebSocket != null){
-                        publicWebSocket.send(subscribeMessage.toJSONString());
-                        logger.info("恢复订阅公共频道主题: {}, 交易对: {}", topic, symbol);
-                    }else{
-                        throw new OkxApiException("公共频道WebSocket未连接");
+                    "公共频道订阅: " + key,
+                    () -> {
+                        if (publicWebSocket != null) {
+                            publicWebSocket.send(subscribeMessage.toJSONString());
+                            logger.info("恢复订阅公共频道主题: {}, 交易对: {}", topic, symbol);
+                        } else {
+                            throw new OkxApiException("公共频道WebSocket未连接");
+                        }
                     }
-                }
             );
             publicPendingOperations.offer(operation);
             logger.info("添加待执行的公共频道订阅: {}, 交易对: {}", topic, symbol);
@@ -709,7 +716,7 @@ public class WebSocketUtil{
      *
      * @param topic 主题
      */
-    public void subscribePrivateTopic(String topic){
+    public void subscribePrivateTopic(String topic) {
         // 创建订阅消息
         JSONObject subscribeMessage = new JSONObject();
         subscribeMessage.put("op", "subscribe");
@@ -724,21 +731,21 @@ public class WebSocketUtil{
         privateSubscribedTopics.add(topic);
 
         // 检查连接状态，决定是立即发送还是加入待执行队列
-        if(privateConnected.get() && privateWebSocket != null){
+        if (privateConnected.get() && privateWebSocket != null) {
             privateWebSocket.send(subscribeMessage.toJSONString());
             logger.info("订阅私有频道主题: {}", topic);
-        }else{
+        } else {
             // 如果未连接，加入待执行队列
             PendingOperation operation = new PendingOperation(
-                "私有频道订阅: " + topic,
-                () -> {
-                    if(privateWebSocket != null){
-                        privateWebSocket.send(subscribeMessage.toJSONString());
-                        logger.info("恢复订阅私有频道主题: {}", topic);
-                    }else{
-                        throw new OkxApiException("私有频道WebSocket未连接");
+                    "私有频道订阅: " + topic,
+                    () -> {
+                        if (privateWebSocket != null) {
+                            privateWebSocket.send(subscribeMessage.toJSONString());
+                            logger.info("恢复订阅私有频道主题: {}", topic);
+                        } else {
+                            throw new OkxApiException("私有频道WebSocket未连接");
+                        }
                     }
-                }
             );
             privatePendingOperations.offer(operation);
             logger.info("添加待执行的私有频道订阅: {}", topic);
@@ -751,8 +758,8 @@ public class WebSocketUtil{
      * @param topic  主题
      * @param symbol 交易对
      */
-    public void unsubscribePublicTopic(String topic, String symbol){
-        if(publicWebSocket == null){
+    public void unsubscribePublicTopic(String topic, String symbol) {
+        if (publicWebSocket == null) {
             return;
         }
 
@@ -771,7 +778,7 @@ public class WebSocketUtil{
         publicSubscribedTopics.remove(key);
 
         // 仅在连接可用时发送
-        if(publicConnected.get()){
+        if (publicConnected.get()) {
             publicWebSocket.send(unsubscribeMessage.toJSONString());
             logger.info("取消订阅公共频道主题: {}, 交易对: {}", topic, symbol);
         }
@@ -782,8 +789,8 @@ public class WebSocketUtil{
      *
      * @param topic 主题
      */
-    public void unsubscribePrivateTopic(String topic){
-        if(privateWebSocket == null){
+    public void unsubscribePrivateTopic(String topic) {
+        if (privateWebSocket == null) {
             return;
         }
 
@@ -800,7 +807,7 @@ public class WebSocketUtil{
         privateSubscribedTopics.remove(topic);
 
         // 仅在连接可用时发送
-        if(privateConnected.get()){
+        if (privateConnected.get()) {
             privateWebSocket.send(unsubscribeMessage.toJSONString());
             logger.info("取消订阅私有频道主题: {}", topic);
         }
@@ -811,22 +818,22 @@ public class WebSocketUtil{
      *
      * @param message 请求消息
      */
-    public void sendPrivateRequest(String message){
-        if(privateConnected.get() && privateWebSocket != null){
+    public void sendPrivateRequest(String message) {
+        if (privateConnected.get() && privateWebSocket != null) {
             privateWebSocket.send(message);
             logger.info("发送私有请求: {}", message);
-        }else{
+        } else {
             // 如果未连接，加入待执行队列
             PendingOperation operation = new PendingOperation(
-                "私有频道请求: " + message,
-                () -> {
-                    if(privateWebSocket != null){
-                        privateWebSocket.send(message);
-                        logger.info("恢复发送私有请求: {}", message);
-                    }else{
-                        throw new OkxApiException("私有频道WebSocket未连接");
+                    "私有频道请求: " + message,
+                    () -> {
+                        if (privateWebSocket != null) {
+                            privateWebSocket.send(message);
+                            logger.info("恢复发送私有请求: {}", message);
+                        } else {
+                            throw new OkxApiException("私有频道WebSocket未连接");
+                        }
                     }
-                }
             );
             privatePendingOperations.offer(operation);
             logger.info("添加待执行的私有频道请求");
@@ -838,7 +845,7 @@ public class WebSocketUtil{
      *
      * @param arg 订阅参数对象
      */
-    public void subscribePublicTopicWithArgs(JSONObject arg, String... symbols){
+    public void subscribePublicTopicWithArgs(JSONObject arg, String... symbols) {
         // 创建订阅消息
         JSONObject subscribeMessage = new JSONObject();
         subscribeMessage.put("op", "subscribe");
@@ -853,39 +860,39 @@ public class WebSocketUtil{
         WebSocket targetSocket;
         ConcurrentLinkedQueue<PendingOperation> targetQueue;
 
-        if(symbols != null && symbols.length > 0){
+        if (symbols != null && symbols.length > 0) {
             targetSocket = bussinessWebSocket;
-            if(! bussinessConnected.get() || targetSocket == null){
+            if (!bussinessConnected.get() || targetSocket == null) {
                 // 如果未连接，加入待执行队列
                 PendingOperation operation = new PendingOperation(
-                    "业务频道自定义订阅: " + key,
-                    () -> {
-                        if(bussinessWebSocket != null){
-                            bussinessWebSocket.send(subscribeMessage.toJSONString());
-                            logger.info("恢复订阅业务频道自定义主题，参数: {}", arg);
-                        }else{
-                            throw new OkxApiException("业务频道WebSocket未连接");
+                        "业务频道自定义订阅: " + key,
+                        () -> {
+                            if (bussinessWebSocket != null) {
+                                bussinessWebSocket.send(subscribeMessage.toJSONString());
+                                logger.info("恢复订阅业务频道自定义主题，参数: {}", arg);
+                            } else {
+                                throw new OkxApiException("业务频道WebSocket未连接");
+                            }
                         }
-                    }
                 );
                 publicPendingOperations.offer(operation);
                 logger.info("添加待执行的业务频道自定义订阅，参数: {}", arg);
                 return;
             }
-        }else{
+        } else {
             targetSocket = publicWebSocket;
-            if(! publicConnected.get() || targetSocket == null){
+            if (!publicConnected.get() || targetSocket == null) {
                 // 如果未连接，加入待执行队列
                 PendingOperation operation = new PendingOperation(
-                    "公共频道自定义订阅: " + key,
-                    () -> {
-                        if(publicWebSocket != null){
-                            publicWebSocket.send(subscribeMessage.toJSONString());
-                            logger.info("恢复订阅公共频道自定义主题，参数: {}", arg);
-                        }else{
-                            throw new OkxApiException("公共频道WebSocket未连接");
+                        "公共频道自定义订阅: " + key,
+                        () -> {
+                            if (publicWebSocket != null) {
+                                publicWebSocket.send(subscribeMessage.toJSONString());
+                                logger.info("恢复订阅公共频道自定义主题，参数: {}", arg);
+                            } else {
+                                throw new OkxApiException("公共频道WebSocket未连接");
+                            }
                         }
-                    }
                 );
                 publicPendingOperations.offer(operation);
                 logger.info("添加待执行的公共频道自定义订阅，参数: {}", arg);
@@ -895,7 +902,7 @@ public class WebSocketUtil{
 
         // 直接发送
         targetSocket.send(subscribeMessage.toJSONString());
-                            debugLog("订阅公共频道主题，参数: {}", arg);
+        debugLog("订阅公共频道主题，参数: {}", arg);
     }
 
     /**
@@ -903,8 +910,8 @@ public class WebSocketUtil{
      *
      * @param arg 取消订阅参数对象
      */
-    public void unsubscribePublicTopicWithArgs(JSONObject arg, String... symbols){
-        if(publicWebSocket == null || bussinessWebSocket == null){
+    public void unsubscribePublicTopicWithArgs(JSONObject arg, String... symbols) {
+        if (publicWebSocket == null || bussinessWebSocket == null) {
             logger.warn("公共频道WebSocket未连接，无法取消订阅");
             return;
         }
@@ -920,14 +927,14 @@ public class WebSocketUtil{
         publicSubscribedTopics.remove(key);
 
         WebSocket targetSocket;
-        if(symbols != null && symbols.length > 0){
+        if (symbols != null && symbols.length > 0) {
             targetSocket = bussinessWebSocket;
-            if(! bussinessConnected.get()){
+            if (!bussinessConnected.get()) {
                 return;
             }
-        }else{
+        } else {
             targetSocket = publicWebSocket;
-            if(! publicConnected.get()){
+            if (!publicConnected.get()) {
                 return;
             }
         }
@@ -940,25 +947,25 @@ public class WebSocketUtil{
     /**
      * 恢复公共频道的操作
      */
-    private void restorePublicOperations(){
+    private void restorePublicOperations() {
         logger.info("开始恢复公共频道订阅，共 {} 个待执行操作", publicPendingOperations.size());
 
         // 如果两个连接都已经就绪，才开始恢复操作
-        if(! publicConnected.get() || ! bussinessConnected.get()){
+        if (!publicConnected.get() || !bussinessConnected.get()) {
             logger.info("公共频道连接尚未就绪，等待所有连接建立后再恢复");
             return;
         }
 
         // 首先恢复队列中所有待执行的操作
         int count = 0;
-        while(! publicPendingOperations.isEmpty()){
+        while (!publicPendingOperations.isEmpty()) {
             PendingOperation operation = publicPendingOperations.poll();
-            if(operation != null){
-                try{
+            if (operation != null) {
+                try {
                     logger.info("恢复执行公共频道操作: {}", operation.getDescription());
                     operation.execute();
                     count++;
-                }catch(Exception e){
+                } catch (Exception e) {
                     logger.error("恢复执行公共频道操作失败: {}", operation.getDescription(), e);
                     // 如果执行失败，重新添加到队列末尾
                     publicPendingOperations.offer(operation);
@@ -968,16 +975,16 @@ public class WebSocketUtil{
 
         // 重新订阅所有已记录的主题，确保所有币种都能及时更新价格
         int topicCount = 0;
-        for(String topic: publicSubscribedTopics){
-            try{
+        for (String topic : publicSubscribedTopics) {
+            try {
                 // 解析主题格式（例如："tickers:BTC-USDT"）
-                if(topic.contains(":")){
+                if (topic.contains(":")) {
                     String[] parts = topic.split(":");
                     String channel = parts[0];
                     String symbol = parts[1];
 
                     // 如果主题格式正确且不是自定义主题，重新订阅
-                    if(parts.length == 2 && ! channel.equals("custom")){
+                    if (parts.length == 2 && !channel.equals("custom")) {
                         logger.info("重新订阅主题: {}, 交易对: {}", channel, symbol);
 
                         // 创建订阅消息
@@ -996,7 +1003,7 @@ public class WebSocketUtil{
                         topicCount++;
                     }
                 }
-            }catch(Exception e){
+            } catch (Exception e) {
                 logger.error("重新订阅主题失败: {}", topic, e);
             }
         }
@@ -1004,15 +1011,15 @@ public class WebSocketUtil{
         logger.info("公共频道操作恢复完成，成功执行 {} 个操作，重新订阅 {} 个主题", count, topicCount);
 
         // 发布WebSocket重连事件
-        try{
+        try {
             // 由于WebSocketUtil不是Spring Bean，无法直接访问ApplicationEventPublisher
             // 使用反射查找Spring上下文，获取ApplicationEventPublisher
             // 静态方法获取ApplicationContext
-            if(applicationEventPublisher != null){
+            if (applicationEventPublisher != null) {
                 logger.info("发布WebSocket公共频道重连事件");
                 applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PUBLIC));
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("发布WebSocket重连事件失败", e);
         }
     }
@@ -1020,24 +1027,24 @@ public class WebSocketUtil{
     /**
      * 恢复私有频道的操作
      */
-    private void restorePrivateOperations(){
+    private void restorePrivateOperations() {
         logger.info("开始恢复私有频道订阅，共 {} 个待执行操作", privatePendingOperations.size());
 
-        if(! privateConnected.get()){
+        if (!privateConnected.get()) {
             logger.info("私有频道连接尚未就绪，等待连接建立后再恢复");
             return;
         }
 
         // 遍历并执行所有待执行的操作
         int count = 0;
-        while(! privatePendingOperations.isEmpty()){
+        while (!privatePendingOperations.isEmpty()) {
             PendingOperation operation = privatePendingOperations.poll();
-            if(operation != null){
-                try{
+            if (operation != null) {
+                try {
                     logger.info("恢复执行私有频道操作: {}", operation.getDescription());
                     operation.execute();
                     count++;
-                }catch(Exception e){
+                } catch (Exception e) {
                     logger.error("恢复执行私有频道操作失败: {}", operation.getDescription(), e);
                     // 如果执行失败，重新添加到队列末尾
                     privatePendingOperations.offer(operation);
@@ -1048,12 +1055,12 @@ public class WebSocketUtil{
         logger.info("私有频道操作恢复完成，成功执行 {} 个操作", count);
 
         // 发布WebSocket重连事件
-        try{
-            if(applicationEventPublisher != null){
+        try {
+            if (applicationEventPublisher != null) {
                 logger.info("发布WebSocket私有频道重连事件");
                 applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PRIVATE));
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("发布WebSocket重连事件失败", e);
         }
     }
@@ -1061,10 +1068,10 @@ public class WebSocketUtil{
     /**
      * 恢复业务频道的操作
      */
-    private void restoreBusinessOperations(){
+    private void restoreBusinessOperations() {
         logger.info("开始恢复业务频道操作");
 
-        if(! bussinessConnected.get()){
+        if (!bussinessConnected.get()) {
             logger.info("业务频道连接尚未就绪，等待连接建立后再恢复");
             return;
         }
@@ -1081,7 +1088,7 @@ public class WebSocketUtil{
      *
      * @return 如果私有WebSocket已连接则返回true，否则返回false
      */
-    public boolean isPrivateSocketConnected(){
+    public boolean isPrivateSocketConnected() {
         return privateWebSocket != null;
     }
 
@@ -1090,24 +1097,24 @@ public class WebSocketUtil{
      *
      * @return 如果公共WebSocket已连接则返回true，否则返回false
      */
-    public boolean isPublicSocketConnected(){
+    public boolean isPublicSocketConnected() {
         return publicWebSocket != null;
     }
 
     /**
      * 定时检查所有WebSocket连接并在需要时重新连接 - 优化版本
      */
-    private void checkConnectionsAndReconnect(){
-        try{
+    private void checkConnectionsAndReconnect() {
+        try {
             long currentTime = System.currentTimeMillis();
 
             // 检查公共频道连接状态 - 公共频道必须保持活跃
-            if(!publicConnected.get() || publicWebSocket == null ||
-               (currentTime - lastPublicMessageTime.get() > 120000)) { // 增加到2分钟容忍度
+            if (!publicConnected.get() || publicWebSocket == null ||
+                    (currentTime - lastPublicMessageTime.get() > 120000)) { // 增加到2分钟容忍度
                 logger.warn("公共频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
-                    publicConnected.get(),
-                    publicWebSocket != null ? "存在" : "null",
-                    (currentTime - lastPublicMessageTime.get()) / 1000);
+                        publicConnected.get(),
+                        publicWebSocket != null ? "存在" : "null",
+                        (currentTime - lastPublicMessageTime.get()) / 1000);
 
                 // 避免并发重连
                 if (!isCurrentlyReconnecting("public")) {
@@ -1116,13 +1123,13 @@ public class WebSocketUtil{
             }
 
             // 检查业务频道连接状态 - 业务频道容忍度更高
-            if(!bussinessConnected.get() || bussinessWebSocket == null) {
+            if (!bussinessConnected.get() || bussinessWebSocket == null) {
                 // 如果连接状态为false或WebSocket为null，才认为需要重连
                 // 不基于消息时间判断，因为业务频道可能长时间没有消息
                 logger.warn("业务频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
-                    bussinessConnected.get(),
-                    bussinessWebSocket != null ? "存在" : "null",
-                    (currentTime - lastBusinessMessageTime.get()) / 1000);
+                        bussinessConnected.get(),
+                        bussinessWebSocket != null ? "存在" : "null",
+                        (currentTime - lastBusinessMessageTime.get()) / 1000);
 
                 if (!isCurrentlyReconnecting("business")) {
                     scheduleBusinessReconnect();
@@ -1136,11 +1143,11 @@ public class WebSocketUtil{
             }
 
             // 检查私有频道连接状态 - 私有频道容忍度更高
-            if(!privateConnected.get() || privateWebSocket == null) {
+            if (!privateConnected.get() || privateWebSocket == null) {
                 logger.warn("私有频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
-                    privateConnected.get(),
-                    privateWebSocket != null ? "存在" : "null",
-                    (currentTime - lastPrivateMessageTime.get()) / 1000);
+                        privateConnected.get(),
+                        privateWebSocket != null ? "存在" : "null",
+                        (currentTime - lastPrivateMessageTime.get()) / 1000);
 
                 if (!isCurrentlyReconnecting("private")) {
                     schedulePrivateReconnect();
@@ -1152,7 +1159,7 @@ public class WebSocketUtil{
                     schedulePrivateReconnect();
                 }
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("检查WebSocket连接状态时出错", e);
         }
     }
@@ -1192,15 +1199,15 @@ public class WebSocketUtil{
      * @param webSocket 要检查的WebSocket连接
      * @return 连接是否有效
      */
-    private boolean isWebSocketConnected(WebSocket webSocket){
-        if(webSocket == null){
+    private boolean isWebSocketConnected(WebSocket webSocket) {
+        if (webSocket == null) {
             return false;
         }
 
-        try{
+        try {
             // 使用更轻量级的方式检查连接状态，避免过多的ping消息
             return webSocket.send("ping");
-        }catch(Exception e){
+        } catch (Exception e) {
             debugLog("检查WebSocket连接状态失败: {}", e.getMessage());
             return false;
         }
@@ -1209,20 +1216,20 @@ public class WebSocketUtil{
     /**
      * 待执行操作类
      */
-    private static class PendingOperation{
+    private static class PendingOperation {
         private final String description;
         private final Runnable operation;
 
-        public PendingOperation(String description, Runnable operation){
+        public PendingOperation(String description, Runnable operation) {
             this.description = description;
             this.operation = operation;
         }
 
-        public void execute(){
+        public void execute() {
             operation.run();
         }
 
-        public String getDescription(){
+        public String getDescription() {
             return description;
         }
     }
@@ -1230,7 +1237,7 @@ public class WebSocketUtil{
     /**
      * 安排业务频道重连 - 优化版本
      */
-    private void scheduleBusinessReconnect(){
+    private void scheduleBusinessReconnect() {
         if (isCurrentlyReconnecting("business")) {
             debugLog("业务频道已在重连中，跳过本次重连请求");
             return;
@@ -1282,12 +1289,12 @@ public class WebSocketUtil{
                     restoreBusinessOperations();
 
                     // 发布业务频道重连事件
-                    try{
-                        if(applicationEventPublisher != null){
+                    try {
+                        if (applicationEventPublisher != null) {
                             logger.info("发布WebSocket业务频道重连事件");
                             applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.BUSINESS));
                         }
-                    }catch(Exception e){
+                    } catch (Exception e) {
                         logger.error("发布WebSocket业务频道重连事件失败", e);
                     }
                 } else {
@@ -1311,7 +1318,7 @@ public class WebSocketUtil{
     /**
      * 安排公共频道重连 - 优化版本
      */
-    private void schedulePublicReconnect(){
+    private void schedulePublicReconnect() {
         if (isCurrentlyReconnecting("public")) {
             debugLog("公共频道已在重连中，跳过本次重连请求");
             return;

@@ -74,7 +74,7 @@ public class WebSocketUtilTest {
             public void publishEvent(Object event){
 
             }
-        }, pingScheduler, reconnectScheduler);
+        }, pingScheduler, reconnectScheduler,null);
 
         // 模拟WebSocket连接
         when(okHttpClient.newWebSocket(any(), any())).thenReturn(webSocket);
