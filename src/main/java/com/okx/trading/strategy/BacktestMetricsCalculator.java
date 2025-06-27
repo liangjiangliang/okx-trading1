@@ -134,6 +134,25 @@ public class BacktestMetricsCalculator {
         result.setParameterDescription(paramDescription);
         result.setTrades(new ArrayList<>());
         result.setTotalFee(BigDecimal.ZERO);
+        
+        // 初始化新增的风险指标为零值
+        result.setKurtosis(BigDecimal.ZERO);
+        result.setCvar(BigDecimal.ZERO);
+        result.setVar95(BigDecimal.ZERO);
+        result.setVar99(BigDecimal.ZERO);
+        result.setInformationRatio(BigDecimal.ZERO);
+        result.setTrackingError(BigDecimal.ZERO);
+        result.setSterlingRatio(BigDecimal.ZERO);
+        result.setBurkeRatio(BigDecimal.ZERO);
+        result.setModifiedSharpeRatio(BigDecimal.ZERO);
+        result.setDownsideDeviation(BigDecimal.ZERO);
+        result.setUptrendCapture(BigDecimal.ZERO);
+        result.setDowntrendCapture(BigDecimal.ZERO);
+        result.setMaxDrawdownDuration(BigDecimal.ZERO);
+        result.setPainIndex(BigDecimal.ZERO);
+        result.setRiskAdjustedReturn(BigDecimal.ZERO);
+        result.setComprehensiveScore(BigDecimal.ZERO);
+        
         return result;
     }
 
@@ -440,6 +459,26 @@ public class BacktestMetricsCalculator {
         BigDecimal treynorRatio;
         BigDecimal ulcerIndex;
         BigDecimal skewness;
+        
+        // 新增风险指标
+        BigDecimal kurtosis;                    // 峰度 - 衡量收益率分布的尾部风险
+        BigDecimal cvar;                        // 条件风险价值 - 极端损失的期望值
+        BigDecimal var95;                       // 95%置信度下的风险价值
+        BigDecimal var99;                       // 99%置信度下的风险价值
+        BigDecimal informationRatio;            // 信息比率 - 超额收益相对于跟踪误差的比率
+        BigDecimal trackingError;               // 跟踪误差 - 策略与基准收益率的标准差
+        BigDecimal sterlingRatio;               // Sterling比率 - 年化收益与平均最大回撤的比率
+        BigDecimal burkeRatio;                  // Burke比率 - 年化收益与平方根回撤的比率
+        BigDecimal modifiedSharpeRatio;         // 修正夏普比率 - 考虑偏度和峰度的夏普比率
+        BigDecimal downsideDeviation;           // 下行偏差 - 只考虑负收益的标准差
+        BigDecimal uptrendCapture;              // 上涨捕获率 - 基准上涨时策略的表现
+        BigDecimal downtrendCapture;            // 下跌捕获率 - 基准下跌时策略的表现
+        BigDecimal maxDrawdownDuration;         // 最大回撤持续期 - 从峰值到恢复的最长时间
+        BigDecimal painIndex;                   // 痛苦指数 - 回撤深度与持续时间的综合指标
+        BigDecimal riskAdjustedReturn;          // 风险调整收益 - 综合多种风险因素的收益评估
+        
+        // 综合评分
+        BigDecimal comprehensiveScore;          // 综合评分 (0-10分)
     }
 
     /**
@@ -487,6 +526,47 @@ public class BacktestMetricsCalculator {
         // 计算Calmar比率
         metrics.calmarRatio = Ta4jBacktestService.calculateCalmarRatio(returnMetrics.annualizedReturn, tradeStats.maxDrawdown.abs());
 
+        // 新增风险指标计算
+        
+        // 计算峰度 (Kurtosis) - 衡量收益率分布的尾部风险
+        metrics.kurtosis = calculateKurtosis(fullPeriodStrategyReturns);
+        
+        // 计算风险价值 (VaR) 和条件风险价值 (CVaR)
+        BigDecimal[] varResults = calculateVaRAndCVaR(fullPeriodStrategyReturns);
+        metrics.var95 = varResults[0];  // 95% VaR
+        metrics.var99 = varResults[1];  // 99% VaR
+        metrics.cvar = varResults[2];   // CVaR (Expected Shortfall)
+        
+        // 计算下行偏差 (Downside Deviation)
+        metrics.downsideDeviation = calculateDownsideDeviation(fullPeriodStrategyReturns, riskFreeRate);
+        
+        // 计算跟踪误差和信息比率
+        List<BigDecimal> benchmarkReturns = calculateBenchmarkReturns();
+        metrics.trackingError = calculateTrackingError(fullPeriodStrategyReturns, benchmarkReturns);
+        metrics.informationRatio = calculateInformationRatio(fullPeriodStrategyReturns, benchmarkReturns, metrics.trackingError);
+        
+        // 计算Sterling比率和Burke比率
+        metrics.sterlingRatio = calculateSterlingRatio(returnMetrics.annualizedReturn, dailyPrices);
+        metrics.burkeRatio = calculateBurkeRatio(returnMetrics.annualizedReturn, dailyPrices);
+        
+        // 计算修正夏普比率（考虑偏度和峰度）
+        metrics.modifiedSharpeRatio = calculateModifiedSharpeRatio(metrics.sharpeRatio, metrics.skewness, metrics.kurtosis);
+        
+        // 计算上涨和下跌捕获率
+        BigDecimal[] captureRatios = calculateCaptureRatios(fullPeriodStrategyReturns, benchmarkReturns);
+        metrics.uptrendCapture = captureRatios[0];
+        metrics.downtrendCapture = captureRatios[1];
+        
+        // 计算最大回撤持续期和痛苦指数
+        metrics.maxDrawdownDuration = calculateMaxDrawdownDuration(dailyPrices);
+        metrics.painIndex = calculatePainIndex(dailyPrices);
+        
+        // 计算风险调整收益
+        metrics.riskAdjustedReturn = calculateRiskAdjustedReturn(returnMetrics.totalReturn, metrics);
+        
+        // 计算综合评分 (0-10分)
+        metrics.comprehensiveScore = calculateComprehensiveScore(returnMetrics, tradeStats, metrics);
+
         return metrics;
     }
 
@@ -525,6 +605,26 @@ public class BacktestMetricsCalculator {
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
         result.setTotalFee(tradeStats.totalFee);
+        
+        // 设置新增的风险指标
+        result.setKurtosis(riskMetrics.kurtosis);
+        result.setCvar(riskMetrics.cvar);
+        result.setVar95(riskMetrics.var95);
+        result.setVar99(riskMetrics.var99);
+        result.setInformationRatio(riskMetrics.informationRatio);
+        result.setTrackingError(riskMetrics.trackingError);
+        result.setSterlingRatio(riskMetrics.sterlingRatio);
+        result.setBurkeRatio(riskMetrics.burkeRatio);
+        result.setModifiedSharpeRatio(riskMetrics.modifiedSharpeRatio);
+        result.setDownsideDeviation(riskMetrics.downsideDeviation);
+        result.setUptrendCapture(riskMetrics.uptrendCapture);
+        result.setDowntrendCapture(riskMetrics.downtrendCapture);
+        result.setMaxDrawdownDuration(riskMetrics.maxDrawdownDuration);
+        result.setPainIndex(riskMetrics.painIndex);
+        result.setRiskAdjustedReturn(riskMetrics.riskAdjustedReturn);
+        
+        // 设置综合评分
+        result.setComprehensiveScore(riskMetrics.comprehensiveScore);
 
         return result;
     }
@@ -841,5 +941,656 @@ public class BacktestMetricsCalculator {
      */
     public BacktestResultDTO getResult() {
         return result;
+    }
+
+    // ====================== 新增风险指标计算方法 ======================
+
+    /**
+     * 计算峰度 (Kurtosis) - 衡量收益率分布的尾部风险
+     * 峰度越大，极端收益出现的概率越高
+     */
+    private BigDecimal calculateKurtosis(List<BigDecimal> returns) {
+        if (returns == null || returns.size() < 4) {
+            return BigDecimal.ZERO;
+        }
+
+        // 计算均值
+        double mean = returns.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0.0);
+        
+        // 计算方差
+        double variance = returns.stream()
+                .mapToDouble(r -> Math.pow(r.doubleValue() - mean, 2))
+                .average().orElse(0.0);
+        
+        if (variance <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        // 计算四阶中心矩
+        double fourthMoment = returns.stream()
+                .mapToDouble(r -> Math.pow(r.doubleValue() - mean, 4))
+                .average().orElse(0.0);
+
+        // 峰度 = 四阶中心矩 / 方差^2 - 3
+        double kurtosis = (fourthMoment / Math.pow(variance, 2)) - 3.0;
+        
+        return BigDecimal.valueOf(kurtosis).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算风险价值 (VaR) 和条件风险价值 (CVaR)
+     * @return [VaR95%, VaR99%, CVaR]
+     */
+    private BigDecimal[] calculateVaRAndCVaR(List<BigDecimal> returns) {
+        if (returns == null || returns.isEmpty()) {
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+        }
+
+        // 排序收益率（从小到大）
+        List<Double> sortedReturns = returns.stream()
+                .mapToDouble(BigDecimal::doubleValue)
+                .sorted()
+                .boxed()
+                .collect(Collectors.toList());
+
+        int n = sortedReturns.size();
+        
+        // 计算VaR (95%和99%置信度)
+        int var95Index = (int) Math.ceil(n * 0.05) - 1; // 5%分位数
+        int var99Index = (int) Math.ceil(n * 0.01) - 1; // 1%分位数
+        
+        var95Index = Math.max(0, Math.min(var95Index, n - 1));
+        var99Index = Math.max(0, Math.min(var99Index, n - 1));
+        
+        BigDecimal var95 = BigDecimal.valueOf(-sortedReturns.get(var95Index));
+        BigDecimal var99 = BigDecimal.valueOf(-sortedReturns.get(var99Index));
+
+        // 计算CVaR (条件风险价值) - 超过VaR95的损失的平均值
+        double cvarSum = 0.0;
+        int cvarCount = 0;
+        for (int i = 0; i <= var95Index; i++) {
+            cvarSum += sortedReturns.get(i);
+            cvarCount++;
+        }
+        
+        BigDecimal cvar = BigDecimal.ZERO;
+        if (cvarCount > 0) {
+            cvar = BigDecimal.valueOf(-cvarSum / cvarCount);
+        }
+
+        return new BigDecimal[]{
+                var95.setScale(4, RoundingMode.HALF_UP),
+                var99.setScale(4, RoundingMode.HALF_UP),
+                cvar.setScale(4, RoundingMode.HALF_UP)
+        };
+    }
+
+    /**
+     * 计算下行偏差 (Downside Deviation) - 只考虑负收益的标准差
+     */
+    private BigDecimal calculateDownsideDeviation(List<BigDecimal> returns, BigDecimal target) {
+        if (returns == null || returns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        List<Double> downsideReturns = returns.stream()
+                .filter(r -> r.compareTo(target) < 0)
+                .mapToDouble(r -> Math.pow(r.subtract(target).doubleValue(), 2))
+                .boxed()
+                .collect(Collectors.toList());
+
+        if (downsideReturns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        double variance = downsideReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return BigDecimal.valueOf(Math.sqrt(variance)).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算基准收益率序列
+     */
+    private List<BigDecimal> calculateBenchmarkReturns() {
+        List<BigDecimal> benchmarkReturns = new ArrayList<>();
+        
+        if (benchmarkCandlesticks == null || benchmarkCandlesticks.size() < 2) {
+            // 如果没有基准数据，返回与策略收益率相同长度的零收益率
+            for (int i = 0; i < fullPeriodStrategyReturns.size(); i++) {
+                benchmarkReturns.add(BigDecimal.ZERO);
+            }
+            return benchmarkReturns;
+        }
+
+        // 计算基准的对数收益率
+        for (int i = 1; i < benchmarkCandlesticks.size(); i++) {
+            BigDecimal current = benchmarkCandlesticks.get(i).getClose();
+            BigDecimal previous = benchmarkCandlesticks.get(i-1).getClose();
+            
+            if (previous.compareTo(BigDecimal.ZERO) > 0) {
+                double logReturn = Math.log(current.doubleValue() / previous.doubleValue());
+                benchmarkReturns.add(BigDecimal.valueOf(logReturn));
+            } else {
+                benchmarkReturns.add(BigDecimal.ZERO);
+            }
+        }
+
+        // 确保长度匹配
+        while (benchmarkReturns.size() < fullPeriodStrategyReturns.size()) {
+            benchmarkReturns.add(BigDecimal.ZERO);
+        }
+        
+        // 截取到相同长度
+        if (benchmarkReturns.size() > fullPeriodStrategyReturns.size()) {
+            benchmarkReturns = benchmarkReturns.subList(0, fullPeriodStrategyReturns.size());
+        }
+
+        return benchmarkReturns;
+    }
+
+    /**
+     * 计算跟踪误差 (Tracking Error) - 策略与基准收益率差异的标准差
+     */
+    private BigDecimal calculateTrackingError(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
+        if (strategyReturns == null || benchmarkReturns == null || 
+            strategyReturns.size() != benchmarkReturns.size()) {
+            return BigDecimal.ZERO;
+        }
+
+        List<BigDecimal> trackingDiffs = new ArrayList<>();
+        for (int i = 0; i < strategyReturns.size(); i++) {
+            BigDecimal diff = strategyReturns.get(i).subtract(benchmarkReturns.get(i));
+            trackingDiffs.add(diff);
+        }
+
+        // 计算跟踪差异的标准差
+        double mean = trackingDiffs.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0.0);
+        double variance = trackingDiffs.stream()
+                .mapToDouble(d -> Math.pow(d.doubleValue() - mean, 2))
+                .average().orElse(0.0);
+
+        return BigDecimal.valueOf(Math.sqrt(variance)).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算信息比率 (Information Ratio) - 超额收益相对于跟踪误差的比率
+     */
+    private BigDecimal calculateInformationRatio(List<BigDecimal> strategyReturns, 
+                                                List<BigDecimal> benchmarkReturns, 
+                                                BigDecimal trackingError) {
+        if (trackingError.compareTo(BigDecimal.ZERO) == 0 || 
+            strategyReturns == null || benchmarkReturns == null ||
+            strategyReturns.size() != benchmarkReturns.size()) {
+            return BigDecimal.ZERO;
+        }
+
+        // 计算平均超额收益
+        double avgExcessReturn = 0.0;
+        for (int i = 0; i < strategyReturns.size(); i++) {
+            avgExcessReturn += strategyReturns.get(i).subtract(benchmarkReturns.get(i)).doubleValue();
+        }
+        avgExcessReturn /= strategyReturns.size();
+
+        return BigDecimal.valueOf(avgExcessReturn).divide(trackingError, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算Sterling比率 - 年化收益与平均最大回撤的比率
+     */
+    private BigDecimal calculateSterlingRatio(BigDecimal annualizedReturn, List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal avgMaxDrawdown = calculateAverageMaxDrawdown(prices);
+        
+        if (avgMaxDrawdown.compareTo(BigDecimal.ZERO) == 0) {
+            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ? 
+                   new BigDecimal("999.9999") : BigDecimal.ZERO;
+        }
+
+        return annualizedReturn.divide(avgMaxDrawdown, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算Burke比率 - 年化收益与平方根回撤的比率
+     */
+    private BigDecimal calculateBurkeRatio(BigDecimal annualizedReturn, List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal sqrtDrawdown = calculateSquareRootDrawdown(prices);
+        
+        if (sqrtDrawdown.compareTo(BigDecimal.ZERO) == 0) {
+            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ? 
+                   new BigDecimal("999.9999") : BigDecimal.ZERO;
+        }
+
+        return annualizedReturn.divide(sqrtDrawdown, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算修正夏普比率 - 考虑偏度和峰度的夏普比率
+     */
+    private BigDecimal calculateModifiedSharpeRatio(BigDecimal sharpeRatio, BigDecimal skewness, BigDecimal kurtosis) {
+        if (sharpeRatio == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // 修正因子：考虑偏度和峰度的影响
+        // 修正夏普比率 = 夏普比率 * (1 + (偏度/6)*夏普比率 + (峰度-3)/24*夏普比率^2)
+        BigDecimal sr = sharpeRatio;
+        BigDecimal s = skewness != null ? skewness : BigDecimal.ZERO;
+        BigDecimal k = kurtosis != null ? kurtosis : BigDecimal.ZERO;
+
+        BigDecimal term1 = s.divide(BigDecimal.valueOf(6), 8, RoundingMode.HALF_UP).multiply(sr);
+        BigDecimal term2 = k.subtract(BigDecimal.valueOf(3))
+                           .divide(BigDecimal.valueOf(24), 8, RoundingMode.HALF_UP)
+                           .multiply(sr.multiply(sr));
+
+        BigDecimal modifier = BigDecimal.ONE.add(term1).subtract(term2);
+        
+        return sr.multiply(modifier).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算上涨和下跌捕获率
+     * @return [上涨捕获率, 下跌捕获率]
+     */
+    private BigDecimal[] calculateCaptureRatios(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
+        if (strategyReturns == null || benchmarkReturns == null || 
+            strategyReturns.size() != benchmarkReturns.size()) {
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+        }
+
+        double upStrategySum = 0.0, upBenchmarkSum = 0.0;
+        double downStrategySum = 0.0, downBenchmarkSum = 0.0;
+        int upCount = 0, downCount = 0;
+
+        for (int i = 0; i < strategyReturns.size(); i++) {
+            double strategyReturn = strategyReturns.get(i).doubleValue();
+            double benchmarkReturn = benchmarkReturns.get(i).doubleValue();
+
+            if (benchmarkReturn > 0) {
+                upStrategySum += strategyReturn;
+                upBenchmarkSum += benchmarkReturn;
+                upCount++;
+            } else if (benchmarkReturn < 0) {
+                downStrategySum += strategyReturn;
+                downBenchmarkSum += benchmarkReturn;
+                downCount++;
+            }
+        }
+
+        BigDecimal uptrendCapture = BigDecimal.ZERO;
+        BigDecimal downtrendCapture = BigDecimal.ZERO;
+
+        if (upCount > 0 && upBenchmarkSum != 0) {
+            uptrendCapture = BigDecimal.valueOf(upStrategySum / upBenchmarkSum).setScale(4, RoundingMode.HALF_UP);
+        }
+
+        if (downCount > 0 && downBenchmarkSum != 0) {
+            downtrendCapture = BigDecimal.valueOf(downStrategySum / downBenchmarkSum).setScale(4, RoundingMode.HALF_UP);
+        }
+
+        return new BigDecimal[]{uptrendCapture, downtrendCapture};
+    }
+
+    /**
+     * 计算最大回撤持续期 - 从峰值到恢复的最长时间（以交易日计算）
+     */
+    private BigDecimal calculateMaxDrawdownDuration(List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        int maxDuration = 0;
+        int currentDuration = 0;
+        BigDecimal peak = prices.get(0);
+        boolean inDrawdown = false;
+
+        for (int i = 1; i < prices.size(); i++) {
+            BigDecimal currentPrice = prices.get(i);
+
+            if (currentPrice.compareTo(peak) >= 0) {
+                // 新高或恢复到峰值
+                if (inDrawdown) {
+                    maxDuration = Math.max(maxDuration, currentDuration);
+                    inDrawdown = false;
+                    currentDuration = 0;
+                }
+                peak = currentPrice;
+            } else {
+                // 在回撤中
+                if (!inDrawdown) {
+                    inDrawdown = true;
+                    currentDuration = 1;
+                } else {
+                    currentDuration++;
+                }
+            }
+        }
+
+        // 如果结束时仍在回撤中
+        if (inDrawdown) {
+            maxDuration = Math.max(maxDuration, currentDuration);
+        }
+
+        return BigDecimal.valueOf(maxDuration);
+    }
+
+    /**
+     * 计算痛苦指数 - 回撤深度与持续时间的综合指标
+     */
+    private BigDecimal calculatePainIndex(List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        double totalPain = 0.0;
+        BigDecimal peak = prices.get(0);
+
+        for (int i = 1; i < prices.size(); i++) {
+            BigDecimal currentPrice = prices.get(i);
+            
+            if (currentPrice.compareTo(peak) > 0) {
+                peak = currentPrice;
+            } else {
+                // 计算回撤百分比
+                BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
+                totalPain += drawdown.doubleValue();
+            }
+        }
+
+        // 平均痛苦指数
+        return BigDecimal.valueOf(totalPain / prices.size()).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算风险调整收益 - 综合多种风险因素的收益评估
+     */
+    private BigDecimal calculateRiskAdjustedReturn(BigDecimal totalReturn, RiskMetrics riskMetrics) {
+        if (totalReturn == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // 风险调整收益 = 总收益 / (1 + 综合风险因子)
+        // 综合风险因子考虑波动率、最大回撤、下行偏差等
+        
+        BigDecimal volatilityFactor = riskMetrics.volatility != null ? 
+                riskMetrics.volatility.abs() : BigDecimal.ZERO;
+        BigDecimal maxDrawdownFactor = tradeStats.maxDrawdown != null ? 
+                tradeStats.maxDrawdown.abs() : BigDecimal.ZERO;
+        BigDecimal downsideFactor = riskMetrics.downsideDeviation != null ? 
+                riskMetrics.downsideDeviation.abs() : BigDecimal.ZERO;
+
+        // 综合风险因子 = 0.4*波动率 + 0.4*最大回撤 + 0.2*下行偏差
+        BigDecimal riskFactor = volatilityFactor.multiply(new BigDecimal("0.4"))
+                .add(maxDrawdownFactor.multiply(new BigDecimal("0.4")))
+                .add(downsideFactor.multiply(new BigDecimal("0.2")));
+
+        BigDecimal denominator = BigDecimal.ONE.add(riskFactor);
+        
+        if (denominator.compareTo(BigDecimal.ZERO) == 0) {
+            return totalReturn;
+        }
+
+        return totalReturn.divide(denominator, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算综合评分 (0-10分) - 科学合理的评分体系
+     */
+    private BigDecimal calculateComprehensiveScore(ReturnMetrics returnMetrics, 
+                                                  TradeStatistics tradeStats, 
+                                                  RiskMetrics riskMetrics) {
+        
+        // 评分权重分配 (总计100%)
+        // 收益指标: 35%
+        // 风险指标: 35%  
+        // 交易质量: 20%
+        // 稳定性: 10%
+        
+        double totalScore = 0.0;
+        
+        // 1. 收益指标评分 (35分) - 年化收益率、总收益率、盈利因子
+        double returnScore = calculateReturnScore(returnMetrics, tradeStats) * 0.35;
+        
+        // 2. 风险指标评分 (35分) - 夏普比率、最大回撤、波动率、VaR等
+        double riskScore = calculateRiskScore(riskMetrics, tradeStats) * 0.35;
+        
+        // 3. 交易质量评分 (20分) - 胜率、交易次数、平均盈利等
+        double tradeQualityScore = calculateTradeQualityScore(tradeStats) * 0.20;
+        
+        // 4. 稳定性评分 (10分) - 偏度、峰度、痛苦指数等
+        double stabilityScore = calculateStabilityScore(riskMetrics) * 0.10;
+        
+        totalScore = returnScore + riskScore + tradeQualityScore + stabilityScore;
+        
+        // 确保评分在0-10之间
+        totalScore = Math.max(0.0, Math.min(10.0, totalScore));
+        
+        return BigDecimal.valueOf(totalScore).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算收益指标评分 (0-10分)
+     */
+    private double calculateReturnScore(ReturnMetrics returnMetrics, TradeStatistics tradeStats) {
+        double score = 0.0;
+        
+        // 年化收益率评分 (40%) - 20%年化收益率得满分
+        if (returnMetrics.annualizedReturn != null) {
+            double annualReturn = returnMetrics.annualizedReturn.doubleValue();
+            if (annualReturn > 0) {
+                score += Math.min(10.0, (annualReturn / 0.20) * 10.0) * 0.4;
+            }
+        }
+        
+        // 总收益率评分 (30%) - 50%总收益率得满分
+        if (returnMetrics.totalReturn != null) {
+            double totalReturn = returnMetrics.totalReturn.doubleValue();
+            if (totalReturn > 0) {
+                score += Math.min(10.0, (totalReturn / 0.50) * 10.0) * 0.3;
+            }
+        }
+        
+        // 盈利因子评分 (30%) - 盈利因子2.0得满分
+        if (tradeStats.profitFactor != null) {
+            double profitFactor = tradeStats.profitFactor.doubleValue();
+            if (profitFactor > 1.0) {
+                score += Math.min(10.0, ((profitFactor - 1.0) / 1.0) * 10.0) * 0.3;
+            }
+        }
+        
+        return score;
+    }
+
+    /**
+     * 计算风险指标评分 (0-10分) - 风险越低得分越高
+     */
+    private double calculateRiskScore(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
+        double score = 0.0;
+        
+        // 夏普比率评分 (30%) - 夏普比率2.0得满分
+        if (riskMetrics.sharpeRatio != null) {
+            double sharpe = riskMetrics.sharpeRatio.doubleValue();
+            if (sharpe > 0) {
+                score += Math.min(10.0, (sharpe / 2.0) * 10.0) * 0.3;
+            }
+        }
+        
+        // 最大回撤评分 (25%) - 最大回撤越小得分越高，5%以下得满分
+        if (tradeStats.maxDrawdown != null) {
+            double maxDD = tradeStats.maxDrawdown.abs().doubleValue();
+            if (maxDD <= 0.05) {
+                score += 10.0 * 0.25;
+            } else if (maxDD <= 0.30) {
+                score += (1.0 - (maxDD - 0.05) / 0.25) * 10.0 * 0.25;
+            }
+        }
+        
+        // Sortino比率评分 (20%) - Sortino比率1.5得满分
+        if (riskMetrics.sortinoRatio != null) {
+            double sortino = riskMetrics.sortinoRatio.doubleValue();
+            if (sortino > 0) {
+                score += Math.min(10.0, (sortino / 1.5) * 10.0) * 0.2;
+            }
+        }
+        
+        // VaR评分 (15%) - VaR95%在2%以下得满分
+        if (riskMetrics.var95 != null) {
+            double var95 = riskMetrics.var95.doubleValue();
+            if (var95 <= 0.02) {
+                score += 10.0 * 0.15;
+            } else if (var95 <= 0.10) {
+                score += (1.0 - (var95 - 0.02) / 0.08) * 10.0 * 0.15;
+            }
+        }
+        
+        // Calmar比率评分 (10%) - Calmar比率1.0得满分
+        if (riskMetrics.calmarRatio != null) {
+            double calmar = riskMetrics.calmarRatio.doubleValue();
+            if (calmar > 0) {
+                score += Math.min(10.0, calmar * 10.0) * 0.1;
+            }
+        }
+        
+        return score;
+    }
+
+    /**
+     * 计算交易质量评分 (0-10分)
+     */
+    private double calculateTradeQualityScore(TradeStatistics tradeStats) {
+        double score = 0.0;
+        
+        // 胜率评分 (40%) - 胜率65%以上得满分
+        if (tradeStats.winRate != null) {
+            double winRate = tradeStats.winRate.doubleValue();
+            if (winRate >= 0.65) {
+                score += 10.0 * 0.4;
+            } else if (winRate >= 0.30) {
+                score += (winRate - 0.30) / 0.35 * 10.0 * 0.4;
+            }
+        }
+        
+        // 交易次数评分 (30%) - 10-100次交易为最佳范围
+        if (tradeStats.tradeCount >= 10 && tradeStats.tradeCount <= 100) {
+            score += 10.0 * 0.3;
+        } else if (tradeStats.tradeCount > 100 && tradeStats.tradeCount <= 200) {
+            score += (1.0 - (tradeStats.tradeCount - 100) / 100.0) * 10.0 * 0.3;
+        } else if (tradeStats.tradeCount >= 5 && tradeStats.tradeCount < 10) {
+            score += (tradeStats.tradeCount - 5) / 5.0 * 10.0 * 0.3;
+        }
+        
+        // 平均盈利评分 (30%) - 平均每笔交易盈利2%以上得满分
+        if (tradeStats.averageProfit != null && tradeStats.tradeCount > 0) {
+            double avgProfit = tradeStats.averageProfit.doubleValue();
+            if (avgProfit > 0) {
+                score += Math.min(10.0, (avgProfit / 0.02) * 10.0) * 0.3;
+            }
+        }
+        
+        return score;
+    }
+
+    /**
+     * 计算稳定性评分 (0-10分)
+     */
+    private double calculateStabilityScore(RiskMetrics riskMetrics) {
+        double score = 0.0;
+        
+        // 偏度评分 (40%) - 偏度接近0得分最高
+        if (riskMetrics.skewness != null) {
+            double skewness = Math.abs(riskMetrics.skewness.doubleValue());
+            if (skewness <= 0.5) {
+                score += (1.0 - skewness / 0.5) * 10.0 * 0.4;
+            }
+        }
+        
+        // 峰度评分 (30%) - 峰度接近0得分最高
+        if (riskMetrics.kurtosis != null) {
+            double kurtosis = Math.abs(riskMetrics.kurtosis.doubleValue());
+            if (kurtosis <= 2.0) {
+                score += (1.0 - kurtosis / 2.0) * 10.0 * 0.3;
+            }
+        }
+        
+        // 痛苦指数评分 (30%) - 痛苦指数越低得分越高
+        if (riskMetrics.painIndex != null) {
+            double painIndex = riskMetrics.painIndex.doubleValue();
+            if (painIndex <= 0.01) {
+                score += 10.0 * 0.3;
+            } else if (painIndex <= 0.05) {
+                score += (1.0 - (painIndex - 0.01) / 0.04) * 10.0 * 0.3;
+            }
+        }
+        
+        return score;
+    }
+
+    // ====================== 辅助计算方法 ======================
+
+    /**
+     * 计算平均最大回撤
+     */
+    private BigDecimal calculateAverageMaxDrawdown(List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        List<BigDecimal> drawdowns = new ArrayList<>();
+        BigDecimal peak = prices.get(0);
+
+        for (int i = 1; i < prices.size(); i++) {
+            BigDecimal currentPrice = prices.get(i);
+            
+            if (currentPrice.compareTo(peak) > 0) {
+                peak = currentPrice;
+            } else {
+                BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
+                drawdowns.add(drawdown);
+            }
+        }
+
+        if (drawdowns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal sum = drawdowns.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        return sum.divide(BigDecimal.valueOf(drawdowns.size()), 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算平方根回撤
+     */
+    private BigDecimal calculateSquareRootDrawdown(List<BigDecimal> prices) {
+        if (prices == null || prices.size() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        double sumSquaredDrawdowns = 0.0;
+        int drawdownCount = 0;
+        BigDecimal peak = prices.get(0);
+
+        for (int i = 1; i < prices.size(); i++) {
+            BigDecimal currentPrice = prices.get(i);
+            
+            if (currentPrice.compareTo(peak) > 0) {
+                peak = currentPrice;
+            } else {
+                BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
+                sumSquaredDrawdowns += Math.pow(drawdown.doubleValue(), 2);
+                drawdownCount++;
+            }
+        }
+
+        if (drawdownCount == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        double avgSquaredDrawdown = sumSquaredDrawdowns / drawdownCount;
+        return BigDecimal.valueOf(Math.sqrt(avgSquaredDrawdown)).setScale(4, RoundingMode.HALF_UP);
     }
 }

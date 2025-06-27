@@ -225,6 +225,104 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal profitFactor;
 
     /**
+     * 综合评分 (0-10分) - 基于科学合理的评分体系
+     */
+    @Column(name = "comprehensive_score", precision = 3, scale = 2)
+    private BigDecimal comprehensiveScore;
+
+    // ====================== 新增高级风险指标字段 ======================
+    
+    /**
+     * 峰度 - 衡量收益率分布的尾部风险
+     */
+    @Column(name = "kurtosis", precision = 10, scale = 4)
+    private BigDecimal kurtosis;
+    
+    /**
+     * 条件风险价值 (CVaR) - 极端损失的期望值
+     */
+    @Column(name = "cvar", precision = 10, scale = 4)
+    private BigDecimal cvar;
+    
+    /**
+     * 95%置信度下的风险价值 (VaR95%)
+     */
+    @Column(name = "var95", precision = 10, scale = 4)
+    private BigDecimal var95;
+    
+    /**
+     * 99%置信度下的风险价值 (VaR99%)
+     */
+    @Column(name = "var99", precision = 10, scale = 4)
+    private BigDecimal var99;
+    
+    /**
+     * 信息比率 - 超额收益相对于跟踪误差的比率
+     */
+    @Column(name = "information_ratio", precision = 10, scale = 4)
+    private BigDecimal informationRatio;
+    
+    /**
+     * 跟踪误差 - 策略与基准收益率的标准差
+     */
+    @Column(name = "tracking_error", precision = 10, scale = 4)
+    private BigDecimal trackingError;
+    
+    /**
+     * Sterling比率 - 年化收益与平均最大回撤的比率
+     */
+    @Column(name = "sterling_ratio", precision = 10, scale = 4)
+    private BigDecimal sterlingRatio;
+    
+    /**
+     * Burke比率 - 年化收益与平方根回撤的比率
+     */
+    @Column(name = "burke_ratio", precision = 10, scale = 4)
+    private BigDecimal burkeRatio;
+    
+    /**
+     * 修正夏普比率 - 考虑偏度和峰度的夏普比率
+     */
+    @Column(name = "modified_sharpe_ratio", precision = 10, scale = 4)
+    private BigDecimal modifiedSharpeRatio;
+    
+    /**
+     * 下行偏差 - 只考虑负收益的标准差
+     */
+    @Column(name = "downside_deviation", precision = 10, scale = 4)
+    private BigDecimal downsideDeviation;
+    
+    /**
+     * 上涨捕获率 - 基准上涨时策略的表现
+     */
+    @Column(name = "uptrend_capture", precision = 10, scale = 4)
+    private BigDecimal uptrendCapture;
+    
+    /**
+     * 下跌捕获率 - 基准下跌时策略的表现
+     */
+    @Column(name = "downtrend_capture", precision = 10, scale = 4)
+    private BigDecimal downtrendCapture;
+    
+    /**
+     * 最大回撤持续期 - 从峰值到恢复的最长时间（天数）
+     */
+    @Column(name = "max_drawdown_duration", precision = 10, scale = 2)
+    private BigDecimal maxDrawdownDuration;
+    
+    /**
+     * 痛苦指数 - 回撤深度与持续时间的综合指标
+     */
+    @Column(name = "pain_index", precision = 10, scale = 4)
+    private BigDecimal painIndex;
+    
+    /**
+     * 风险调整收益 - 综合多种风险因素的收益评估
+     */
+    @Column(name = "risk_adjusted_return", precision = 10, scale = 4)
+    private BigDecimal riskAdjustedReturn;
+
+    /**
      * 创建时间
      */
     @Column(name = "create_time")

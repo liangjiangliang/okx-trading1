@@ -37,12 +37,32 @@ CREATE TABLE IF NOT EXISTS `backtest_summary`
  `ulcer_index`         decimal(10, 4) DEFAULT NULL COMMENT 'Ulcer指数（回撤深度和持续时间的综合指标）',
  `skewness`            decimal(10, 4) DEFAULT NULL COMMENT '偏度（收益分布的偏斜程度）',
  `profit_factor`       decimal(10, 4) DEFAULT NULL COMMENT '盈利因子（总盈利/总亏损）',
+ `comprehensive_score` decimal(3, 2)  DEFAULT NULL COMMENT '综合评分 (0-10分)',
+ `kurtosis`            decimal(10, 4) DEFAULT NULL COMMENT '峰度（收益率分布的尾部风险）',
+ `cvar`                decimal(10, 4) DEFAULT NULL COMMENT '条件风险价值（极端损失的期望值）',
+ `var95`               decimal(10, 4) DEFAULT NULL COMMENT '95%置信度下的风险价值',
+ `var99`               decimal(10, 4) DEFAULT NULL COMMENT '99%置信度下的风险价值',
+ `information_ratio`   decimal(10, 4) DEFAULT NULL COMMENT '信息比率（超额收益相对于跟踪误差的比率）',
+ `tracking_error`      decimal(10, 4) DEFAULT NULL COMMENT '跟踪误差（策略与基准收益率的标准差）',
+ `sterling_ratio`      decimal(10, 4) DEFAULT NULL COMMENT 'Sterling比率（年化收益与平均最大回撤的比率）',
+ `burke_ratio`         decimal(10, 4) DEFAULT NULL COMMENT 'Burke比率（年化收益与平方根回撤的比率）',
+ `modified_sharpe_ratio` decimal(10, 4) DEFAULT NULL COMMENT '修正夏普比率（考虑偏度和峰度的夏普比率）',
+ `downside_deviation`  decimal(10, 4) DEFAULT NULL COMMENT '下行偏差（只考虑负收益的标准差）',
+ `uptrend_capture`     decimal(10, 4) DEFAULT NULL COMMENT '上涨捕获率（基准上涨时策略的表现）',
+ `downtrend_capture`   decimal(10, 4) DEFAULT NULL COMMENT '下跌捕获率（基准下跌时策略的表现）',
+ `max_drawdown_duration` decimal(10, 2) DEFAULT NULL COMMENT '最大回撤持续期（从峰值到恢复的最长时间）',
+ `pain_index`          decimal(10, 4) DEFAULT NULL COMMENT '痛苦指数（回撤深度与持续时间的综合指标）',
+ `risk_adjusted_return` decimal(10, 4) DEFAULT NULL COMMENT '风险调整收益（综合多种风险因素的收益评估）',
  PRIMARY KEY (`id`),
  UNIQUE KEY `UK_pejcjjk0mdb200ay5mffbomkt` (`backtest_id`),
  KEY `idx_backtest_summary_omega` (`omega`),
  KEY `idx_backtest_summary_alpha` (`alpha`),
  KEY `idx_backtest_summary_beta` (`beta`),
- KEY `idx_backtest_summary_profit_factor` (`profit_factor`)) ENGINE = InnoDB
+ KEY `idx_backtest_summary_profit_factor` (`profit_factor`),
+ KEY `idx_backtest_summary_comprehensive_score` (`comprehensive_score`),
+ KEY `idx_backtest_summary_information_ratio` (`information_ratio`),
+ KEY `idx_backtest_summary_modified_sharpe_ratio` (`modified_sharpe_ratio`),
+ KEY `idx_backtest_summary_pain_index` (`pain_index`)) ENGINE = InnoDB
                                                              AUTO_INCREMENT = 236
                                                              DEFAULT CHARSET = utf8mb4
                                                              COLLATE = utf8mb4_0900_ai_ci;

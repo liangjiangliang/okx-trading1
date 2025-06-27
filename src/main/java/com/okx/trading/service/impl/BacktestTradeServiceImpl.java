@@ -155,6 +155,23 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .ulcerIndex(backtestResult.getUlcerIndex())
                 .skewness(backtestResult.getSkewness())
                 .profitFactor(backtestResult.getProfitFactor())
+                .comprehensiveScore(backtestResult.getComprehensiveScore())
+                // 新增高级风险指标
+                .kurtosis(backtestResult.getKurtosis())
+                .cvar(backtestResult.getCvar())
+                .var95(backtestResult.getVar95())
+                .var99(backtestResult.getVar99())
+                .informationRatio(backtestResult.getInformationRatio())
+                .trackingError(backtestResult.getTrackingError())
+                .sterlingRatio(backtestResult.getSterlingRatio())
+                .burkeRatio(backtestResult.getBurkeRatio())
+                .modifiedSharpeRatio(backtestResult.getModifiedSharpeRatio())
+                .downsideDeviation(backtestResult.getDownsideDeviation())
+                .uptrendCapture(backtestResult.getUptrendCapture())
+                .downtrendCapture(backtestResult.getDowntrendCapture())
+                .maxDrawdownDuration(backtestResult.getMaxDrawdownDuration())
+                .painIndex(backtestResult.getPainIndex())
+                .riskAdjustedReturn(backtestResult.getRiskAdjustedReturn())
                 .build();
 
         // 保存汇总信息

@@ -143,6 +143,86 @@ public class BacktestResultDTO {
      */
     private BigDecimal totalFee;
 
+    /**
+     * 峰度 - 衡量收益率分布的尾部风险
+     */
+    private BigDecimal kurtosis;
+    
+    /**
+     * 条件风险价值 (CVaR) - 极端损失的期望值
+     */
+    private BigDecimal cvar;
+    
+    /**
+     * 95%置信度下的风险价值 (VaR95%)
+     */
+    private BigDecimal var95;
+    
+    /**
+     * 99%置信度下的风险价值 (VaR99%)
+     */
+    private BigDecimal var99;
+    
+    /**
+     * 信息比率 - 超额收益相对于跟踪误差的比率
+     */
+    private BigDecimal informationRatio;
+    
+    /**
+     * 跟踪误差 - 策略与基准收益率的标准差
+     */
+    private BigDecimal trackingError;
+    
+    /**
+     * Sterling比率 - 年化收益与平均最大回撤的比率
+     */
+    private BigDecimal sterlingRatio;
+    
+    /**
+     * Burke比率 - 年化收益与平方根回撤的比率
+     */
+    private BigDecimal burkeRatio;
+    
+    /**
+     * 修正夏普比率 - 考虑偏度和峰度的夏普比率
+     */
+    private BigDecimal modifiedSharpeRatio;
+    
+    /**
+     * 下行偏差 - 只考虑负收益的标准差
+     */
+    private BigDecimal downsideDeviation;
+    
+    /**
+     * 上涨捕获率 - 基准上涨时策略的表现
+     */
+    private BigDecimal uptrendCapture;
+    
+    /**
+     * 下跌捕获率 - 基准下跌时策略的表现
+     */
+    private BigDecimal downtrendCapture;
+    
+    /**
+     * 最大回撤持续期 - 从峰值到恢复的最长时间
+     */
+    private BigDecimal maxDrawdownDuration;
+    
+    /**
+     * 痛苦指数 - 回撤深度与持续时间的综合指标
+     */
+    private BigDecimal painIndex;
+    
+    /**
+     * 风险调整收益 - 综合多种风险因素的收益评估
+     */
+    private BigDecimal riskAdjustedReturn;
+    
+    /**
+     * 综合评分 (0-10分) - 基于科学合理的评分体系
+     */
+    private BigDecimal comprehensiveScore;
+
     public BacktestResultDTO() {
     }
 
@@ -392,5 +472,133 @@ public class BacktestResultDTO {
 
     public void setSkewness(BigDecimal skewness) {
         this.skewness = skewness;
+    }
+
+    public BigDecimal getKurtosis() {
+        return kurtosis;
+    }
+
+    public void setKurtosis(BigDecimal kurtosis) {
+        this.kurtosis = kurtosis;
+    }
+
+    public BigDecimal getCvar() {
+        return cvar;
+    }
+
+    public void setCvar(BigDecimal cvar) {
+        this.cvar = cvar;
+    }
+
+    public BigDecimal getVar95() {
+        return var95;
+    }
+
+    public void setVar95(BigDecimal var95) {
+        this.var95 = var95;
+    }
+
+    public BigDecimal getVar99() {
+        return var99;
+    }
+
+    public void setVar99(BigDecimal var99) {
+        this.var99 = var99;
+    }
+
+    public BigDecimal getInformationRatio() {
+        return informationRatio;
+    }
+
+    public void setInformationRatio(BigDecimal informationRatio) {
+        this.informationRatio = informationRatio;
+    }
+
+    public BigDecimal getTrackingError() {
+        return trackingError;
+    }
+
+    public void setTrackingError(BigDecimal trackingError) {
+        this.trackingError = trackingError;
+    }
+
+    public BigDecimal getSterlingRatio() {
+        return sterlingRatio;
+    }
+
+    public void setSterlingRatio(BigDecimal sterlingRatio) {
+        this.sterlingRatio = sterlingRatio;
+    }
+
+    public BigDecimal getBurkeRatio() {
+        return burkeRatio;
+    }
+
+    public void setBurkeRatio(BigDecimal burkeRatio) {
+        this.burkeRatio = burkeRatio;
+    }
+
+    public BigDecimal getModifiedSharpeRatio() {
+        return modifiedSharpeRatio;
+    }
+
+    public void setModifiedSharpeRatio(BigDecimal modifiedSharpeRatio) {
+        this.modifiedSharpeRatio = modifiedSharpeRatio;
+    }
+
+    public BigDecimal getDownsideDeviation() {
+        return downsideDeviation;
+    }
+
+    public void setDownsideDeviation(BigDecimal downsideDeviation) {
+        this.downsideDeviation = downsideDeviation;
+    }
+
+    public BigDecimal getUptrendCapture() {
+        return uptrendCapture;
+    }
+
+    public void setUptrendCapture(BigDecimal uptrendCapture) {
+        this.uptrendCapture = uptrendCapture;
+    }
+
+    public BigDecimal getDowntrendCapture() {
+        return downtrendCapture;
+    }
+
+    public void setDowntrendCapture(BigDecimal downtrendCapture) {
+        this.downtrendCapture = downtrendCapture;
+    }
+
+    public BigDecimal getMaxDrawdownDuration() {
+        return maxDrawdownDuration;
+    }
+
+    public void setMaxDrawdownDuration(BigDecimal maxDrawdownDuration) {
+        this.maxDrawdownDuration = maxDrawdownDuration;
+    }
+
+    public BigDecimal getPainIndex() {
+        return painIndex;
+    }
+
+    public void setPainIndex(BigDecimal painIndex) {
+        this.painIndex = painIndex;
+    }
+
+    public BigDecimal getRiskAdjustedReturn() {
+        return riskAdjustedReturn;
+    }
+
+    public void setRiskAdjustedReturn(BigDecimal riskAdjustedReturn) {
+        this.riskAdjustedReturn = riskAdjustedReturn;
+    }
+
+    public BigDecimal getComprehensiveScore() {
+        return comprehensiveScore;
+    }
+
+    public void setComprehensiveScore(BigDecimal comprehensiveScore) {
+        this.comprehensiveScore = comprehensiveScore;
     }
 }

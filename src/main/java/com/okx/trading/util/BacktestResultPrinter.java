@@ -86,6 +86,32 @@ public class BacktestResultPrinter {
             sb.append("波动率: ").append(String.format("%.4f", result.getVolatility())).append("\n");
         }
         
+        // 新增高级风险指标
+        if (result.getKurtosis() != null) {
+            sb.append("峰度: ").append(String.format("%.4f", result.getKurtosis())).append("\n");
+        }
+        if (result.getVar95() != null) {
+            sb.append("VaR95%: ").append(String.format("%.4f", result.getVar95())).append("\n");
+        }
+        if (result.getCvar() != null) {
+            sb.append("CVaR: ").append(String.format("%.4f", result.getCvar())).append("\n");
+        }
+        if (result.getInformationRatio() != null) {
+            sb.append("信息比率: ").append(String.format("%.4f", result.getInformationRatio())).append("\n");
+        }
+        if (result.getModifiedSharpeRatio() != null) {
+            sb.append("修正夏普比率: ").append(String.format("%.4f", result.getModifiedSharpeRatio())).append("\n");
+        }
+        if (result.getPainIndex() != null) {
+            sb.append("痛苦指数: ").append(String.format("%.4f", result.getPainIndex())).append("\n");
+        }
+        
+        // 综合评分
+        if (result.getComprehensiveScore() != null) {
+            sb.append("------------------------------------------------------\n");
+            sb.append("综合评分: ").append(String.format("%.2f/10", result.getComprehensiveScore())).append("\n");
+        }
+        
         // 费用信息
         if (result.getTotalFee() != null) {
             sb.append("总手续费: ").append(String.format("%,.2f", result.getTotalFee())).append("\n");
@@ -167,6 +193,32 @@ public class BacktestResultPrinter {
         }
         if (entity.getVolatility() != null) {
             sb.append("波动率: ").append(String.format("%.4f", entity.getVolatility())).append("\n");
+        }
+        
+        // 新增高级风险指标
+        if (entity.getKurtosis() != null) {
+            sb.append("峰度: ").append(String.format("%.4f", entity.getKurtosis())).append("\n");
+        }
+        if (entity.getVar95() != null) {
+            sb.append("VaR95%: ").append(String.format("%.4f", entity.getVar95())).append("\n");
+        }
+        if (entity.getCvar() != null) {
+            sb.append("CVaR: ").append(String.format("%.4f", entity.getCvar())).append("\n");
+        }
+        if (entity.getInformationRatio() != null) {
+            sb.append("信息比率: ").append(String.format("%.4f", entity.getInformationRatio())).append("\n");
+        }
+        if (entity.getModifiedSharpeRatio() != null) {
+            sb.append("修正夏普比率: ").append(String.format("%.4f", entity.getModifiedSharpeRatio())).append("\n");
+        }
+        if (entity.getPainIndex() != null) {
+            sb.append("痛苦指数: ").append(String.format("%.4f", entity.getPainIndex())).append("\n");
+        }
+        
+        // 综合评分
+        if (entity.getComprehensiveScore() != null) {
+            sb.append("------------------------------------------------------\n");
+            sb.append("综合评分: ").append(String.format("%.2f/10", entity.getComprehensiveScore())).append("\n");
         }
         
         // 费用信息
