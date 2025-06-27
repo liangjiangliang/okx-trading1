@@ -18,6 +18,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
 import org.ta4j.core.num.DecimalNum;
@@ -226,6 +227,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 执行交易信号
      */
+    @Async
     private void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
         try {
             BigDecimal preAmount = null;
