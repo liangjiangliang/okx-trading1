@@ -18,7 +18,6 @@ import com.okx.trading.model.trade.Order;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +45,6 @@ import java.math.RoundingMode;
 @RestController
 @RequestMapping("/api/backtest/ta4j")
 @Api(tags = "Ta4j回测控制器", description = "提供基于Ta4j库的策略回测及结果存储接口")
-@RequiredArgsConstructor
 public class Ta4jBacktestController {
 
     private final HistoricalDataService historicalDataService;
@@ -68,16 +66,51 @@ public class Ta4jBacktestController {
     private final RealTimeStrategyService realTimeStrategyService;
 
     // 线程池
-    @Qualifier("tradeIndicatorCalculateScheduler")
-    @Autowired
-    private ExecutorService scheduler;
-
-    @Qualifier("realTimeTradeIndicatorCalculateScheduler")
-    @Autowired
-    private ExecutorService realTimeTradeScheduler;
+    private final ExecutorService scheduler;
+    private final ExecutorService realTimeTradeScheduler;
 
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    @Autowired
+    public Ta4jBacktestController(HistoricalDataService historicalDataService,
+                                 Ta4jBacktestService ta4jBacktestService,
+                                 BacktestTradeService backtestTradeService,
+                                 MarketDataService marketDataService,
+                                 StrategyInfoService strategyInfoService,
+                                 DeepSeekApiService deepSeekApiService,
+                                 DynamicStrategyService dynamicStrategyService,
+                                 JavaCompilerDynamicStrategyService javaCompilerDynamicStrategyService,
+                                 SmartDynamicStrategyService smartDynamicStrategyService,
+                                 StrategyConversationService strategyConversationService,
+                                 CandlestickBarSeriesConverter barSeriesConverter,
+                                 RealTimeOrderService realTimeOrderService,
+                                 KlineCacheService klineCacheService,
+                                 OkxApiService okxApiService,
+                                 TradeController tradeController,
+                                 RealTimeStrategyManager realTimeStrategyManager,
+                                 RealTimeStrategyService realTimeStrategyService,
+                                 @Qualifier("tradeIndicatorCalculateScheduler") ExecutorService scheduler,
+                                 @Qualifier("realTimeTradeIndicatorCalculateScheduler") ExecutorService realTimeTradeScheduler) {
+        this.historicalDataService = historicalDataService;
+        this.ta4jBacktestService = ta4jBacktestService;
+        this.backtestTradeService = backtestTradeService;
+        this.marketDataService = marketDataService;
+        this.strategyInfoService = strategyInfoService;
+        this.deepSeekApiService = deepSeekApiService;
+        this.dynamicStrategyService = dynamicStrategyService;
+        this.javaCompilerDynamicStrategyService = javaCompilerDynamicStrategyService;
+        this.smartDynamicStrategyService = smartDynamicStrategyService;
+        this.strategyConversationService = strategyConversationService;
+        this.barSeriesConverter = barSeriesConverter;
+        this.realTimeOrderService = realTimeOrderService;
+        this.klineCacheService = klineCacheService;
+        this.okxApiService = okxApiService;
+        this.tradeController = tradeController;
+        this.realTimeStrategyManager = realTimeStrategyManager;
+        this.realTimeStrategyService = realTimeStrategyService;
+        this.scheduler = scheduler;
+        this.realTimeTradeScheduler = realTimeTradeScheduler;
+    }
 
     @GetMapping("/run")
     @ApiOperation(value = "执行Ta4j策略回测", notes = "使用Ta4j库进行策略回测，可选保存结果")

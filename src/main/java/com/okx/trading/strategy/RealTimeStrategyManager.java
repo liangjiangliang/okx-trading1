@@ -18,6 +18,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
@@ -41,6 +43,7 @@ import static com.okx.trading.constant.IndicatorInfo.*;
 @Slf4j
 @Service
 @Data
+@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class RealTimeStrategyManager implements ApplicationRunner {
 
     private final OkxApiWebSocketServiceImpl webSocketService;
@@ -227,7 +230,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 执行交易信号
      */
-    @Async("databaseUpdateScheduler")
+    @Async("customAsyncTaskExecutor")
     private void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
         try {
             BigDecimal preAmount = null;

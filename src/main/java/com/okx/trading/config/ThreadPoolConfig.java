@@ -105,6 +105,12 @@ public class ThreadPoolConfig{
             createThreadFactory("WebSocket重连"));
     }
 
+    @Bean(name = "coinSubscribeScheduler")
+    public ScheduledExecutorService coinSubscribeScheduler(){
+        return Executors.newScheduledThreadPool(3,
+                createThreadFactory("WebSocket重连"));
+    }
+
     @Bean(name = "databaseUpdateScheduler")
     public ScheduledExecutorService databaseUpdateScheduler(){
         return Executors.newScheduledThreadPool(3,

@@ -76,7 +76,7 @@ public class WebSocketUtil{
 
     // 添加静态Logger以解决编译问题
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(WebSocketUtil.class);
-    
+
     // 环境检测
     @Value("${spring.profiles.active:prod}")
     private String activeProfile;
@@ -204,10 +204,10 @@ public class WebSocketUtil{
                     logger.info("业务频道WebSocket连接成功");
                     bussinessConnected.set(true);
                     lastBusinessMessageTime.set(System.currentTimeMillis());
-                    
+
                     // 重连成功，重置重试计数器
                     businessRetryCount.set(0);
-                    
+
                     // 恢复之前的操作
                     restorePublicOperations();
                 }
@@ -258,10 +258,10 @@ public class WebSocketUtil{
                     logger.info("公共频道WebSocket连接成功");
                     publicConnected.set(true);
                     lastPublicMessageTime.set(System.currentTimeMillis());
-                    
+
                     // 重连成功，重置重试计数器
                     publicRetryCount.set(0);
-                    
+
                     // 恢复之前的操作
                     restorePublicOperations();
                 }
@@ -318,10 +318,10 @@ public class WebSocketUtil{
                 public void onOpen(WebSocket webSocket, Response response){
                     logger.info("私有频道WebSocket连接成功");
                     lastPrivateMessageTime.set(System.currentTimeMillis());
-                    
+
                     // 重连成功，重置重试计数器
                     privateRetryCount.set(0);
-                    
+
                     // 发送登录消息 - 登录成功后会在登录响应中恢复订阅
                     sendLoginMessage(webSocket, timestamp, sign);
                 }
@@ -396,11 +396,11 @@ public class WebSocketUtil{
         }
 
         markReconnectStart("private");
-        
+
         reconnectScheduler.submit(() -> {
             try {
                 int currentRetry = privateRetryCount.getAndIncrement();
-                
+
                 // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
                 long delaySeconds;
                 if (currentRetry == 0) {
@@ -415,7 +415,7 @@ public class WebSocketUtil{
                 }
 
                 debugLog("私有频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
-                
+
                 if (delaySeconds > 1) {
                     Thread.sleep(delaySeconds * 1000);
                 }
@@ -427,7 +427,7 @@ public class WebSocketUtil{
                         debugLog("关闭旧私有频道连接失败: {}", e.getMessage());
                     }
                 }
-                
+
                 connectPrivateChannel();
 
                 // 检查重连是否成功 - 延长等待时间，因为私有频道需要登录
@@ -460,7 +460,7 @@ public class WebSocketUtil{
     private void pingWebSockets(){
         try{
             long currentTime = System.currentTimeMillis();
-            
+
             // 检查公共频道连接活跃度 - 只有连接正常时才发送ping
             if(publicWebSocket != null && publicConnected.get()){
                 // 延长ping检查时间，避免频繁检测
@@ -1102,13 +1102,13 @@ public class WebSocketUtil{
             long currentTime = System.currentTimeMillis();
 
             // 检查公共频道连接状态 - 公共频道必须保持活跃
-            if(!publicConnected.get() || publicWebSocket == null || 
+            if(!publicConnected.get() || publicWebSocket == null ||
                (currentTime - lastPublicMessageTime.get() > 120000)) { // 增加到2分钟容忍度
-                logger.warn("公共频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
-                    publicConnected.get(), 
+                logger.warn("公共频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
+                    publicConnected.get(),
                     publicWebSocket != null ? "存在" : "null",
                     (currentTime - lastPublicMessageTime.get()) / 1000);
-                
+
                 // 避免并发重连
                 if (!isCurrentlyReconnecting("public")) {
                     schedulePublicReconnect();
@@ -1119,11 +1119,11 @@ public class WebSocketUtil{
             if(!bussinessConnected.get() || bussinessWebSocket == null) {
                 // 如果连接状态为false或WebSocket为null，才认为需要重连
                 // 不基于消息时间判断，因为业务频道可能长时间没有消息
-                logger.warn("业务频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
-                    bussinessConnected.get(), 
+                logger.warn("业务频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
+                    bussinessConnected.get(),
                     bussinessWebSocket != null ? "存在" : "null",
                     (currentTime - lastBusinessMessageTime.get()) / 1000);
-                
+
                 if (!isCurrentlyReconnecting("business")) {
                     scheduleBusinessReconnect();
                 }
@@ -1137,11 +1137,11 @@ public class WebSocketUtil{
 
             // 检查私有频道连接状态 - 私有频道容忍度更高
             if(!privateConnected.get() || privateWebSocket == null) {
-                logger.warn("私有频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前", 
-                    privateConnected.get(), 
+                logger.warn("私有频道连接检测失败，状态: {}, WebSocket: {}, 最后消息时间: {} 秒前",
+                    privateConnected.get(),
                     privateWebSocket != null ? "存在" : "null",
                     (currentTime - lastPrivateMessageTime.get()) / 1000);
-                
+
                 if (!isCurrentlyReconnecting("private")) {
                     schedulePrivateReconnect();
                 }
@@ -1237,11 +1237,11 @@ public class WebSocketUtil{
         }
 
         markReconnectStart("business");
-        
+
         reconnectScheduler.submit(() -> {
             try {
                 int currentRetry = businessRetryCount.getAndIncrement();
-                
+
                 // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
                 long delaySeconds;
                 if (currentRetry == 0) {
@@ -1256,7 +1256,7 @@ public class WebSocketUtil{
                 }
 
                 debugLog("业务频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
-                
+
                 if (delaySeconds > 1) {
                     Thread.sleep(delaySeconds * 1000);
                 }
@@ -1268,7 +1268,7 @@ public class WebSocketUtil{
                         debugLog("关闭旧业务频道连接失败: {}", e.getMessage());
                     }
                 }
-                
+
                 connectBussinessChannel();
 
                 // 检查重连是否成功 - 缩短等待时间
@@ -1277,10 +1277,10 @@ public class WebSocketUtil{
                     // 重连成功，重置重试计数器
                     businessRetryCount.set(0);
                     logger.info("业务频道重连成功");
-                    
+
                     // 恢复业务频道的操作（如果有）
                     restoreBusinessOperations();
-                    
+
                     // 发布业务频道重连事件
                     try{
                         if(applicationEventPublisher != null){
@@ -1318,11 +1318,11 @@ public class WebSocketUtil{
         }
 
         markReconnectStart("public");
-        
+
         reconnectScheduler.submit(() -> {
             try {
                 int currentRetry = publicRetryCount.getAndIncrement();
-                
+
                 // 优化重连延迟策略：更快的初始重连，渐进式增加延迟
                 long delaySeconds;
                 if (currentRetry == 0) {
@@ -1337,7 +1337,7 @@ public class WebSocketUtil{
                 }
 
                 debugLog("公共频道重连尝试 #{}, 延迟 {} 秒", currentRetry, delaySeconds);
-                
+
                 if (delaySeconds > 1) {
                     Thread.sleep(delaySeconds * 1000);
                 }
@@ -1349,7 +1349,7 @@ public class WebSocketUtil{
                         debugLog("关闭旧公共频道连接失败: {}", e.getMessage());
                     }
                 }
-                
+
                 if (bussinessWebSocket != null) {
                     try {
                         bussinessWebSocket.close(1000, "Reconnecting");
@@ -1357,7 +1357,7 @@ public class WebSocketUtil{
                         debugLog("关闭旧业务频道连接失败: {}", e.getMessage());
                     }
                 }
-                
+
                 connectPublicChannel();
                 connectBussinessChannel();
 

@@ -11,7 +11,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
-@EnableAsync // 启用异步支持
+@EnableAsync(proxyTargetClass = true) // 启用异步支持，使用CGLib代理
 public class AsyncConfig {
 
     @Bean(name = "customAsyncTaskExecutor")

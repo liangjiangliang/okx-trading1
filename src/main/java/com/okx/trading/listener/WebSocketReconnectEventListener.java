@@ -40,7 +40,7 @@ public class WebSocketReconnectEventListener {
      * 公共频道或业务频道重连时，重新订阅所有K线数据
      */
     @EventListener
-    @Async
+    @Async("websocketReconnectScheduler")
     public void handleWebSocketReconnect(WebSocketReconnectEvent event) {
         log.info("收到WebSocket重连事件，重连类型: {}", event.getType());
 
@@ -90,10 +90,10 @@ public class WebSocketReconnectEventListener {
                     log.warn("无效的订阅格式: {}", symbolInterval);
                     continue;
                 }
-                
+
                 String symbol = split[0];
                 String interval = split[1];
-                
+
                 totalResubscribed++;
                 try {
                     // 重新订阅K线数据
@@ -104,7 +104,7 @@ public class WebSocketReconnectEventListener {
                     } else {
                         log.warn("重新订阅K线数据失败: {} {}", symbol, interval);
                     }
-                    
+
                     // 添加小延迟避免频率过高
                     Thread.sleep(100);
                 } catch (Exception e) {
@@ -123,7 +123,7 @@ public class WebSocketReconnectEventListener {
     /**
      * 异步重新订阅指定交易对的K线数据
      */
-    @Async
+    @Async("customAsyncTaskExecutor")
     public CompletableFuture<Void> resubscribeKlineDataAsync(String symbol, List<String> intervals) {
         return CompletableFuture.runAsync(() -> {
             try {
