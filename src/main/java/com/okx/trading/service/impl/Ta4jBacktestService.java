@@ -893,10 +893,13 @@ public class Ta4jBacktestService {
             if (price.compareTo(maxPeak) > 0) {
                 maxPeak = price;
             }
-            // 计算当前回撤百分比 (负数表示跌幅)
-            double drawdownPercent = price.subtract(maxPeak).divide(maxPeak, 10, RoundingMode.HALF_UP).doubleValue() * 100.0;
-            // 累计回撤平方（深度和持续时间都会放大结果）
-            sumSquaredDrawdown += drawdownPercent * drawdownPercent;
+            if (maxPeak.compareTo(BigDecimal.ZERO) > 0) {
+                // 计算当前回撤百分比 (负数表示跌幅)
+                double drawdownPercent = price.subtract(maxPeak).divide(maxPeak, 10, RoundingMode.HALF_UP).doubleValue() * 100.0;
+                // 累计回撤平方（深度和持续时间都会放大结果）
+                sumSquaredDrawdown += drawdownPercent * drawdownPercent;
+            }
+
         }
 
         // 计算均方根回撤，返回Ulcer Index
@@ -928,7 +931,7 @@ public class Ta4jBacktestService {
         m3 /= n;
 
         double sd = Math.sqrt(m2); // 标准差
-        if (sd == 0.0) return BigDecimal.ZERO ;
+        if (sd == 0.0) return BigDecimal.ZERO;
 
         return BigDecimal.valueOf(m3 / (sd * sd * sd));
     }

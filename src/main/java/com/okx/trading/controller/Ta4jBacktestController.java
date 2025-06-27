@@ -305,7 +305,7 @@ public class Ta4jBacktestController {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     String currentStrategyCode = strategyCode;
                     try {
-                        log.info("开始回测策略: {}", currentStrategyCode);
+                        log.info("开始回测策略: {}({})",strategyDetails.getOrDefault("strategyName","-"), currentStrategyCode);
 
                         // 执行回测 - 添加额外的异常处理
                         BacktestResultDTO result = null;
@@ -392,17 +392,17 @@ public class Ta4jBacktestController {
                 CompletableFuture<Void> future = futures.get(i);
                 String strategyCode = strategyCodes.get(i);
                 try {
-                    future.get(30, TimeUnit.SECONDS); // 单策略5秒超时
+                    future.get(60, TimeUnit.SECONDS); // 单策略5秒超时
                 } catch (TimeoutException e) {
-                    log.warn("策略 {} 回测超时（30秒），取消该策略的回测任务", strategyCode);
+                    log.warn("策略 {} 回测超时（60秒），取消该策略的回测任务", strategiesInfo.get(strategyCode).get("strategyName"));
                     future.cancel(true);
 
                     // 添加超时错误结果
                     Map<String, Object> timeoutResult = new HashMap<>();
                     timeoutResult.put("strategy_code", strategyCode);
-                    timeoutResult.put("strategy_name", "超时策略: " + strategyCode);
+                    timeoutResult.put("strategy_name", "超时策略: " + strategiesInfo.get(strategyCode).get("strategyName"));
                     timeoutResult.put("success", false);
-                    timeoutResult.put("error", "策略回测超时（5秒）");
+                    timeoutResult.put("error", "策略回测超时（60秒）");
                     allResults.add(timeoutResult);
                 } catch (ExecutionException e) {
                     log.error("策略 {} 执行异常: {}", strategyCode, e.getMessage(), e);
