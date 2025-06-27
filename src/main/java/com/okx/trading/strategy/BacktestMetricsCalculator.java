@@ -1,9 +1,9 @@
-package com.okx.trading.service.impl;
+package com.okx.trading.strategy;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
-import com.okx.trading.service.HistoricalDataService;
+import com.okx.trading.service.impl.Ta4jBacktestService;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

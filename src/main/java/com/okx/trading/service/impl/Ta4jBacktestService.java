@@ -13,7 +13,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
 import com.okx.trading.model.entity.CandlestickEntity;
-import com.okx.trading.service.HistoricalDataService;
+import com.okx.trading.strategy.BacktestMetricsCalculator;
 import com.okx.trading.strategy.StrategyRegisterCenter;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import org.slf4j.Logger;
