@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadFactory;
  */
 @Configuration
 @EnableAsync
-public class ThreadPoolConfig {
+public class ThreadPoolConfig{
 
     @Value("${okx.historical-data.max-threads:10}")
     private int maxHistoricalDataThreads;
@@ -27,10 +27,11 @@ public class ThreadPoolConfig {
 
     /**
      * 创建带有命名前缀的线程工厂
+     *
      * @param namePrefix 线程名称前缀
      * @return 线程工厂
      */
-    private ThreadFactory createThreadFactory(String namePrefix) {
+    private ThreadFactory createThreadFactory(String namePrefix){
         return r -> {
             Thread thread = new Thread(r);
             thread.setName(namePrefix + "-" + thread.getId());
@@ -45,9 +46,9 @@ public class ThreadPoolConfig {
      * 用于执行历史数据查询任务
      */
     @Bean(name = "historicalDataExecutorService")
-    public ExecutorService historicalDataExecutorService() {
+    public ExecutorService historicalDataExecutorService(){
         return Executors.newFixedThreadPool(maxHistoricalDataThreads,
-                createThreadFactory("历史数据查询"));
+            createThreadFactory("历史数据查询"));
     }
 
     /**
@@ -55,9 +56,9 @@ public class ThreadPoolConfig {
      * 用于处理历史数据的批量保存任务
      */
     @Bean(name = "batchHistoricalDataExecutorService")
-    public ExecutorService batchHistoricalDataExecutorService() {
+    public ExecutorService batchHistoricalDataExecutorService(){
         return Executors.newFixedThreadPool(5,
-                createThreadFactory("历史数据批处理"));
+            createThreadFactory("历史数据批处理"));
     }
 
     /**
@@ -66,21 +67,21 @@ public class ThreadPoolConfig {
      */
     @Bean(name = "priceUpdateExecutorService")
     @Primary
-    public ExecutorService priceUpdateExecutorService() {
+    public ExecutorService priceUpdateExecutorService(){
         return Executors.newFixedThreadPool(maxPriceUpdateThreads,
-                createThreadFactory("价格更新"));
+            createThreadFactory("价格更新"));
     }
 
     @Bean(name = "tradeIndicatorCalculateScheduler")
-    public ExecutorService tradeIndicatorCalculateScheduler() {
+    public ExecutorService tradeIndicatorCalculateScheduler(){
         return Executors.newFixedThreadPool(20,
-                createThreadFactory("交易指标计算"));
+            createThreadFactory("交易指标计算"));
     }
 
     @Bean(name = "realTimeTradeIndicatorCalculateScheduler")
-    public ExecutorService realTimeTradeIndicatorCalculateScheduler() {
+    public ExecutorService realTimeTradeIndicatorCalculateScheduler(){
         return Executors.newFixedThreadPool(20,
-                createThreadFactory("实时策略计算"));
+            createThreadFactory("实时策略计算"));
     }
 
     /**
@@ -88,9 +89,9 @@ public class ThreadPoolConfig {
      * 用于定期发送WebSocket心跳消息
      */
     @Bean(name = "websocketPingScheduler")
-    public ScheduledExecutorService websocketPingScheduler() {
+    public ScheduledExecutorService websocketPingScheduler(){
         return Executors.newSingleThreadScheduledExecutor(
-                createThreadFactory("WebSocket心跳"));
+            createThreadFactory("WebSocket心跳"));
     }
 
     /**
@@ -99,9 +100,15 @@ public class ThreadPoolConfig {
      * 优化: 使用多线程池避免阻塞，提高重连效率
      */
     @Bean(name = "websocketReconnectScheduler")
-    public ScheduledExecutorService websocketReconnectScheduler() {
+    public ScheduledExecutorService websocketReconnectScheduler(){
         return Executors.newScheduledThreadPool(3,
-                createThreadFactory("WebSocket重连"));
+            createThreadFactory("WebSocket重连"));
+    }
+
+    @Bean(name = "databaseUpdateScheduler")
+    public ScheduledExecutorService databaseUpdateScheduler(){
+        return Executors.newScheduledThreadPool(3,
+            createThreadFactory("数据库更新"));
     }
 
 
@@ -110,14 +117,14 @@ public class ThreadPoolConfig {
      * 用于WebSocket连接断开后的重连任务
      */
     @Bean(name = "klineUpdateScheduler")
-    public ScheduledExecutorService klineUpdateScheduler() {
+    public ScheduledExecutorService klineUpdateScheduler(){
         return Executors.newSingleThreadScheduledExecutor(
-                createThreadFactory("K线更新"));
+            createThreadFactory("K线更新"));
     }
 
     @Bean(name = "indicatorCalculateScheduler")
-    public ScheduledExecutorService indicatorCalculateScheduler() {
+    public ScheduledExecutorService indicatorCalculateScheduler(){
         return Executors.newSingleThreadScheduledExecutor(
-                createThreadFactory("指标计算"));
+            createThreadFactory("指标计算"));
     }
 }

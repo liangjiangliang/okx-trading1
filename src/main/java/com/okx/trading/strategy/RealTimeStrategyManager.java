@@ -227,7 +227,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 执行交易信号
      */
-    @Async
+    @Async("databaseUpdateScheduler")
     private void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
         try {
             BigDecimal preAmount = null;
