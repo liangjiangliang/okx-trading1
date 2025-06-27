@@ -1421,60 +1421,60 @@ public class BacktestMetricsCalculator {
         double score = 0.0;
         int validIndicators = 0;
         
-        // 夏普比率评分 - 夏普比率2.0得满分
+        // 夏普比率评分 - 夏普比率1.5得满分（加密货币市场调整）
         if (riskMetrics.sharpeRatio != null) {
             double sharpe = riskMetrics.sharpeRatio.doubleValue();
             if (sharpe > 0) {
-                score += Math.min(10.0, (sharpe / 2.0) * 10.0);
+                score += Math.min(10.0, (sharpe / 1.5) * 10.0);
             }
             validIndicators++;
         }
         
-        // 最大回撤评分 - 最大回撤越小得分越高，5%以下得满分
+        // 最大回撤评分 - 最大回撤越小得分越高，10%以下得满分（加密货币市场调整）
         if (tradeStats.maxDrawdown != null) {
             double maxDD = tradeStats.maxDrawdown.abs().doubleValue();
-            if (maxDD <= 0.05) {
+            if (maxDD <= 0.10) {
                 score += 10.0;
-            } else if (maxDD <= 0.30) {
-                score += (1.0 - (maxDD - 0.05) / 0.25) * 10.0;
+            } else if (maxDD <= 0.50) {
+                score += (1.0 - (maxDD - 0.10) / 0.40) * 10.0;
             }
             validIndicators++;
         }
         
-        // Sortino比率评分 - Sortino比率1.5得满分
+        // Sortino比率评分 - Sortino比率1.2得满分（加密货币市场调整）
         if (riskMetrics.sortinoRatio != null) {
             double sortino = riskMetrics.sortinoRatio.doubleValue();
             if (sortino > 0) {
-                score += Math.min(10.0, (sortino / 1.5) * 10.0);
+                score += Math.min(10.0, (sortino / 1.2) * 10.0);
             }
             validIndicators++;
         }
         
-        // Calmar比率评分 - Calmar比率1.0得满分
+        // Calmar比率评分 - Calmar比率0.8得满分（加密货币市场调整）
         if (riskMetrics.calmarRatio != null) {
             double calmar = riskMetrics.calmarRatio.doubleValue();
             if (calmar > 0) {
-                score += Math.min(10.0, calmar * 10.0);
+                score += Math.min(10.0, (calmar / 0.8) * 10.0);
             }
             validIndicators++;
         }
         
-        // 波动率评分 - 波动率15%以下得满分
+        // 波动率评分 - 波动率25%以下得满分（加密货币市场调整）
         if (riskMetrics.volatility != null) {
             double volatility = riskMetrics.volatility.doubleValue();
-            if (volatility <= 0.15) {
+            if (volatility <= 0.25) {
                 score += 10.0;
-            } else if (volatility <= 0.50) {
-                score += (1.0 - (volatility - 0.15) / 0.35) * 10.0;
+            } else if (volatility <= 0.80) {
+                score += (1.0 - (volatility - 0.25) / 0.55) * 10.0;
             }
             validIndicators++;
         }
         
-        // Treynor比率评分 - Treynor比率0.1得满分
+        // Treynor比率评分 - Treynor比率0.15得满分（加密货币市场调整）
         if (riskMetrics.treynorRatio != null) {
             double treynor = riskMetrics.treynorRatio.doubleValue();
             if (treynor > 0) {
-                score += Math.min(10.0, (treynor / 0.1) * 10.0);
+                score += Math.min(10.0, (treynor / 0.15) * 10.0);
             }
             validIndicators++;
         }
@@ -1489,35 +1489,35 @@ public class BacktestMetricsCalculator {
         double score = 0.0;
         int validIndicators = 0;
         
-        // VaR95评分 - VaR95%在2%以下得满分
+        // VaR95评分 - VaR95%在4%以下得满分（加密货币市场调整）
         if (riskMetrics.var95 != null) {
             double var95 = riskMetrics.var95.doubleValue();
-            if (var95 <= 0.02) {
+            if (var95 <= 0.04) {
                 score += 10.0;
-            } else if (var95 <= 0.10) {
-                score += (1.0 - (var95 - 0.02) / 0.08) * 10.0;
+            } else if (var95 <= 0.20) {
+                score += (1.0 - (var95 - 0.04) / 0.16) * 10.0;
             }
             validIndicators++;
         }
         
-        // VaR99评分 - VaR99%在3%以下得满分
+        // VaR99评分 - VaR99%在6%以下得满分（加密货币市场调整）
         if (riskMetrics.var99 != null) {
             double var99 = riskMetrics.var99.doubleValue();
-            if (var99 <= 0.03) {
+            if (var99 <= 0.06) {
                 score += 10.0;
-            } else if (var99 <= 0.15) {
-                score += (1.0 - (var99 - 0.03) / 0.12) * 10.0;
+            } else if (var99 <= 0.25) {
+                score += (1.0 - (var99 - 0.06) / 0.19) * 10.0;
             }
             validIndicators++;
         }
         
-        // CVaR评分 - CVaR在3%以下得满分
+        // CVaR评分 - CVaR在6%以下得满分（加密货币市场调整）
         if (riskMetrics.cvar != null) {
             double cvar = riskMetrics.cvar.doubleValue();
-            if (cvar <= 0.03) {
+            if (cvar <= 0.06) {
                 score += 10.0;
-            } else if (cvar <= 0.15) {
-                score += (1.0 - (cvar - 0.03) / 0.12) * 10.0;
+            } else if (cvar <= 0.25) {
+                score += (1.0 - (cvar - 0.06) / 0.19) * 10.0;
             }
             validIndicators++;
         }
