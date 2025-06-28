@@ -103,6 +103,8 @@ public class StrategyRegisterCenter {
 
         // 组合策略
         strategyCreators.put(STRATEGY_TURTLE_TRADING, StrategyFactory1::createTurtleTradingStrategy);
+        strategyCreators.put(STRATEGY_MEAN_REVERSION, StrategyFactory1::createMeanReversionStrategy);
+        strategyCreators.put(STRATEGY_DUAL_THRUST, StrategyFactory1::createDualThrustStrategy);
         strategyCreators.put(STRATEGY_TREND_FOLLOWING, StrategyFactory1::createTrendFollowingStrategy);
         strategyCreators.put(STRATEGY_BREAKOUT, StrategyFactory1::createBreakoutStrategy);
         strategyCreators.put(STRATEGY_GOLDEN_CROSS, StrategyFactory1::createGoldenCrossStrategy);

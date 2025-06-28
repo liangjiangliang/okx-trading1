@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Arrays;
+
 /**
  * API响应封装类
  * 用于统一接口返回格式
@@ -39,6 +41,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(200, "SUCCESS", data);
     }
 
+    public static <T> ApiResponse<T> success(String message) {
+        return new ApiResponse<>(200, "SUCCESS", null);
+    }
+
     /**
      * 创建成功响应
      * @param message 消息
@@ -47,6 +53,10 @@ public class ApiResponse<T> {
      * @return API响应
      */
     public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(200, message, data);
+    }
+
+    public static <T> ApiResponse<T> success(T data,String message) {
         return new ApiResponse<>(200, message, data);
     }
 

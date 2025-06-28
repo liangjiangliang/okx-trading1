@@ -27,8 +27,12 @@ import org.ta4j.core.num.DecimalNum;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -78,6 +82,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final Map<String, RealTimeStrategyEntity> runningStrategies = new ConcurrentHashMap<>();
     private final Map<String, BarSeries> runningBarSeries = new ConcurrentHashMap<>();
 
+    private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     /**
      * 启动实时策略
      */
@@ -92,7 +98,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         // 创建策略运行状态
-        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue(),strategyName);
+        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue(), strategyName);
 
         // 保存策略到MySQL（如果不存在）
         try {
@@ -190,8 +196,15 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
+        // 控制同一个周期内只能交易一次
+        LocalDateTime lastTradeTime;
+        boolean singalOfSamePeriod = false;
+        if (state.getLastTradeTime() != null) {
+            lastTradeTime = LocalDateTime.parse(state.getLastTradeTime(), dateFormat);
+            singalOfSamePeriod = Duration.between(candlestick.getCloseTime(), lastTradeTime).get(ChronoUnit.MINUTES) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal());
+        }
         // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && (state.getLastTradeType() == null || !BUY.equals(state.getLastTradeType()))) {
+        if (shouldBuy && (state.getLastTradeType() == null || !BUY.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
             executeTradeSignal(state, candlestick, BUY);
         }
 
@@ -293,6 +306,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 state.setLastTradeAmount(orderEntity.getExecutedAmount().doubleValue());
                 state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
                 state.setLastTradePrice(orderEntity.getPrice().doubleValue());
+                state.setLastTradeTime(orderEntity.getCreateTime().toString());
                 if (BUY.equals(side)) {
                     state.setIsInPosition(true);
                 } else {

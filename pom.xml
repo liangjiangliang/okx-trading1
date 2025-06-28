@@ -129,7 +129,7 @@
             <artifactId>commons-codec</artifactId>
             <version>1.15</version> <!-- 请根据需要选择版本 -->
         </dependency>
-        
+
         <!-- Janino - 用于动态编译和加载Java代码 -->
         <dependency>
             <groupId>org.codehaus.janino</groupId>
@@ -146,6 +146,17 @@
 
         <!-- Spring Boot DevTools - 已移除，使用JRebel代替 -->
 
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.1.0-jre</version>
+        </dependency>
+        
+        <!-- YAML processing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -571,7 +571,7 @@ public class Ta4jBacktestController {
             @ApiParam(value = "回测ID", required = true, type = "string") @PathVariable String backtestId) {
         try {
             backtestTradeService.deleteBacktestRecords(backtestId);
-            return ApiResponse.success("成功删除回测记录", null);
+            return ApiResponse.success("成功删除回测记录");
         } catch (Exception e) {
             log.error("删除回测记录出错: {}", e.getMessage(), e);
             return ApiResponse.error(500, "删除回测记录出错: " + e.getMessage());
@@ -1189,6 +1189,439 @@ public class Ta4jBacktestController {
                 // 默认返回当前时间的分钟对齐
                 return now.withSecond(0).withNano(0).minusMinutes(1);
         }
+    }
+
+    /**
+     * 测试指标分布功能
+     */
+    @GetMapping("/test-indicator-distribution")
+    public ApiResponse<String> testIndicatorDistribution() {
+        try {
+            log.info("测试指标分布功能");
+
+            // 简单测试，检查是否有有效的回测数据
+            List<BacktestSummaryEntity> allBacktests = backtestTradeService.getAllBacktestSummaries();
+            List<BacktestSummaryEntity> validBacktests = allBacktests.stream()
+                    .filter(bt -> bt.getNumberOfTrades() != null && bt.getNumberOfTrades() > 0)
+                    .collect(Collectors.toList());
+
+            String message = String.format("找到 %d 条回测记录，其中 %d 条有交易记录",
+                    allBacktests.size(), validBacktests.size());
+
+            return ApiResponse.success(message);
+
+        } catch (Exception e) {
+            log.error("测试指标分布功能失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "测试指标分布功能失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新指标分布数据
+     * 从所有历史回测记录中重新计算指标分布
+     */
+    @PostMapping("/update-indicator-distributions")
+    public ApiResponse<Map<String, Object>> updateIndicatorDistributions() {
+        try {
+            log.info("收到更新指标分布数据的请求");
+
+            // 1. 查询所有有交易记录的回测数据
+            List<BacktestSummaryEntity> allBacktests = backtestTradeService.getAllBacktestSummaries();
+            List<BacktestSummaryEntity> validBacktests = allBacktests.stream()
+                    .filter(bt -> bt.getNumberOfTrades() != null && bt.getNumberOfTrades() > 0)
+                    .collect(Collectors.toList());
+
+            if (validBacktests.isEmpty()) {
+                return ApiResponse.error(400, "没有找到有效的回测数据，无法计算指标分布");
+            }
+
+            log.info("找到 {} 条有效回测记录", validBacktests.size());
+
+            // 2. 计算关键指标的分布统计
+            Map<String, Object> distributionStats = calculateDistributionStats(validBacktests);
+
+            log.info("成功计算指标分布统计数据");
+            return ApiResponse.success(distributionStats);
+
+        } catch (Exception e) {
+            log.error("更新指标分布数据失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "更新指标分布数据失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 计算指标分布统计
+     */
+    private Map<String, Object> calculateDistributionStats(List<BacktestSummaryEntity> validBacktests) {
+        Map<String, Object> stats = new HashMap<>();
+
+        // 年化收益率分布
+        List<BigDecimal> annualizedReturns = validBacktests.stream()
+                .map(BacktestSummaryEntity::getAnnualizedReturn)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 最大回撤分布
+        List<BigDecimal> maxDrawdowns = validBacktests.stream()
+                .map(BacktestSummaryEntity::getMaxDrawdown)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 胜率分布
+        List<BigDecimal> winRates = validBacktests.stream()
+                .map(BacktestSummaryEntity::getWinRate)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 夏普比率分布
+        List<BigDecimal> sharpeRatios = validBacktests.stream()
+                .map(BacktestSummaryEntity::getSharpeRatio)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 计算分位数
+        stats.put("annualizedReturn", calculatePercentileStats(annualizedReturns, "年化收益率"));
+        stats.put("maxDrawdown", calculatePercentileStats(maxDrawdowns, "最大回撤"));
+        stats.put("winRate", calculatePercentileStats(winRates, "胜率"));
+        stats.put("sharpeRatio", calculatePercentileStats(sharpeRatios, "夏普比率"));
+
+        // 总体统计
+        stats.put("totalBacktests", validBacktests.size());
+        stats.put("analysisTime", LocalDateTime.now());
+
+        return stats;
+    }
+
+    /**
+     * 计算分位数统计
+     */
+    private Map<String, Object> calculatePercentileStats(List<BigDecimal> sortedValues, String indicatorName) {
+        Map<String, Object> percentiles = new HashMap<>();
+
+        if (sortedValues.isEmpty()) {
+            percentiles.put("error", "无有效数据");
+            return percentiles;
+        }
+
+        int size = sortedValues.size();
+        percentiles.put("indicatorName", indicatorName);
+        percentiles.put("sampleCount", size);
+        percentiles.put("min", sortedValues.get(0));
+        percentiles.put("max", sortedValues.get(size - 1));
+
+        // 计算各分位数
+        percentiles.put("p10", calculatePercentile(sortedValues, 0.10));
+        percentiles.put("p20", calculatePercentile(sortedValues, 0.20));
+        percentiles.put("p25", calculatePercentile(sortedValues, 0.25));
+        percentiles.put("p30", calculatePercentile(sortedValues, 0.30));
+        percentiles.put("p40", calculatePercentile(sortedValues, 0.40));
+        percentiles.put("p50", calculatePercentile(sortedValues, 0.50)); // 中位数
+        percentiles.put("p60", calculatePercentile(sortedValues, 0.60));
+        percentiles.put("p70", calculatePercentile(sortedValues, 0.70));
+        percentiles.put("p75", calculatePercentile(sortedValues, 0.75));
+        percentiles.put("p80", calculatePercentile(sortedValues, 0.80));
+        percentiles.put("p90", calculatePercentile(sortedValues, 0.90));
+
+        return percentiles;
+    }
+
+    /**
+     * 计算分位数
+     */
+    private BigDecimal calculatePercentile(List<BigDecimal> sortedValues, double percentile) {
+        if (sortedValues.isEmpty()) return null;
+
+        int size = sortedValues.size();
+        double index = percentile * (size - 1);
+        int lowerIndex = (int) Math.floor(index);
+        int upperIndex = (int) Math.ceil(index);
+
+        if (lowerIndex == upperIndex) {
+            return sortedValues.get(lowerIndex);
+        } else {
+            BigDecimal lower = sortedValues.get(lowerIndex);
+            BigDecimal upper = sortedValues.get(upperIndex);
+            double weight = index - lowerIndex;
+
+            return lower.add(upper.subtract(lower).multiply(BigDecimal.valueOf(weight)));
+        }
+    }
+
+    /**
+     * 查看指标分布详情
+     */
+    @GetMapping("/indicator-distribution-details")
+    public ApiResponse<Map<String, Object>> getIndicatorDistributionDetails() {
+        try {
+            log.info("查看指标分布详情");
+
+            // 查询有效回测数据
+            List<BacktestSummaryEntity> allBacktests = backtestTradeService.getAllBacktestSummaries();
+            List<BacktestSummaryEntity> validBacktests = allBacktests.stream()
+                    .filter(bt -> bt.getNumberOfTrades() != null && bt.getNumberOfTrades() > 0)
+                    .collect(Collectors.toList());
+
+            if (validBacktests.isEmpty()) {
+                return ApiResponse.error(400, "没有找到有效的回测数据");
+            }
+
+            // 年化收益率详细分析
+            List<BigDecimal> annualizedReturns = validBacktests.stream()
+                    .map(BacktestSummaryEntity::getAnnualizedReturn)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalValidBacktests", validBacktests.size());
+            result.put("analysisTime", LocalDateTime.now());
+
+            // 年化收益率分析
+            if (!annualizedReturns.isEmpty()) {
+                Map<String, Object> returnAnalysis = new HashMap<>();
+                returnAnalysis.put("sampleCount", annualizedReturns.size());
+                returnAnalysis.put("min", annualizedReturns.get(0));
+                returnAnalysis.put("max", annualizedReturns.get(annualizedReturns.size() - 1));
+                returnAnalysis.put("p10", calculatePercentile(annualizedReturns, 0.10));
+                returnAnalysis.put("p25", calculatePercentile(annualizedReturns, 0.25));
+                returnAnalysis.put("p50", calculatePercentile(annualizedReturns, 0.50));
+                returnAnalysis.put("p75", calculatePercentile(annualizedReturns, 0.75));
+                returnAnalysis.put("p90", calculatePercentile(annualizedReturns, 0.90));
+                result.put("annualizedReturnAnalysis", returnAnalysis);
+            }
+
+            // 最大回撤分析
+            List<BigDecimal> maxDrawdowns = validBacktests.stream()
+                    .map(BacktestSummaryEntity::getMaxDrawdown)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            if (!maxDrawdowns.isEmpty()) {
+                Map<String, Object> drawdownAnalysis = new HashMap<>();
+                drawdownAnalysis.put("sampleCount", maxDrawdowns.size());
+                drawdownAnalysis.put("min", maxDrawdowns.get(0));
+                drawdownAnalysis.put("max", maxDrawdowns.get(maxDrawdowns.size() - 1));
+                drawdownAnalysis.put("p10", calculatePercentile(maxDrawdowns, 0.10));
+                drawdownAnalysis.put("p25", calculatePercentile(maxDrawdowns, 0.25));
+                drawdownAnalysis.put("p50", calculatePercentile(maxDrawdowns, 0.50));
+                drawdownAnalysis.put("p75", calculatePercentile(maxDrawdowns, 0.75));
+                drawdownAnalysis.put("p90", calculatePercentile(maxDrawdowns, 0.90));
+                result.put("maxDrawdownAnalysis", drawdownAnalysis);
+            }
+
+            // 胜率分析
+            List<BigDecimal> winRates = validBacktests.stream()
+                    .map(BacktestSummaryEntity::getWinRate)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            if (!winRates.isEmpty()) {
+                Map<String, Object> winRateAnalysis = new HashMap<>();
+                winRateAnalysis.put("sampleCount", winRates.size());
+                winRateAnalysis.put("min", winRates.get(0));
+                winRateAnalysis.put("max", winRates.get(winRates.size() - 1));
+                winRateAnalysis.put("p10", calculatePercentile(winRates, 0.10));
+                winRateAnalysis.put("p25", calculatePercentile(winRates, 0.25));
+                winRateAnalysis.put("p50", calculatePercentile(winRates, 0.50));
+                winRateAnalysis.put("p75", calculatePercentile(winRates, 0.75));
+                winRateAnalysis.put("p90", calculatePercentile(winRates, 0.90));
+                result.put("winRateAnalysis", winRateAnalysis);
+            }
+
+            return ApiResponse.success(result);
+
+        } catch (Exception e) {
+            log.error("查看指标分布详情失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "查看指标分布详情失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 基于真实数据分布的动态评分算法
+     * 根据历史回测数据的实际分布情况，对策略进行动态评分
+     */
+    @PostMapping("/calculate-dynamic-score")
+    public ApiResponse<Map<String, Object>> calculateDynamicScore(
+            @RequestParam(required = false) BigDecimal annualizedReturn,
+            @RequestParam(required = false) BigDecimal maxDrawdown,
+            @RequestParam(required = false) BigDecimal winRate,
+            @RequestParam(required = false) BigDecimal sharpeRatio) {
+        try {
+            log.info("计算基于真实分布的动态评分");
+
+            Map<String, Object> result = new HashMap<>();
+            Map<String, Double> scores = new HashMap<>();
+
+            // 基于真实数据分布的评分阈值 (来自6000个样本的分位数)
+
+            // 年化收益率评分 (越大越好)
+            if (annualizedReturn != null) {
+                double returnScore = calculateReturnScore(annualizedReturn);
+                scores.put("annualizedReturnScore", returnScore);
+            }
+
+            // 最大回撤评分 (越小越好)
+            if (maxDrawdown != null) {
+                double drawdownScore = calculateDrawdownScore(maxDrawdown);
+                scores.put("maxDrawdownScore", drawdownScore);
+            }
+
+            // 胜率评分 (越大越好)
+            if (winRate != null) {
+                double winRateScore = calculateWinRateScore(winRate);
+                scores.put("winRateScore", winRateScore);
+            }
+
+            // 夏普比率评分 (越大越好)
+            if (sharpeRatio != null) {
+                double sharpeScore = calculateSharpeScore(sharpeRatio);
+                scores.put("sharpeRatioScore", sharpeScore);
+            }
+
+            // 计算综合评分 (加权平均)
+            double comprehensiveScore = calculateWeightedScore(scores);
+
+            result.put("individualScores", scores);
+            result.put("comprehensiveScore", comprehensiveScore);
+            result.put("evaluationBasis", "基于6000个历史回测样本的真实分布");
+            result.put("scoringMethod", "8分制，按分位数区间动态评分");
+
+            // 添加评分解释
+            result.put("scoreExplanation", getScoreExplanation(comprehensiveScore));
+
+            return ApiResponse.success(result);
+
+        } catch (Exception e) {
+            log.error("计算动态评分失败: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "计算动态评分失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 计算年化收益率评分 (基于真实分布)
+     */
+    private double calculateReturnScore(BigDecimal annualizedReturn) {
+        double value = annualizedReturn.doubleValue();
+
+        // 基于6000个样本的分位数阈值
+        if (value >= 0.6338) return 8.0;  // 90%分位数以上
+        if (value >= 0.4588) return 7.0;  // 75%分位数以上
+        if (value >= 0.3500) return 6.0;  // 60%分位数估计
+        if (value >= 0.2626) return 5.0;  // 50%分位数(中位数)
+        if (value >= 0.1117) return 4.0;  // 25%分位数以上
+        if (value >= 0.0000) return 3.0;  // 正收益
+        if (value >= -0.0409) return 2.0; // 10%分位数以上
+        return 1.0; // 低于10%分位数
+    }
+
+    /**
+     * 计算最大回撤评分 (基于真实分布，越小越好)
+     */
+    private double calculateDrawdownScore(BigDecimal maxDrawdown) {
+        double value = maxDrawdown.doubleValue();
+
+        // 基于6000个样本的分位数阈值 (越小越好，所以分位数反过来)
+        if (value <= 0.0900) return 8.0;  // 10%分位数以下
+        if (value <= 0.1500) return 7.0;  // 20%分位数估计
+        if (value <= 0.1677) return 6.0;  // 25%分位数以下
+        if (value <= 0.2143) return 5.0;  // 50%分位数以下
+        if (value <= 0.2602) return 4.0;  // 75%分位数以下
+        if (value <= 0.3218) return 3.0;  // 90%分位数以下
+        if (value <= 0.4000) return 2.0;  // 中等回撤
+        return 1.0; // 高回撤
+    }
+
+    /**
+     * 计算胜率评分 (基于真实分布)
+     */
+    private double calculateWinRateScore(BigDecimal winRate) {
+        double value = winRate.doubleValue();
+
+        // 基于6000个样本的分位数阈值
+        if (value >= 1.0000) return 8.0;  // 100%胜率
+        if (value >= 0.6667) return 7.0;  // 75%分位数以上
+        if (value >= 0.5500) return 6.0;  // 60%分位数估计
+        if (value >= 0.4615) return 5.0;  // 50%分位数(中位数)
+        if (value >= 0.3333) return 4.0;  // 25%分位数以上
+        if (value >= 0.2500) return 3.0;  // 10%分位数以上
+        if (value >= 0.1000) return 2.0;  // 低胜率但有交易
+        return 1.0; // 极低胜率
+    }
+
+    /**
+     * 计算夏普比率评分 (传统阈值)
+     */
+    private double calculateSharpeScore(BigDecimal sharpeRatio) {
+        if (sharpeRatio == null) return 4.0;
+
+        double value = sharpeRatio.doubleValue();
+
+        // 夏普比率的一般评估标准
+        if (value >= 2.0) return 8.0;   // 优秀
+        if (value >= 1.5) return 7.0;   // 很好
+        if (value >= 1.0) return 6.0;   // 好
+        if (value >= 0.5) return 5.0;   // 及格
+        if (value >= 0.0) return 4.0;   // 一般
+        if (value >= -0.5) return 3.0;  // 较差
+        if (value >= -1.0) return 2.0;  // 差
+        return 1.0; // 很差
+    }
+
+    /**
+     * 计算加权综合评分
+     */
+    private double calculateWeightedScore(Map<String, Double> scores) {
+        double totalScore = 0.0;
+        double totalWeight = 0.0;
+
+        // 权重分配
+        if (scores.containsKey("annualizedReturnScore")) {
+            totalScore += scores.get("annualizedReturnScore") * 0.35; // 年化收益率 35%
+            totalWeight += 0.35;
+        }
+
+        if (scores.containsKey("maxDrawdownScore")) {
+            totalScore += scores.get("maxDrawdownScore") * 0.25; // 最大回撤 25%
+            totalWeight += 0.25;
+        }
+
+        if (scores.containsKey("winRateScore")) {
+            totalScore += scores.get("winRateScore") * 0.25; // 胜率 25%
+            totalWeight += 0.25;
+        }
+
+        if (scores.containsKey("sharpeRatioScore")) {
+            totalScore += scores.get("sharpeRatioScore") * 0.15; // 夏普比率 15%
+            totalWeight += 0.15;
+        }
+
+        // 归一化到8分制，然后转换为10分制
+        if (totalWeight > 0) {
+            double normalizedScore = (totalScore / totalWeight);
+            return (normalizedScore / 8.0) * 10.0;
+        }
+
+        return 5.0; // 默认中等分
+    }
+
+    /**
+     * 获取评分解释
+     */
+    private String getScoreExplanation(double score) {
+        if (score >= 9.0) return "优秀策略 - 各项指标均表现卓越，风险控制良好";
+        if (score >= 8.0) return "良好策略 - 收益风险平衡较好，值得关注";
+        if (score >= 7.0) return "中上策略 - 整体表现良好，但某些指标有提升空间";
+        if (score >= 6.0) return "中等策略 - 表现平均，需要进一步优化";
+        if (score >= 5.0) return "中下策略 - 表现一般，存在明显改进空间";
+        if (score >= 4.0) return "较差策略 - 风险收益比不理想，需要重新评估";
+        if (score >= 3.0) return "差策略 - 存在较大风险，不建议使用";
+        return "极差策略 - 高风险低收益，强烈不建议使用";
     }
 
 }

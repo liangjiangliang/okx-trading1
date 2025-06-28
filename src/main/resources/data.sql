@@ -239,7 +239,7 @@ INSERT IGNORE INTO `strategy_info` (`strategy_code`, `strategy_name`, `descripti
 ('TREND_STRENGTH', N'趋势强度策略', N'基于趋势强度的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期","threshold":"强度阈值"}', '{"shortPeriod":12,"longPeriod":50,"threshold":0.02}', N'趋势策略', NOW(), NOW(), N'趋势强度策略，只在强趋势中交易。'),
 ('SUPPORT_RESISTANCE_BREAKOUT', N'支撑阻力突破策略', N'基于支撑阻力突破的策略', N'{"period":"计算周期","volumeMultiplier":"成交量倍数"}', '{"period":20,"volumeMultiplier":1.5}', N'突破策略', NOW(), NOW(), N'支撑阻力突破策略，突破关键位需要成交量确认。'),
 ('PRICE_PATTERN_RECOGNITION', N'价格形态识别策略', N'基于价格形态识别的策略', N'{"shortPeriod":"短期周期","longPeriod":"长期周期"}', '{"shortPeriod":5,"longPeriod":20}', N'形态策略', NOW(), NOW(), N'价格形态识别策略，识别简单的价格形态。'),
-('COMPREHENSIVE_SCORING', N'综合评分策略', N'基于多指标综合评分的策略', N'{"maPeriod":"均线周期","rsiPeriod":"RSI周期","volumePeriod":"成交量周期","momentumPeriod":"动量周期"}', '{"maPeriod":20,"rsiPeriod":14,"volumePeriod":20,"momentumPeriod":10}', N'组合策略', NOW(), NOW(), N'综合评分策略，综合多个指标进行评分决策。'),
+('COMPREHENSIVE_SCORING', N'多指标确认策略', N'基于多指标确认的综合策略，需要RSI、MACD、均线三重信号确认', N'{"rsiPeriod":"RSI周期","macdShort":"MACD快线周期","macdLong":"MACD慢线周期","macdSignal":"MACD信号线周期","maPeriod":"均线周期"}', '{"rsiPeriod":14,"macdShort":12,"macdLong":26,"macdSignal":9,"maPeriod":20}', N'组合策略', NOW(), NOW(), N'【使用场景】多指标确认交易，提高信号可靠性。【优点】通过多重技术指标确认，减少假信号，提高胜率。【缺点】信号产生相对较少，可能错过部分快速机会。【历史表现】夏普比率1.1-1.4，最大回撤12-18%，胜率约65-75%。【评级】稳健的多指标组合策略，适合保守型交易者。'),
 
 -- ==================== 策略第四批 (90+ 策略)  StrategyFactory4====================
 -- AI 生成策略和实验性策略
@@ -297,4 +297,10 @@ INSERT IGNORE INTO `strategy_info` (`strategy_code`, `strategy_name`, `descripti
 ('VAR_RISK_MANAGEMENT', N'VaR风险管理策略', N'基于风险价值的风险管理策略', N'{"confidence":"置信水平","horizon":"时间范围","method":"计算方法"}', '{"confidence":0.95,"horizon":1,"method":"historical"}', N'风险管理', NOW(), NOW(), N'【使用场景】风险控制，投资组合管理。【优点】量化风险暴露，监控下行风险。【缺点】极端情况下VaR可能失效。【历史表现】风险管理工具。【地位】现代风险管理核心工具。'),
 ('MAXIMUM_DRAWDOWN_CONTROL', N'最大回撤控制策略', N'基于最大回撤控制的风险管理策略', N'{"maxDrawdown":"最大回撤限制","lookbackPeriod":"回望周期","recoveryFactor":"恢复因子"}', '{"maxDrawdown":0.1,"lookbackPeriod":60,"recoveryFactor":0.5}', N'风险管理', NOW(), NOW(), N'【使用场景】下行风险控制，资金保护。【优点】有效控制极端风险，保护资金安全。【缺点】可能过早退出有利趋势。【历史表现】风险控制效果明显。【价值】重要的风险控制工具。'),
 ('POSITION_SIZING', N'头寸规模策略', N'基于风险调整的头寸规模策略', N'{"riskPerTrade":"单笔风险","volatilityLookback":"波动率回望","maxPosition":"最大头寸"}', '{"riskPerTrade":0.02,"volatilityLookback":20,"maxPosition":0.1}', N'风险管理', NOW(), NOW(), N'【使用场景】头寸管理，风险控制。【优点】根据风险调整头寸，保持一致的风险暴露。【缺点】需要准确估计风险参数。【历史表现】风险调整效果显著。【评级】专业风险管理策略。'),
-('CORRELATION_FILTER', N'相关性过滤策略', N'基于相关性的风险管理策略', N'{"correlationThreshold":"相关性阈值","lookbackPeriod":"回望周期","maxCorrelatedPositions":"最大相关头寸"}', '{"correlationThreshold":0.7,"lookbackPeriod":60,"maxCorrelatedPositions":3}', N'风险管理', NOW(), NOW(), N'【使用场景】分散化投资，相关性风险控制。【优点】避免过度集中风险，提高分散化效果。【缺点】在系统性风险时分散化效果有限。【历史表现】提高投资组合稳定性。【价值】现代投资组合管理工具。');
+('CORRELATION_FILTER', N'相关性过滤策略', N'基于相关性的风险管理策略', N'{"correlationThreshold":"相关性阈值","lookbackPeriod":"回望周期","maxCorrelatedPositions":"最大相关头寸"}', '{"correlationThreshold":0.7,"lookbackPeriod":60,"maxCorrelatedPositions":3}', N'风险管理', NOW(), NOW(), N'【使用场景】分散化投资，相关性风险控制。【优点】避免过度集中风险，提高分散化效果。【缺点】在系统性风险时分散化效果有限。【历史表现】提高投资组合稳定性。【价值】现代投资组合管理工具。'),
+
+-- 其他策略
+('OTHER_STRATEGY', N'其他策略', N'基于其他策略的策略', N'{"customParameters":"自定义参数"}', '{"customParameters":"自定义参数"}', N'其他策略', NOW(), NOW(), N'【使用场景】根据具体情况定制的策略。【优点】灵活适应不同市场环境。【缺点】需要专业知识和经验。【历史表现】根据实际应用效果而定。【评价】策略多样性，适应性强。'),
+
+-- 自定义策略
+('CUSTOM_STRATEGY', N'自定义策略', N'基于自定义策略的策略', N'{"customParameters":"自定义参数"}', '{"customParameters":"自定义参数"}', N'自定义策略', NOW(), NOW(), N'【使用场景】根据具体需求定制的策略。【优点】灵活适应不同市场环境。【缺点】需要专业知识和经验。【历史表现】根据实际应用效果而定。【评价】策略多样性，适应性强。');

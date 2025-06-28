@@ -82,6 +82,12 @@ public class RealTimeStrategyEntity {
     @Column(name = "last_trade_type", length = 10)
     private String lastTradeType;
 
+    /**
+     * 最后一次交易类型：BUY(买入), SELL(卖出)
+     */
+    @Column(name = "last_trade_time", length = 10)
+    private String lastTradeTime;
+
 
     /**
      * 总盈利金额（USDT）

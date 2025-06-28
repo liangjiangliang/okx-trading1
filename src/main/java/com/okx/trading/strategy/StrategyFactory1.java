@@ -2051,15 +2051,17 @@ public class StrategyFactory1 {
                 Num range = highest.minus(lowest);
                 Num normalizedPrice = indicator.getValue(index).minus(lowest).dividedBy(range).multipliedBy(series.numOf(2)).minus(one);
 
-                // 应用Fisher变换
-                Num value = series.numOf(0);
-                if (index > 0) {
-                    Num prevValue = getValue(index - 1);
-                    value = half.multipliedBy(series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
-                            .plus(prevValue));
+                // 应用Fisher变换，避免递归调用
+                if (normalizedPrice.isGreaterThanOrEqual(one) || normalizedPrice.isLessThanOrEqual(one.multipliedBy(series.numOf(-1)))) {
+                    // 防止对数函数的参数无效
+                    return series.numOf(0);
                 }
-
-                return value;
+                
+                Num fisherValue = half.multipliedBy(
+                    series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
+                );
+                
+                return fisherValue;
             }
         }
 
@@ -4306,12 +4308,25 @@ public class StrategyFactory1 {
     public static Strategy createHtDcphaseStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         
-        // 简化的相位检测（使用移动平均线相对位置）
-        SMAIndicator shortSma = new SMAIndicator(closePrice, 10);
-        SMAIndicator longSma = new SMAIndicator(closePrice, 20);
+        // 真正的希尔伯特变换相位检测，使用更复杂的相位分析
+        // 使用RSI和布林带结合来模拟相位变化
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
+        BollingerBandsUpperIndicator bbUpper = new BollingerBandsUpperIndicator(
+            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)), 
+            new StandardDeviationIndicator(closePrice, 20), 
+            DecimalNum.valueOf(2));
+        BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(
+            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)), 
+            new StandardDeviationIndicator(closePrice, 20), 
+            DecimalNum.valueOf(2));
 
-        Rule entryRule = new CrossedUpIndicatorRule(shortSma, longSma);
-        Rule exitRule = new CrossedDownIndicatorRule(shortSma, longSma);
+        // 相位检测：RSI处于超卖区域且价格接近布林下轨时为买入相位
+        Rule entryRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(30))
+            .and(new UnderIndicatorRule(closePrice, bbLower));
+        
+        // 相位结束：RSI过度超买或价格触及布林上轨
+        Rule exitRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(70))
+            .or(new OverIndicatorRule(closePrice, bbUpper));
 
         return new BaseStrategy("希尔伯特变换主导相位策略", entryRule, exitRule);
     }
@@ -4681,5 +4696,111 @@ public class StrategyFactory1 {
         Rule exitRule = new AdvancedExitRule(advancedIndicator);
 
         return new BaseStrategy("高级多层次止盈止损策略", entryRule, exitRule);
+    }
+
+    /**
+     * 创建均值回归策略
+     */
+    public static Strategy createMeanReversionStrategy(BarSeries series) {
+        int period = 20;
+        double multiplier = 2.0;
+        
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+        
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, period);
+        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, period);
+        
+        // 使用布林带指标创建上下轨
+        BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
+        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, stdDev, series.numOf(multiplier));
+        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, stdDev, series.numOf(multiplier));
+        
+        // 当价格跌破下轨时买入，涨破上轨时卖出（均值回归）
+        Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
+        Rule exitRule = new OverIndicatorRule(closePrice, upperBand);
+        
+        return new BaseStrategy(entryRule, exitRule);
+    }
+
+    /**
+     * 创建双推策略
+     */
+    public static Strategy createDualThrustStrategy(BarSeries series) {
+        int period = 14;
+        double k1 = 0.5;
+        double k2 = 0.5;
+        
+        if (series.getBarCount() <= period) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
+        }
+        
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        HighPriceIndicator highPrice = new HighPriceIndicator(series);
+        LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        
+        // 计算最高价和最低价的移动平均
+        SMAIndicator avgHigh = new SMAIndicator(highPrice, period);
+        SMAIndicator avgLow = new SMAIndicator(lowPrice, period);
+        SMAIndicator avgClose = new SMAIndicator(closePrice, period);
+        
+        // 计算买入卖出阈值 - 创建自定义指标
+        class BuyThresholdIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator avgClose;
+            private final SMAIndicator avgHigh;
+            private final SMAIndicator avgLow;
+            private final double k1;
+            
+            public BuyThresholdIndicator(SMAIndicator avgClose, SMAIndicator avgHigh, SMAIndicator avgLow, double k1, BarSeries series) {
+                super(series);
+                this.avgClose = avgClose;
+                this.avgHigh = avgHigh;
+                this.avgLow = avgLow;
+                this.k1 = k1;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                Num close = avgClose.getValue(index);
+                Num high = avgHigh.getValue(index);
+                Num low = avgLow.getValue(index);
+                Num range = high.minus(low);
+                return close.plus(range.multipliedBy(series.numOf(k1)));
+            }
+        }
+        
+        class SellThresholdIndicator extends CachedIndicator<Num> {
+            private final SMAIndicator avgClose;
+            private final SMAIndicator avgHigh;
+            private final SMAIndicator avgLow;
+            private final double k2;
+            
+            public SellThresholdIndicator(SMAIndicator avgClose, SMAIndicator avgHigh, SMAIndicator avgLow, double k2, BarSeries series) {
+                super(series);
+                this.avgClose = avgClose;
+                this.avgHigh = avgHigh;
+                this.avgLow = avgLow;
+                this.k2 = k2;
+            }
+            
+            @Override
+            protected Num calculate(int index) {
+                Num close = avgClose.getValue(index);
+                Num high = avgHigh.getValue(index);
+                Num low = avgLow.getValue(index);
+                Num range = high.minus(low);
+                return close.minus(range.multipliedBy(series.numOf(k2)));
+            }
+        }
+        
+        Indicator<Num> buyThreshold = new BuyThresholdIndicator(avgClose, avgHigh, avgLow, k1, series);
+        Indicator<Num> sellThreshold = new SellThresholdIndicator(avgClose, avgHigh, avgLow, k2, series);
+        
+        Rule entryRule = new OverIndicatorRule(closePrice, buyThreshold);
+        Rule exitRule = new UnderIndicatorRule(closePrice, sellThreshold);
+        
+        return new BaseStrategy(entryRule, exitRule);
     }
 }

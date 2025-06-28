@@ -199,173 +199,179 @@ public class WebSocketUtil {
      * 连接bussiness频道
      */
     private void connectBussinessChannel() {
-        try {
-            Request request = new Request.Builder()
-                    .url(okxApiConfig.getWs().getBussinessChannel())
-                    .build();
+        CompletableFuture.runAsync(() -> {
+            try {
+                Request request = new Request.Builder()
+                        .url(okxApiConfig.getWs().getBussinessChannel())
+                        .build();
 
-            bussinessWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
-                @Override
-                public void onOpen(WebSocket webSocket, Response response) {
-                    logger.info("业务频道WebSocket连接成功");
-                    bussinessConnected.set(true);
-                    lastBusinessMessageTime.set(System.currentTimeMillis());
+                bussinessWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket, Response response) {
+                        logger.info("业务频道WebSocket连接成功");
+                        bussinessConnected.set(true);
+                        lastBusinessMessageTime.set(System.currentTimeMillis());
 
-                    // 重连成功，重置重试计数器
-                    businessRetryCount.set(0);
+                        // 重连成功，重置重试计数器
+                        businessRetryCount.set(0);
 
-                    // 恢复之前的操作
-                    restorePublicOperations();
-                }
+                        // 恢复之前的操作
+                        restorePublicOperations();
+                    }
 
-                @Override
-                public void onMessage(WebSocket webSocket, String text) {
-                    lastBusinessMessageTime.set(System.currentTimeMillis());
-                    handleMessage(text);
-                }
+                    @Override
+                    public void onMessage(WebSocket webSocket, String text) {
+                        lastBusinessMessageTime.set(System.currentTimeMillis());
+                        handleMessage(text);
+                    }
 
-                @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                    logger.error("业务频道WebSocket连接失败", t);
-                    bussinessConnected.set(false);
-                    // 尝试重连
-                    scheduleBusinessReconnect();
-                }
-
-                @Override
-                public void onClosed(WebSocket webSocket, int code, String reason) {
-                    logger.info("业务频道WebSocket连接关闭: {}, {}", code, reason);
-                    bussinessConnected.set(false);
-                    // 如果不是应用主动关闭，尝试重连
-                    if (code != 1000) {
+                    @Override
+                    public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                        logger.error("业务频道WebSocket连接失败", t);
+                        bussinessConnected.set(false);
+                        // 尝试重连
                         scheduleBusinessReconnect();
                     }
-                }
-            });
-        } catch (Exception e) {
-            logger.error("创建业务频道WebSocket连接失败", e);
-            bussinessConnected.set(false);
-            scheduleBusinessReconnect();
-        }
+
+                    @Override
+                    public void onClosed(WebSocket webSocket, int code, String reason) {
+                        logger.info("业务频道WebSocket连接关闭: {}, {}", code, reason);
+                        bussinessConnected.set(false);
+                        // 如果不是应用主动关闭，尝试重连
+                        if (code != 1000) {
+                            scheduleBusinessReconnect();
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                logger.error("创建业务频道WebSocket连接失败", e);
+                bussinessConnected.set(false);
+                scheduleBusinessReconnect();
+            }
+        }, websocketConnectScheduler);
     }
 
     /**
      * 连接公共频道
      */
     private void connectPublicChannel() {
-        try {
-            Request request = new Request.Builder()
-                    .url(okxApiConfig.getWs().getPublicChannel())
-                    .build();
+        CompletableFuture.runAsync(() -> {
+            try {
+                Request request = new Request.Builder()
+                        .url(okxApiConfig.getWs().getPublicChannel())
+                        .build();
 
-            publicWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
-                @Override
-                public void onOpen(WebSocket webSocket, Response response) {
-                    logger.info("公共频道WebSocket连接成功");
-                    publicConnected.set(true);
-                    lastPublicMessageTime.set(System.currentTimeMillis());
+                publicWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket, Response response) {
+                        logger.info("公共频道WebSocket连接成功");
+                        publicConnected.set(true);
+                        lastPublicMessageTime.set(System.currentTimeMillis());
 
-                    // 重连成功，重置重试计数器
-                    publicRetryCount.set(0);
+                        // 重连成功，重置重试计数器
+                        publicRetryCount.set(0);
 
-                    // 恢复之前的操作
-                    restorePublicOperations();
-                }
+                        // 恢复之前的操作
+                        restorePublicOperations();
+                    }
 
-                @Override
-                public void onMessage(WebSocket webSocket, String text) {
-                    lastPublicMessageTime.set(System.currentTimeMillis());
-                    handleMessage(text);
-                }
+                    @Override
+                    public void onMessage(WebSocket webSocket, String text) {
+                        lastPublicMessageTime.set(System.currentTimeMillis());
+                        handleMessage(text);
+                    }
 
-                @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                    logger.error("公共频道WebSocket连接失败", t);
-                    publicConnected.set(false);
-                    // 尝试重连
-                    schedulePublicReconnect();
-                }
-
-                @Override
-                public void onClosed(WebSocket webSocket, int code, String reason) {
-                    logger.info("公共频道WebSocket连接关闭: {}, {}", code, reason);
-                    publicConnected.set(false);
-                    // 如果不是应用主动关闭，尝试重连
-                    if (code != 1000) {
+                    @Override
+                    public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                        logger.error("公共频道WebSocket连接失败", t);
+                        publicConnected.set(false);
+                        // 尝试重连
                         schedulePublicReconnect();
                     }
-                }
-            });
-        } catch (Exception e) {
-            logger.error("创建公共频道WebSocket连接失败", e);
-            publicConnected.set(false);
-            schedulePublicReconnect();
-        }
+
+                    @Override
+                    public void onClosed(WebSocket webSocket, int code, String reason) {
+                        logger.info("公共频道WebSocket连接关闭: {}, {}", code, reason);
+                        publicConnected.set(false);
+                        // 如果不是应用主动关闭，尝试重连
+                        if (code != 1000) {
+                            schedulePublicReconnect();
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                logger.error("创建公共频道WebSocket连接失败", e);
+                publicConnected.set(false);
+                schedulePublicReconnect();
+            }
+        }, websocketConnectScheduler);
     }
 
     /**
      * 连接私有频道
      */
     private void connectPrivateChannel() {
-        try {
-            // 登录认证参数
-            String timestamp = System.currentTimeMillis() / 1000 + "";
-            String method = "GET";
-            String requestPath = "/users/self/verify";
-            String body = "";
-            String sign = SignatureUtil.sign(timestamp, method, requestPath, body, okxApiConfig.getSecretKey());
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 登录认证参数
+                String timestamp = System.currentTimeMillis() / 1000 + "";
+                String method = "GET";
+                String requestPath = "/users/self/verify";
+                String body = "";
+                String sign = SignatureUtil.sign(timestamp, method, requestPath, body, okxApiConfig.getSecretKey());
 
-            Request request = new Request.Builder()
-                    .url(okxApiConfig.getWs().getPrivateChannel())
-                    .build();
+                Request request = new Request.Builder()
+                        .url(okxApiConfig.getWs().getPrivateChannel())
+                        .build();
 
-            privateWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
-                @Override
-                public void onOpen(WebSocket webSocket, Response response) {
-                    logger.info("私有频道WebSocket连接成功");
-                    lastPrivateMessageTime.set(System.currentTimeMillis());
+                privateWebSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket, Response response) {
+                        logger.info("私有频道WebSocket连接成功");
+                        lastPrivateMessageTime.set(System.currentTimeMillis());
 
-                    // 重连成功，重置重试计数器
-                    privateRetryCount.set(0);
+                        // 重连成功，重置重试计数器
+                        privateRetryCount.set(0);
 
-                    // 发送登录消息 - 登录成功后会在登录响应中恢复订阅
-                    sendLoginMessage(webSocket, timestamp, sign);
-                }
-
-                @Override
-                public void onMessage(WebSocket webSocket, String text) {
-                    lastPrivateMessageTime.set(System.currentTimeMillis());
-                    handleMessage(text);
-                }
-
-                @Override
-                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                    logger.error("私有频道WebSocket连接失败", t);
-                    privateConnected.set(false);
-                    // 尝试重连
-                    schedulePrivateReconnect();
-                }
-
-                @Override
-                public void onClosed(WebSocket webSocket, int code, String reason) {
-                    logger.info("私有频道WebSocket连接关闭: {}, {}", code, reason);
-                    privateConnected.set(false);
-                    // 如果不是应用主动关闭，且不是Reconnecting状态，尝试重连
-                    if (code != 1000 || !"Application shutting down".equals(reason)) {
-                        // 添加延迟重连，避免立即重连
-                        reconnectScheduler.schedule(() -> {
-                            if (!privateConnected.get()) {
-                                schedulePrivateReconnect();
-                            }
-                        }, 2, TimeUnit.SECONDS);
+                        // 发送登录消息 - 登录成功后会在登录响应中恢复订阅
+                        sendLoginMessage(webSocket, timestamp, sign);
                     }
-                }
-            });
-        } catch (Exception e) {
-            logger.error("连接私有频道失败", e);
-            privateConnected.set(false);
-            schedulePrivateReconnect();
-        }
+
+                    @Override
+                    public void onMessage(WebSocket webSocket, String text) {
+                        lastPrivateMessageTime.set(System.currentTimeMillis());
+                        handleMessage(text);
+                    }
+
+                    @Override
+                    public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                        logger.error("私有频道WebSocket连接失败", t);
+                        privateConnected.set(false);
+                        // 尝试重连
+                        schedulePrivateReconnect();
+                    }
+
+                    @Override
+                    public void onClosed(WebSocket webSocket, int code, String reason) {
+                        logger.info("私有频道WebSocket连接关闭: {}, {}", code, reason);
+                        privateConnected.set(false);
+                        // 如果不是应用主动关闭，且不是Reconnecting状态，尝试重连
+                        if (code != 1000 || !"Application shutting down".equals(reason)) {
+                            // 添加延迟重连，避免立即重连
+                            reconnectScheduler.schedule(() -> {
+                                if (!privateConnected.get()) {
+                                    schedulePrivateReconnect();
+                                }
+                            }, 2, TimeUnit.SECONDS);
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                logger.error("连接私有频道失败", e);
+                privateConnected.set(false);
+                schedulePrivateReconnect();
+            }
+        }, websocketConnectScheduler);
     }
 
     /**

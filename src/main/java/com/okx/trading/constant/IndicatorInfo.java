@@ -77,7 +77,7 @@ public class IndicatorInfo {
     public static final String STRATEGY_HT_TRENDLINE = "HT_TRENDLINE"; // 希尔伯特变换-瞬时趋势线
 
     // 波动指标策略
-    public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER";
+    public static final String STRATEGY_BOLLINGER_BANDS = "BOLLINGER_BANDS";
     public static final String STRATEGY_KELTNER_CHANNEL = "KELTNER_CHANNEL";
     public static final String STRATEGY_CHANDELIER_EXIT = "CHANDELIER_EXIT";
     public static final String STRATEGY_ULCER_INDEX = "ULCER_INDEX";

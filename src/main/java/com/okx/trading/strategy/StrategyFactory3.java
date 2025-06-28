@@ -1424,20 +1424,26 @@ public class StrategyFactory3 {
 
     public static Strategy createTripleIndicatorConfirmationStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        
+        // 真正的三重指标确认：RSI + MACD + 成交量确认
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
         EMAIndicator macdSignal = new EMAIndicator(macd, 9);
-        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        SMAIndicator volumeMA = new SMAIndicator(volume, 20);
         
-        // 买入信号：三个指标都看涨
+        // 买入信号：三个指标都确认看涨
+        // 1. RSI > 50 (动量看涨)
+        // 2. MACD > Signal (趋势看涨)  
+        // 3. 成交量 > 均量 (成交量确认)
         Rule buyRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(50))
             .and(new OverIndicatorRule(macd, macdSignal))
-            .and(new OverIndicatorRule(closePrice, sma));
+            .and(new OverIndicatorRule(volume, volumeMA));
         
-        // 卖出信号：三个指标都看跌
+        // 卖出信号：任意两个指标看跌即卖出
         Rule sellRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(50))
             .and(new UnderIndicatorRule(macd, macdSignal))
-            .and(new UnderIndicatorRule(closePrice, sma));
+            .or(new UnderIndicatorRule(volume, volumeMA));
         
         return new BaseStrategy("三重指标确认策略", buyRule, sellRule);
     }
@@ -1577,7 +1583,7 @@ public class StrategyFactory3 {
         EMAIndicator macdSignal = new EMAIndicator(macd, 9);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
         
-        // 综合评分策略：多个指标综合判断
+        // 多指标确认策略：需要多个指标同时确认才进行交易
         Rule buyRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(40))
             .and(new OverIndicatorRule(macd, macdSignal))
             .and(new OverIndicatorRule(closePrice, sma));
@@ -1586,6 +1592,6 @@ public class StrategyFactory3 {
             .and(new UnderIndicatorRule(macd, macdSignal))
             .and(new UnderIndicatorRule(closePrice, sma));
         
-        return new BaseStrategy("综合评分策略", buyRule, sellRule);
+        return new BaseStrategy("多指标确认策略", buyRule, sellRule);
     }
 }

@@ -3,8 +3,10 @@ package com.okx.trading.strategy;
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
 import com.okx.trading.model.entity.CandlestickEntity;
+import com.okx.trading.service.IndicatorDistributionService;
+import com.okx.trading.service.IndicatorWeightService;
 import com.okx.trading.service.impl.Ta4jBacktestService;
-import javafx.geometry.Pos;
+import com.okx.trading.util.SpringContextUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,6 +139,10 @@ public class BacktestMetricsCalculator {
     private RiskMetrics riskMetrics;
     private TradeStatistics tradeStats;
 
+    // 获取权重服务
+    private IndicatorWeightService weightService;
+    private IndicatorDistributionService distributionService;
+
     /**
      * 构造器 - 在构造时完成所有指标计算
      *
@@ -157,6 +163,10 @@ public class BacktestMetricsCalculator {
         this.feeRatio = feeRatio;
         this.interval = interval;
         this.benchmarkCandlesticks = benchmarkCandlesticks;
+        
+        // 初始化服务实例
+        this.weightService = getIndicatorWeightService();
+        this.distributionService = getIndicatorDistributionService();
 
         // 在构造器中完成所有指标计算
         calculateAllMetrics();
@@ -376,18 +386,49 @@ public class BacktestMetricsCalculator {
             dailyDrawdownList.add(drawdownRate);
         }
 
-        // 设置最大损失和最大回撤到交易记录中
-        for (int i = 0; i < tradeRecords.size(); i++) {
-            Position position = tradingRecord.getPositions().get(i);
-            List<BigDecimal> tradePeriodsLoss = dailyLossList.subList(position.getEntry().getIndex(), position.getExit().getIndex());
-            tradeRecords.get(i).setMaxLoss(tradePeriodsLoss.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
-            List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(position.getEntry().getIndex(), position.getExit().getIndex());
-            tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+        // 设置最大损失和最大回撤到交易记录中 - 修复边界问题
+        for (int i = 0; i < tradeRecords.size() && i < tradingRecord.getPositionCount(); i++) {
+            try {
+                Position position = tradingRecord.getPositions().get(i);
+                int entryIndex = position.getEntry().getIndex();
+                int exitIndex = position.getExit().getIndex();
+
+                // 边界检查
+                if (entryIndex >= 0 && exitIndex >= entryIndex &&
+                        entryIndex < dailyLossList.size() && exitIndex < dailyLossList.size()) {
+
+                    // 正确处理subList边界（exitIndex+1因为subList是左闭右开）
+                    int actualExitIndex = Math.min(exitIndex + 1, dailyLossList.size());
+
+                    List<BigDecimal> tradePeriodsLoss = dailyLossList.subList(entryIndex, actualExitIndex);
+                    tradeRecords.get(i).setMaxLoss(tradePeriodsLoss.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+
+                    List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(entryIndex, actualExitIndex);
+                    tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+                } else {
+                    // 索引异常时设置默认值
+                    log.warn("交易 {} 的索引异常: entry={}, exit={}, dailyListSize={}，设置默认值",
+                            i, entryIndex, exitIndex, dailyLossList.size());
+                    tradeRecords.get(i).setMaxLoss(BigDecimal.ZERO);
+                    tradeRecords.get(i).setMaxDrowdown(BigDecimal.ZERO);
+                }
+            } catch (Exception e) {
+                log.error("计算交易 {} 的最大损失和回撤时出错: {}", i, e.getMessage());
+                tradeRecords.get(i).setMaxLoss(BigDecimal.ZERO);
+                tradeRecords.get(i).setMaxDrowdown(BigDecimal.ZERO);
+            }
         }
 
         List<ArrayList<BigDecimal>> result = new ArrayList<>();
         result.add(dailyLossList);
         result.add(dailyDrawdownList);
+
+        // 添加调试日志
+        if (!dailyDrawdownList.isEmpty()) {
+            BigDecimal maxGlobalDrawdown = dailyDrawdownList.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
+            log.debug("策略 {} 全局最大回撤: {}, 交易数量: {}", strategyType, maxGlobalDrawdown, tradeRecords.size());
+        }
+
         return result;
     }
 
@@ -459,7 +500,7 @@ public class BacktestMetricsCalculator {
             stats.winRate = new BigDecimal(stats.profitableTrades).divide(new BigDecimal(stats.tradeCount), 4, RoundingMode.HALF_UP);
         }
 
-        // 计算平均盈利
+        // 计算平均盈利,百分百
         stats.averageProfit = BigDecimal.ZERO;
         if (stats.tradeCount > 0) {
             BigDecimal totalReturn = BigDecimal.ZERO;
@@ -673,9 +714,10 @@ public class BacktestMetricsCalculator {
          * 应用场景: 策略排序、策略选择、投资组合构建
          * 评分标准:
          * - 8-10分: 卓越表现，适合重点关注
-         * - 6-8分: 良好表现，值得考虑
-         * - 4-6分: 一般表现，需要改进
-         * - 0-4分: 较差表现，不建议使用
+         * - 6-8分:  良好表现，收益风险平衡，样本充足，可考虑配置
+         * - 4-6分:  一般表现，存在不足，谨慎考虑
+         * - 2-4分:  较差表现，样本不足或风险过高，不建议使用
+         * - 0-2分:  极差表现，无效或危险策略，应当避免
          */
         BigDecimal comprehensiveScore;
     }
@@ -775,8 +817,8 @@ public class BacktestMetricsCalculator {
         // 计算Calmar比率
         metrics.calmarRatio = Ta4jBacktestService.calculateCalmarRatio(returnMetrics.annualizedReturn, tradeStats.maxDrawdown);
 
-        // 计算综合评分 (0-10分)
-        metrics.comprehensiveScore = calculateComprehensiveScore(returnMetrics, tradeStats, metrics);
+        // 计算综合评分 (0-10分) - 优先使用基于数据库分布的动态评分
+        metrics.comprehensiveScore = calculateDatabaseBasedScore(returnMetrics, tradeStats, metrics);
 
         return metrics;
     }
@@ -785,8 +827,6 @@ public class BacktestMetricsCalculator {
      * 构建最终结果
      */
     private BacktestResultDTO buildFinalResult() {
-
-
         BacktestResultDTO result = new BacktestResultDTO();
         result.setSuccess(true);
         result.setInitialAmount(initialAmount);
@@ -841,311 +881,144 @@ public class BacktestMetricsCalculator {
     }
 
     /**
-     * 计算全周期策略收益率序列
+     * 基于数据库分布和权重配置的动态评分算法
+     * 使用所有33个指标进行综合评分
      */
-    private List<BigDecimal> calculateFullPeriodStrategyReturns(BarSeries series, TradingRecord tradingRecord, boolean useLogReturn) {
-        List<BigDecimal> returns = new ArrayList<>();
-
-        if (series == null || series.getBarCount() < 2) {
-            return returns;
-        }
-
-        // 如果没有交易记录，整个期间都是0收益
-        if (tradingRecord == null || tradingRecord.getPositionCount() == 0) {
-            for (int i = 1; i < series.getBarCount(); i++) {
-                returns.add(BigDecimal.ZERO);
-            }
-            return returns;
-        }
-
-        // 创建持仓期间标记数组
-        boolean[] isInPosition = new boolean[series.getBarCount()];
-        boolean[] isEntryDay = new boolean[series.getBarCount()];
-        boolean[] isExitDay = new boolean[series.getBarCount()];
-
-        // 标记所有持仓期间、买入日和卖出日
-        for (Position position : tradingRecord.getPositions()) {
-            if (position.isClosed()) {
-                int entryIndex = position.getEntry().getIndex();
-                int exitIndex = position.getExit().getIndex();
-
-                // 标记买入日和卖出日
-                if (entryIndex < isEntryDay.length) {
-                    isEntryDay[entryIndex] = true;
-                }
-                if (exitIndex < isExitDay.length) {
-                    isExitDay[exitIndex] = true;
-                }
-
-                // 从入场时间点到出场时间点都标记为持仓状态
-                for (int i = entryIndex; i <= exitIndex; i++) {
-                    if (i < isInPosition.length) {
-                        isInPosition[i] = true;
-                    }
-                }
-            }
-        }
-
-        // 计算每个时间点的收益率
-        for (int i = 0; i < series.getBarCount(); i++) {
-            BigDecimal dailyReturn = BigDecimal.ZERO;
-
-            // 边界条件1：持仓第一天（买入日）收益率为0，因为只是买入，没有收益
-            if (isEntryDay[i]) {
-                dailyReturn = BigDecimal.ZERO;
-            }
-            // 边界条件2：卖出日的后一天收益率为0（已经没有持仓）
-            else if (i > 0 && isExitDay[i - 1]) {
-                dailyReturn = BigDecimal.ZERO;
-            }
-            // 正常持仓期间：计算价格收益率（排除买入日）
-            else if (isInPosition[i] && !isEntryDay[i]) {
-                BigDecimal today = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
-                BigDecimal yesterday = BigDecimal.valueOf(series.getBar(i - 1).getClosePrice().doubleValue());
-
-                if (yesterday.compareTo(BigDecimal.ZERO) > 0) {
-                    if (useLogReturn) {
-                        double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
-                        dailyReturn = BigDecimal.valueOf(logR);
-                    } else {
-                        BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
-                        dailyReturn = change;
-                    }
-                } else {
-                    dailyReturn = BigDecimal.ZERO;
-                }
-            }
-            // 未持仓期间：收益率为0
-            else {
-                dailyReturn = BigDecimal.ZERO;
-            }
-
-            returns.add(dailyReturn);
-        }
-
-        return returns;
-    }
-
-    /**
-     * 动态检测年化因子
-     * 根据BarSeries的时间间隔自动检测合适的年化因子
-     */
-    private int detectAnnualizationFactor(BarSeries series) {
-        if (series == null || series.getBarCount() < 2) {
-            return 252; // 默认日级别
-        }
+    private BigDecimal calculateDatabaseBasedScore(ReturnMetrics returnMetrics,
+                                                   TradeStatistics tradeStats,
+                                                   RiskMetrics riskMetrics) {
 
         try {
-            // 获取前两个Bar的时间间隔
-            long minutesBetween = parseIntervalToMinutes(interval);
 
-            // 根据时间间隔判断数据周期
-            if (minutesBetween <= 1) {
-                // 1分钟级别: 1年 = 365天 * 24小时 * 60分钟 = 525,600
-                return 525600;
-            } else if (minutesBetween <= 5) {
-                // 5分钟级别: 525,600 / 5 = 105,120
-                return 105120;
-            } else if (minutesBetween <= 15) {
-                // 15分钟级别: 525,600 / 15 = 35,040
-                return 35040;
-            } else if (minutesBetween <= 30) {
-                // 30分钟级别: 525,600 / 30 = 17,520
-                return 17520;
-            } else if (minutesBetween <= 60) {
-                // 1小时级别: 365天 * 24小时 = 8,760
-                return 8760;
-            } else if (minutesBetween <= 240) {
-                // 4小时级别: 8,760 / 4 = 2,190
-                return 2190;
-            } else if (minutesBetween <= 360) {
-                // 6小时级别: 8,760 / 6 = 1,460
-                return 1460;
-            } else if (minutesBetween <= 720) {
-                // 12小时级别: 8,760 / 12 = 730
-                return 730;
-            } else if (minutesBetween <= 1440) {
-                // 1天级别: 365天
-                return 365;
-            } else if (minutesBetween <= 10080) {
-                // 1周级别: 52周
-                return 52;
-            } else {
-                // 1月级别: 12个月
-                return 12;
+            if (weightService == null || weightService.getCurrentConfig() == null) {
+                log.warn("权重配置服务不可用，使用默认评分逻辑");
+                return BigDecimal.ZERO;
             }
+
+            // 准备所有指标值映射
+            Map<String, BigDecimal> indicatorValues = buildAllIndicatorValues(returnMetrics, tradeStats, riskMetrics);
+
+            // 计算各指标的评分（8分制）
+            Map<String, Double> indicatorScores = distributionService.calculateIndicatorScores(indicatorValues);
+
+            // 使用权重配置计算综合评分
+            BigDecimal comprehensiveScore = weightService.calculateComprehensiveScore(indicatorValues, indicatorScores);
+
+            // 获取维度评分详情用于调试
+            Map<String, Object> dimensionDetails = weightService.getDimensionScoreDetails(indicatorValues, indicatorScores);
+
+            log.debug("=== 基于权重配置的综合评分详情 ===");
+            log.debug("最终综合评分: {}/10", comprehensiveScore);
+
+            for (Map.Entry<String, Object> entry : dimensionDetails.entrySet()) {
+                Map<String, Object> detail = (Map<String, Object>) entry.getValue();
+                log.debug("维度 {}: 评分={}, 权重={}, 加权评分={}, 指标数量={}",
+                        entry.getKey(),
+                        detail.get("score"),
+                        detail.get("weight"),
+                        detail.get("weightedScore"),
+                        detail.get("indicatorCount"));
+            }
+            log.debug("=====================================");
+
+            return comprehensiveScore;
+
         } catch (Exception e) {
-            log.warn("检测年化因子时出错，使用默认值252: {}", e.getMessage());
-            return 252; // 出错时使用默认日级别
+            log.error("计算基于权重配置的评分时发生错误: {}", e.getMessage(), e);
+            return BigDecimal.ZERO;
         }
     }
 
     /**
-     * 计算波动率（基于收盘价）
+     * 构建所有指标值映射
      */
-    private BigDecimal calculateVolatility(BarSeries series, int annualizationFactor) {
-        if (series == null || series.getBarCount() < 2) {
-            return BigDecimal.ZERO;
+    private Map<String, BigDecimal> buildAllIndicatorValues(ReturnMetrics returnMetrics,
+                                                            TradeStatistics tradeStats,
+                                                            RiskMetrics riskMetrics) {
+        Map<String, BigDecimal> indicatorValues = new HashMap<>();
+
+        // ========== 收益性能指标 ==========
+        indicatorValues.put("totalReturn", returnMetrics.totalReturn != null ? returnMetrics.totalReturn : BigDecimal.ZERO);
+        indicatorValues.put("annualizedReturn", returnMetrics.annualizedReturn != null ? returnMetrics.annualizedReturn : BigDecimal.ZERO);
+        indicatorValues.put("averageProfit", tradeStats.averageProfit != null ? tradeStats.averageProfit : BigDecimal.ZERO);
+        indicatorValues.put("profitFactor", tradeStats.profitFactor != null ? tradeStats.profitFactor : BigDecimal.ZERO);
+        indicatorValues.put("riskAdjustedReturn", riskMetrics.riskAdjustedReturn != null ? riskMetrics.riskAdjustedReturn : BigDecimal.ZERO);
+
+        // ========== 风险控制指标 ==========
+        indicatorValues.put("maxDrawdown", tradeStats.maxDrawdown != null ? tradeStats.maxDrawdown : BigDecimal.ZERO);
+        indicatorValues.put("maximumLoss", tradeStats.maximumLoss != null ? tradeStats.maximumLoss : BigDecimal.ZERO);
+        indicatorValues.put("volatility", riskMetrics.volatility != null ? riskMetrics.volatility : BigDecimal.ZERO);
+        indicatorValues.put("ulcerIndex", riskMetrics.ulcerIndex != null ? riskMetrics.ulcerIndex : BigDecimal.ZERO);
+        indicatorValues.put("painIndex", riskMetrics.painIndex != null ? riskMetrics.painIndex : BigDecimal.ZERO);
+        indicatorValues.put("downsideDeviation", riskMetrics.downsideDeviation != null ? riskMetrics.downsideDeviation : BigDecimal.ZERO);
+        indicatorValues.put("cvar", riskMetrics.cvar != null ? riskMetrics.cvar : BigDecimal.ZERO);
+        indicatorValues.put("var95", riskMetrics.var95 != null ? riskMetrics.var95 : BigDecimal.ZERO);
+        indicatorValues.put("var99", riskMetrics.var99 != null ? riskMetrics.var99 : BigDecimal.ZERO);
+        indicatorValues.put("trackingError", riskMetrics.trackingError != null ? riskMetrics.trackingError : BigDecimal.ZERO);
+        indicatorValues.put("maxDrawdownDuration", riskMetrics.maxDrawdownDuration != null ? riskMetrics.maxDrawdownDuration : BigDecimal.ZERO);
+        indicatorValues.put("downtrendCapture", riskMetrics.downtrendCapture != null ? riskMetrics.downtrendCapture : BigDecimal.ZERO);
+
+        // ========== 风险调整比率指标 ==========
+        indicatorValues.put("sharpeRatio", riskMetrics.sharpeRatio != null ? riskMetrics.sharpeRatio : BigDecimal.ZERO);
+        indicatorValues.put("sortinoRatio", riskMetrics.sortinoRatio != null ? riskMetrics.sortinoRatio : BigDecimal.ZERO);
+        indicatorValues.put("calmarRatio", riskMetrics.calmarRatio != null ? riskMetrics.calmarRatio : BigDecimal.ZERO);
+        indicatorValues.put("treynorRatio", riskMetrics.treynorRatio != null ? riskMetrics.treynorRatio : BigDecimal.ZERO);
+        indicatorValues.put("informationRatio", riskMetrics.informationRatio != null ? riskMetrics.informationRatio : BigDecimal.ZERO);
+        indicatorValues.put("sterlingRatio", riskMetrics.sterlingRatio != null ? riskMetrics.sterlingRatio : BigDecimal.ZERO);
+        indicatorValues.put("burkeRatio", riskMetrics.burkeRatio != null ? riskMetrics.burkeRatio : BigDecimal.ZERO);
+        indicatorValues.put("modifiedSharpeRatio", riskMetrics.modifiedSharpeRatio != null ? riskMetrics.modifiedSharpeRatio : BigDecimal.ZERO);
+        indicatorValues.put("omega", riskMetrics.omega != null ? riskMetrics.omega : BigDecimal.ZERO);
+
+        // ========== 交易效率指标 ==========
+        indicatorValues.put("winRate", tradeStats.winRate != null ? tradeStats.winRate : BigDecimal.ZERO);
+        indicatorValues.put("numberOfTrades", BigDecimal.valueOf(tradeStats.tradeCount));
+
+        // Alpha和Beta需要特殊处理
+        if (riskMetrics.alphaBeta != null && riskMetrics.alphaBeta.length >= 2) {
+            indicatorValues.put("alpha", riskMetrics.alphaBeta[0] != null ? riskMetrics.alphaBeta[0] : BigDecimal.ZERO);
+            indicatorValues.put("beta", riskMetrics.alphaBeta[1] != null ? riskMetrics.alphaBeta[1] : BigDecimal.ZERO);
+        } else {
+            indicatorValues.put("alpha", BigDecimal.ZERO);
+            indicatorValues.put("beta", BigDecimal.ONE); // Beta默认为1
         }
 
-        // 收集所有收盘价
-        List<BigDecimal> closePrices = new ArrayList<>();
-        for (int i = 0; i < series.getBarCount(); i++) {
-            double closePrice = series.getBar(i).getClosePrice().doubleValue();
-            closePrices.add(BigDecimal.valueOf(closePrice));
-        }
+        indicatorValues.put("uptrendCapture", riskMetrics.uptrendCapture != null ? riskMetrics.uptrendCapture : BigDecimal.ZERO);
+        indicatorValues.put("skewness", riskMetrics.skewness != null ? riskMetrics.skewness : BigDecimal.ZERO);
+        indicatorValues.put("kurtosis", riskMetrics.kurtosis != null ? riskMetrics.kurtosis : BigDecimal.ZERO);
 
-        // 计算收盘价的对数收益率
-        List<BigDecimal> logReturns = new ArrayList<>();
-        for (int i = 1; i < closePrices.size(); i++) {
-            BigDecimal today = closePrices.get(i);
-            BigDecimal yesterday = closePrices.get(i - 1);
+        // 记录指标值统计（开发环境）
+        long validIndicatorCount = indicatorValues.values().stream()
+                .mapToLong(value -> value != null && value.compareTo(BigDecimal.ZERO) != 0 ? 1 : 0)
+                .sum();
+        log.debug("构建指标值映射完成: 总数={}, 有效数量={}", indicatorValues.size(), validIndicatorCount);
 
-            if (yesterday.compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
 
-            double logReturn = Math.log(today.doubleValue() / yesterday.doubleValue());
-            logReturns.add(BigDecimal.valueOf(logReturn));
-        }
-
-        if (logReturns.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        // 计算对数收益率的平均值
-        BigDecimal sum = BigDecimal.ZERO;
-        for (BigDecimal r : logReturns) {
-            sum = sum.add(r);
-        }
-        BigDecimal mean = sum.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
-
-        // 计算对数收益率的方差
-        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
-        for (BigDecimal r : logReturns) {
-            BigDecimal diff = r.subtract(mean);
-            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
-        }
-        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
-
-        // 计算标准差（波动率）
-        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
-
-        // 年化波动率（使用动态年化因子）
-        BigDecimal annualizedVolatility = stdDev.multiply(BigDecimal.valueOf(Math.sqrt(annualizationFactor)));
-
-        return annualizedVolatility.setScale(4, RoundingMode.HALF_UP);
+        return indicatorValues;
     }
 
     /**
-     * 计算年化收益率
+     * 获取指标权重服务实例
      */
-    private BigDecimal calculateAnnualizedReturn(BigDecimal totalReturn, LocalDateTime startTime, LocalDateTime endTime) {
-        if (totalReturn == null || startTime == null || endTime == null || startTime.isAfter(endTime)) {
-            log.warn("计算年化收益率的参数无效");
-            return BigDecimal.ZERO;
-        }
-
-        // 计算回测持续的天数
-        long daysBetween = ChronoUnit.DAYS.between(startTime, endTime);
-
-        // 避免除以零错误
-        if (daysBetween <= 0) {
-            return totalReturn; // 如果时间跨度小于1天，直接返回总收益率
-        }
-
-        // 计算年化收益率: (1 + totalReturn)^(365/daysBetween) - 1
-        BigDecimal base = BigDecimal.ONE.add(totalReturn);
-        BigDecimal exponent = new BigDecimal("365").divide(new BigDecimal(daysBetween), 8, RoundingMode.HALF_UP);
-
-        BigDecimal result;
+    private IndicatorWeightService getIndicatorWeightService() {
         try {
-            double baseDouble = base.doubleValue();
-            double exponentDouble = exponent.doubleValue();
-            double power = Math.pow(baseDouble, exponentDouble);
-
-            result = new BigDecimal(power).subtract(BigDecimal.ONE);
+            return SpringContextUtil.getBean(IndicatorWeightService.class);
         } catch (Exception e) {
-            log.error("计算年化收益率时出错", e);
-            return BigDecimal.ZERO;
+            log.debug("无法获取指标权重服务: {}", e.getMessage());
+            return null;
         }
-
-        return result;
     }
 
     /**
-     * 计算 Alpha 和 Beta
-     * Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
-     *
-     * @param strategyReturns  策略每日收益率序列
-     * @param benchmarkReturns 基准每日收益率序列
-     * @return 包含Alpha和Beta的数组 [Alpha, Beta]
+     * 获取指标分布服务实例
      */
-    public static BigDecimal[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<CandlestickEntity> benchmarkCandlesticks) {
-
-        List<BigDecimal> benchmarkPriceList = benchmarkCandlesticks.stream().map(CandlestickEntity::getClose).collect(Collectors.toList());
-        List<BigDecimal> benchmarkReturns = new ArrayList<>();
-        benchmarkReturns.add(BigDecimal.ZERO);
-        for (int i = 1; i < benchmarkPriceList.size(); i++) {
-            // 使用对数收益率保持与策略收益率计算的一致性
-            double logReturn = Math.log(benchmarkPriceList.get(i).doubleValue() / benchmarkPriceList.get(i - 1).doubleValue());
-            benchmarkReturns.add(BigDecimal.valueOf(logReturn));
+    private IndicatorDistributionService getIndicatorDistributionService() {
+        try {
+            return SpringContextUtil.getBean(IndicatorDistributionService.class);
+        } catch (Exception e) {
+            log.debug("无法获取指标分布服务: {}", e.getMessage());
+            return null;
         }
-
-        // 添加空值检查和长度验证，避免抛出异常
-        if (strategyReturns == null || strategyReturns.isEmpty()) {
-            System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
-        }
-
-        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
-            System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
-        }
-
-        // 如果长度不匹配，取较短的长度，避免抛出异常
-        int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
-        if (minLength == 0) {
-            System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
-            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
-        }
-
-        // 截取到相同长度，确保不会出现长度不匹配问题
-        List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
-        List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
-
-        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
-
-        int n = adjustedStrategyReturns.size();
-
-        // 计算策略和基准的平均收益率
-        double meanStrategy = adjustedStrategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
-        double meanBenchmark = adjustedBenchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
-
-        double covariance = 0.0;        // 协方差 numerator部分
-        double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
-
-        // 计算协方差和基准方差
-        for (int i = 0; i < n; i++) {
-            double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
-            double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
-
-            covariance += sDiff * bDiff;
-            varianceBenchmark += bDiff * bDiff;
-        }
-
-        covariance /= n;        // 求平均协方差
-        varianceBenchmark /= n; // 求平均方差
-
-        // 防止除以0
-        double beta = varianceBenchmark == 0 ? 0 : covariance / varianceBenchmark;
-
-        // Alpha = 策略平均收益 - Beta * 基准平均收益
-        double alpha = meanStrategy - beta * meanBenchmark;
-
-        return new BigDecimal[]{BigDecimal.valueOf(alpha), BigDecimal.valueOf(beta)};
     }
-
 
     /**
      * 获取计算结果
@@ -1624,398 +1497,142 @@ public class BacktestMetricsCalculator {
     }
 
     /**
-     * 计算综合评分 (0-10分) - 科学严谨的多维度评分体系
-     * <p>
-     * 该评分系统严格按照现代投资组合理论设计，优先考虑年化收益率和稳定性，
-     * 对交易样本不足、异常数据等情况实施严格筛选和惩罚机制。
-     * <p>
-     * 评分架构设计 (权重分配):
-     * ┌─────────────────────────────────────────────────────────────┐
-     * │                   综合评分 (0-10分)                        │
-     * ├─────────────────────────────────────────────────────────────┤
-     * │ 年化收益率 (40%) │ 稳定性 (25%) │ 风险控制 (20%) │ 样本质量 (15%) │
-     * ├─────────────────────────────────────────────────────────────┤
-     * │ • 年化收益率     │ • 夏普比率    │ • 最大回撤     │ • 交易次数     │
-     * │ • 总收益率       │ • Sortino比率 │ • 波动率       │ • 胜率         │
-     * │ • 盈利因子       │ • Calmar比率  │ • VaR/CVaR     │ • 回撤持续期   │
-     * │                 │ • 信息比率    │ • 痛苦指数     │ • 统计显著性   │
-     * └─────────────────────────────────────────────────────────────┘
-     * <p>
-     * 严格筛选机制:
-     * 1. 交易次数 < 10: 最高评分不超过4分 (样本不足)
-     * 2. 交易次数 < 5:  最高评分不超过2分 (极度不足)
-     * 3. 交易次数 = 0:  评分为0分 (无效策略)
-     * 4. 年化收益率 < 1%: 最高评分不超过3分 (收益过低)
-     * 5. 年化收益率 < 0%: 最高评分不超过1分 (亏损策略)
-     * 6. 最大回撤 > 50%: 最高评分不超过4分 (风险过高)
-     * 7. 胜率 < 30%: 扣除1分 (稳定性不足)
-     * <p>
-     * 评分标准:
-     * - 8-10分: 卓越表现，高收益低风险，充足样本，值得重点关注
-     * - 6-8分:  良好表现，收益风险平衡，样本充足，可考虑配置
-     * - 4-6分:  一般表现，存在不足，谨慎考虑
-     * - 2-4分:  较差表现，样本不足或风险过高，不建议使用
-     * - 0-2分:  极差表现，无效或危险策略，应当避免
-     *
-     * @param returnMetrics 收益指标
-     * @param tradeStats    交易统计
-     * @param riskMetrics   风险指标
-     * @return 综合评分 (0-10分)，保留2位小数
+     * 年化收益率评分 - 基于真实数据分位数
+     * 分位数分布: 10%(-5.08%) 25%(11.10%) 50%(26.35%) 75%(45.90%) 90%(63.82%)
      */
-    private BigDecimal calculateComprehensiveScore(ReturnMetrics returnMetrics,
-                                                   TradeStatistics tradeStats,
-                                                   RiskMetrics riskMetrics) {
+    private double calculateAnnualReturnScore(BigDecimal annualizedReturn) {
+        if (annualizedReturn == null) return 0.0;
 
-        // ===== 第一步：严格的前置筛选 =====
+        double returnRate = annualizedReturn.doubleValue();
 
-        // 1. 零交易检查 - 无效策略
-        if (tradeStats.tradeCount == 0) {
-            log.warn("策略无任何交易记录，综合评分为0分");
-            return BigDecimal.ZERO;
+        if (returnRate >= 0.6382) {        // >= 90%分位数 (63.82%)
+            return 10.0;
+        } else if (returnRate >= 0.4590) { // 75%-90%分位数 (45.90%-63.82%)
+            return 8.5 + (returnRate - 0.4590) / (0.6382 - 0.4590) * 1.5;
+        } else if (returnRate >= 0.2635) { // 50%-75%分位数 (26.35%-45.90%)
+            return 6.5 + (returnRate - 0.2635) / (0.4590 - 0.2635) * 2.0;
+        } else if (returnRate >= 0.1110) { // 25%-50%分位数 (11.10%-26.35%)
+            return 4.0 + (returnRate - 0.1110) / (0.2635 - 0.1110) * 2.5;
+        } else if (returnRate >= -0.0508) { // 10%-25%分位数 (-5.08%-11.10%)
+            return 1.5 + (returnRate + 0.0508) / (0.1110 + 0.0508) * 2.5;
+        } else {                           // < 10%分位数 (< -5.08%)
+            return Math.max(0.0, 1.5 + (returnRate + 0.0508) / 0.05 * 1.5);
         }
-
-        // 2. 负收益检查 - 亏损策略严格限制
-        if (returnMetrics.annualizedReturn != null &&
-                returnMetrics.annualizedReturn.compareTo(BigDecimal.ZERO) < 0) {
-            log.warn("策略年化收益率为负 ({}%)，最高评分限制为1分",
-                    returnMetrics.annualizedReturn.multiply(BigDecimal.valueOf(100)));
-            return BigDecimal.ONE;
-        }
-
-        // ===== 第二步：计算基础评分 =====
-
-        // 调整权重分配，突出年化收益率和稳定性
-        double totalScore = 0.0;
-
-        // 1. 年化收益率评分 (40分) - 最重要指标
-        double returnScore = calculateEnhancedReturnScore(returnMetrics, tradeStats) * 0.40;
-
-        // 2. 稳定性评分 (25分) - 包含夏普比率、Sortino比率等
-        double stabilityScore = calculateEnhancedStabilityScore(riskMetrics, tradeStats) * 0.25;
-
-        // 3. 风险控制评分 (20分) - 回撤、波动率、VaR等
-        double riskControlScore = calculateEnhancedRiskControlScore(riskMetrics, tradeStats) * 0.20;
-
-        // 4. 样本质量评分 (15分) - 交易次数、胜率、统计显著性
-        double sampleQualityScore = calculateSampleQualityScore(tradeStats, riskMetrics) * 0.15;
-
-        totalScore = returnScore + stabilityScore + riskControlScore + sampleQualityScore;
-
-        // ===== 第三步：严格的后置惩罚机制 =====
-
-        // 1. 交易次数不足惩罚
-        if (tradeStats.tradeCount < 5) {
-            totalScore = Math.min(totalScore, 2.0);
-            log.warn("交易次数严重不足 ({} < 5)，综合评分被限制为最高2分，实际评分: {}",
-                    tradeStats.tradeCount, String.format("%.2f", totalScore));
-        } else if (tradeStats.tradeCount < 10) {
-            totalScore = Math.min(totalScore, 4.0);
-            log.warn("交易次数不足 ({} < 10)，综合评分被限制为最高4分，实际评分: {}",
-                    tradeStats.tradeCount, String.format("%.2f", totalScore));
-        } else if (tradeStats.tradeCount < 20) {
-            totalScore = Math.min(totalScore, 7.0);
-            log.info("交易次数较少 ({} < 20)，综合评分被限制为最高7分，实际评分: {}",
-                    tradeStats.tradeCount, String.format("%.2f", totalScore));
-        }
-
-        // 2. 年化收益率过低惩罚
-        if (returnMetrics.annualizedReturn != null) {
-            double annualReturn = returnMetrics.annualizedReturn.doubleValue();
-
-            if (annualReturn < 0.01) { // < 1%
-                totalScore = Math.min(totalScore, 3.0);
-                log.warn("年化收益率过低 ({}% < 1%)，综合评分被限制为最高3分，实际评分: {}",
-                        String.format("%.2f", annualReturn * 100), String.format("%.2f", totalScore));
-            } else if (annualReturn < 0.05) { // < 5%
-                totalScore = Math.min(totalScore, 5.0);
-                log.info("年化收益率较低 ({}% < 5%)，综合评分被限制为最高5分，实际评分: {}",
-                        String.format("%.2f", annualReturn * 100), String.format("%.2f", totalScore));
-            }
-        }
-
-        // 3. 最大回撤过高惩罚
-        if (tradeStats.maxDrawdown != null) {
-            double maxDD = tradeStats.maxDrawdown.abs().doubleValue();
-            if (maxDD > 0.50) { // > 50%
-                totalScore = Math.min(totalScore, 4.0);
-                log.warn("最大回撤过高 ({}% > 50%)，综合评分被限制为最高4分，实际评分: {}",
-                        String.format("%.2f", maxDD * 100), String.format("%.2f", totalScore));
-            } else if (maxDD > 0.30) { // > 30%
-                totalScore = Math.min(totalScore, 6.0);
-                log.info("最大回撤较高 ({}% > 30%)，综合评分被限制为最高6分，实际评分: {}",
-                        String.format("%.2f", maxDD * 100), String.format("%.2f", totalScore));
-            }
-        }
-
-        // 4. 胜率过低惩罚
-        if (tradeStats.winRate != null && tradeStats.winRate.doubleValue() < 0.30) {
-            totalScore = Math.max(0.0, totalScore - 1.0);
-            log.warn("胜率过低 ({}% < 30%)，综合评分扣除1分，调整后评分: {}",
-                    String.format("%.2f", tradeStats.winRate.doubleValue() * 100),
-                    String.format("%.2f", totalScore));
-        }
-
-        // 确保评分在0-10之间
-        totalScore = Math.max(0.0, Math.min(10.0, totalScore));
-
-        log.info("综合评分计算完成: 收益({}) + 稳定性({}) + 风险控制({}) + 样本质量({}) = {}分",
-                returnScore, stabilityScore, riskControlScore, sampleQualityScore, totalScore);
-
-        return BigDecimal.valueOf(totalScore).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
-     * 计算增强版年化收益率评分 (0-10分)
-     * 重点关注年化收益率，兼顾总收益率和盈利因子
+     * 风险控制评分 - 基于最大回撤分位数 (越小越好)
+     * 分位数分布: 10%(8.99%) 25%(16.55%) 50%(21.5%) 75%(26.02%) 90%(32.23%)
      */
-    private double calculateEnhancedReturnScore(ReturnMetrics returnMetrics, TradeStatistics tradeStats) {
-        double score = 0.0;
-        int validIndicators = 0;
+    private double calculateRiskControlScore(BigDecimal maxDrawdown) {
+        if (maxDrawdown == null) return 5.0; // 无数据时给中等分
 
-        // 年化收益率评分 (权重60%) - 最关键指标
-        if (returnMetrics.annualizedReturn != null) {
-            double annualReturn = returnMetrics.annualizedReturn.doubleValue();
-            if (annualReturn >= 0.25) { // >= 25%
-                score += 10.0 * 0.6;
-            } else if (annualReturn >= 0.15) { // 15-25%
-                score += (7.0 + (annualReturn - 0.15) / 0.10 * 3.0) * 0.6;
-            } else if (annualReturn >= 0.10) { // 10-15%
-                score += (5.0 + (annualReturn - 0.10) / 0.05 * 2.0) * 0.6;
-            } else if (annualReturn >= 0.05) { // 5-10%
-                score += (3.0 + (annualReturn - 0.05) / 0.05 * 2.0) * 0.6;
-            } else if (annualReturn > 0) { // 0-5%
-                score += (annualReturn / 0.05 * 3.0) * 0.6;
-            }
-            validIndicators++;
+        double drawdown = Math.abs(maxDrawdown.doubleValue());
+
+        if (drawdown <= 0.0899) {          // <= 10%分位数 (8.99%)
+            return 10.0;
+        } else if (drawdown <= 0.1655) {   // 10%-25%分位数 (8.99%-16.55%)
+            return 8.5 + (0.1655 - drawdown) / (0.1655 - 0.0899) * 1.5;
+        } else if (drawdown <= 0.215) {    // 25%-50%分位数 (16.55%-21.5%)
+            return 6.5 + (0.215 - drawdown) / (0.215 - 0.1655) * 2.0;
+        } else if (drawdown <= 0.2602) {   // 50%-75%分位数 (21.5%-26.02%)
+            return 4.0 + (0.2602 - drawdown) / (0.2602 - 0.215) * 2.5;
+        } else if (drawdown <= 0.3223) {   // 75%-90%分位数 (26.02%-32.23%)
+            return 1.5 + (0.3223 - drawdown) / (0.3223 - 0.2602) * 2.5;
+        } else {                           // > 90%分位数 (> 32.23%)
+            return Math.max(0.0, 1.5 - (drawdown - 0.3223) / 0.1 * 1.5);
         }
-
-        // 总收益率评分 (权重25%)
-        if (returnMetrics.totalReturn != null) {
-            double totalReturn = returnMetrics.totalReturn.doubleValue();
-            if (totalReturn >= 1.0) { // >= 100%
-                score += 10.0 * 0.25;
-            } else if (totalReturn >= 0.5) { // 50-100%
-                score += (6.0 + (totalReturn - 0.5) / 0.5 * 4.0) * 0.25;
-            } else if (totalReturn > 0) { // 0-50%
-                score += (totalReturn / 0.5 * 6.0) * 0.25;
-            }
-            validIndicators++;
-        }
-
-        // 盈利因子评分 (权重15%)
-        if (tradeStats.profitFactor != null) {
-            double profitFactor = tradeStats.profitFactor.doubleValue();
-            if (profitFactor >= 3.0) {
-                score += 10.0 * 0.15;
-            } else if (profitFactor >= 2.0) {
-                score += (7.0 + (profitFactor - 2.0) / 1.0 * 3.0) * 0.15;
-            } else if (profitFactor >= 1.5) {
-                score += (4.0 + (profitFactor - 1.5) / 0.5 * 3.0) * 0.15;
-            } else if (profitFactor > 1.0) {
-                score += ((profitFactor - 1.0) / 0.5 * 4.0) * 0.15;
-            }
-            validIndicators++;
-        }
-
-        return validIndicators > 0 ? score : 0.0;
     }
 
     /**
-     * 计算增强版稳定性评分 (0-10分)
-     * 重点关注夏普比率、Sortino比率等稳定性指标
+     * 交易质量评分 - 基于胜率分位数
+     * 分位数分布: 10%(25%) 25%(33.33%) 50%(46.15%) 75%(66.67%) 90%(100%)
      */
-    private double calculateEnhancedStabilityScore(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
+    private double calculateTradingQualityScore(BigDecimal winRate, BigDecimal profitFactor) {
         double score = 0.0;
-        int validIndicators = 0;
 
-        // 夏普比率评分 (权重40%) - 最重要的风险调整收益指标
-        if (riskMetrics.sharpeRatio != null) {
-            double sharpe = riskMetrics.sharpeRatio.doubleValue();
-            if (sharpe >= 2.0) {
-                score += 10.0 * 0.4;
-            } else if (sharpe >= 1.5) {
-                score += (8.0 + (sharpe - 1.5) / 0.5 * 2.0) * 0.4;
-            } else if (sharpe >= 1.0) {
-                score += (6.0 + (sharpe - 1.0) / 0.5 * 2.0) * 0.4;
-            } else if (sharpe >= 0.5) {
-                score += (3.0 + (sharpe - 0.5) / 0.5 * 3.0) * 0.4;
-            } else if (sharpe > 0) {
-                score += (sharpe / 0.5 * 3.0) * 0.4;
+        // 胜率评分 (权重70%)
+        if (winRate != null) {
+            double rate = winRate.doubleValue();
+
+            if (rate >= 1.0) {              // >= 90%分位数 (100%)
+                score += 10.0 * 0.7;
+            } else if (rate >= 0.6667) {    // 75%-90%分位数 (66.67%-100%)
+                score += (8.5 + (rate - 0.6667) / (1.0 - 0.6667) * 1.5) * 0.7;
+            } else if (rate >= 0.4615) {    // 50%-75%分位数 (46.15%-66.67%)
+                score += (6.5 + (rate - 0.4615) / (0.6667 - 0.4615) * 2.0) * 0.7;
+            } else if (rate >= 0.3333) {    // 25%-50%分位数 (33.33%-46.15%)
+                score += (4.0 + (rate - 0.3333) / (0.4615 - 0.3333) * 2.5) * 0.7;
+            } else if (rate >= 0.25) {      // 10%-25%分位数 (25%-33.33%)
+                score += (1.5 + (rate - 0.25) / (0.3333 - 0.25) * 2.5) * 0.7;
+            } else {                        // < 10%分位数 (< 25%)
+                score += Math.max(0.0, 1.5 * rate / 0.25) * 0.7;
             }
-            validIndicators++;
         }
 
-        // Sortino比率评分 (权重25%)
-        if (riskMetrics.sortinoRatio != null) {
-            double sortino = riskMetrics.sortinoRatio.doubleValue();
-            if (sortino >= 2.0) {
-                score += 10.0 * 0.25;
-            } else if (sortino >= 1.0) {
-                score += (5.0 + (sortino - 1.0) / 1.0 * 5.0) * 0.25;
-            } else if (sortino > 0) {
-                score += (sortino / 1.0 * 5.0) * 0.25;
+        // 盈利因子评分 (权重30%) - 简化评分
+        if (profitFactor != null) {
+            double pf = profitFactor.doubleValue();
+            if (pf >= 3.0) {
+                score += 10.0 * 0.3;
+            } else if (pf >= 2.0) {
+                score += (6.0 + (pf - 2.0) / 1.0 * 4.0) * 0.3;
+            } else if (pf >= 1.5) {
+                score += (3.0 + (pf - 1.5) / 0.5 * 3.0) * 0.3;
+            } else if (pf > 1.0) {
+                score += ((pf - 1.0) / 0.5 * 3.0) * 0.3;
             }
-            validIndicators++;
+        } else {
+            score += 5.0 * 0.3; // 无数据时给中等分
         }
 
-        // Calmar比率评分 (权重20%)
-        if (riskMetrics.calmarRatio != null) {
-            double calmar = riskMetrics.calmarRatio.doubleValue();
-            if (calmar >= 1.5) {
-                score += 10.0 * 0.2;
-            } else if (calmar >= 0.8) {
-                score += (6.0 + (calmar - 0.8) / 0.7 * 4.0) * 0.2;
-            } else if (calmar > 0) {
-                score += (calmar / 0.8 * 6.0) * 0.2;
-            }
-            validIndicators++;
-        }
-
-        // 信息比率评分 (权重15%)
-        if (riskMetrics.informationRatio != null) {
-            double infoRatio = riskMetrics.informationRatio.doubleValue();
-            if (infoRatio >= 1.0) {
-                score += 10.0 * 0.15;
-            } else if (infoRatio > 0) {
-                score += (infoRatio / 1.0 * 10.0) * 0.15;
-            }
-            validIndicators++;
-        }
-
-        return validIndicators > 0 ? score : 0.0;
+        return Math.min(10.0, score);
     }
 
     /**
-     * 计算增强版风险控制评分 (0-10分)
-     * 重点关注回撤控制、波动率管理、VaR等
+     * 稳定性评分V2 - 简化版本
      */
-    private double calculateEnhancedRiskControlScore(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
+    private double calculateStabilityScoreV2(RiskMetrics riskMetrics, TradeStatistics tradeStats) {
         double score = 0.0;
-        int validIndicators = 0;
 
-        // 最大回撤评分 (权重35%) - 风险控制的核心指标
-        if (tradeStats.maxDrawdown != null) {
-            double maxDD = tradeStats.maxDrawdown.abs().doubleValue();
-            if (maxDD <= 0.05) { // <= 5%
-                score += 10.0 * 0.35;
-            } else if (maxDD <= 0.10) { // 5-10%
-                score += (8.0 + (0.10 - maxDD) / 0.05 * 2.0) * 0.35;
-            } else if (maxDD <= 0.20) { // 10-20%
-                score += (5.0 + (0.20 - maxDD) / 0.10 * 3.0) * 0.35;
-            } else if (maxDD <= 0.30) { // 20-30%
-                score += (2.0 + (0.30 - maxDD) / 0.10 * 3.0) * 0.35;
-            } else if (maxDD <= 0.50) { // 30-50%
-                score += ((0.50 - maxDD) / 0.20 * 2.0) * 0.35;
-            }
-            validIndicators++;
+        // 1. 交易次数合理性 (权重50%)
+        if (tradeStats.tradeCount >= 5) {
+            score += 10.0 * 0.5; // 交易次数充分
+        } else if (tradeStats.tradeCount >= 2) {
+            score += 7.0 * 0.5;  // 交易次数适中
+        } else {
+            score += 4.0 * 0.5;  // 交易次数偏少但可接受
         }
 
-        // 波动率评分 (权重25%)
+        // 2. 波动率控制 (权重30%)
         if (riskMetrics.volatility != null) {
             double volatility = riskMetrics.volatility.doubleValue();
-            if (volatility <= 0.15) { // <= 15%
-                score += 10.0 * 0.25;
-            } else if (volatility <= 0.25) { // 15-25%
-                score += (7.0 + (0.25 - volatility) / 0.10 * 3.0) * 0.25;
-            } else if (volatility <= 0.40) { // 25-40%
-                score += (3.0 + (0.40 - volatility) / 0.15 * 4.0) * 0.25;
-            } else if (volatility <= 0.60) { // 40-60%
-                score += ((0.60 - volatility) / 0.20 * 3.0) * 0.25;
-            }
-            validIndicators++;
-        }
-
-        // VaR95评分 (权重20%)
-        if (riskMetrics.var95 != null) {
-            double var95 = riskMetrics.var95.doubleValue();
-            if (var95 <= 0.03) { // <= 3%
-                score += 10.0 * 0.2;
-            } else if (var95 <= 0.06) { // 3-6%
-                score += (7.0 + (0.06 - var95) / 0.03 * 3.0) * 0.2;
-            } else if (var95 <= 0.10) { // 6-10%
-                score += (3.0 + (0.10 - var95) / 0.04 * 4.0) * 0.2;
-            } else if (var95 <= 0.15) { // 10-15%
-                score += ((0.15 - var95) / 0.05 * 3.0) * 0.2;
-            }
-            validIndicators++;
-        }
-
-        // 痛苦指数评分 (权重20%)
-        if (riskMetrics.painIndex != null) {
-            double painIndex = riskMetrics.painIndex.doubleValue();
-            if (painIndex <= 0.005) { // <= 0.5%
-                score += 10.0 * 0.2;
-            } else if (painIndex <= 0.02) { // 0.5-2%
-                score += (6.0 + (0.02 - painIndex) / 0.015 * 4.0) * 0.2;
-            } else if (painIndex <= 0.05) { // 2-5%
-                score += (2.0 + (0.05 - painIndex) / 0.03 * 4.0) * 0.2;
-            } else if (painIndex <= 0.10) { // 5-10%
-                score += ((0.10 - painIndex) / 0.05 * 2.0) * 0.2;
-            }
-            validIndicators++;
-        }
-
-        return validIndicators > 0 ? score : 0.0;
-    }
-
-    /**
-     * 计算样本质量评分 (0-10分)
-     * 重点关注交易次数、胜率、回撤持续期等统计显著性指标
-     */
-    private double calculateSampleQualityScore(TradeStatistics tradeStats, RiskMetrics riskMetrics) {
-        double score = 0.0;
-        int validIndicators = 0;
-
-        // 交易次数评分 (权重50%) - 统计显著性的核心
-        if (tradeStats.tradeCount >= 50) {
-            score += 10.0 * 0.5;
-        } else if (tradeStats.tradeCount >= 30) {
-            score += (8.0 + (tradeStats.tradeCount - 30) / 20.0 * 2.0) * 0.5;
-        } else if (tradeStats.tradeCount >= 20) {
-            score += (6.0 + (tradeStats.tradeCount - 20) / 10.0 * 2.0) * 0.5;
-        } else if (tradeStats.tradeCount >= 10) {
-            score += (3.0 + (tradeStats.tradeCount - 10) / 10.0 * 3.0) * 0.5;
-        } else if (tradeStats.tradeCount >= 5) {
-            score += (tradeStats.tradeCount - 5) / 5.0 * 3.0 * 0.5;
-        }
-        validIndicators++;
-
-        // 胜率评分 (权重30%)
-        if (tradeStats.winRate != null) {
-            double winRate = tradeStats.winRate.doubleValue();
-            if (winRate >= 0.70) { // >= 70%
+            if (volatility <= 0.2) {        // 低波动率
                 score += 10.0 * 0.3;
-            } else if (winRate >= 0.60) { // 60-70%
-                score += (8.0 + (winRate - 0.60) / 0.10 * 2.0) * 0.3;
-            } else if (winRate >= 0.50) { // 50-60%
-                score += (6.0 + (winRate - 0.50) / 0.10 * 2.0) * 0.3;
-            } else if (winRate >= 0.40) { // 40-50%
-                score += (3.0 + (winRate - 0.40) / 0.10 * 3.0) * 0.3;
-            } else if (winRate >= 0.30) { // 30-40%
-                score += ((winRate - 0.30) / 0.10 * 3.0) * 0.3;
+            } else if (volatility <= 0.4) { // 中等波动率
+                score += (8.0 - (volatility - 0.2) / 0.2 * 3.0) * 0.3;
+            } else {                        // 高波动率
+                score += Math.max(2.0, 5.0 - (volatility - 0.4) * 5) * 0.3;
             }
-            validIndicators++;
+        } else {
+            score += 6.0 * 0.3; // 无数据时给中等分
         }
 
-        // 最大回撤持续期评分 (权重20%) - 恢复能力指标
-        if (riskMetrics.maxDrawdownDuration != null) {
-            double duration = riskMetrics.maxDrawdownDuration.doubleValue();
-            if (duration <= 10) { // <= 10天
-                score += 10.0 * 0.2;
-            } else if (duration <= 30) { // 10-30天
-                score += (7.0 + (30 - duration) / 20.0 * 3.0) * 0.2;
-            } else if (duration <= 60) { // 30-60天
-                score += (4.0 + (60 - duration) / 30.0 * 3.0) * 0.2;
-            } else if (duration <= 120) { // 60-120天
-                score += (1.0 + (120 - duration) / 60.0 * 3.0) * 0.2;
-            } else if (duration <= 200) { // 120-200天
-                score += ((200 - duration) / 80.0 * 1.0) * 0.2;
+        // 3. 偏度控制 (权重20%) - 收益分布对称性
+        if (riskMetrics.skewness != null) {
+            double absSkewness = Math.abs(riskMetrics.skewness.doubleValue());
+            if (absSkewness <= 1.0) {
+                score += (10.0 - absSkewness * 3.0) * 0.2;
+            } else {
+                score += Math.max(2.0, 7.0 - absSkewness * 2.0) * 0.2;
             }
-            validIndicators++;
+        } else {
+            score += 6.0 * 0.2;
         }
 
-        return validIndicators > 0 ? score : 0.0;
+        return Math.min(10.0, score);
     }
+
 
     // ====================== 辅助计算方法 ======================
 
@@ -2180,11 +1797,11 @@ public class BacktestMetricsCalculator {
         if (!tradeRecords.isEmpty()) {
             if (expectedFinalAmount.subtract(actualFinalAmount).abs().compareTo(BigDecimal.valueOf(0.01)) > 0) {
                 log.warn("策略资金曲线最终金额与实际交易收益不一致！预期: {}, 实际: {}",
-                        expectedFinalAmount, actualFinalAmount);
+                        expectedFinalAmount.setScale(4, RoundingMode.HALF_UP), actualFinalAmount.setScale(4, RoundingMode.HALF_UP));
                 // 修正最终金额
                 equityCurve.set(equityCurve.size() - 1, expectedFinalAmount);
             } else {
-                log.info("策略资金曲线最终金额与实际交易收益一致！预期: {}, 实际: {}", expectedFinalAmount, actualFinalAmount);
+                log.info("策略资金曲线最终金额与实际交易收益一致！预期: {}, 实际: {}", expectedFinalAmount.setScale(4, RoundingMode.HALF_UP), actualFinalAmount.setScale(4, RoundingMode.HALF_UP));
             }
         }
 
@@ -2221,5 +1838,314 @@ public class BacktestMetricsCalculator {
         }
         return null; // 不在任何持仓期间
     }
+
+    /**
+     * 动态检测年化因子
+     * 根据BarSeries的时间间隔自动检测合适的年化因子
+     */
+    private int detectAnnualizationFactor(BarSeries series) {
+        if (series == null || series.getBarCount() < 2) {
+            return 252; // 默认日级别
+        }
+
+        try {
+            // 获取前两个Bar的时间间隔
+            long minutesBetween = parseIntervalToMinutes(interval);
+
+            // 根据时间间隔判断数据周期
+            if (minutesBetween <= 1) {
+                // 1分钟级别: 1年 = 365天 * 24小时 * 60分钟 = 525,600
+                return 525600;
+            } else if (minutesBetween <= 5) {
+                // 5分钟级别: 525,600 / 5 = 105,120
+                return 105120;
+            } else if (minutesBetween <= 15) {
+                // 15分钟级别: 525,600 / 15 = 35,040
+                return 35040;
+            } else if (minutesBetween <= 30) {
+                // 30分钟级别: 525,600 / 30 = 17,520
+                return 17520;
+            } else if (minutesBetween <= 60) {
+                // 1小时级别: 365天 * 24小时 = 8,760
+                return 8760;
+            } else if (minutesBetween <= 240) {
+                // 4小时级别: 8,760 / 4 = 2,190
+                return 2190;
+            } else if (minutesBetween <= 360) {
+                // 6小时级别: 8,760 / 6 = 1,460
+                return 1460;
+            } else if (minutesBetween <= 720) {
+                // 12小时级别: 8,760 / 12 = 730
+                return 730;
+            } else if (minutesBetween <= 1440) {
+                // 1天级别: 365天
+                return 365;
+            } else if (minutesBetween <= 10080) {
+                // 1周级别: 52周
+                return 52;
+            } else {
+                // 1月级别: 12个月
+                return 12;
+            }
+        } catch (Exception e) {
+            log.warn("检测年化因子时出错，使用默认值252: {}", e.getMessage());
+            return 252; // 出错时使用默认日级别
+        }
+    }
+
+    /**
+     * 计算波动率（基于收盘价）
+     */
+    private BigDecimal calculateVolatility(BarSeries series, int annualizationFactor) {
+        if (series == null || series.getBarCount() < 2) {
+            return BigDecimal.ZERO;
+        }
+
+        // 收集所有收盘价
+        List<BigDecimal> closePrices = new ArrayList<>();
+        for (int i = 0; i < series.getBarCount(); i++) {
+            double closePrice = series.getBar(i).getClosePrice().doubleValue();
+            closePrices.add(BigDecimal.valueOf(closePrice));
+        }
+
+        // 计算收盘价的对数收益率
+        List<BigDecimal> logReturns = new ArrayList<>();
+        for (int i = 1; i < closePrices.size(); i++) {
+            BigDecimal today = closePrices.get(i);
+            BigDecimal yesterday = closePrices.get(i - 1);
+
+            if (yesterday.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            double logReturn = Math.log(today.doubleValue() / yesterday.doubleValue());
+            logReturns.add(BigDecimal.valueOf(logReturn));
+        }
+
+        if (logReturns.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        // 计算对数收益率的平均值
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal r : logReturns) {
+            sum = sum.add(r);
+        }
+        BigDecimal mean = sum.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算对数收益率的方差
+        BigDecimal sumSquaredDiff = BigDecimal.ZERO;
+        for (BigDecimal r : logReturns) {
+            BigDecimal diff = r.subtract(mean);
+            sumSquaredDiff = sumSquaredDiff.add(diff.multiply(diff));
+        }
+        BigDecimal variance = sumSquaredDiff.divide(BigDecimal.valueOf(logReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算标准差（波动率）
+        BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
+
+        // 年化波动率（使用动态年化因子）
+        BigDecimal annualizedVolatility = stdDev.multiply(BigDecimal.valueOf(Math.sqrt(annualizationFactor)));
+
+        return annualizedVolatility.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 计算年化收益率
+     */
+    private BigDecimal calculateAnnualizedReturn(BigDecimal totalReturn, LocalDateTime startTime, LocalDateTime endTime) {
+        if (totalReturn == null || startTime == null || endTime == null || startTime.isAfter(endTime)) {
+            log.warn("计算年化收益率的参数无效");
+            return BigDecimal.ZERO;
+        }
+
+        // 计算回测持续的天数
+        long daysBetween = ChronoUnit.DAYS.between(startTime, endTime);
+
+        // 避免除以零错误
+        if (daysBetween <= 0) {
+            return totalReturn; // 如果时间跨度小于1天，直接返回总收益率
+        }
+
+        // 计算年化收益率: (1 + totalReturn)^(365/daysBetween) - 1
+        BigDecimal base = BigDecimal.ONE.add(totalReturn);
+        BigDecimal exponent = new BigDecimal("365").divide(new BigDecimal(daysBetween), 8, RoundingMode.HALF_UP);
+
+        BigDecimal result;
+        try {
+            double baseDouble = base.doubleValue();
+            double exponentDouble = exponent.doubleValue();
+            double power = Math.pow(baseDouble, exponentDouble);
+
+            result = new BigDecimal(power).subtract(BigDecimal.ONE);
+        } catch (Exception e) {
+            log.error("计算年化收益率时出错", e);
+            return BigDecimal.ZERO;
+        }
+
+        return result;
+    }
+
+    /**
+     * 计算 Alpha 和 Beta
+     * Alpha 表示策略超额收益，Beta 表示策略相对于基准收益的敏感度（风险）
+     *
+     * @param strategyReturns  策略每日收益率序列
+     * @param benchmarkReturns 基准每日收益率序列
+     * @return 包含Alpha和Beta的数组 [Alpha, Beta]
+     */
+    public static BigDecimal[] calculateAlphaBeta(List<BigDecimal> strategyReturns, List<CandlestickEntity> benchmarkCandlesticks) {
+
+        List<BigDecimal> benchmarkPriceList = benchmarkCandlesticks.stream().map(CandlestickEntity::getClose).collect(Collectors.toList());
+        List<BigDecimal> benchmarkReturns = new ArrayList<>();
+        benchmarkReturns.add(BigDecimal.ZERO);
+        for (int i = 1; i < benchmarkPriceList.size(); i++) {
+            // 使用对数收益率保持与策略收益率计算的一致性
+            double logReturn = Math.log(benchmarkPriceList.get(i).doubleValue() / benchmarkPriceList.get(i - 1).doubleValue());
+            benchmarkReturns.add(BigDecimal.valueOf(logReturn));
+        }
+
+        // 添加空值检查和长度验证，避免抛出异常
+        if (strategyReturns == null || strategyReturns.isEmpty()) {
+            System.out.println("策略收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
+        }
+
+        if (benchmarkReturns == null || benchmarkReturns.isEmpty()) {
+            System.out.println("基准收益率序列为空，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
+        }
+
+        // 如果长度不匹配，取较短的长度，避免抛出异常
+        int minLength = Math.min(strategyReturns.size(), benchmarkReturns.size());
+        if (minLength == 0) {
+            System.out.println("收益率序列长度为0，返回默认Alpha=0, Beta=1");
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ONE};
+        }
+
+        // 截取到相同长度，确保不会出现长度不匹配问题
+        List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
+        List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
+
+        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
+
+        int n = adjustedStrategyReturns.size();
+
+        // 计算策略和基准的平均收益率
+        double meanStrategy = adjustedStrategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+        double meanBenchmark = adjustedBenchmarkReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
+
+        double covariance = 0.0;        // 协方差 numerator部分
+        double varianceBenchmark = 0.0; // 基准收益率的方差 denominator部分
+
+        // 计算协方差和基准方差
+        for (int i = 0; i < n; i++) {
+            double sDiff = adjustedStrategyReturns.get(i).doubleValue() - meanStrategy;
+            double bDiff = adjustedBenchmarkReturns.get(i).doubleValue() - meanBenchmark;
+
+            covariance += sDiff * bDiff;
+            varianceBenchmark += bDiff * bDiff;
+        }
+
+        covariance /= n;        // 求平均协方差
+        varianceBenchmark /= n; // 求平均方差
+
+        // 防止除以0
+        double beta = varianceBenchmark == 0 ? 0 : covariance / varianceBenchmark;
+
+        // Alpha = 策略平均收益 - Beta * 基准平均收益
+        double alpha = meanStrategy - beta * meanBenchmark;
+
+        return new BigDecimal[]{BigDecimal.valueOf(alpha), BigDecimal.valueOf(beta)};
+    }
+
+
+    /**
+     * 计算全周期策略收益率序列
+     */
+    private List<BigDecimal> calculateFullPeriodStrategyReturns(BarSeries series, TradingRecord tradingRecord, boolean useLogReturn) {
+        List<BigDecimal> returns = new ArrayList<>();
+
+        if (series == null || series.getBarCount() < 2) {
+            return returns;
+        }
+
+        // 如果没有交易记录，整个期间都是0收益
+        if (tradingRecord == null || tradingRecord.getPositionCount() == 0) {
+            for (int i = 1; i < series.getBarCount(); i++) {
+                returns.add(BigDecimal.ZERO);
+            }
+            return returns;
+        }
+
+        // 创建持仓期间标记数组
+        boolean[] isInPosition = new boolean[series.getBarCount()];
+        boolean[] isEntryDay = new boolean[series.getBarCount()];
+        boolean[] isExitDay = new boolean[series.getBarCount()];
+
+        // 标记所有持仓期间、买入日和卖出日
+        for (Position position : tradingRecord.getPositions()) {
+            if (position.isClosed()) {
+                int entryIndex = position.getEntry().getIndex();
+                int exitIndex = position.getExit().getIndex();
+
+                // 标记买入日和卖出日
+                if (entryIndex < isEntryDay.length) {
+                    isEntryDay[entryIndex] = true;
+                }
+                if (exitIndex < isExitDay.length) {
+                    isExitDay[exitIndex] = true;
+                }
+
+                // 从入场时间点到出场时间点都标记为持仓状态
+                for (int i = entryIndex; i <= exitIndex; i++) {
+                    if (i < isInPosition.length) {
+                        isInPosition[i] = true;
+                    }
+                }
+            }
+        }
+
+        // 计算每个时间点的收益率
+        for (int i = 0; i < series.getBarCount(); i++) {
+            BigDecimal dailyReturn = BigDecimal.ZERO;
+
+            // 边界条件1：持仓第一天（买入日）收益率为0，因为只是买入，没有收益
+            if (isEntryDay[i]) {
+                dailyReturn = BigDecimal.ZERO;
+            }
+            // 边界条件2：卖出日的后一天收益率为0（已经没有持仓）
+            else if (i > 0 && isExitDay[i - 1]) {
+                dailyReturn = BigDecimal.ZERO;
+            }
+            // 正常持仓期间：计算价格收益率（排除买入日）
+            else if (isInPosition[i] && !isEntryDay[i]) {
+                BigDecimal today = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
+                BigDecimal yesterday = BigDecimal.valueOf(series.getBar(i - 1).getClosePrice().doubleValue());
+
+                if (yesterday.compareTo(BigDecimal.ZERO) > 0) {
+                    if (useLogReturn) {
+                        double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
+                        dailyReturn = BigDecimal.valueOf(logR);
+                    } else {
+                        BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
+                        dailyReturn = change;
+                    }
+                } else {
+                    dailyReturn = BigDecimal.ZERO;
+                }
+            }
+            // 未持仓期间：收益率为0
+            else {
+                dailyReturn = BigDecimal.ZERO;
+            }
+
+            returns.add(dailyReturn);
+        }
+
+        return returns;
+    }
+
+
 }
 
