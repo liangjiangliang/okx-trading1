@@ -1620,4 +1620,123 @@ public class StrategyFactory3 {
 
         return new BaseStrategy("多指标确认策略", buyRule, sellRule);
     }
+
+    /**
+     * 日内均值回归策略（修改版）- 放宽条件使其更容易触发交易
+     */
+    public static Strategy createMeanReversionIntradayStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, 20);
+        
+        // 计算上下轨
+        Indicator<Num> upperBand = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return sma.getValue(index).plus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低上轨为1.5倍标准差(原为2.0)
+            }
+        };
+        
+        Indicator<Num> lowerBand = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return sma.getValue(index).minus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低下轨为1.5倍标准差(原为2.0)
+            }
+        };
+        
+        // 买入条件：价格低于下轨
+        Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
+        
+        // 卖出条件：价格高于上轨或回归均线
+        Rule exitRule = new OverIndicatorRule(closePrice, upperBand)
+                .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加价格上穿均线就卖出的条件
+        
+        return new BaseStrategy("日内均值回归策略", entryRule, exitRule);
+    }
+
+    /**
+     * 成交量确认策略（修改版）- 放宽条件使其更容易触发交易
+     */
+    public static Strategy createVolumeConfirmationStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        
+        // 价格动量
+        ROCIndicator priceROC = new ROCIndicator(closePrice, 5); // 缩短周期为5（原为10）
+        
+        // 成交量均线
+        SMAIndicator volumeMA = new SMAIndicator(volume, 10); // 缩短周期为10（原为20）
+        
+        // 成交量阈值
+        Indicator<Num> volumeThreshold = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return volumeMA.getValue(index).multipliedBy(series.numOf(1.1)); // 降低成交量阈值为1.1倍（原为1.5倍）
+            }
+        };
+        
+        // 买入条件：价格上涨且成交量放大
+        Rule entryRule = new OverIndicatorRule(priceROC, series.numOf(0.005)) // 降低价格上涨阈值为0.5%（原为1%）
+                .and(new OverIndicatorRule(volume, volumeThreshold))
+                .or(new OverIndicatorRule(priceROC, series.numOf(0.01))); // 增加一个条件：价格强势上涨时无需成交量确认
+        
+        // 卖出条件：价格下跌或成交量萎缩
+        Rule exitRule = new UnderIndicatorRule(priceROC, series.numOf(-0.005)) // 降低价格下跌阈值为-0.5%（原为-1%）
+                .or(new UnderIndicatorRule(volume, volumeMA)); // 成交量低于均线即卖出
+        
+        // 增加止盈条件
+        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) return series.numOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.06)); // 6%止盈条件
+            }
+        };
+        
+        // 修改后的卖出条件，增加止盈
+        Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
+        
+        return new BaseStrategy("成交量确认策略", entryRule, finalExitRule);
+    }
+
+    /**
+     * 动量日内策略（修改版）- 放宽条件使其更容易触发交易
+     */
+    public static Strategy createMomentumIntradayStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        
+        // 短期动量
+        ROCIndicator shortROC = new ROCIndicator(closePrice, 3); // 缩短周期为3（原为5）
+        
+        // 中期动量
+        ROCIndicator mediumROC = new ROCIndicator(closePrice, 10); // 缩短周期为10（原为15）
+        
+        // 成交量均线
+        SMAIndicator volumeMA = new SMAIndicator(volume, 10);
+        
+        // 买入条件：短期和中期动量均为正，且短期动量大于中期动量
+        Rule entryRule = new OverIndicatorRule(shortROC, series.numOf(0.003)) // 降低短期动量阈值为0.3%（原为0.5%）
+                .and(new OverIndicatorRule(mediumROC, series.numOf(0.002))) // 降低中期动量阈值为0.2%（原为0.3%）
+                .and(new OverIndicatorRule(shortROC, mediumROC))
+                .or(new OverIndicatorRule(shortROC, series.numOf(0.01))); // 增加一个条件：短期动量很强时直接买入
+        
+        // 卖出条件：短期动量转为负值，或短期动量低于中期动量
+        Rule exitRule = new UnderIndicatorRule(shortROC, series.numOf(0))
+                .or(new UnderIndicatorRule(shortROC, mediumROC));
+        
+        // 增加止盈条件
+        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) return series.numOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.04)); // 4%止盈条件
+            }
+        };
+        
+        // 修改后的卖出条件，增加止盈
+        Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
+        
+        return new BaseStrategy("动量日内策略", entryRule, finalExitRule);
+    }
 }

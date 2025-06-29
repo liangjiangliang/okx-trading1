@@ -8,7 +8,7 @@
 
 ### 1. 指标分布统计分析
 
-**接口地址**: `GET /api/api/backtest/ta4j/indicator-distribution-details`
+**接口地址**: `GET /api/backtest/ta4j/indicator-distribution-details`
 
 **功能描述**: 查看历史回测数据的指标分布详情，为动态评分提供数据基础。
 
@@ -54,7 +54,7 @@
 
 ### 2. 基于真实分布的动态评分
 
-**接口地址**: `POST /api/api/backtest/ta4j/calculate-dynamic-score`
+**接口地址**: `POST /api/backtest/ta4j/calculate-dynamic-score`
 
 **功能描述**: 根据历史数据的真实分布情况，对策略指标进行动态评分。
 
@@ -66,7 +66,7 @@
 
 **请求示例**:
 ```bash
-POST /api/api/backtest/ta4j/calculate-dynamic-score
+POST /api/backtest/ta4j/calculate-dynamic-score
 Content-Type: application/x-www-form-urlencoded
 
 annualizedReturn=0.5&maxDrawdown=0.15&winRate=0.6&sharpeRatio=1.2
@@ -179,7 +179,7 @@ annualizedReturn=0.5&maxDrawdown=0.15&winRate=0.6&sharpeRatio=1.2
 ### 示例1: 优秀策略评分
 ```bash
 # 输入: 年化收益100%, 最大回撤8%, 胜率80%, 夏普比率2.5
-POST /api/api/backtest/ta4j/calculate-dynamic-score
+POST /api/backtest/ta4j/calculate-dynamic-score
 annualizedReturn=1.0&maxDrawdown=0.08&winRate=0.8&sharpeRatio=2.5
 
 # 输出: 综合评分9.69分，评价"优秀策略"
@@ -188,7 +188,7 @@ annualizedReturn=1.0&maxDrawdown=0.08&winRate=0.8&sharpeRatio=2.5
 ### 示例2: 良好策略评分
 ```bash
 # 输入: 年化收益50%, 最大回撤15%, 胜率60%, 夏普比率1.2
-POST /api/api/backtest/ta4j/calculate-dynamic-score
+POST /api/backtest/ta4j/calculate-dynamic-score
 annualizedReturn=0.5&maxDrawdown=0.15&winRate=0.6&sharpeRatio=1.2
 
 # 输出: 综合评分8.25分，评价"良好策略"
@@ -197,7 +197,7 @@ annualizedReturn=0.5&maxDrawdown=0.15&winRate=0.6&sharpeRatio=1.2
 ### 示例3: 极差策略评分
 ```bash
 # 输入: 年化收益-10%, 最大回撤40%, 胜率20%, 夏普比率-0.5
-POST /api/api/backtest/ta4j/calculate-dynamic-score
+POST /api/backtest/ta4j/calculate-dynamic-score
 annualizedReturn=-0.1&maxDrawdown=0.4&winRate=0.2&sharpeRatio=-0.5
 
 # 输出: 综合评分2.25分，评价"极差策略"

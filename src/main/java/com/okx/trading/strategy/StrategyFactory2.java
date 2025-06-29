@@ -336,12 +336,12 @@ public class StrategyFactory2 {
     }
 
     /**
-     * 价格通道突破策略（修复版）- 降低成交量要求
+     * 价格通道突破策略（修复版）- 降低成交量要求，放宽买入条件
      * 基于动态价格通道的突破策略
      */
     public static Strategy createPriceChannelBreakoutStrategy(BarSeries series) {
-        int channelPeriod = 18; // 缩短通道周期（原来20）
-        int volumePeriod = 10;
+        int channelPeriod = 12; // 进一步缩短通道周期（原来15）
+        int volumePeriod = 8;  // 缩短成交量周期（原来10）
 
         if (series.getBarCount() <= Math.max(channelPeriod, volumePeriod)) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -378,13 +378,23 @@ public class StrategyFactory2 {
             }
         }
 
-        VolumeThreshold volumeThreshold = new VolumeThreshold(avgVolume, series.numOf(1.2), series); // 降低成交量要求（原来1.5）
+        // 买入规则：价格接近通道上轨或突破通道上轨且成交量增加
+        // 创建一个接近通道上轨的指标
+        Indicator<Num> nearUpperBand = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return channelHigh.getValue(index).multipliedBy(series.numOf(0.90)); // 进一步降低买入门槛，只需达到上轨90%
+            }
+        };
+        
+        VolumeThreshold volumeThreshold = new VolumeThreshold(avgVolume, series.numOf(0.8), series); // 进一步降低成交量要求（原来1.0）
 
-        // 买入规则：价格突破通道上轨且成交量放大
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, channelHigh)
-                .and(new OverIndicatorRule(volume, volumeThreshold));
+        // 买入规则：价格接近通道上轨且成交量增加，或者价格突破上轨
+        Rule entryRule = new OverIndicatorRule(closePrice, nearUpperBand)
+                .and(new OverIndicatorRule(volume, volumeThreshold))
+                .or(new OverIndicatorRule(closePrice, channelHigh)); // 增加直接突破上轨买入条件
 
-        // 卖出规则：价格跌破通道中位或回撤超过3%
+        // 卖出规则：价格跌破通道中位或回撤超过5%
         // 创建一个CachedIndicator来正确处理两个Indicator的相加
         Indicator<Num> channelSum = new CachedIndicator<Num>(series) {
             @Override
@@ -393,11 +403,30 @@ public class StrategyFactory2 {
             }
         };
         Indicator<Num> channelMidIndicator = TransformIndicator.divide(channelSum, BigDecimal.valueOf(2));
-        SMAIndicator channelMid = new SMAIndicator(channelMidIndicator, 1);
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, channelMid)
-                .or(new UnderIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.97))));
+        
+        // 创建一个价格回撤指标
+        Indicator<Num> priceRetracement = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) return series.numOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(series.numOf(0.95)); // 放宽回撤至5%
+            }
+        };
+        
+        // 创建一个止盈指标
+        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) return series.numOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.07)); // 增加7%止盈条件
+            }
+        };
+        
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, channelMidIndicator)
+                .or(new UnderIndicatorRule(closePrice, priceRetracement))
+                .or(new OverIndicatorRule(closePrice, profitTarget)); // 增加止盈条件
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("价格通道突破策略", entryRule, exitRule);
     }
 
     // 继续实现其他45个策略...

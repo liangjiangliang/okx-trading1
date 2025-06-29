@@ -341,7 +341,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                         state.getLastTradeAmount(), state.getLastTradeQuantity());
             }
         } catch (Exception e) {
-            log.error("执行{}订单失败: {}", side, e.getMessage(), e);
+            String strategyKey = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
+            runningStrategies.remove(strategyKey);
+            state.setIsActive(false);
+            state.setStatus("ERROR");
+            state.setEndTime(LocalDateTime.now());
+            realTimeStrategyRepository.save(state);
+            log.error("执行策略 {} {}订单失败，停止策略: {},", state.getStrategyName(), side, e.getMessage(), e);
         }
     }
 
