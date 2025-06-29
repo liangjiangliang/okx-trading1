@@ -554,7 +554,7 @@ public class RealTimeStrategyController {
     /**
      * 启动实时策略
      */
-    @PostMapping("/start/{strategyCode}")
+    @PostMapping("/start/{id}")
     @ApiOperation(value = "启动实时策略", notes = "启动指定的实时策略，将状态设置为RUNNING")
     @ApiResponses({
             @ApiResponse(code = 200, message = "启动成功"),
@@ -563,20 +563,17 @@ public class RealTimeStrategyController {
             @ApiResponse(code = 500, message = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> startRealTimeStrategy(
-            @ApiParam(value = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
+            @ApiParam(value = "策略id", required = true, example = "58") @PathVariable String id) {
         try {
-            if (StringUtils.isBlank(strategyCode)) {
-                return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
-            }
 
-            boolean success = realTimeStrategyService.startRealTimeStrategy(strategyCode);
+            boolean success = realTimeStrategyService.startRealTimeStrategy(Long.parseLong(id));
             if (success) {
-                return com.okx.trading.util.ApiResponse.success("启动策略成功: " + strategyCode);
+                return com.okx.trading.util.ApiResponse.success("启动策略成功: " + id);
             } else {
-                return com.okx.trading.util.ApiResponse.error(503, "启动策略失败: " + strategyCode);
+                return com.okx.trading.util.ApiResponse.error(503, "启动策略失败: " + id);
             }
         } catch (Exception e) {
-            log.error("启动实时策略失败: {}", strategyCode, e);
+            log.error("启动实时策略失败: {}", id, e);
             return com.okx.trading.util.ApiResponse.error(503, "启动策略失败: " + e.getMessage());
         }
     }

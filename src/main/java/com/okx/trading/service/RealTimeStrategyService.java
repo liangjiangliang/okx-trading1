@@ -116,7 +116,9 @@ public interface RealTimeStrategyService {
      * @param strategyCode 策略代码
      * @return 是否启动成功
      */
-    boolean startRealTimeStrategy(String strategyCode);
+    boolean updateStrategyStatus(Long id, String status);
+
+    boolean startRealTimeStrategy(Long id);
 
     /**
      * 停止实时策略
@@ -126,14 +128,6 @@ public interface RealTimeStrategyService {
      */
     boolean stopRealTimeStrategy(String strategyCode);
 
-    /**
-     * 更新策略状态
-     *
-     * @param strategyCode 策略代码
-     * @param status       新状态
-     * @return 是否更新成功
-     */
-    boolean updateStrategyStatus(String strategyCode, String status);
 
     /**
      * 更新策略状态和错误信息

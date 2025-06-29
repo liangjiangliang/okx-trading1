@@ -380,7 +380,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 构建策略键
      */
-    private String buildStrategyKey(String strategyCode, String symbol, String interval) {
+    public String buildStrategyKey(String strategyCode, String symbol, String interval) {
         return strategyCode + "_" + symbol + "_" + interval;
     }
 

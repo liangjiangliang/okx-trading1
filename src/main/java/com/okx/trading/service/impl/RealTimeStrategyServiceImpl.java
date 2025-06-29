@@ -142,8 +142,8 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public boolean startRealTimeStrategy(String strategyCode) {
-        return updateStrategyStatus(strategyCode, "RUNNING");
+    public boolean startRealTimeStrategy(Long id) {
+        return updateStrategyStatus(id, "RUNNING");
     }
 
     @Override
@@ -153,8 +153,11 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
             strategy.setStatus("STOPPED");
+            strategy.setIsActive(false);
             strategy.setEndTime(LocalDateTime.now());
             realTimeStrategyRepository.save(strategy);
+            String strategyKey = realTimeStrategyManager.buildStrategyKey(strategy.getStrategyCode(), strategy.getSymbol(), strategy.getInterval());
+            realTimeStrategyManager.getRunningStrategies().remove(strategyKey);
             log.info("停止实时策略成功: {}", strategyCode);
             return true;
         }
@@ -164,20 +167,22 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public boolean updateStrategyStatus(String strategyCode, String status) {
-        if (StringUtils.isBlank(strategyCode) || StringUtils.isBlank(status)) {
+    public boolean updateStrategyStatus(Long id, String status) {
+        if (id == 0 || StringUtils.isBlank(status)) {
             return false;
         }
 
-        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
+        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyById(id);
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
             strategy.setStatus(status);
-            realTimeStrategyRepository.save(strategy);
-            log.info("更新策略状态成功: {} -> {}", strategyCode, status);
+            strategy.setIsActive(true);
+            RealTimeStrategyEntity realTimeStrategyEntity = realTimeStrategyRepository.save(strategy);
+            realTimeStrategyManager.startExecuteRealTimeStrategy(realTimeStrategyEntity);
+            log.info("更新策略状态成功: {} -> {}", strategy.getStrategyName(), status);
             return true;
         }
-        log.warn("更新策略状态失败，策略不存在: {}", strategyCode);
+        log.warn("更新策略状态失败，策略不存在: {}", id);
         return false;
     }
 
