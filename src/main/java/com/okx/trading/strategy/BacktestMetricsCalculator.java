@@ -104,7 +104,7 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
  * 特别地，综合评分系统是本计算器的创新亮点，它不仅考虑了传统的收益风险指标，
  * 还融入了最新的量化研究成果，形成了多维度、多层次的评估体系，
  * 能够更准确地识别优秀策略和潜在风险。
- *
+ * 
  * @author OKX Trading System
  * @version 2.0
  * @since 2024
@@ -225,7 +225,7 @@ public class BacktestMetricsCalculator {
         result.setParameterDescription(paramDescription);
         result.setTrades(new ArrayList<>());
         result.setTotalFee(BigDecimal.ZERO);
-
+        
         // 初始化新增的风险指标为零值
         result.setKurtosis(BigDecimal.ZERO);
         result.setCvar(BigDecimal.ZERO);
@@ -243,7 +243,7 @@ public class BacktestMetricsCalculator {
         result.setPainIndex(BigDecimal.ZERO);
         result.setRiskAdjustedReturn(BigDecimal.ZERO);
         result.setComprehensiveScore(BigDecimal.ZERO);
-
+        
         return result;
     }
 
@@ -405,7 +405,7 @@ public class BacktestMetricsCalculator {
 
                     List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(entryIndex, actualExitIndex);
                     tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
-                } else {
+                    } else {
                     // 索引异常时设置默认值
                     log.warn("交易 {} 的索引异常: entry={}, exit={}, dailyListSize={}，设置默认值",
                             i, entryIndex, exitIndex, dailyLossList.size());
@@ -558,13 +558,13 @@ public class BacktestMetricsCalculator {
         BigDecimal treynorRatio;     // Treynor比率 - 单位系统性风险的超额收益
         BigDecimal ulcerIndex;       // 溃疡指数 - 深度和持续回撤的综合指标
         BigDecimal skewness;         // 偏度 - 收益率分布的对称性
-
+        
         // ========== 新增高级风险指标 ==========
-
+        
         /**
          * 峰度 (Kurtosis) - 衡量收益率分布的尾部风险
          * 计算公式: E[(r-μ)^4] / σ^4 - 3
-         * 数值含义:
+         * 数值含义: 
          * - 正态分布的峰度为0
          * - 峰度>0表示分布有厚尾（极端事件发生概率更高）
          * - 峰度<0表示分布平坦（极端事件发生概率较低）
@@ -572,7 +572,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 峰度越高，出现极端收益（大盈利或大亏损）的概率越大
          */
         BigDecimal kurtosis;
-
+        
         /**
          * 条件风险价值 (CVaR, Conditional Value at Risk) - 极端损失的期望值
          * 计算公式: E[损失 | 损失 > VaR5%]
@@ -582,7 +582,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: CVaR越大，在极端不利情况下面临的损失越严重
          */
         BigDecimal cvar;
-
+        
         /**
          * 95%置信度下的风险价值 (VaR95) - 95%概率下的最大损失
          * 计算公式: 收益率分布的5%分位数
@@ -591,7 +591,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: VaR95越大，策略的日常交易风险越高
          */
         BigDecimal var95;
-
+        
         /**
          * 99%置信度下的风险价值 (VaR99) - 99%概率下的最大损失
          * 计算公式: 收益率分布的1%分位数
@@ -600,7 +600,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: VaR99越大，策略在黑天鹅事件中的风险越高
          */
         BigDecimal var99;
-
+        
         /**
          * 信息比率 (Information Ratio) - 主动管理效率指标
          * 计算公式: (策略收益率 - 基准收益率) / 跟踪误差
@@ -609,7 +609,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 信息比率>0.5为良好，>1.0为优秀的主动管理表现
          */
         BigDecimal informationRatio;
-
+        
         /**
          * 跟踪误差 (Tracking Error) - 相对基准的波动性
          * 计算公式: std(策略收益率 - 基准收益率)
@@ -618,7 +618,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 跟踪误差越大，策略与基准的偏差越大，主动风险越高
          */
         BigDecimal trackingError;
-
+        
         /**
          * Sterling比率 - 回撤风险调整收益指标
          * 计算公式: 年化收益率 / 平均最大回撤
@@ -627,7 +627,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: Sterling比率>1.0为良好，>2.0为优秀的风险收益比
          */
         BigDecimal sterlingRatio;
-
+        
         /**
          * Burke比率 - 极端回撤风险调整收益指标
          * 计算公式: 年化收益率 / sqrt(sum(回撤^2))
@@ -636,7 +636,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: Burke比率比Sterling比率更严格，更适合风险厌恶投资者
          */
         BigDecimal burkeRatio;
-
+        
         /**
          * 修正夏普比率 (Modified Sharpe Ratio) - 非正态分布修正的夏普比率
          * 计算公式: Sharpe * [1 + (偏度/6)*Sharpe - (峰度-3)/24*Sharpe^2]
@@ -645,7 +645,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 修正夏普比率更准确地反映非正态分布下的真实风险调整收益
          */
         BigDecimal modifiedSharpeRatio;
-
+        
         /**
          * 下行偏差 (Downside Deviation) - 下行风险度量
          * 计算公式: sqrt(E[min(收益率-目标收益率, 0)^2])
@@ -654,7 +654,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 下行偏差越小，策略的下行保护能力越强
          */
         BigDecimal downsideDeviation;
-
+        
         /**
          * 上涨捕获率 (Uptrend Capture Ratio) - 牛市表现指标
          * 计算公式: 基准上涨期间策略平均收益率 / 基准平均收益率
@@ -663,7 +663,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 上涨捕获率<80%可能意味着错失上涨机会
          */
         BigDecimal uptrendCapture;
-
+        
         /**
          * 下跌捕获率 (Downtrend Capture Ratio) - 熊市防御指标
          * 计算公式: 基准下跌期间策略平均收益率 / 基准平均收益率
@@ -672,7 +672,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 下跌捕获率>80%表示策略在市场下跌时损失较大
          */
         BigDecimal downtrendCapture;
-
+        
         /**
          * 最大回撤持续期 (Maximum Drawdown Duration) - 回撤时间风险
          * 计算方法: 统计从净值峰值到恢复峰值之间的最长时间间隔
@@ -682,7 +682,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 持续期越长，投资者需要越强的耐心和资金承受能力
          */
         BigDecimal maxDrawdownDuration;
-
+        
         /**
          * 痛苦指数 (Pain Index) - 综合痛苦体验指标
          * 计算公式: sum(每期回撤百分比) / 总期数
@@ -691,7 +691,7 @@ public class BacktestMetricsCalculator {
          * 风险解读: 痛苦指数越高，策略的整体投资体验越差
          */
         BigDecimal painIndex;
-
+        
         /**
          * 风险调整收益 (Risk-Adjusted Return) - 综合风险收益指标
          * 计算方法: 基于多个风险指标的加权综合评分
@@ -702,17 +702,17 @@ public class BacktestMetricsCalculator {
         BigDecimal riskAdjustedReturn;
 
         // ========== 综合评分指标 ==========
-
+        
         /**
          * 综合评分 (Comprehensive Score) - 策略综合表现评分
          * 评分范围: 0-10分（10分为最佳表现）
-         * 评分维度及权重:
+         * 评分维度及权重: 
          * - 收益指标评分 (35%权重): 年化收益率、总收益率、盈利因子
          * - 核心风险评分 (35%权重): 夏普比率、最大回撤、Sortino比率、VaR、Calmar比率
          * - 交易质量评分 (20%权重): 胜率、交易次数、平均盈利
          * - 稳定性评分 (10%权重): 偏度、峰度、痛苦指数
          * 应用场景: 策略排序、策略选择、投资组合构建
-         * 评分标准:
+         * 评分标准: 
          * - 8-10分: 卓越表现，适合重点关注
          * - 6-8分:  良好表现，收益风险平衡，样本充足，可考虑配置
          * - 4-6分:  一般表现，存在不足，谨慎考虑
@@ -770,43 +770,43 @@ public class BacktestMetricsCalculator {
         metrics.skewness = Ta4jBacktestService.calculateSkewness(fullPeriodStrategyReturns);
 
         // 新增风险指标计算
-
+        
         // 计算峰度 (Kurtosis) - 衡量收益率分布的尾部风险
         metrics.kurtosis = calculateKurtosis(fullPeriodStrategyReturns);
-
+        
         // 计算风险价值 (VaR) 和条件风险价值 (CVaR)
         BigDecimal[] varResults = calculateVaRAndCVaR(fullPeriodStrategyReturns);
         metrics.var95 = varResults[0];  // 95% VaR
         metrics.var99 = varResults[1];  // 99% VaR
         metrics.cvar = varResults[2];   // CVaR (Expected Shortfall)
-
+        
         // 计算下行偏差 (Downside Deviation)
         metrics.downsideDeviation = calculateDownsideDeviation(fullPeriodStrategyReturns, riskFreeRate);
-
+        
         // 计算跟踪误差和信息比率
         List<BigDecimal> benchmarkReturns = calculateBenchmarkReturns();
         metrics.trackingError = calculateTrackingError(fullPeriodStrategyReturns, benchmarkReturns);
         metrics.informationRatio = calculateInformationRatio(fullPeriodStrategyReturns, benchmarkReturns, metrics.trackingError);
-
+        
         // 计算Sterling比率和Burke比率 - 使用策略资金曲线
         metrics.sterlingRatio = calculateSterlingRatio(returnMetrics.annualizedReturn, strategyEquityCurve);
         metrics.burkeRatio = calculateBurkeRatio(returnMetrics.annualizedReturn, strategyEquityCurve);
-
+        
         // 计算修正夏普比率（考虑偏度和峰度）
         metrics.modifiedSharpeRatio = calculateModifiedSharpeRatio(metrics.sharpeRatio, metrics.skewness, metrics.kurtosis);
-
+        
         // 计算上涨和下跌捕获率
         BigDecimal[] captureRatios = calculateCaptureRatios(fullPeriodStrategyReturns, benchmarkReturns);
         metrics.uptrendCapture = captureRatios[0];
         metrics.downtrendCapture = captureRatios[1];
-
+        
         // 计算最大回撤持续期和痛苦指数 - 使用策略资金曲线
         metrics.maxDrawdownDuration = calculateMaxDrawdownDuration(strategyEquityCurve);
         metrics.painIndex = calculatePainIndex(strategyEquityCurve);
-
+        
         // 计算风险调整收益
         metrics.riskAdjustedReturn = calculateRiskAdjustedReturn(returnMetrics.totalReturn, metrics);
-
+        
         // 计算最大损失和最大回撤
         maxLossAndDrawdownList = calculateMaximumLossAndDrawdown();
 
@@ -856,7 +856,7 @@ public class BacktestMetricsCalculator {
         result.setParameterDescription(paramDescription);
         result.setTrades(tradeRecords);
         result.setTotalFee(tradeStats.totalFee);
-
+        
         // 设置新增的风险指标
         result.setKurtosis(riskMetrics.kurtosis);
         result.setCvar(riskMetrics.cvar);
@@ -873,7 +873,7 @@ public class BacktestMetricsCalculator {
         result.setMaxDrawdownDuration(riskMetrics.maxDrawdownDuration);
         result.setPainIndex(riskMetrics.painIndex);
         result.setRiskAdjustedReturn(riskMetrics.riskAdjustedReturn);
-
+        
         // 设置综合评分
         result.setComprehensiveScore(riskMetrics.comprehensiveScore);
 
@@ -1050,7 +1050,7 @@ public class BacktestMetricsCalculator {
      * - 评估策略在极端市场条件下的表现
      * - 识别可能存在的"黑天鹅"风险
      * - 风险管理中的压力测试参考
-     *
+     * 
      * @param returns 策略收益率序列
      * @return 峰度值，保留4位小数
      */
@@ -1061,12 +1061,12 @@ public class BacktestMetricsCalculator {
 
         // 计算均值
         double mean = returns.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0.0);
-
+        
         // 计算方差
         double variance = returns.stream()
                 .mapToDouble(r -> Math.pow(r.doubleValue() - mean, 2))
                 .average().orElse(0.0);
-
+        
         if (variance <= 0) {
             return BigDecimal.ZERO;
         }
@@ -1078,7 +1078,7 @@ public class BacktestMetricsCalculator {
 
         // 峰度 = 四阶中心矩 / 方差^2 - 3
         double kurtosis = (fourthMoment / Math.pow(variance, 2)) - 3.0;
-
+        
         return BigDecimal.valueOf(kurtosis).setScale(4, RoundingMode.HALF_UP);
     }
 
@@ -1107,7 +1107,7 @@ public class BacktestMetricsCalculator {
      * - 设置止损水平的参考
      * - 监管资本要求计算
      * - 压力测试和情景分析
-     *
+     * 
      * @param returns 策略收益率序列
      * @return 数组[VaR95%, VaR99%, CVaR]，都以正数表示损失
      */
@@ -1124,14 +1124,14 @@ public class BacktestMetricsCalculator {
                 .collect(Collectors.toList());
 
         int n = sortedReturns.size();
-
+        
         // 计算VaR (95%和99%置信度)
         int var95Index = (int) Math.ceil(n * 0.05) - 1; // 5%分位数
         int var99Index = (int) Math.ceil(n * 0.01) - 1; // 1%分位数
-
+        
         var95Index = Math.max(0, Math.min(var95Index, n - 1));
         var99Index = Math.max(0, Math.min(var99Index, n - 1));
-
+        
         BigDecimal var95 = BigDecimal.valueOf(-sortedReturns.get(var95Index));
         BigDecimal var99 = BigDecimal.valueOf(-sortedReturns.get(var99Index));
 
@@ -1142,7 +1142,7 @@ public class BacktestMetricsCalculator {
             cvarSum += sortedReturns.get(i);
             cvarCount++;
         }
-
+        
         BigDecimal cvar = BigDecimal.ZERO;
         if (cvarCount > 0) {
             cvar = BigDecimal.valueOf(-cvarSum / cvarCount);
@@ -1182,7 +1182,7 @@ public class BacktestMetricsCalculator {
      */
     private List<BigDecimal> calculateBenchmarkReturns() {
         List<BigDecimal> benchmarkReturns = new ArrayList<>();
-
+        
         if (benchmarkCandlesticks == null || benchmarkCandlesticks.size() < 2) {
             // 如果没有基准数据，返回与策略收益率相同长度的零收益率
             for (int i = 0; i < strategyEquityCurve.size(); i++) {
@@ -1195,7 +1195,7 @@ public class BacktestMetricsCalculator {
         for (int i = 1; i < benchmarkCandlesticks.size(); i++) {
             BigDecimal current = benchmarkCandlesticks.get(i).getClose();
             BigDecimal previous = benchmarkCandlesticks.get(i - 1).getClose();
-
+            
             if (previous.compareTo(BigDecimal.ZERO) > 0) {
                 double logReturn = Math.log(current.doubleValue() / previous.doubleValue());
                 benchmarkReturns.add(BigDecimal.valueOf(logReturn));
@@ -1208,7 +1208,7 @@ public class BacktestMetricsCalculator {
         while (benchmarkReturns.size() < strategyEquityCurve.size()) {
             benchmarkReturns.add(BigDecimal.ZERO);
         }
-
+        
         // 截取到相同长度
         if (benchmarkReturns.size() > strategyEquityCurve.size()) {
             benchmarkReturns = benchmarkReturns.subList(0, strategyEquityCurve.size());
@@ -1221,8 +1221,8 @@ public class BacktestMetricsCalculator {
      * 计算跟踪误差 (Tracking Error) - 策略与基准收益率差异的标准差
      */
     private BigDecimal calculateTrackingError(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
-        if (strategyReturns == null || benchmarkReturns == null ||
-                strategyReturns.size() != benchmarkReturns.size()) {
+        if (strategyReturns == null || benchmarkReturns == null || 
+            strategyReturns.size() != benchmarkReturns.size()) {
             return BigDecimal.ZERO;
         }
 
@@ -1244,12 +1244,12 @@ public class BacktestMetricsCalculator {
     /**
      * 计算信息比率 (Information Ratio) - 超额收益相对于跟踪误差的比率
      */
-    private BigDecimal calculateInformationRatio(List<BigDecimal> strategyReturns,
-                                                 List<BigDecimal> benchmarkReturns,
-                                                 BigDecimal trackingError) {
-        if (trackingError.compareTo(BigDecimal.ZERO) == 0 ||
-                strategyReturns == null || benchmarkReturns == null ||
-                strategyReturns.size() != benchmarkReturns.size()) {
+    private BigDecimal calculateInformationRatio(List<BigDecimal> strategyReturns, 
+                                                List<BigDecimal> benchmarkReturns, 
+                                                BigDecimal trackingError) {
+        if (trackingError.compareTo(BigDecimal.ZERO) == 0 || 
+            strategyReturns == null || benchmarkReturns == null ||
+            strategyReturns.size() != benchmarkReturns.size()) {
             return BigDecimal.ZERO;
         }
 
@@ -1272,10 +1272,10 @@ public class BacktestMetricsCalculator {
         }
 
         BigDecimal avgMaxDrawdown = calculateAverageMaxDrawdown(prices);
-
+        
         if (avgMaxDrawdown.compareTo(BigDecimal.ZERO) == 0) {
-            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ?
-                    new BigDecimal("999.9999") : BigDecimal.ZERO;
+            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ? 
+                   new BigDecimal("999.9999") : BigDecimal.ZERO;
         }
 
         return annualizedReturn.divide(avgMaxDrawdown, 4, RoundingMode.HALF_UP);
@@ -1290,10 +1290,10 @@ public class BacktestMetricsCalculator {
         }
 
         BigDecimal sqrtDrawdown = calculateSquareRootDrawdown(prices);
-
+        
         if (sqrtDrawdown.compareTo(BigDecimal.ZERO) == 0) {
-            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ?
-                    new BigDecimal("999.9999") : BigDecimal.ZERO;
+            return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ? 
+                   new BigDecimal("999.9999") : BigDecimal.ZERO;
         }
 
         return annualizedReturn.divide(sqrtDrawdown, 4, RoundingMode.HALF_UP);
@@ -1315,11 +1315,11 @@ public class BacktestMetricsCalculator {
 
         BigDecimal term1 = s.divide(BigDecimal.valueOf(6), 8, RoundingMode.HALF_UP).multiply(sr);
         BigDecimal term2 = k.subtract(BigDecimal.valueOf(3))
-                .divide(BigDecimal.valueOf(24), 8, RoundingMode.HALF_UP)
-                .multiply(sr.multiply(sr));
+                           .divide(BigDecimal.valueOf(24), 8, RoundingMode.HALF_UP)
+                           .multiply(sr.multiply(sr));
 
         BigDecimal modifier = BigDecimal.ONE.add(term1).subtract(term2);
-
+        
         return sr.multiply(modifier).setScale(4, RoundingMode.HALF_UP);
     }
 
@@ -1329,8 +1329,8 @@ public class BacktestMetricsCalculator {
      * @return [上涨捕获率, 下跌捕获率]
      */
     private BigDecimal[] calculateCaptureRatios(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
-        if (strategyReturns == null || benchmarkReturns == null ||
-                strategyReturns.size() != benchmarkReturns.size()) {
+        if (strategyReturns == null || benchmarkReturns == null || 
+            strategyReturns.size() != benchmarkReturns.size()) {
             return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         }
 
@@ -1423,14 +1423,14 @@ public class BacktestMetricsCalculator {
 
         for (int i = 1; i < prices.size(); i++) {
             BigDecimal currentPrice = prices.get(i);
-
+            
             if (currentPrice.compareTo(peak) > 0) {
                 peak = currentPrice;
             } else {
                 if (currentPrice.compareTo(BigDecimal.ZERO) > 0) {
-                    // 计算回撤百分比
-                    BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
-                    totalPain += drawdown.doubleValue();
+                // 计算回撤百分比
+                BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
+                totalPain += drawdown.doubleValue();
                 }
             }
         }
@@ -1462,7 +1462,7 @@ public class BacktestMetricsCalculator {
      * - 比较不同策略的风险调整后表现
      * - 评估策略是否值得承担相应风险
      * - 投资组合构建中的策略权重分配参考
-     *
+     * 
      * @param totalReturn 策略总收益率
      * @param riskMetrics 风险指标集合
      * @return 风险调整收益，保留4位小数
@@ -1474,12 +1474,12 @@ public class BacktestMetricsCalculator {
 
         // 风险调整收益 = 总收益 / (1 + 综合风险因子)
         // 综合风险因子考虑波动率、最大回撤、下行偏差等
-
-        BigDecimal volatilityFactor = riskMetrics.volatility != null ?
+        
+        BigDecimal volatilityFactor = riskMetrics.volatility != null ? 
                 riskMetrics.volatility.abs() : BigDecimal.ZERO;
-        BigDecimal maxDrawdownFactor = tradeStats.maxDrawdown != null ?
+        BigDecimal maxDrawdownFactor = tradeStats.maxDrawdown != null ? 
                 tradeStats.maxDrawdown.abs() : BigDecimal.ZERO;
-        BigDecimal downsideFactor = riskMetrics.downsideDeviation != null ?
+        BigDecimal downsideFactor = riskMetrics.downsideDeviation != null ? 
                 riskMetrics.downsideDeviation.abs() : BigDecimal.ZERO;
 
         // 综合风险因子 = 0.4*波动率 + 0.4*最大回撤 + 0.2*下行偏差
@@ -1488,7 +1488,7 @@ public class BacktestMetricsCalculator {
                 .add(downsideFactor.multiply(new BigDecimal("0.2")));
 
         BigDecimal denominator = BigDecimal.ONE.add(riskFactor);
-
+        
         if (denominator.compareTo(BigDecimal.ZERO) == 0) {
             return totalReturn;
         }
@@ -2127,7 +2127,7 @@ public class BacktestMetricsCalculator {
                     if (useLogReturn) {
                         double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
                         dailyReturn = BigDecimal.valueOf(logR);
-                    } else {
+            } else {
                         BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
                         dailyReturn = change;
                     }

@@ -1502,15 +1502,17 @@ public class StrategyFactory2 {
     public static Strategy createDoubleExponentialMAStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 双重指数移动平均 (DEMA) - 使用EMA指标避免递归
+        // 双重指数移动平均 (DEMA)
         class DoubleExponentialMAIndicator extends CachedIndicator<Num> {
             public final ClosePriceIndicator close;
             public final int period;
+            public final double alpha;
 
-            public DoubleExponentialMAIndicator(ClosePriceIndicator close, int period, BarSeries series) {
+            public DoubleExponentialMAIndicator(ClosePriceIndicator close, int period, double alpha, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.period = period;
+                this.alpha = alpha;
             }
 
             @Override
@@ -1519,19 +1521,39 @@ public class StrategyFactory2 {
                     return close.getValue(index);
                 }
 
-                // 使用EMA指标避免递归调用
-                EMAIndicator firstEMA = new EMAIndicator(close, period);
-                EMAIndicator secondEMA = new EMAIndicator(firstEMA, period);
+                // 第一次平滑
+                Num smoothingConstant = series.numOf(alpha);
+                Num firstSmooth = smoothingConstant.multipliedBy(close.getValue(index))
+                                  .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
 
-                Num first = firstEMA.getValue(index);
-                Num second = secondEMA.getValue(index);
+                // 第二次平滑
+                Num secondSmooth = smoothingConstant.multipliedBy(firstSmooth)
+                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
 
-                // DEMA = 2 * FirstEMA - SecondEMA
-                return series.numOf(2).multipliedBy(first).minus(second);
+                // DEMA = 2 * FirstSmooth - SecondSmooth
+                return series.numOf(2).multipliedBy(firstSmooth).minus(secondSmooth);
+            }
+
+            public Num getFirstSmooth(int index) {
+                if (index == 0) {
+                    return close.getValue(index);
+                }
+                Num smoothingConstant = series.numOf(alpha);
+                return smoothingConstant.multipliedBy(close.getValue(index))
+                       .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
+            }
+
+            public Num getSecondSmooth(int index) {
+                if (index == 0) {
+                    return getFirstSmooth(index);
+                }
+                Num smoothingConstant = series.numOf(alpha);
+                return smoothingConstant.multipliedBy(getFirstSmooth(index))
+                       .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
             }
         }
 
-        DoubleExponentialMAIndicator dema = new DoubleExponentialMAIndicator(closePrice, 20, series);
+        DoubleExponentialMAIndicator dema = new DoubleExponentialMAIndicator(closePrice, 20, 0.1, series);
 
         // 买入：价格上穿DEMA
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, dema);
@@ -1570,24 +1592,35 @@ public class StrategyFactory2 {
 
             @Override
             protected Num calculate(int index) {
+                if (index >= firstSmooth.length) {
+                    // 如果索引超出缓存范围，使用简化计算
+                    return close.getValue(index);
+                }
+
                 if (index == 0) {
+                    firstSmooth[0] = close.getValue(0);
+                    secondSmooth[0] = firstSmooth[0];
+                    thirdSmooth[0] = secondSmooth[0];
                     return close.getValue(0);
                 }
 
-                // 使用简化的TEMA计算，避免数组越界
-                // 直接使用EMA指标来计算TEMA
-                EMAIndicator firstEMA = new EMAIndicator(close, period);
-                EMAIndicator secondEMA = new EMAIndicator(firstEMA, period);
-                EMAIndicator thirdEMA = new EMAIndicator(secondEMA, period);
+                // 计算第一次平滑
+                Num smoothingConstant = series.numOf(alpha);
+                firstSmooth[index] = smoothingConstant.multipliedBy(close.getValue(index))
+                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(firstSmooth[index - 1]));
 
-                Num first = firstEMA.getValue(index);
-                Num second = secondEMA.getValue(index);
-                Num third = thirdEMA.getValue(index);
+                // 计算第二次平滑
+                secondSmooth[index] = smoothingConstant.multipliedBy(firstSmooth[index])
+                                    .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(secondSmooth[index - 1]));
 
-                // TEMA = 3 * FirstEMA - 3 * SecondEMA + ThirdEMA
-                return series.numOf(3).multipliedBy(first)
-                       .minus(series.numOf(3).multipliedBy(second))
-                       .plus(third);
+                // 计算第三次平滑
+                thirdSmooth[index] = smoothingConstant.multipliedBy(secondSmooth[index])
+                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(thirdSmooth[index - 1]));
+
+                // TEMA = 3 * FirstSmooth - 3 * SecondSmooth + ThirdSmooth
+                return series.numOf(3).multipliedBy(firstSmooth[index])
+                       .minus(series.numOf(3).multipliedBy(secondSmooth[index]))
+                       .plus(thirdSmooth[index]);
             }
         }
 
