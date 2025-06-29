@@ -4828,4 +4828,49 @@ public class StrategyFactory1 {
 
         return new BaseStrategy(entryRule, exitRule);
     }
+
+    /**
+     * 三重筛选策略（修改版）- 放宽条件使其更容易触发交易
+     */
+    public static Strategy createTripleScreenStrategy(BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
+        MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
+        
+        // 筛选1：趋势筛选 - 价格在均线之上或刚刚上穿均线
+        Rule filter1 = new OverIndicatorRule(closePrice, sma)
+                .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加上穿均线的条件
+        
+        // 筛选2：动量筛选 - RSI大于45（降低门槛，原为50）
+        Rule filter2 = new OverIndicatorRule(rsi, series.numOf(45));
+        
+        // 筛选3：触发筛选 - MACD大于0或上穿0轴
+        Rule filter3 = new OverIndicatorRule(macd, series.numOf(0))
+                .or(new CrossedUpIndicatorRule(macd, series.numOf(0))); // 增加上穿0轴的条件
+        
+        // 买入条件：通过三重筛选中的两项（降低门槛，原为三项全部）
+        Rule entryRule = filter1.and(filter2)
+                .or(filter1.and(filter3))
+                .or(filter2.and(filter3));
+        
+        // 卖出条件：不满足任一筛选条件
+        Rule exitRule = new NotRule(filter1)
+                .or(new UnderIndicatorRule(rsi, series.numOf(40))) // 降低RSI卖出阈值（原为45）
+                .or(new UnderIndicatorRule(macd, series.numOf(-0.0001))); // 允许MACD轻微为负
+        
+        // 增加止盈条件
+        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                if (index == 0) return series.numOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.05)); // 5%止盈条件
+            }
+        };
+        
+        // 修改后的卖出条件，增加止盈
+        Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
+        
+        return new BaseStrategy("三重筛选策略", entryRule, finalExitRule);
+    }
 }
