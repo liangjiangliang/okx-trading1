@@ -402,10 +402,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                             strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
                     Map<String, Object> response = startExecuteRealTimeStrategy(strategyEntity);
                     String status = (String) response.get("status");
-                    if (status != SUCCESS) {
-                        log.info("策略启动成功: strategyCode={}", strategyEntity.getStrategyCode());
+                    if (status.equals(SUCCESS)) {
+                        log.info("策略启动成功: {}({})", strategyEntity.getStrategyName(), strategyEntity.getStrategyCode());
                     } else {
-                        log.info("策略启动失败: strategyCode={}", strategyEntity.getStrategyCode());
+                        log.info("策略启动失败: {}({})", strategyEntity.getStrategyName(), strategyEntity.getStrategyCode());
                     }
                 } catch (Exception e) {
                     log.error("启动策略失败: strategyCode={}, error={}",
