@@ -36,6 +36,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.okx.trading.constant.IndicatorInfo.*;
+import static javax.print.attribute.standard.JobState.CANCELED;
 
 
 /**
