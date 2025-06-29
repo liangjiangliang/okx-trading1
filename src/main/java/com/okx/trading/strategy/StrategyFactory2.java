@@ -1620,7 +1620,7 @@ public class StrategyFactory2 {
     }
 
     /**
-     * 三重指数移动平均策略 - 三重指数平滑的移动平均策略
+     * 三重指数移动平均策略 -  三重指数平滑的移动平均策略
      */
     public static Strategy createTripleExponentialMAStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
