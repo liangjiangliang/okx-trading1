@@ -274,12 +274,10 @@ public class Ta4jBacktestController {
 
         try {
             // 获取历史数据
-            List<CandlestickEntity> candlesticks = historicalDataService.getHistoricalData(symbol, interval, startTime, endTime);
-            if (candlesticks == null || candlesticks.isEmpty()) {
-                return ApiResponse.error(404, "未找到指定条件的历史数据");
-            }
+            List<CandlestickEntity> candlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck(symbol, interval, startTime.format(dateFormat), endTime.format(dateFormat));
+
             // 获取基准数据
-            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.getHistoricalData("BTC-USDT", interval, startTime, endTime);
+            List<CandlestickEntity> benchmarkCandlesticks = historicalDataService.fetchAndSaveHistoryWithIntegrityCheck("BTC-USDT", interval, startTime.format(dateFormat), endTime.format(dateFormat));
 
             // 生成唯一的系列名称
             String seriesName = CandlestickAdapter.getSymbol(candlesticks.get(0)) + "_" + CandlestickAdapter.getIntervalVal(candlesticks.get(0));

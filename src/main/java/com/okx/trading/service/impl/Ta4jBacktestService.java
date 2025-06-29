@@ -856,25 +856,46 @@ public class Ta4jBacktestService {
 
 
     /**
-     * 计算 Treynor 比率
-     * 用 Beta 衡量系统性风险，计算单位系统风险的超额收益
-     * Treynor Ratio = (策略平均收益率 - 无风险收益率) / Beta
+     * 计算年化 Treynor 比率
+     * <p>
+     * Treynor比率衡量每单位系统性风险(Beta)所获得的超额收益，
+     * 与夏普比率类似，但使用Beta代替总体波动率作为风险度量。
+     * <p>
+     * 使用场景：
+     * 1. 评估相对于市场基准的风险调整收益
+     * 2. 比较不同策略的系统性风险暴露效率
+     * 3. 分析策略对市场风险的敏感度
+     * <p>
+     * 解读：
+     * - 值越高越好，表示每单位系统性风险获得的超额收益越多
+     * - 适合与其他策略或市场基准进行比较
+     * - 负值表示策略表现不如无风险资产
      *
-     * @param strategyReturns 策略每日收益率序列
-     * @param riskFreeRate    无风险日收益率，比如0.0001（约3.65%年化）
-     * @param beta            策略的Beta值
-     * @return Treynor比率，如果Beta为0返回0
+     * @param strategyReturns     策略收益率序列
+     * @param riskFreeRate        无风险收益率（期间收益率，非年化）
+     * @param beta                策略相对于基准的Beta系数
+     * @param annualizationFactor 年化因子（如252表示交易日，8760表示小时等）
+     * @return 年化Treynor比率（保留6位小数）
      */
-    public static BigDecimal calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, BigDecimal beta) {
-        if (strategyReturns == null || strategyReturns.isEmpty() || beta == BigDecimal.ZERO) {
+    public static BigDecimal calculateTreynorRatio(List<BigDecimal> strategyReturns, BigDecimal riskFreeRate, BigDecimal beta, int annualizationFactor) {
+        if (strategyReturns == null || strategyReturns.isEmpty() || beta == null || beta.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
-        // 计算策略平均收益率
-        double avgReturn = strategyReturns.stream().mapToDouble(d -> d.doubleValue()).average().orElse(0.0);
 
-        // 计算超额收益率，除以系统风险Beta
-        return BigDecimal.valueOf((avgReturn - riskFreeRate.doubleValue()) / beta.doubleValue());
+        // 计算策略平均收益率
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal r : strategyReturns) {
+            sum = sum.add(r);
+        }
+        BigDecimal avgReturn = sum.divide(BigDecimal.valueOf(strategyReturns.size()), 10, RoundingMode.HALF_UP);
+
+        // 计算年化超额收益率
+        BigDecimal annualizedExcessReturn = avgReturn.subtract(riskFreeRate).multiply(BigDecimal.valueOf(annualizationFactor));
+
+        // Treynor = 年化超额收益率 / Beta
+        return annualizedExcessReturn.divide(beta, 6, RoundingMode.HALF_UP);
     }
+
 
     /**
      * 计算 Ulcer Index

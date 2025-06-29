@@ -844,11 +844,11 @@ public class StrategyFactory1 {
     }
 
     /**
-     * 创建海龟交易策略
+     * 创建海龟交易策略（修复版）- 修正指标匹配问题
      */
     public static Strategy createTurtleTradingStrategy(BarSeries series) {
-        int entryPeriod = (int) (20);
-        int exitPeriod = (int) (10);
+        int entryPeriod = 20;  // 入场周期
+        int exitPeriod = 10;   // 出场周期
 
         if (series.getBarCount() <= entryPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -858,13 +858,19 @@ public class StrategyFactory1 {
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
 
-        // 创建最高价和最低价指标
-        MaxPriceIndicator highestHigh = new MaxPriceIndicator(series, entryPeriod);
-        MinPriceIndicator lowestLow = new MinPriceIndicator(series, exitPeriod);
+        // 修正：创建正确的最高价和最低价指标
+        MaxPriceIndicator highestHigh20 = new MaxPriceIndicator(series, entryPeriod);  // 20日最高价
+        MinPriceIndicator lowestLow20 = new MinPriceIndicator(series, entryPeriod);   // 20日最低价
+        MinPriceIndicator lowestLow10 = new MinPriceIndicator(series, exitPeriod);    // 10日最低价
+        MaxPriceIndicator highestHigh10 = new MaxPriceIndicator(series, exitPeriod);  // 10日最高价
 
-        // 创建规则 - 当价格突破N日最高价时买入，当价格跌破N/2日最低价时卖出
-        Rule entryRule = new OverIndicatorRule(closePrice, highestHigh);
-        Rule exitRule = new UnderIndicatorRule(closePrice, lowestLow);
+        // 海龟交易规则：
+        // 买入：价格突破20日最高价
+        // 卖出：价格跌破10日最低价（或突破10日最高价止盈）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh20);
+
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow10)
+                .or(new CrossedUpIndicatorRule(closePrice, highestHigh10.multipliedBy(series.numOf(1.05)))); // 5%止盈
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -916,7 +922,7 @@ public class StrategyFactory1 {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
-        
+
         MaxPriceIndicator highestHigh = new MaxPriceIndicator(series, period);
         MinPriceIndicator lowestLow = new MinPriceIndicator(series, period);
         SMAIndicator avgVolume = new SMAIndicator(volume, period);
@@ -933,7 +939,7 @@ public class StrategyFactory1 {
         );
 
         Rule entryRule = new OrRule(upperBreakoutRule, lowerBreakoutRule);
-        
+
         // 动态止损：基于ATR
         Rule exitRule = new OrRule(
             new StopLossRule(closePrice, DecimalNum.valueOf(0.02)), // 2%固定止损
@@ -1262,16 +1268,16 @@ public class StrategyFactory1 {
      * 创建吊锤形态策略
      */
     public static Strategy createHangingManStrategy(BarSeries series) {
-        double upperShadowRatio = (double) (0.1);
-        double lowerShadowRatio = (double) (2.0);
+        double upperShadowRatio = 0.3; // 放宽上影线要求（原来0.1）
+        double lowerShadowRatio = 1.2; // 降低下影线要求（原来2.0）
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         OpenPriceIndicator openPrice = new OpenPriceIndicator(series);
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
-        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+        SMAIndicator sma10 = new SMAIndicator(closePrice, 10); // 缩短均线周期
 
-        // 创建自定义的吊锤形态指标
+        // 创建改进的吊锤形态指标
         class HangingManIndicator extends CachedIndicator<Boolean> {
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
@@ -1304,8 +1310,9 @@ public class StrategyFactory1 {
                 // 计算实体部分
                 Num body = open.isGreaterThan(close) ? open.minus(close) : close.minus(open);
 
-                // 如果实体太小，不符合吊锤特征
-                if (body.isEqual(series.numOf(0))) {
+                // 实体不能太小
+                Num totalRange = high.minus(low);
+                if (body.dividedBy(totalRange).isLessThan(series.numOf(0.1))) {
                     return false;
                 }
 
@@ -1313,25 +1320,25 @@ public class StrategyFactory1 {
                 Num upperShadow = high.minus(open.isGreaterThan(close) ? open : close);
                 Num lowerShadow = (open.isLessThan(close) ? open : close).minus(low);
 
-                // 上影线应该很短，下影线应该很长（至少是实体的2倍）
+                // 放宽条件：上影线相对较短，下影线相对较长
                 boolean isShortUpperShadow = upperShadow.dividedBy(body).isLessThanOrEqual(series.numOf(upperShadowRatio));
                 boolean isLongLowerShadow = lowerShadow.dividedBy(body).isGreaterThanOrEqual(series.numOf(lowerShadowRatio));
 
-                // 前一日收盘价趋势（可以确认是在上升趋势中出现）
-                boolean isUptrend = index > 5 && closePrice.getValue(index - 1).isGreaterThan(closePrice.getValue(index - 5));
+                // 简化趋势判断：最近3天平均收盘价上涨
+                boolean isUptrend = index > 3 && closePrice.getValue(index - 1).isGreaterThan(closePrice.getValue(index - 3));
 
-                // 满足吊锤形态的条件：短上影线，长下影线，在上升趋势中
                 return isShortUpperShadow && isLongLowerShadow && isUptrend;
             }
         }
 
-        // 创建吊锤形态指标
         HangingManIndicator hangingMan = new HangingManIndicator(series, upperShadowRatio, lowerShadowRatio);
 
-        // 创建规则 - 当出现吊锤形态且价格高于20日均线时，视为顶部反转信号，卖出
-        Rule entryRule = new UnderIndicatorRule(closePrice, sma20);  // 价格低于均线时买入
-        Rule exitRule = new BooleanIndicatorRule(hangingMan)
-                .and(new OverIndicatorRule(closePrice, sma20));  // 出现吊锤形态且价格高于均线时卖出
+        // 改进交易规则：使用更灵活的条件
+        Rule entryRule = new UnderIndicatorRule(closePrice, sma10)  // 价格低于短期均线时买入
+                .and(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.98)))); // 价格没有大幅下跌
+
+        Rule exitRule = new BooleanIndicatorRule(hangingMan)  // 出现吊锤形态时卖出
+                .or(new OverIndicatorRule(closePrice, sma10.multipliedBy(series.numOf(1.02)))); // 或价格高于均线2%时止盈
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -1434,11 +1441,12 @@ public class StrategyFactory1 {
         UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, multiplier, series);
         LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, multiplier, series);
 
-        // 买入规则：价格跌破下轨
-        Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 修正ATR策略逻辑：
+        // 买入规则：价格突破上轨（向上突破）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
 
-        // 卖出规则：价格突破上轨
-        Rule exitRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        // 卖出规则：价格跌破下轨（向下跌破）
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -1686,9 +1694,14 @@ public class StrategyFactory1 {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 改进的交易规则：使用更灵活的条件
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, lowerBand); // 价格上穿下轨买入
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, upperBand); // 价格下穿上轨卖出
+        // 修正超级趋势策略逻辑：
+        // 买入规则：价格突破上轨且收盘价>中间价（趋势向上）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
+                .and(new OverIndicatorRule(closePrice, medianPrice));
+
+        // 卖出规则：价格跌破下轨或收盘价<中间价（趋势向下）
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
+                .or(new UnderIndicatorRule(closePrice, medianPrice));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2056,11 +2069,11 @@ public class StrategyFactory1 {
                     // 防止对数函数的参数无效
                     return series.numOf(0);
                 }
-                
+
                 Num fisherValue = half.multipliedBy(
                     series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
                 );
-                
+
                 return fisherValue;
             }
         }
@@ -2719,13 +2732,13 @@ public class StrategyFactory1 {
     }
 
     /**
-     * 创建质量指数策略
-     * 通过价格区间识别反转信号
+     * 创建质量指数策略（修复版）- 改进计算逻辑并降低阈值
      */
     public static Strategy createMassStrategy(BarSeries series) {
         int emaPeriod = 9;
         int sumPeriod = 25;
-        double threshold = 27;
+        double threshold = 26.5; // 降低阈值（原来27.0）
+        double exitThreshold = 26.0; // 降低退出阈值（原来26.5）
 
         if (series.getBarCount() <= sumPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (sumPeriod + 1) + " 个数据点");
@@ -2734,7 +2747,7 @@ public class StrategyFactory1 {
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
 
-        // 创建质量指数指标
+        // 改进的质量指数指标
         class MassIndexIndicator extends CachedIndicator<Num> {
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
@@ -2751,18 +2764,20 @@ public class StrategyFactory1 {
 
             @Override
             protected Num calculate(int index) {
-                if (index < sumPeriod + emaPeriod) {
-                    return series.numOf(25);
+                if (index < Math.max(sumPeriod, emaPeriod)) {
+                    return series.numOf(25); // 返回基准值
                 }
 
+                // 改进计算：使用实际的高低价差和平均值
                 Num sum = series.numOf(0);
                 for (int i = index - sumPeriod + 1; i <= index; i++) {
-                    // 计算高低价差的EMA
                     Num range = highPrice.getValue(i).minus(lowPrice.getValue(i));
 
-                    // 简化计算：使用SMA替代复杂的EMA比率计算
+                    // 使用更合理的计算方法
                     if (!range.isZero()) {
-                        sum = sum.plus(series.numOf(1));
+                        // 计算相对波动性
+                        Num relativeRange = range.dividedBy(lowPrice.getValue(i));
+                        sum = sum.plus(relativeRange.multipliedBy(series.numOf(100))); // 放大以便观察
                     }
                 }
 
@@ -2772,8 +2787,9 @@ public class StrategyFactory1 {
 
         MassIndexIndicator mass = new MassIndexIndicator(series, emaPeriod, sumPeriod);
 
+        // 使用更敏感的阈值和交叉信号
         Rule entryRule = new CrossedUpIndicatorRule(mass, series.numOf(threshold));
-        Rule exitRule = new CrossedDownIndicatorRule(mass, series.numOf(26.5));
+        Rule exitRule = new CrossedDownIndicatorRule(mass, series.numOf(exitThreshold));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -3830,55 +3846,55 @@ public class StrategyFactory1 {
      */
     public static Strategy createBetaStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // Beta系数指标（相对于自身价格变动的Beta，这里简化为相对于移动平均线）
         class BetaIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
-            
+
             public BetaIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
                     return DecimalNum.valueOf(1.0); // 默认Beta = 1
                 }
-                
+
                 // 使用价格相对于均线的变动来计算Beta
                 SMAIndicator market = new SMAIndicator(closePrice, period);
-                
+
                 // 计算价格变动和市场变动的协方差
                 double sumXY = 0, sumX2 = 0;
                 int count = 0;
-                
+
                 for (int i = index - period + 1; i <= index && i > 0; i++) {
                     double priceReturn = closePrice.getValue(i).doubleValue() / closePrice.getValue(i-1).doubleValue() - 1;
                     double marketReturn = market.getValue(i).doubleValue() / market.getValue(i-1).doubleValue() - 1;
-                    
+
                     sumXY += priceReturn * marketReturn;
                     sumX2 += marketReturn * marketReturn;
                     count++;
                 }
-                
+
                 if (sumX2 == 0 || count == 0) {
                     return DecimalNum.valueOf(1.0);
                 }
-                
+
                 double beta = sumXY / sumX2;
                 return DecimalNum.valueOf(Math.max(0, Math.min(3, beta))); // 限制Beta在0-3之间
             }
         }
-        
+
         BetaIndicator beta = new BetaIndicator(closePrice, 20, series);
-        
+
         // 高Beta时买入（高风险高收益），低Beta时卖出
         Rule entryRule = new OverIndicatorRule(beta, DecimalNum.valueOf(1.2));
         Rule exitRule = new UnderIndicatorRule(beta, DecimalNum.valueOf(0.8));
-        
+
         return new BaseStrategy("Beta策略", entryRule, exitRule);
     }
 
@@ -3888,35 +3904,35 @@ public class StrategyFactory1 {
      */
     public static Strategy createCorrelStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 相关性指标（价格与其滞后序列的相关性）
         class CorrelationIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
             private final int lag;
-            
+
             public CorrelationIndicator(ClosePriceIndicator closePrice, int period, int lag, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
                 this.lag = lag;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period + lag) {
                     return DecimalNum.valueOf(0);
                 }
-                
+
                 // 计算价格与滞后价格的相关性
                 double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
                 int count = 0;
-                
+
                 for (int i = index - period + 1; i <= index; i++) {
                     if (i >= lag) {
                         double x = closePrice.getValue(i).doubleValue();
                         double y = closePrice.getValue(i - lag).doubleValue();
-                        
+
                         sumX += x;
                         sumY += y;
                         sumXY += x * y;
@@ -3925,32 +3941,32 @@ public class StrategyFactory1 {
                         count++;
                     }
                 }
-                
+
                 if (count == 0) {
                     return DecimalNum.valueOf(0);
                 }
-                
+
                 double meanX = sumX / count;
                 double meanY = sumY / count;
-                
+
                 double numerator = sumXY - count * meanX * meanY;
                 double denominator = Math.sqrt((sumX2 - count * meanX * meanX) * (sumY2 - count * meanY * meanY));
-                
+
                 if (denominator == 0) {
                     return DecimalNum.valueOf(0);
                 }
-                
+
                 double correlation = numerator / denominator;
                 return DecimalNum.valueOf(correlation);
             }
         }
-        
+
         CorrelationIndicator correlation = new CorrelationIndicator(closePrice, 20, 5, series);
-        
+
         // 正相关时买入，负相关时卖出
         Rule entryRule = new OverIndicatorRule(correlation, DecimalNum.valueOf(0.3));
         Rule exitRule = new UnderIndicatorRule(correlation, DecimalNum.valueOf(-0.3));
-        
+
         return new BaseStrategy("相关性策略", entryRule, exitRule);
     }
 
@@ -3960,28 +3976,28 @@ public class StrategyFactory1 {
      */
     public static Strategy createLinearregStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 线性回归指标
         class LinearRegressionTrendIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
-            
+
             public LinearRegressionTrendIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
                     return closePrice.getValue(index);
                 }
-                
+
                 // 线性回归计算
                 double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
                 int n = period;
-                
+
                 for (int i = 0; i < period; i++) {
                     double x = i; // 时间序列
                     double y = closePrice.getValue(index - period + 1 + i).doubleValue();
@@ -3990,24 +4006,24 @@ public class StrategyFactory1 {
                     sumXY += x * y;
                     sumX2 += x * x;
                 }
-                
+
                 // 计算斜率和截距
                 double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
                 double intercept = (sumY - slope * sumX) / n;
-                
+
                 // 预测当前点的回归值
                 double predictedValue = slope * (period - 1) + intercept;
-                
+
                 return DecimalNum.valueOf(predictedValue);
             }
         }
-        
+
         LinearRegressionTrendIndicator regression = new LinearRegressionTrendIndicator(closePrice, 20, series);
-        
+
         // 价格高于回归线买入，低于回归线卖出
         Rule entryRule = new OverIndicatorRule(closePrice, regression);
         Rule exitRule = new UnderIndicatorRule(closePrice, regression);
-        
+
         return new BaseStrategy("线性回归策略", entryRule, exitRule);
     }
 
@@ -4017,31 +4033,31 @@ public class StrategyFactory1 {
      */
     public static Strategy createVarStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 方差指标
         class VarianceIndicator extends CachedIndicator<Num> {
             private final ClosePriceIndicator closePrice;
             private final int period;
-            
+
             public VarianceIndicator(ClosePriceIndicator closePrice, int period, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
                     return DecimalNum.valueOf(0);
                 }
-                
+
                 // 计算均值
                 Num sum = DecimalNum.valueOf(0);
                 for (int i = index - period + 1; i <= index; i++) {
                     sum = sum.plus(closePrice.getValue(i));
                 }
                 Num mean = sum.dividedBy(DecimalNum.valueOf(period));
-                
+
                 // 计算方差
                 Num variance = DecimalNum.valueOf(0);
                 for (int i = index - period + 1; i <= index; i++) {
@@ -4049,18 +4065,18 @@ public class StrategyFactory1 {
                     variance = variance.plus(diff.multipliedBy(diff));
                 }
                 variance = variance.dividedBy(DecimalNum.valueOf(period));
-                
+
                 return variance;
             }
         }
-        
+
         VarianceIndicator variance = new VarianceIndicator(closePrice, 20, series);
         SMAIndicator avgVariance = new SMAIndicator(variance, 10);
-        
+
         // 方差高于平均时买入（高波动性），低于平均时卖出
         Rule entryRule = new OverIndicatorRule(variance, avgVariance);
         Rule exitRule = new UnderIndicatorRule(variance, avgVariance);
-        
+
         return new BaseStrategy("方差策略", entryRule, exitRule);
     }
 
@@ -4103,10 +4119,10 @@ public class StrategyFactory1 {
 
                 // 计算斜率
                 double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-                
+
                 // 转换为角度（弧度转度数）
                 double angle = Math.atan(slope) * 180 / Math.PI;
-                
+
                 return DecimalNum.valueOf(angle);
             }
         }
@@ -4291,7 +4307,7 @@ public class StrategyFactory1 {
      */
     public static Strategy createHtDcperiodStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 简化的周期检测（使用RSI周期性）
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         SMAIndicator rsiAvg = new SMAIndicator(rsi, 14);
@@ -4307,23 +4323,23 @@ public class StrategyFactory1 {
      */
     public static Strategy createHtDcphaseStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 真正的希尔伯特变换相位检测，使用更复杂的相位分析
         // 使用RSI和布林带结合来模拟相位变化
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         BollingerBandsUpperIndicator bbUpper = new BollingerBandsUpperIndicator(
-            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)), 
-            new StandardDeviationIndicator(closePrice, 20), 
+            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
+            new StandardDeviationIndicator(closePrice, 20),
             DecimalNum.valueOf(2));
         BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(
-            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)), 
-            new StandardDeviationIndicator(closePrice, 20), 
+            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
+            new StandardDeviationIndicator(closePrice, 20),
             DecimalNum.valueOf(2));
 
         // 相位检测：RSI处于超卖区域且价格接近布林下轨时为买入相位
         Rule entryRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(30))
             .and(new UnderIndicatorRule(closePrice, bbLower));
-        
+
         // 相位结束：RSI过度超买或价格触及布林上轨
         Rule exitRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(70))
             .or(new OverIndicatorRule(closePrice, bbUpper));
@@ -4336,10 +4352,10 @@ public class StrategyFactory1 {
      */
     public static Strategy createHtPhasorStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 简化的相量检测
         EMAIndicator ema = new EMAIndicator(closePrice, 14);
-        
+
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, ema);
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, ema);
 
@@ -4351,10 +4367,10 @@ public class StrategyFactory1 {
      */
     public static Strategy createHtSineStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 简化的正弦波检测（使用震荡指标）
         StochasticOscillatorKIndicator stoch = new StochasticOscillatorKIndicator(series, 14);
-        
+
         Rule entryRule = new CrossedUpIndicatorRule(stoch, DecimalNum.valueOf(20));
         Rule exitRule = new CrossedDownIndicatorRule(stoch, DecimalNum.valueOf(80));
 
@@ -4366,11 +4382,11 @@ public class StrategyFactory1 {
      */
     public static Strategy createHtTrendmodeStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 简化的趋势模式检测
         SMAIndicator sma = new SMAIndicator(closePrice, 21);
         EMAIndicator ema = new EMAIndicator(closePrice, 21);
-        
+
         Rule entryRule = new OverIndicatorRule(closePrice, sma);
         Rule exitRule = new UnderIndicatorRule(closePrice, sma);
 
@@ -4382,10 +4398,10 @@ public class StrategyFactory1 {
      */
     public static Strategy createMswStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
+
         // 简化的MESA正弦波（使用威廉指标）
         WilliamsRIndicator williams = new WilliamsRIndicator(series, 14);
-        
+
         Rule entryRule = new CrossedUpIndicatorRule(williams, DecimalNum.valueOf(-80));
         Rule exitRule = new CrossedDownIndicatorRule(williams, DecimalNum.valueOf(-20));
 
@@ -4395,7 +4411,7 @@ public class StrategyFactory1 {
     /**
      * 创建多层次止盈止损策略
      * 使用不同层次的止盈止损点来管理风险和锁定利润
-     * 
+     *
      * 策略逻辑：
      * 1. 当RSI<30且价格突破20日均线时买入
      * 2. 设置多个止盈点：2%、4%、6%
@@ -4405,7 +4421,7 @@ public class StrategyFactory1 {
     public static Strategy createMultiLevelTakeProfitStopLossStrategy(BarSeries series) {
         int rsiPeriod = 14;
         int smaPeriod = 20;
-        
+
         if (series.getBarCount() <= Math.max(rsiPeriod, smaPeriod)) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (Math.max(rsiPeriod, smaPeriod) + 1) + " 个数据点");
         }
@@ -4439,7 +4455,7 @@ public class StrategyFactory1 {
                 }
 
                 Num currentPrice = closePrice.getValue(index);
-                
+
                 // 如果还没有入场价格，返回0
                 if (entryPrice == null) {
                     return series.numOf(0);
@@ -4447,7 +4463,7 @@ public class StrategyFactory1 {
 
                 // 计算当前收益率
                 Num profitRate = currentPrice.minus(entryPrice).dividedBy(entryPrice);
-                
+
                 // 检查止盈条件
                 for (int i = currentTPLevel; i < takeProfitLevels.length; i++) {
                     if (profitRate.doubleValue() >= takeProfitLevels[i]) {
@@ -4459,22 +4475,22 @@ public class StrategyFactory1 {
                         return series.numOf(1); // 部分止盈信号
                     }
                 }
-                
+
                 // 检查止损条件
                 if (profitRate.doubleValue() <= stopLossLevels[currentSLLevel]) {
                     return series.numOf(-1); // 止损信号
                 }
-                
+
                 return series.numOf(0); // 持仓信号
             }
-            
+
             public void setEntryPrice(Num price) {
                 this.entryPrice = price;
                 this.isLong = true;
                 this.currentTPLevel = 0;
                 this.currentSLLevel = 0;
             }
-            
+
             public void reset() {
                 this.entryPrice = null;
                 this.isLong = false;
@@ -4488,11 +4504,11 @@ public class StrategyFactory1 {
         // 动态止盈止损规则
         class DynamicTakeProfitRule implements Rule {
             private final MultiLevelTPSLIndicator indicator;
-            
+
             public DynamicTakeProfitRule(MultiLevelTPSLIndicator indicator) {
                 this.indicator = indicator;
             }
-            
+
             @Override
             public boolean isSatisfied(int index, TradingRecord tradingRecord) {
                 if (tradingRecord.getCurrentPosition().isOpened()) {
@@ -4501,7 +4517,7 @@ public class StrategyFactory1 {
                         Trade entryTrade = tradingRecord.getCurrentPosition().getEntry();
                         indicator.setEntryPrice(entryTrade.getNetPrice());
                     }
-                    
+
                     Num signal = indicator.getValue(index);
                     return signal.doubleValue() == 1 || signal.doubleValue() == -1;
                 }
@@ -4511,11 +4527,11 @@ public class StrategyFactory1 {
 
         class DynamicStopLossRule implements Rule {
             private final MultiLevelTPSLIndicator indicator;
-            
+
             public DynamicStopLossRule(MultiLevelTPSLIndicator indicator) {
                 this.indicator = indicator;
             }
-            
+
             @Override
             public boolean isSatisfied(int index, TradingRecord tradingRecord) {
                 if (tradingRecord.getCurrentPosition().isOpened()) {
@@ -4543,12 +4559,12 @@ public class StrategyFactory1 {
         class ResetOnExitRule implements Rule {
             private final Rule originalRule;
             private final MultiLevelTPSLIndicator indicator;
-            
+
             public ResetOnExitRule(Rule originalRule, MultiLevelTPSLIndicator indicator) {
                 this.originalRule = originalRule;
                 this.indicator = indicator;
             }
-            
+
             @Override
             public boolean isSatisfied(int index, TradingRecord tradingRecord) {
                 boolean shouldExit = originalRule.isSatisfied(index, tradingRecord);
@@ -4682,7 +4698,7 @@ public class StrategyFactory1 {
 
                     Num signal = indicator.getValue(index);
                     double signalValue = signal.doubleValue();
-                    
+
                     // 任何非0信号都表示出场
                     if (signalValue != 0) {
                         indicator.reset();
@@ -4704,24 +4720,24 @@ public class StrategyFactory1 {
     public static Strategy createMeanReversionStrategy(BarSeries series) {
         int period = 20;
         double multiplier = 2.0;
-        
+
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
         }
-        
+
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, period);
-        
+
         // 使用布林带指标创建上下轨
         BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
         BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, stdDev, series.numOf(multiplier));
         BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, stdDev, series.numOf(multiplier));
-        
+
         // 当价格跌破下轨时买入，涨破上轨时卖出（均值回归）
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
         Rule exitRule = new OverIndicatorRule(closePrice, upperBand);
-        
+
         return new BaseStrategy(entryRule, exitRule);
     }
 
@@ -4732,27 +4748,27 @@ public class StrategyFactory1 {
         int period = 14;
         double k1 = 0.5;
         double k2 = 0.5;
-        
+
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
         }
-        
+
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
-        
+
         // 计算最高价和最低价的移动平均
         SMAIndicator avgHigh = new SMAIndicator(highPrice, period);
         SMAIndicator avgLow = new SMAIndicator(lowPrice, period);
         SMAIndicator avgClose = new SMAIndicator(closePrice, period);
-        
+
         // 计算买入卖出阈值 - 创建自定义指标
         class BuyThresholdIndicator extends CachedIndicator<Num> {
             private final SMAIndicator avgClose;
             private final SMAIndicator avgHigh;
             private final SMAIndicator avgLow;
             private final double k1;
-            
+
             public BuyThresholdIndicator(SMAIndicator avgClose, SMAIndicator avgHigh, SMAIndicator avgLow, double k1, BarSeries series) {
                 super(series);
                 this.avgClose = avgClose;
@@ -4760,7 +4776,7 @@ public class StrategyFactory1 {
                 this.avgLow = avgLow;
                 this.k1 = k1;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 Num close = avgClose.getValue(index);
@@ -4770,13 +4786,13 @@ public class StrategyFactory1 {
                 return close.plus(range.multipliedBy(series.numOf(k1)));
             }
         }
-        
+
         class SellThresholdIndicator extends CachedIndicator<Num> {
             private final SMAIndicator avgClose;
             private final SMAIndicator avgHigh;
             private final SMAIndicator avgLow;
             private final double k2;
-            
+
             public SellThresholdIndicator(SMAIndicator avgClose, SMAIndicator avgHigh, SMAIndicator avgLow, double k2, BarSeries series) {
                 super(series);
                 this.avgClose = avgClose;
@@ -4784,7 +4800,7 @@ public class StrategyFactory1 {
                 this.avgLow = avgLow;
                 this.k2 = k2;
             }
-            
+
             @Override
             protected Num calculate(int index) {
                 Num close = avgClose.getValue(index);
@@ -4794,13 +4810,13 @@ public class StrategyFactory1 {
                 return close.minus(range.multipliedBy(series.numOf(k2)));
             }
         }
-        
+
         Indicator<Num> buyThreshold = new BuyThresholdIndicator(avgClose, avgHigh, avgLow, k1, series);
         Indicator<Num> sellThreshold = new SellThresholdIndicator(avgClose, avgHigh, avgLow, k2, series);
-        
+
         Rule entryRule = new OverIndicatorRule(closePrice, buyThreshold);
         Rule exitRule = new UnderIndicatorRule(closePrice, sellThreshold);
-        
+
         return new BaseStrategy(entryRule, exitRule);
     }
 }

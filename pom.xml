@@ -151,7 +151,7 @@
             <artifactId>guava</artifactId>
             <version>33.1.0-jre</version>
         </dependency>
-        
+
         <!-- YAML processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>

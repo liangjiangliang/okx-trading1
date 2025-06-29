@@ -19,7 +19,7 @@ public class StrategyFactory2 {
 
     // ==================== 高级策略实现 ====================
     /**
-     * 自适应布林带策略
+     * 自适应布林带策略（修复版）- 调整阈值和增加成交量确认
      * 根据市场波动性动态调整布林带参数
      */
     public static Strategy createAdaptiveBollingerStrategy(BarSeries series) {
@@ -31,7 +31,9 @@ public class StrategyFactory2 {
         }
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
+        SMAIndicator avgVolume = new SMAIndicator(volume, period);
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, period);
 
         // 自适应标准差倍数
@@ -46,7 +48,7 @@ public class StrategyFactory2 {
                 this.stdDev = stdDev;
                 this.baseMultiplier = series.numOf(baseStdDev);
                 this.minMultiplier = series.numOf(1.5);
-                this.maxMultiplier = series.numOf(3.0);
+                this.maxMultiplier = series.numOf(2.5); // 降低最大倍数（原来3.0）
             }
 
             @Override
@@ -120,14 +122,13 @@ public class StrategyFactory2 {
         AdaptiveBollingerUpper upperBand = new AdaptiveBollingerUpper(sma, stdDev, adaptiveMultiplier, series);
         AdaptiveBollingerLower lowerBand = new AdaptiveBollingerLower(sma, stdDev, adaptiveMultiplier, series);
 
-        // 买入规则：价格触及下轨且RSI超卖
-        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
+        // 买入规则：价格触及下轨且成交量放大
         Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
-                .and(new UnderIndicatorRule(rsi, 30));
+                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1)))); // 成交量确认
 
-        // 卖出规则：价格触及上轨或RSI超买
-        Rule exitRule = new CrossedUpIndicatorRule(closePrice, upperBand)
-                .or(new OverIndicatorRule(rsi, 70));
+        // 卖出规则：价格触及中轨或价格上涨超过3%
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, sma)
+                .or(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(1.03))));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -166,20 +167,22 @@ public class StrategyFactory2 {
     }
 
     /**
-     * 波动性突破策略
+     * 波动性突破策略（修复版）- 降低参数阈值
      * 基于ATR的动态突破策略
      */
     public static Strategy createVolatilityBreakoutStrategy(BarSeries series) {
         int atrPeriod = 14;
-        int lookbackPeriod = 20;
-        double multiplier = 2.0;
+        int lookbackPeriod = 15; // 缩短回看周期（原来20）
+        double multiplier = 1.5; // 降低ATR倍数（原来2.0）
 
         if (series.getBarCount() <= Math.max(atrPeriod, lookbackPeriod)) {
             throw new IllegalArgumentException("数据点不足以计算指标");
         }
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
         ATRIndicator atr = new ATRIndicator(series, atrPeriod);
+        SMAIndicator avgVolume = new SMAIndicator(volume, 10);
 
         // 动态突破上轨
         class VolatilityUpperBand extends CachedIndicator<Num> {
@@ -248,11 +251,13 @@ public class StrategyFactory2 {
         VolatilityUpperBand upperBand = new VolatilityUpperBand(closePrice, atr, lookbackPeriod, multiplier, series);
         VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, lookbackPeriod, multiplier, series);
 
-        // 买入规则：价格突破上轨
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        // 买入规则：价格突破上轨且成交量确认
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
+                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1))));
 
-        // 卖出规则：价格跌破下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 卖出规则：价格跌破下轨或止盈3%
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
+                .or(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(1.03))));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -322,11 +327,11 @@ public class StrategyFactory2 {
     }
 
     /**
-     * 价格通道突破策略
+     * 价格通道突破策略（修复版）- 降低成交量要求
      * 基于动态价格通道的突破策略
      */
     public static Strategy createPriceChannelBreakoutStrategy(BarSeries series) {
-        int channelPeriod = 20;
+        int channelPeriod = 18; // 缩短通道周期（原来20）
         int volumePeriod = 10;
 
         if (series.getBarCount() <= Math.max(channelPeriod, volumePeriod)) {
@@ -364,14 +369,18 @@ public class StrategyFactory2 {
             }
         }
 
-        VolumeThreshold volumeThreshold = new VolumeThreshold(avgVolume, series.numOf(1.5), series);
+        VolumeThreshold volumeThreshold = new VolumeThreshold(avgVolume, series.numOf(1.2), series); // 降低成交量要求（原来1.5）
 
         // 买入规则：价格突破通道上轨且成交量放大
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, channelHigh)
                 .and(new OverIndicatorRule(volume, volumeThreshold));
 
-        // 卖出规则：价格跌破通道下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, channelLow);
+        // 卖出规则：价格跌破通道中位或回撤超过3%
+        SMAIndicator channelMid = new SMAIndicator(
+            new TransformIndicator(channelHigh, channelLow, (h, l) -> h.plus(l).dividedBy(series.numOf(2))), 1
+        );
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, channelMid)
+                .or(new UnderIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.97))));
 
         return new BaseStrategy(entryRule, exitRule);
     }
