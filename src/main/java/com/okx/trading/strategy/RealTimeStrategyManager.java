@@ -13,7 +13,7 @@ import com.okx.trading.controller.TradeController;
 import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.service.impl.OkxApiWebSocketServiceImpl;
 import lombok.Data;
-import org.springframework.beans.BeanUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import lombok.extern.slf4j.Slf4j;
@@ -32,10 +32,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CompletableFuture;
 
 import static com.okx.trading.constant.IndicatorInfo.*;
 
@@ -60,6 +58,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final StrategyInfoService strategyInfoService;
     private final RealTimeStrategyRepository realTimeStrategyRepository;
     private final int kLineNum = 100;
+    private boolean loadedStrategies = false;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
@@ -87,30 +86,34 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 启动实时策略
      */
-    public void startRealTimeStrategy(String strategyCode, String symbol, String interval,
-                                      Strategy strategy, BigDecimal tradeAmount, LocalDateTime startTime, String strategyName) {
-        String key = buildStrategyKey(strategyCode, symbol, interval);
+    public Map<String, Object> startRealTimeStrategy(RealTimeStrategyEntity state) {
+        String key = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
 
         // 检查是否已经在运行
         if (runningStrategies.containsKey(key)) {
             log.warn("策略已在运行: {}", key);
-            return;
+            // 6. 返回初始状态
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "实时回测已经存在，跳过执行");
+            response.put("strategyName", state.getStrategyName());
+            response.put("strategyCode", state.getStrategyCode());
+            response.put("symbol", state.getSymbol());
+            response.put("interval", state.getInterval());
+            response.put("tradeAmount", state.getTradeAmount());
+            response.put("status", CANCELED);
+            response.put("startTime", state.getStartTime());
+            return response;
         }
-
-        // 创建策略运行状态
-        RealTimeStrategyEntity state = new RealTimeStrategyEntity(strategyCode, symbol, interval, startTime, tradeAmount.doubleValue(), strategyName);
-
-        // 保存策略到MySQL（如果不存在）
-        try {
-            createAndSaveStrategy(strategyCode, symbol, interval, tradeAmount.doubleValue(), strategyName);
-        } catch (Exception e) {
-            log.warn("保存策略到数据库失败: {}", e.getMessage());
-        }
+//        // 保存策略到MySQL（如果不存在）
+//        try {
+//            realTimeStrategyService.createRealTimeStrategy(state);
+//        } catch (Exception e) {
+//            log.warn("保存策略到数据库失败: {}", e.getMessage());
+//        }
 
         // 订阅K线数据
         try {
-            webSocketService.subscribeKlineData(symbol, interval);
-            log.info("已订阅K线数据: symbol={}, interval={}", symbol, interval);
+            webSocketService.subscribeKlineData(state.getSymbol(), state.getInterval());
         } catch (Exception e) {
             log.error("订阅K线数据失败: {}", e.getMessage(), e);
             throw new RuntimeException("订阅K线数据失败: " + e.getMessage());
@@ -118,8 +121,18 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
         // 存储策略状态
         runningStrategies.put(key, state);
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "实时回测已成功执行");
+        response.put("strategyName", state.getStrategyName());
+        response.put("strategyCode", state.getStrategyCode());
+        response.put("symbol", state.getSymbol());
+        response.put("interval", state.getInterval());
+        response.put("tradeAmount", state.getTradeAmount());
+        response.put("status", RUNNING);
+        response.put("startTime", state.getStartTime());
 
         log.info("实时策略已启动: {}", key);
+        return response;
     }
 
     /**
@@ -199,7 +212,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         // 控制同一个周期内只能交易一次
         LocalDateTime lastTradeTime;
         boolean singalOfSamePeriod = false;
-        if (state.getLastTradeTime() != null) {
+        if (StringUtils.isNotBlank(state.getLastTradeTime())) {
             lastTradeTime = LocalDateTime.parse(state.getLastTradeTime(), dateFormat);
             singalOfSamePeriod = Duration.between(candlestick.getCloseTime(), lastTradeTime).get(ChronoUnit.MINUTES) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal());
         }
@@ -376,6 +389,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             List<RealTimeStrategyEntity> strategies = realTimeStrategyService.getStrategiesToAutoStart();
             if (strategies.isEmpty()) {
                 log.info("没有找到需要自动启动的策略");
+                loadedStrategies = true;
                 return;
             }
             log.info("找到 {} 个需要自动启动的策略", strategies.size());
@@ -385,8 +399,9 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 try {
                     log.info("准备启动策略: strategyCode={}, symbol={}, interval={}",
                             strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-                    boolean successs = addStrategy(strategyEntity);
-                    if (successs) {
+                    Map<String, Object> response = startExecuteRealTimeStrategy(strategyEntity);
+                    String status = (String) response.get("status");
+                    if (status != SUCCESS) {
                         log.info("策略启动成功: strategyCode={}", strategyEntity.getStrategyCode());
                     } else {
                         log.info("策略启动失败: strategyCode={}", strategyEntity.getStrategyCode());
@@ -396,6 +411,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                             strategyEntity.getStrategyCode(), e.getMessage(), e);
                 }
             }
+            loadedStrategies = true;
+            log.info("完成加载 {} 个需要自动启动的策略", strategies.size());
 
         } catch (Exception e) {
             log.error("加载策略失败: {}", e.getMessage(), e);
@@ -405,14 +422,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     /**
      * 保存策略到数据库
      */
-    private void createAndSaveStrategy(String strategyCode,
-                                       String symbol, String interval, Double tradeAmount, String strategyName) {
+    private void createAndSaveStrategy(RealTimeStrategyEntity state) {
         try {
 
-            realTimeStrategyService.createRealTimeStrategy(strategyCode, symbol, interval, tradeAmount, strategyName);
+            realTimeStrategyService.createRealTimeStrategy(state);
 
         } catch (Exception e) {
-            log.error("保存策略到数据库失败: strategyCode={}, error={}", strategyCode, e.getMessage(), e);
+            log.error("保存策略到数据库失败: strategyCode={}, error={}", state.getStrategyCode(), e.getMessage(), e);
             throw e;
         }
     }
@@ -432,7 +448,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         return new ConcurrentHashMap<>(runningStrategies);
     }
 
-    public boolean addStrategy(RealTimeStrategyEntity strategyEntity) {
+    public Map<String, Object> startExecuteRealTimeStrategy(RealTimeStrategyEntity strategyEntity) {
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("strategyName", strategyEntity.getStrategyName());
+        response.put("strategyCode", strategyEntity.getStrategyCode());
+        response.put("symbol", strategyEntity.getSymbol());
+        response.put("interval", strategyEntity.getInterval());
+        response.put("tradeAmount", strategyEntity.getTradeAmount());
+
+        response.put("startTime", strategyEntity.getStartTime());
+
         // 新增币种的barSeries
         String barSeriesKey = strategyEntity.getSymbol() + "_" + strategyEntity.getInterval();
         if (!runningBarSeries.containsKey(barSeriesKey)) {
@@ -440,15 +466,19 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             if (barSeries != null) {
                 runningBarSeries.put(barSeriesKey, barSeries);
             }
+        } else {
+            response.put("message", "实时回测已经存在，跳过执行");
+            response.put("status", CANCELED);
         }
 
         // 订阅K线数据，已订阅过会跳过
         try {
             webSocketService.subscribeKlineData(strategyEntity.getSymbol(), strategyEntity.getInterval());
-            log.info("已订阅K线数据: symbol={}, interval={}", strategyEntity.getSymbol(), strategyEntity.getInterval());
         } catch (Exception e) {
             log.error("订阅K线数据失败: {}", e.getMessage(), e);
-            return false;
+            response.put("message", "订阅K线数据失败");
+            response.put("status", CANCELED);
+            return response;
         }
 
         // 根据strategyEntity创建具体的Strategy实例
@@ -460,7 +490,9 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             strategyEntity.setStrategy(ta4jStrategy);
         } catch (Exception e) {
             log.error("获取策略失败: {}", e.getMessage(), e);
-            return false;
+            response.put("message", "获取策略失败");
+            response.put("status", CANCELED);
+            return response;
         }
 
         // 添加到运行中策略列表
@@ -469,8 +501,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
         log.info("已添加策略: strategyCode={}, symbol={}, interval={}", strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
 
+        response.put("message", "实时回测已经开始执行");
+        response.put("status", SUCCESS);
+        return response;
 
-        return runningStrategies.containsKey(strategyKey);
     }
 
     /**

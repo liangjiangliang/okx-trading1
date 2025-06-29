@@ -8,10 +8,12 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.core.joran.spi.JoranException;
+import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.strategy.BacktestMetricsCalculator;
 import com.okx.trading.strategy.StrategyRegisterCenter;
@@ -1000,5 +1002,107 @@ public class Ta4jBacktestService {
         double r = numerator / denominator;
 
         return r * r;  // 返回 R²
+    }
+
+    /**
+     * 计算指标分布统计
+     */
+    public Map<String, Object> calculateDistributionStats(List<BacktestSummaryEntity> validBacktests) {
+        Map<String, Object> stats = new HashMap<>();
+
+        // 年化收益率分布
+        List<BigDecimal> annualizedReturns = validBacktests.stream()
+                .map(BacktestSummaryEntity::getAnnualizedReturn)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 最大回撤分布
+        List<BigDecimal> maxDrawdowns = validBacktests.stream()
+                .map(BacktestSummaryEntity::getMaxDrawdown)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 胜率分布
+        List<BigDecimal> winRates = validBacktests.stream()
+                .map(BacktestSummaryEntity::getWinRate)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 夏普比率分布
+        List<BigDecimal> sharpeRatios = validBacktests.stream()
+                .map(BacktestSummaryEntity::getSharpeRatio)
+                .filter(Objects::nonNull)
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 计算分位数
+        stats.put("annualizedReturn", calculatePercentileStats(annualizedReturns, "年化收益率"));
+        stats.put("maxDrawdown", calculatePercentileStats(maxDrawdowns, "最大回撤"));
+        stats.put("winRate", calculatePercentileStats(winRates, "胜率"));
+        stats.put("sharpeRatio", calculatePercentileStats(sharpeRatios, "夏普比率"));
+
+        // 总体统计
+        stats.put("totalBacktests", validBacktests.size());
+        stats.put("analysisTime", LocalDateTime.now());
+
+        return stats;
+    }
+
+    /**
+     * 计算分位数统计
+     */
+    public Map<String, Object> calculatePercentileStats(List<BigDecimal> sortedValues, String indicatorName) {
+        Map<String, Object> percentiles = new HashMap<>();
+
+        if (sortedValues.isEmpty()) {
+            percentiles.put("error", "无有效数据");
+            return percentiles;
+        }
+
+        int size = sortedValues.size();
+        percentiles.put("indicatorName", indicatorName);
+        percentiles.put("sampleCount", size);
+        percentiles.put("min", sortedValues.get(0));
+        percentiles.put("max", sortedValues.get(size - 1));
+
+        // 计算各分位数
+        percentiles.put("p10", calculatePercentile(sortedValues, 0.10));
+        percentiles.put("p20", calculatePercentile(sortedValues, 0.20));
+        percentiles.put("p25", calculatePercentile(sortedValues, 0.25));
+        percentiles.put("p30", calculatePercentile(sortedValues, 0.30));
+        percentiles.put("p40", calculatePercentile(sortedValues, 0.40));
+        percentiles.put("p50", calculatePercentile(sortedValues, 0.50)); // 中位数
+        percentiles.put("p60", calculatePercentile(sortedValues, 0.60));
+        percentiles.put("p70", calculatePercentile(sortedValues, 0.70));
+        percentiles.put("p75", calculatePercentile(sortedValues, 0.75));
+        percentiles.put("p80", calculatePercentile(sortedValues, 0.80));
+        percentiles.put("p90", calculatePercentile(sortedValues, 0.90));
+
+        return percentiles;
+    }
+
+    /**
+     * 计算分位数
+     */
+    public BigDecimal calculatePercentile(List<BigDecimal> sortedValues, double percentile) {
+        if (sortedValues.isEmpty()) return null;
+
+        int size = sortedValues.size();
+        double index = percentile * (size - 1);
+        int lowerIndex = (int) Math.floor(index);
+        int upperIndex = (int) Math.ceil(index);
+
+        if (lowerIndex == upperIndex) {
+            return sortedValues.get(lowerIndex);
+        } else {
+            BigDecimal lower = sortedValues.get(lowerIndex);
+            BigDecimal upper = sortedValues.get(upperIndex);
+            double weight = index - lowerIndex;
+
+            return lower.add(upper.subtract(lower).multiply(BigDecimal.valueOf(weight)));
+        }
     }
 }

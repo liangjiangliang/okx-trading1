@@ -25,6 +25,32 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
     Optional<RealTimeStrategyEntity> findByStrategyCode(String strategyCode);
 
     /**
+     * 查询所有有效的实时策略
+     *
+     * @return 有效的实时策略列表
+     */
+    List<RealTimeStrategyEntity> findByIsActiveTrueOrderByCreateTimeDesc();
+
+    /**
+     * 根据策略信息代码查询有效的实时策略
+     *
+     * @param strategyCode 策略信息代码
+     * @param strategyCode 策略信息代码
+     * @return 有效的实时策略列表
+     */
+    List<RealTimeStrategyEntity> findByStrategyCodeAndIsActiveTrueOrderByCreateTimeDesc(String strategyCode);
+
+    /**
+     * 根据交易对查询有效的实时策略
+     *
+     * @param symbol 交易对符号
+     * @return 有效的实时策略列表
+     */
+    List<RealTimeStrategyEntity> findBySymbolAndIsActiveTrueOrderByCreateTimeDesc(String symbol);
+
+    boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval);
+
+    /**
      * 根据状态查询实时策略
      *
      * @param status 运行状态
@@ -32,11 +58,27 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      */
     List<RealTimeStrategyEntity> findByStatusOrderByCreateTimeDesc(String status);
 
+    /**
+     * 查询正在运行的实时策略
+     *
+     * @return 正在运行的实时策略列表
+     */
+    List<RealTimeStrategyEntity> findByStatusAndIsActiveTrueOrderByCreateTimeDesc(String status);
+
+    /**
+     * 根据交易对和状态查询实时策略
+     *
+     * @param symbol 交易对符号
+     * @param status 运行状态
+     * @return 实时策略列表
+     */
+    List<RealTimeStrategyEntity> findBySymbolAndStatusAndIsActiveTrueOrderByCreateTimeDesc(String symbol, String status);
 
     /**
      * 查询指定时间范围内创建的实时策略
      *
      * @param startTime 开始时间
+     * @param endTime 结束时间
      * @param endTime   结束时间
      * @return 实时策略列表
      */
@@ -50,8 +92,18 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      */
     boolean existsByStrategyCode(String strategyCode);
 
-
-    boolean existsByStrategyCodeAndSymbolAndInterval(String strategyCode, String symbol, String interval);
+    /**
+     * 根据策略信息代码和交易对查询是否存在运行中的策略
+     *
+     * @param strategyCode 策略信息代码
+     * @param symbol 交易对符号
+     * @param status 运行状态
+     * @param strategyCode 策略信息代码
+     * @param symbol       交易对符号
+     * @param status       运行状态
+     * @return 是否存在
+     */
+    boolean existsByStrategyCodeAndSymbolAndStatusAndIsActiveTrue(String strategyCode, String symbol, String status);
 
     /**
      * 查询需要自动启动的策略（程序启动时加载）
@@ -59,13 +111,15 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      *
      * @return 需要自动启动的策略列表
      */
-    @Query("SELECT r FROM RealTimeStrategyEntity r WHERE r.status = 'RUNNING' ORDER BY r.createTime DESC")
+    @Query("SELECT r FROM RealTimeStrategyEntity r WHERE r.isActive = true AND r.status = 'RUNNING' ORDER BY r.createTime DESC")
     List<RealTimeStrategyEntity> findStrategiesToAutoStart();
 
+
     /**
-     * 根据策略代码删除实时策略
+     * 根据策略信息代码删除相关的实时策略
      *
-     * @param strategyCode 策略代码
+     * @param strategyCode 策略信息代码
      */
     void deleteByStrategyCode(String strategyCode);
 }
+

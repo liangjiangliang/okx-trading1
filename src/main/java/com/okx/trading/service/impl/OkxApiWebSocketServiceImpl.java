@@ -1031,7 +1031,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             // 检查是否已订阅
             String subscribedSymbol = symbol + ":" + interval;
             if (klineCacheService.getAllSubscribedKlines().contains(subscribedSymbol) && subscribedSymbols.contains(subscribedSymbol)) {
-                log.debug("币种 {} 已订阅，无需重复订阅", symbol);
+                log.info("币种 {} 已订阅，无需重复订阅", symbol);
                 return true;
             }
 

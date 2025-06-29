@@ -118,6 +118,10 @@ public class RealTimeStrategyEntity {
     @Builder.Default
     private Integer successfulTrades = 0;
 
+
+    @Column(name = "is_active", length = 20)
+    @Builder.Default
+    private Boolean isActive = true;
     /**
      * 策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)
      */
@@ -174,7 +178,7 @@ public class RealTimeStrategyEntity {
     }
 
 
-    public RealTimeStrategyEntity(String strategyCode, String symbol, String interval, LocalDateTime startTime, Double tradeAmount,String strategyName) {
+    public RealTimeStrategyEntity(String strategyCode, String symbol, String interval, LocalDateTime startTime, Double tradeAmount, String strategyName) {
         this.strategyCode = strategyCode;
         this.symbol = symbol;
         this.interval = interval;
