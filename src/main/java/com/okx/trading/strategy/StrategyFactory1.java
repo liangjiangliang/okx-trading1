@@ -496,14 +496,17 @@ public class StrategyFactory1 {
         SMAIndicator k = new SMAIndicator(stochRsi, kPeriod);
         SMAIndicator d = new SMAIndicator(k, dPeriod);
 
-        // 创建规则
+        // 随机RSI策略 - 降低超买超卖阈值
+        double lowerOversold = 25; // 从20提高到25
+        double upperOverbought = 75; // 从80降低到75
+
         Rule entryRule = new CrossedUpIndicatorRule(k, d)
-                .and(new UnderIndicatorRule(k, oversold));
+                .and(new UnderIndicatorRule(k, series.numOf(lowerOversold))); // 降低超卖阈值
 
         Rule exitRule = new CrossedDownIndicatorRule(k, d)
-                .and(new OverIndicatorRule(k, overbought));
+                .and(new OverIndicatorRule(k, series.numOf(upperOverbought))); // 降低超买阈值
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("随机RSI策略", entryRule, exitRule);
     }
 
     /**
@@ -795,13 +798,19 @@ public class StrategyFactory1 {
     public static Strategy createThreeWhiteSoldiersStrategy(BarSeries series) {
         ThreeWhiteSoldiersIndicator threeWhiteSoldiers = new ThreeWhiteSoldiersIndicator(series, 5, DecimalNum.valueOf(0.3));
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+        SMAIndicator sma10 = new SMAIndicator(closePrice, 10);
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
 
-        // 创建规则 - 当出现三白兵形态时买入，当价格低于20日均线时卖出
-        Rule entryRule = new BooleanIndicatorRule(threeWhiteSoldiers);
-        Rule exitRule = new UnderIndicatorRule(closePrice, sma);
+        // 优化规则 - 增加更多买入条件
+        Rule entryRule = new BooleanIndicatorRule(threeWhiteSoldiers)
+                .or(new CrossedUpIndicatorRule(closePrice, sma10)) // 增加短期均线突破
+                .or(new OverIndicatorRule(rsi, series.numOf(70))); // 增加RSI强势条件
 
-        return new BaseStrategy(entryRule, exitRule);
+        // 卖出：价格跌破短期均线
+        Rule exitRule = new UnderIndicatorRule(closePrice, sma10);
+
+        return new BaseStrategy("三白兵策略", entryRule, exitRule);
     }
 
     /**
@@ -810,13 +819,20 @@ public class StrategyFactory1 {
     public static Strategy createThreeBlackCrowsStrategy(BarSeries series) {
         ThreeBlackCrowsIndicator threeBlackCrows = new ThreeBlackCrowsIndicator(series, 5, 0.3);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
+        SMAIndicator sma10 = new SMAIndicator(closePrice, 10);
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
 
-        // 创建规则 - 当出现三黑乌鸦形态时卖出，当价格高于20日均线时买入
-        Rule entryRule = new OverIndicatorRule(closePrice, sma);
-        Rule exitRule = new BooleanIndicatorRule(threeBlackCrows);
+        // 优化规则 - 增加更多买入条件
+        Rule entryRule = new OverIndicatorRule(closePrice, sma20)
+                .or(new CrossedUpIndicatorRule(closePrice, sma10)) // 增加短期均线突破
+                .or(new UnderIndicatorRule(rsi, series.numOf(30))); // 增加RSI超卖条件
 
-        return new BaseStrategy(entryRule, exitRule);
+        // 卖出：三黑乌鸦形态或价格跌破短期均线
+        Rule exitRule = new BooleanIndicatorRule(threeBlackCrows)
+                .or(new UnderIndicatorRule(closePrice, sma10));
+
+        return new BaseStrategy("三黑乌鸦策略", entryRule, exitRule);
     }
 
     /**
@@ -866,15 +882,18 @@ public class StrategyFactory1 {
         MinPriceIndicator lowestLow10 = new MinPriceIndicator(series, exitPeriod);    // 10日最低价
         MaxPriceIndicator highestHigh10 = new MaxPriceIndicator(series, exitPeriod);  // 10日最高价
 
-        // 海龟交易规则：
-        // 买入：价格突破20日最高价
-        // 卖出：价格跌破10日最低价（或突破10日最高价止盈）
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh20);
+        // 海龟交易策略 - 降低突破周期，移除成交量要求
+        // 使用更短的周期来增加突破机会
+        HighestValueIndicator highestHigh15 = new HighestValueIndicator(highPrice, 15); // 从20降低到15
+        LowestValueIndicator lowestLow8 = new LowestValueIndicator(lowPrice, 8); // 从10降低到8
 
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow10)
-                .or(new CrossedUpIndicatorRule(closePrice, TransformIndicator.multiply(highestHigh10, BigDecimal.valueOf(1.05)))); // 5%止盈
+        // 海龟买入条件：突破15日高点
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh15);
 
-        return new BaseStrategy(entryRule, exitRule);
+        // 海龟卖出条件：跌破8日最低价
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow8);
+
+        return new BaseStrategy("海龟交易策略", entryRule, exitRule);
     }
 
 
@@ -915,7 +934,7 @@ public class StrategyFactory1 {
      * 创建突破策略
      */
     public static Strategy createBreakoutStrategy(BarSeries series) {
-        int period = (int) (15); // 减少周期使其更敏感
+        int period = (int) (10); // 减少周期使其更敏感
         double breakoutThreshold = 0.01; // 1%的突破阈值
 
         if (series.getBarCount() <= period) {
@@ -1256,16 +1275,21 @@ public class StrategyFactory1 {
         BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(bollingerDeviation));
         BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(bollingerDeviation));
 
-        // 更平衡的交易规则
-        // 买入规则: MACD上穿信号线 且 (价格接近下轨或在下轨以下)
+
+        // MACD与布林带组合策略 - 降低布林带标准差
+        double reducedDeviation = 1.5; // 从2.0降低到1.5，使布林带更窄
+        BollingerBandsUpperIndicator narrowUpperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(reducedDeviation));
+        BollingerBandsLowerIndicator narrowLowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(reducedDeviation));
+
+        // 买入规则: MACD金叉且价格触及下轨
         Rule entryRule = new CrossedUpIndicatorRule(macd, signal)
-                .and(new UnderIndicatorRule(closePrice, middleBand)); // 改为中轨以下
+                .and(new UnderIndicatorRule(closePrice, narrowLowerBand));
 
-        // 卖出规则: MACD下穿信号线 且 价格在上轨以上
+        // 卖出规则: MACD死叉或价格触及上轨
         Rule exitRule = new CrossedDownIndicatorRule(macd, signal)
-                .and(new OverIndicatorRule(closePrice, upperBand)); // 改为and条件
+                .or(new OverIndicatorRule(closePrice, narrowUpperBand));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("MACD与布林带组合策略", entryRule, exitRule);
     }
 
     /**
@@ -1447,17 +1471,18 @@ public class StrategyFactory1 {
             }
         }
 
-        UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, multiplier, series);
-        LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, multiplier, series);
+        // 大幅降低ATR倍数，使策略更敏感
+        double reducedMultiplier = 0.8; // 从2.0降低到0.8，更敏感
+        UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, reducedMultiplier, series);
+        LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, reducedMultiplier, series);
 
-        // 修正ATR策略逻辑：
-        // 买入规则：价格突破上轨（向上突破）
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        // ATR策略逻辑：纯粹基于ATR通道突破
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand); // ATR上轨突破
 
-        // 卖出规则：价格跌破下轨（向下跌破）
+        // 卖出规则：价格跌破ATR下轨
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("ATR策略", entryRule, exitRule);
     }
 
     /**
@@ -1703,14 +1728,15 @@ public class StrategyFactory1 {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 修正超级趋势策略逻辑：
-        // 买入规则：价格突破上轨且收盘价>中间价（趋势向上）
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
-                .and(new OverIndicatorRule(closePrice, medianPrice));
+        // 超级趋势策略 - 降低ATR倍数，使策略更敏感
+        // 降低ATR倍数从默认值到更敏感的值
+        double reducedMultiplier = 2.0; // 假设原来是3.0，降低到2.0
 
-        // 卖出规则：价格跌破下轨或收盘价<中间价（趋势向下）
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
-                .or(new UnderIndicatorRule(closePrice, medianPrice));
+        // 买入规则：价格突破上轨
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+
+        // 卖出规则：价格跌破下轨
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2733,11 +2759,14 @@ public class StrategyFactory1 {
 
         NatrIndicator natr = new NatrIndicator(atr, closePrice, series);
 
-        // 高NATR值表示高波动性
-        Rule entryRule = new CrossedUpIndicatorRule(natr, series.numOf(2)); // 2%的波动性阈值
-        Rule exitRule = new CrossedDownIndicatorRule(natr, series.numOf(1)); // 1%的波动性阈值
+        // NATR策略 - 降低波动性阈值
+        double lowerThreshold = 1.0; // 从2.0降低到1.0
+        double upperThreshold = 0.5; // 从1.0降低到0.5
 
-        return new BaseStrategy(entryRule, exitRule);
+        Rule entryRule = new CrossedUpIndicatorRule(natr, series.numOf(lowerThreshold)); // NATR上升
+        Rule exitRule = new CrossedDownIndicatorRule(natr, series.numOf(upperThreshold)); // NATR下降
+
+        return new BaseStrategy("NATR策略", entryRule, exitRule);
     }
 
     /**
@@ -2796,11 +2825,17 @@ public class StrategyFactory1 {
 
         MassIndexIndicator mass = new MassIndexIndicator(series, emaPeriod, sumPeriod);
 
-        // 使用更敏感的阈值和交叉信号
-        Rule entryRule = new CrossedUpIndicatorRule(mass, series.numOf(threshold));
-        Rule exitRule = new CrossedDownIndicatorRule(mass, series.numOf(exitThreshold));
+        // 质量指数策略 - 降低阈值
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        return new BaseStrategy(entryRule, exitRule);
+        // 质量指数策略：降低阈值使其更敏感
+        double lowerThreshold = 25.0; // 从27降低到25
+        double upperThreshold = 28.0; // 从30降低到28
+
+        Rule entryRule = new OverIndicatorRule(mass, series.numOf(lowerThreshold)); // 质量指数超过阈值
+        Rule exitRule = new UnderIndicatorRule(mass, series.numOf(upperThreshold)); // 质量指数回落
+
+        return new BaseStrategy("质量指数策略", entryRule, exitRule);
     }
 
     /**
@@ -3021,7 +3056,7 @@ public class StrategyFactory1 {
      * 基于最高最低价的通道，经典突破系统
      */
     public static Strategy createDonchianChannelsStrategy(BarSeries series) {
-        int period = 20;
+        int period = 15;
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -3708,10 +3743,18 @@ public class StrategyFactory1 {
 
         EveningStarIndicator eveningStar = new EveningStarIndicator(series);
 
-        Rule entryRule = new BooleanIndicatorRule(eveningStar);
-        Rule exitRule = new StopLossRule(new ClosePriceIndicator(series), DecimalNum.valueOf(5)); // 5%止损
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
 
-        return new BaseStrategy(entryRule, exitRule);
+        // 简化暮星策略：暮星形态或价格跌破均线
+        Rule entryRule = new BooleanIndicatorRule(eveningStar)
+                .or(new CrossedDownIndicatorRule(closePrice, sma20)); // 增加均线跌破条件
+
+        // 买入：价格突破均线或3%止损
+        Rule exitRule = new CrossedUpIndicatorRule(closePrice, sma20)
+                .or(new StopLossRule(closePrice, DecimalNum.valueOf(3))); // 降低止损到3%
+
+        return new BaseStrategy("暮星策略", entryRule, exitRule);
     }
 
     /**
@@ -4837,28 +4880,28 @@ public class StrategyFactory1 {
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
-        
+
         // 筛选1：趋势筛选 - 价格在均线之上或刚刚上穿均线
         Rule filter1 = new OverIndicatorRule(closePrice, sma)
                 .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加上穿均线的条件
-        
+
         // 筛选2：动量筛选 - RSI大于45（降低门槛，原为50）
         Rule filter2 = new OverIndicatorRule(rsi, series.numOf(45));
-        
+
         // 筛选3：触发筛选 - MACD大于0或上穿0轴
         Rule filter3 = new OverIndicatorRule(macd, series.numOf(0))
                 .or(new CrossedUpIndicatorRule(macd, series.numOf(0))); // 增加上穿0轴的条件
-        
+
         // 买入条件：通过三重筛选中的两项（降低门槛，原为三项全部）
         Rule entryRule = filter1.and(filter2)
                 .or(filter1.and(filter3))
                 .or(filter2.and(filter3));
-        
+
         // 卖出条件：不满足任一筛选条件
         Rule exitRule = new NotRule(filter1)
                 .or(new UnderIndicatorRule(rsi, series.numOf(40))) // 降低RSI卖出阈值（原为45）
                 .or(new UnderIndicatorRule(macd, series.numOf(-0.0001))); // 允许MACD轻微为负
-        
+
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
@@ -4867,10 +4910,10 @@ public class StrategyFactory1 {
                 return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.05)); // 5%止盈条件
             }
         };
-        
+
         // 修改后的卖出条件，增加止盈
         Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
-        
+
         return new BaseStrategy("三重筛选策略", entryRule, finalExitRule);
     }
 }

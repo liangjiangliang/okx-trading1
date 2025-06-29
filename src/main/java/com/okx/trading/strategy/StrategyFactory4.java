@@ -268,20 +268,23 @@ public class StrategyFactory4 {
         SMAIndicator longMemory = new SMAIndicator(closePrice, 30);
         SMAIndicator longVolumeMemory = new SMAIndicator(volume, 30);
 
-        // 遗忘门：决定是否忘记旧信息
+        // 遗忘门：决定是否忘记旧信息（降低阈值）
         StandardDeviationIndicator volatility = new StandardDeviationIndicator(closePrice, 10);
-        Rule forgetGate = new UnderIndicatorRule(volatility, series.numOf(2.0)); // 低波动时保持记忆
+        SMAIndicator avgVolatility = new SMAIndicator(volatility, 5);
+        Rule forgetGate = new UnderIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.2)); // 使用相对波动率
 
-        // 输入门：决定是否接受新信息
-        Rule inputGate = new OverIndicatorRule(volume, TransformIndicator.multiply(longVolumeMemory, BigDecimal.valueOf(1.2))); // 成交量放大
+        // 输入门：决定是否接受新信息（降低成交量要求）
+        Rule inputGate = new OverIndicatorRule(volume, TransformIndicator.multiply(longVolumeMemory, BigDecimal.valueOf(1.05))); // 降低成交量要求
 
-        // 输出门：决定输出什么信息
+        // 输出门：决定输出什么信息（放宽条件）
         Rule outputGate = new OverIndicatorRule(shortMemory, longMemory) // 短期>长期
-                .and(new OverIndicatorRule(shortRSI, series.numOf(45)))
-                .and(new UnderIndicatorRule(shortRSI, series.numOf(75)));
+                .and(new OverIndicatorRule(shortRSI, series.numOf(40))) // 降低RSI阈值
+                .and(new UnderIndicatorRule(shortRSI, series.numOf(80))); // 提高RSI上限
 
-        // LSTM输出：综合所有门的决策
-        Rule lstmBuy = forgetGate.and(inputGate).and(outputGate);
+        // LSTM输出：综合所有门的决策（改为或逻辑，降低门槛）
+        Rule lstmBuy = forgetGate.and(inputGate)
+                .or(forgetGate.and(outputGate))
+                .or(inputGate.and(outputGate));
 
         // LSTM卖出：记忆衰减或趋势反转
         Rule lstmSell = new UnderIndicatorRule(shortMemory, longMemory)
@@ -529,20 +532,28 @@ public class StrategyFactory4 {
         MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
         StandardDeviationIndicator volatility = new StandardDeviationIndicator(closePrice, 20);
         
-        // 动作空间：买入、卖出、持有
-        Rule action1 = new OverIndicatorRule(rsi, 40).and(new OverIndicatorRule(macd, 0)); // 买入
-        Rule action2 = new UnderIndicatorRule(rsi, 60).and(new UnderIndicatorRule(macd, 0)); // 卖出
-        
-        // 奖励函数：基于收益的奖励
+        // 动作空间：买入、卖出、持有（降低阈值）
+        SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        SMAIndicator avgVolume = new SMAIndicator(volume, 20);
+
+        Rule action1 = new OverIndicatorRule(rsi, series.numOf(35)) // 降低RSI阈值
+                .and(new OverIndicatorRule(macd, series.numOf(-0.001))); // 允许MACD轻微为负
+        Rule action2 = new UnderIndicatorRule(rsi, series.numOf(65)) // 降低RSI阈值
+                .and(new UnderIndicatorRule(macd, series.numOf(0.001))); // 允许MACD轻微为正
+
+        // 奖励函数：基于收益的奖励（降低阈值）
         ROCIndicator reward = new ROCIndicator(closePrice, 1);
-        Rule positiveReward = new OverIndicatorRule(reward, 0.01);
-        
-        // 探索vs利用
-        Rule exploration = new OverIndicatorRule(volatility, 1.5); // 高波动时探索
-        Rule exploitation = new UnderIndicatorRule(volatility, 1.0); // 低波动时利用
-        
-        Rule entryRule = action1.and(positiveReward).and(exploitation);
-        Rule exitRule = action2.or(exploration);
+        Rule positiveReward = new OverIndicatorRule(reward, series.numOf(0.005)); // 降低收益阈值
+
+        // 探索vs利用（使用相对波动率）
+        SMAIndicator avgVolatility = new SMAIndicator(volatility, 10);
+        Rule exploration = new OverIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.2));
+        Rule exploitation = new UnderIndicatorRule(volatility, avgVolatility);
+
+        // 简化强化学习逻辑
+        Rule entryRule = action1.or(new OverIndicatorRule(closePrice, sma)); // 增加均线突破条件
+        Rule exitRule = action2.or(new UnderIndicatorRule(closePrice, sma)); // 增加均线跌破条件
         
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -600,14 +611,17 @@ public class StrategyFactory4 {
         SMAIndicator longTrend = new SMAIndicator(closePrice, 30);
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         
-        // 高质量信号：相对低波动率 + 上升趋势
-        Rule entryRule = new UnderIndicatorRule(stability, series.numOf(2.0)) // 调整为2.0
+        // 高质量信号：相对低波动率 + 上升趋势（使用相对指标）
+        SMAIndicator avgStability = new SMAIndicator(stability, 20);
+
+        Rule entryRule = new UnderIndicatorRule(stability, TransformIndicator.multiply(avgStability, 1.2)) // 相对低波动
                 .and(new OverIndicatorRule(shortTrend, longTrend)) // 短期均线>长期均线
-                .and(new OverIndicatorRule(rsi, series.numOf(45))); // RSI中位以上
-        Rule exitRule = new OverIndicatorRule(stability, series.numOf(3.5))
+                .or(new OverIndicatorRule(rsi, series.numOf(40))); // 降低RSI阈值或单独RSI条件
+
+        Rule exitRule = new OverIndicatorRule(stability, TransformIndicator.multiply(avgStability, 1.8))
                 .or(new UnderIndicatorRule(shortTrend, longTrend));
-        
-        return new BaseStrategy(entryRule, exitRule);
+
+        return new BaseStrategy("质量因子策略", entryRule, exitRule);
     }
 
     /**
@@ -984,13 +998,17 @@ public class StrategyFactory4 {
         StandardDeviationIndicator stability = new StandardDeviationIndicator(closePrice, 252);
         SMAIndicator avgVolume = new SMAIndicator(volume, 252);
         
-        // 综合评分信号
-        Rule entryRule = new OverIndicatorRule(growth, series.numOf(0.1))
-                .and(new UnderIndicatorRule(stability, series.numOf(0.3)))
-                .and(new OverIndicatorRule(volume, avgVolume));
-        Rule exitRule = new UnderIndicatorRule(growth, series.numOf(0.05));
-        
-        return new BaseStrategy(entryRule, exitRule);
+        // 综合评分信号（降低阈值）
+        SMAIndicator avgGrowth = new SMAIndicator(growth, 20);
+        SMAIndicator avgStability = new SMAIndicator(stability, 20);
+
+        Rule entryRule = new OverIndicatorRule(growth, avgGrowth) // 使用相对增长率
+                .and(new UnderIndicatorRule(stability, TransformIndicator.multiply(avgStability, 1.2))) // 相对稳定性
+                .and(new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, 0.8))); // 降低成交量要求
+
+        Rule exitRule = new UnderIndicatorRule(growth, TransformIndicator.multiply(avgGrowth, 0.8));
+
+        return new BaseStrategy("基本面评分策略", entryRule, exitRule);
     }
 
     /**
@@ -1228,16 +1246,17 @@ public class StrategyFactory4 {
      */
     public static Strategy createVarRiskManagementStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        
-        // VaR计算
+
+        // VaR计算 - 使用更短的周期和更合理的阈值
         ROCIndicator returns = new ROCIndicator(closePrice, 1);
-        StandardDeviationIndicator volatility = new StandardDeviationIndicator(returns, 60);
-        
-        // 风险控制信号
-        Rule entryRule = new UnderIndicatorRule(volatility, series.numOf(0.02));
-        Rule exitRule = new OverIndicatorRule(volatility, series.numOf(0.05));
-        
-        return new BaseStrategy(entryRule, exitRule);
+        StandardDeviationIndicator volatility = new StandardDeviationIndicator(returns, 20); // 减少周期
+        SMAIndicator avgVolatility = new SMAIndicator(volatility, 10);
+
+        // 风险控制信号 - 基于相对波动率而非绝对值
+        Rule entryRule = new UnderIndicatorRule(volatility, avgVolatility); // 波动率低于平均时买入
+        Rule exitRule = new OverIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.5)); // 波动率高于平均1.5倍时卖出
+
+        return new BaseStrategy("VaR风险管理策略", entryRule, exitRule);
     }
 
     /**
@@ -1286,12 +1305,16 @@ public class StrategyFactory4 {
         StandardDeviationIndicator volatility = new StandardDeviationIndicator(closePrice, 20);
         ROCIndicator returns = new ROCIndicator(closePrice, 1);
         
-        // 风险调整头寸
-        Rule entryRule = new UnderIndicatorRule(volatility, series.numOf(2.0))
-                .and(new OverIndicatorRule(returns, series.numOf(0.01)));
-        Rule exitRule = new OverIndicatorRule(volatility, series.numOf(3.0));
-        
-        return new BaseStrategy(entryRule, exitRule);
+        // 风险调整头寸（使用相对指标）
+        SMAIndicator avgVolatility = new SMAIndicator(volatility, 20);
+        SMAIndicator avgReturns = new SMAIndicator(returns, 20);
+
+        Rule entryRule = new UnderIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.2)) // 相对低波动
+                .and(new OverIndicatorRule(returns, TransformIndicator.multiply(avgReturns, 0.5))); // 相对正收益
+
+        Rule exitRule = new OverIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.8)); // 相对高波动
+
+        return new BaseStrategy("头寸规模策略", entryRule, exitRule);
     }
 
     /**

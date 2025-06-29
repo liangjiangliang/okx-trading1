@@ -221,8 +221,9 @@ public class StrategyFactory3 {
             }
         }
 
-        ATRUpperBand upperBand = new ATRUpperBand(closeMA, atr, 2.0, series);
-        ATRLowerBand lowerBand = new ATRLowerBand(closeMA, atr, 2.0, series);
+        // 大幅降低ATR倍数，使策略更敏感
+        ATRUpperBand upperBand = new ATRUpperBand(closeMA, atr, 1.0, series); // 降低到1.0
+        ATRLowerBand lowerBand = new ATRLowerBand(closeMA, atr, 1.0, series);
 
         // 买入信号：价格突破ATR上轨
         Rule buyRule = new CrossedUpIndicatorRule(closePrice, upperBand);
@@ -292,8 +293,8 @@ public class StrategyFactory3 {
             }
         }
 
-        DonchianUpper donchianUpper = new DonchianUpper(highPrice, 15, series);
-        DonchianLower donchianLower = new DonchianLower(lowPrice, 15, series);
+        DonchianUpper donchianUpper = new DonchianUpper(highPrice, 10, series);
+        DonchianLower donchianLower = new DonchianLower(lowPrice, 10, series);
 
         // 添加成交量确认
         VolumeIndicator volume = new VolumeIndicator(series);
@@ -827,13 +828,17 @@ public class StrategyFactory3 {
 
         VolumeThresholdIndicator volumeThreshold = new VolumeThresholdIndicator(volumeMA, 1.5, series);
 
-        // 买入信号：突破20日最高价且成交量放大1.5倍以上
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, highest20)
-            .and(new OverIndicatorRule(volume, volumeThreshold));
+        // 买入信号：突破15日最高价且成交量放大（降低周期和成交量要求）
+        int reducedPeriod = 15; // 从20降低到15
+        HighestValueIndicator highest15 = new HighestValueIndicator(highPrice, reducedPeriod);
+        LowestValueIndicator lowest15 = new LowestValueIndicator(lowPrice, reducedPeriod);
+        VolumeThresholdIndicator lowerVolumeThreshold = new VolumeThresholdIndicator(volumeMA, 1.1, series); // 降低成交量要求
 
-        // 卖出信号：跌破20日最低价且成交量放大1.5倍以上
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, lowest20)
-            .and(new OverIndicatorRule(volume, volumeThreshold));
+        Rule buyRule = new CrossedUpIndicatorRule(closePrice, highest15)
+            .and(new OverIndicatorRule(volume, lowerVolumeThreshold));
+
+        // 卖出信号：跌破15日最低价
+        Rule sellRule = new CrossedDownIndicatorRule(closePrice, lowest15);
 
         return new BaseStrategy("成交量突破确认策略", buyRule, sellRule);
     }
@@ -1107,10 +1112,11 @@ public class StrategyFactory3 {
         }
 
         KurtosisIndicator kurtosis = new KurtosisIndicator(closePrice, 20, series);
+        SMAIndicator avgKurtosis = new SMAIndicator(kurtosis, 10);
 
-        // 高峰度（厚尾）买入，低峰度（薄尾）卖出（降低阈值）
-        Rule buyRule = new OverIndicatorRule(kurtosis, DecimalNum.valueOf(2.5)); // 降低阈值（原来4）
-        Rule sellRule = new UnderIndicatorRule(kurtosis, DecimalNum.valueOf(1)); // 降低阈值（原来2）
+        // 使用相对峰度而非绝对阈值
+        Rule buyRule = new OverIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 1.1)); // 峰度高于平均10%
+        Rule sellRule = new UnderIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 0.9)); // 峰度低于平均10%
 
         return new BaseStrategy("峰度策略", buyRule, sellRule);
     }
@@ -1263,7 +1269,7 @@ public class StrategyFactory3 {
         // 创建回归线的上下阈值
         TransformIndicator upperThreshold = TransformIndicator.multiply(regression, 1.01);
         TransformIndicator lowerThreshold = TransformIndicator.multiply(regression, 0.99);
-        
+
         // 买入信号：价格相对于回归线有足够的向上偏差
         Rule buyRule = new OverIndicatorRule(closePrice, upperThreshold); // 高于回归线1%
 
@@ -1490,17 +1496,17 @@ public class StrategyFactory3 {
         VolumeIndicator volume = new VolumeIndicator(series);
         SMAIndicator avgVolume = new SMAIndicator(volume, 10);
 
-        // 买入信号：价格突破均线且波动率适中（降低ATR阈值）
-        // 创建成交量阈值指标
-        TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.1);
-        
+        // 买入信号：价格突破均线且波动率适中（进一步优化）
+        // 创建成交量阈值指标 - 降低成交量要求
+        TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.05);
+        SMAIndicator avgATR = new SMAIndicator(atr, 10);
+
         Rule buyRule = new OverIndicatorRule(closePrice, sma)
-            .and(new OverIndicatorRule(atr, DecimalNum.valueOf(0.005))) // 大幅降低阈值（原来0.01）
+            .and(new OverIndicatorRule(atr, avgATR)) // 使用相对ATR而非绝对值
             .and(new OverIndicatorRule(volume, volumeThreshold2));
 
-        // 卖出信号：价格跌破均线或止盈2%
-        Rule sellRule = new UnderIndicatorRule(closePrice, sma)
-            .or(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(DecimalNum.valueOf(1.02))));
+        // 卖出信号：价格跌破均线
+        Rule sellRule = new UnderIndicatorRule(closePrice, sma);
 
         return new BaseStrategy("波动性突破系统策略", buyRule, sellRule);
     }
@@ -1509,13 +1515,14 @@ public class StrategyFactory3 {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         ADXIndicator adx = new ADXIndicator(series, 14);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
+        SMAIndicator avgADX = new SMAIndicator(adx, 10);
 
-        // 买入信号：趋势强度高且价格上涨
-        Rule buyRule = new OverIndicatorRule(adx, DecimalNum.valueOf(25))
+        // 买入信号：趋势强度高于平均且价格上涨（降低ADX阈值）
+        Rule buyRule = new OverIndicatorRule(adx, avgADX) // 使用相对ADX
             .and(new OverIndicatorRule(closePrice, sma));
 
-        // 卖出信号：趋势强度弱或价格下跌
-        Rule sellRule = new UnderIndicatorRule(adx, DecimalNum.valueOf(20))
+        // 卖出信号：趋势强度弱于平均或价格下跌
+        Rule sellRule = new UnderIndicatorRule(adx, TransformIndicator.multiply(avgADX, 0.8))
             .or(new UnderIndicatorRule(closePrice, sma));
 
         return new BaseStrategy("趋势强度策略", buyRule, sellRule);
@@ -1576,8 +1583,8 @@ public class StrategyFactory3 {
             }
         }
 
-        ResistanceIndicator resistance = new ResistanceIndicator(highPrice, 20, series);
-        SupportIndicator support = new SupportIndicator(lowPrice, 20, series);
+        ResistanceIndicator resistance = new ResistanceIndicator(highPrice, 15, series);
+        SupportIndicator support = new SupportIndicator(lowPrice, 15, series);
 
         // 买入信号：突破阻力位
         Rule buyRule = new CrossedUpIndicatorRule(closePrice, resistance);
@@ -1628,7 +1635,7 @@ public class StrategyFactory3 {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(closePrice, 20);
-        
+
         // 计算上下轨
         Indicator<Num> upperBand = new CachedIndicator<Num>(series) {
             @Override
@@ -1636,21 +1643,21 @@ public class StrategyFactory3 {
                 return sma.getValue(index).plus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低上轨为1.5倍标准差(原为2.0)
             }
         };
-        
+
         Indicator<Num> lowerBand = new CachedIndicator<Num>(series) {
             @Override
             protected Num calculate(int index) {
                 return sma.getValue(index).minus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低下轨为1.5倍标准差(原为2.0)
             }
         };
-        
+
         // 买入条件：价格低于下轨
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
-        
+
         // 卖出条件：价格高于上轨或回归均线
         Rule exitRule = new OverIndicatorRule(closePrice, upperBand)
                 .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加价格上穿均线就卖出的条件
-        
+
         return new BaseStrategy("日内均值回归策略", entryRule, exitRule);
     }
 
@@ -1660,13 +1667,13 @@ public class StrategyFactory3 {
     public static Strategy createVolumeConfirmationStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
-        
+
         // 价格动量
         ROCIndicator priceROC = new ROCIndicator(closePrice, 5); // 缩短周期为5（原为10）
-        
+
         // 成交量均线
         SMAIndicator volumeMA = new SMAIndicator(volume, 10); // 缩短周期为10（原为20）
-        
+
         // 成交量阈值
         Indicator<Num> volumeThreshold = new CachedIndicator<Num>(series) {
             @Override
@@ -1674,16 +1681,16 @@ public class StrategyFactory3 {
                 return volumeMA.getValue(index).multipliedBy(series.numOf(1.1)); // 降低成交量阈值为1.1倍（原为1.5倍）
             }
         };
-        
+
         // 买入条件：价格上涨且成交量放大
         Rule entryRule = new OverIndicatorRule(priceROC, series.numOf(0.005)) // 降低价格上涨阈值为0.5%（原为1%）
                 .and(new OverIndicatorRule(volume, volumeThreshold))
                 .or(new OverIndicatorRule(priceROC, series.numOf(0.01))); // 增加一个条件：价格强势上涨时无需成交量确认
-        
+
         // 卖出条件：价格下跌或成交量萎缩
         Rule exitRule = new UnderIndicatorRule(priceROC, series.numOf(-0.005)) // 降低价格下跌阈值为-0.5%（原为-1%）
                 .or(new UnderIndicatorRule(volume, volumeMA)); // 成交量低于均线即卖出
-        
+
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
@@ -1692,10 +1699,10 @@ public class StrategyFactory3 {
                 return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.06)); // 6%止盈条件
             }
         };
-        
+
         // 修改后的卖出条件，增加止盈
         Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
-        
+
         return new BaseStrategy("成交量确认策略", entryRule, finalExitRule);
     }
 
@@ -1705,26 +1712,26 @@ public class StrategyFactory3 {
     public static Strategy createMomentumIntradayStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
-        
+
         // 短期动量
         ROCIndicator shortROC = new ROCIndicator(closePrice, 3); // 缩短周期为3（原为5）
-        
+
         // 中期动量
         ROCIndicator mediumROC = new ROCIndicator(closePrice, 10); // 缩短周期为10（原为15）
-        
+
         // 成交量均线
         SMAIndicator volumeMA = new SMAIndicator(volume, 10);
-        
+
         // 买入条件：短期和中期动量均为正，且短期动量大于中期动量
         Rule entryRule = new OverIndicatorRule(shortROC, series.numOf(0.003)) // 降低短期动量阈值为0.3%（原为0.5%）
                 .and(new OverIndicatorRule(mediumROC, series.numOf(0.002))) // 降低中期动量阈值为0.2%（原为0.3%）
                 .and(new OverIndicatorRule(shortROC, mediumROC))
                 .or(new OverIndicatorRule(shortROC, series.numOf(0.01))); // 增加一个条件：短期动量很强时直接买入
-        
+
         // 卖出条件：短期动量转为负值，或短期动量低于中期动量
         Rule exitRule = new UnderIndicatorRule(shortROC, series.numOf(0))
                 .or(new UnderIndicatorRule(shortROC, mediumROC));
-        
+
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
@@ -1733,10 +1740,10 @@ public class StrategyFactory3 {
                 return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.04)); // 4%止盈条件
             }
         };
-        
+
         // 修改后的卖出条件，增加止盈
         Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
-        
+
         return new BaseStrategy("动量日内策略", entryRule, finalExitRule);
     }
 }
