@@ -9,6 +9,8 @@ import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 
+import java.math.BigDecimal;
+
 /**
  * 高级策略工厂类
  * 包含50个新的高级交易策略
@@ -18,6 +20,7 @@ public class StrategyFactory2 {
     public static final Logger log = LoggerFactory.getLogger(StrategyFactory2.class);
 
     // ==================== 高级策略实现 ====================
+
     /**
      * 自适应布林带策略（修复版）- 调整阈值和增加成交量确认
      * 根据市场波动性动态调整布林带参数
@@ -87,7 +90,7 @@ public class StrategyFactory2 {
             public final AdaptiveStdDevMultiplier multiplier;
 
             public AdaptiveBollingerUpper(SMAIndicator sma, StandardDeviationIndicator stdDev,
-                                        AdaptiveStdDevMultiplier multiplier, BarSeries series) {
+                                          AdaptiveStdDevMultiplier multiplier, BarSeries series) {
                 super(series);
                 this.sma = sma;
                 this.stdDev = stdDev;
@@ -106,7 +109,7 @@ public class StrategyFactory2 {
             public final AdaptiveStdDevMultiplier multiplier;
 
             public AdaptiveBollingerLower(SMAIndicator sma, StandardDeviationIndicator stdDev,
-                                        AdaptiveStdDevMultiplier multiplier, BarSeries series) {
+                                          AdaptiveStdDevMultiplier multiplier, BarSeries series) {
                 super(series);
                 this.sma = sma;
                 this.stdDev = stdDev;
@@ -123,8 +126,11 @@ public class StrategyFactory2 {
         AdaptiveBollingerLower lowerBand = new AdaptiveBollingerLower(sma, stdDev, adaptiveMultiplier, series);
 
         // 买入规则：价格触及下轨且成交量放大
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.1);
+
         Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
-                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1)))); // 成交量确认
+                .and(new OverIndicatorRule(volume, volumeThreshold)); // 成交量确认
 
         // 卖出规则：价格触及中轨或价格上涨超过3%
         Rule exitRule = new CrossedUpIndicatorRule(closePrice, sma)
@@ -192,7 +198,7 @@ public class StrategyFactory2 {
             public final Num multiplier;
 
             public VolatilityUpperBand(ClosePriceIndicator closePrice, ATRIndicator atr,
-                                     int lookback, double multiplier, BarSeries series) {
+                                       int lookback, double multiplier, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
@@ -224,7 +230,7 @@ public class StrategyFactory2 {
             public final Num multiplier;
 
             public VolatilityLowerBand(ClosePriceIndicator closePrice, ATRIndicator atr,
-                                     int lookback, double multiplier, BarSeries series) {
+                                       int lookback, double multiplier, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
@@ -252,8 +258,11 @@ public class StrategyFactory2 {
         VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, lookbackPeriod, multiplier, series);
 
         // 买入规则：价格突破上轨且成交量确认
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.1);
+
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
-                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1))));
+                .and(new OverIndicatorRule(volume, volumeThreshold2));
 
         // 卖出规则：价格跌破下轨或止盈3%
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
@@ -376,9 +385,15 @@ public class StrategyFactory2 {
                 .and(new OverIndicatorRule(volume, volumeThreshold));
 
         // 卖出规则：价格跌破通道中位或回撤超过3%
-        SMAIndicator channelMid = new SMAIndicator(
-            new TransformIndicator(channelHigh, channelLow, (h, l) -> h.plus(l).dividedBy(series.numOf(2))), 1
-        );
+        // 创建一个CachedIndicator来正确处理两个Indicator的相加
+        Indicator<Num> channelSum = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return channelHigh.getValue(index).plus(channelLow.getValue(index));
+            }
+        };
+        Indicator<Num> channelMidIndicator = TransformIndicator.divide(channelSum, BigDecimal.valueOf(2));
+        SMAIndicator channelMid = new SMAIndicator(channelMidIndicator, 1);
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, channelMid)
                 .or(new UnderIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.97))));
 
@@ -541,7 +556,7 @@ public class StrategyFactory2 {
             public Num adLine;
 
             public AccumulationDistributionIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                                   LowPriceIndicator low, VolumeIndicator volume, BarSeries series) {
+                                                     LowPriceIndicator low, VolumeIndicator volume, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -629,7 +644,7 @@ public class StrategyFactory2 {
             public final int period;
 
             public MoneyFlowIndexIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                         LowPriceIndicator low, VolumeIndicator volume, int period, BarSeries series) {
+                                           LowPriceIndicator low, VolumeIndicator volume, int period, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -653,7 +668,7 @@ public class StrategyFactory2 {
                     Num rawMoneyFlow = typicalPrice.multipliedBy(volume.getValue(i));
 
                     if (i > 0) {
-                        Num prevTypicalPrice = high.getValue(i-1).plus(low.getValue(i-1)).plus(close.getValue(i-1)).dividedBy(series.numOf(3));
+                        Num prevTypicalPrice = high.getValue(i - 1).plus(low.getValue(i - 1)).plus(close.getValue(i - 1)).dividedBy(series.numOf(3));
                         if (typicalPrice.isGreaterThan(prevTypicalPrice)) {
                             positiveMoneyFlow = positiveMoneyFlow.plus(rawMoneyFlow);
                         } else if (typicalPrice.isLessThan(prevTypicalPrice)) {
@@ -752,7 +767,7 @@ public class StrategyFactory2 {
             public final Num divisor;
 
             public EaseOfMovementIndicator(HighPriceIndicator high, LowPriceIndicator low,
-                                         VolumeIndicator volume, Num divisor, BarSeries series) {
+                                           VolumeIndicator volume, Num divisor, BarSeries series) {
                 super(series);
                 this.high = high;
                 this.low = low;
@@ -768,7 +783,7 @@ public class StrategyFactory2 {
 
                 // Distance Moved = ((High + Low) / 2) - ((Previous High + Previous Low) / 2)
                 Num currentMidpoint = high.getValue(index).plus(low.getValue(index)).dividedBy(series.numOf(2));
-                Num previousMidpoint = high.getValue(index-1).plus(low.getValue(index-1)).dividedBy(series.numOf(2));
+                Num previousMidpoint = high.getValue(index - 1).plus(low.getValue(index - 1)).dividedBy(series.numOf(2));
                 Num distanceMoved = currentMidpoint.minus(previousMidpoint);
 
                 // Box Height = Volume / (High - Low)
@@ -974,7 +989,7 @@ public class StrategyFactory2 {
             public Num adLine;
 
             public AccumulationDistributionLineIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                                       LowPriceIndicator low, VolumeIndicator volume, BarSeries series) {
+                                                         LowPriceIndicator low, VolumeIndicator volume, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -1039,7 +1054,7 @@ public class StrategyFactory2 {
             public Num accumulation;
 
             public WilliamsAccumulationIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                               LowPriceIndicator low, BarSeries series) {
+                                                 LowPriceIndicator low, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -1104,8 +1119,8 @@ public class StrategyFactory2 {
             public final int longPeriod;
 
             public KlingerOscillatorIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                            LowPriceIndicator low, VolumeIndicator volume,
-                                            int shortPeriod, int longPeriod, BarSeries series) {
+                                              LowPriceIndicator low, VolumeIndicator volume,
+                                              int shortPeriod, int longPeriod, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -1123,7 +1138,7 @@ public class StrategyFactory2 {
 
                 // Typical Price = (High + Low + Close) / 3
                 Num typicalPrice = high.getValue(index).plus(low.getValue(index)).plus(close.getValue(index)).dividedBy(series.numOf(3));
-                Num prevTypicalPrice = high.getValue(index-1).plus(low.getValue(index-1)).plus(close.getValue(index-1)).dividedBy(series.numOf(3));
+                Num prevTypicalPrice = high.getValue(index - 1).plus(low.getValue(index - 1)).plus(close.getValue(index - 1)).dividedBy(series.numOf(3));
 
                 // 真正的Klinger Volume Force计算
                 // dm = high - low (距离移动)
@@ -1275,7 +1290,7 @@ public class StrategyFactory2 {
             public final double adaptiveFactor;
 
             public AdaptiveMovingAverageIndicator(ClosePriceIndicator close, int basePeriod,
-                                                int minPeriod, int maxPeriod, double adaptiveFactor, BarSeries series) {
+                                                  int minPeriod, int maxPeriod, double adaptiveFactor, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.basePeriod = basePeriod;
@@ -1349,7 +1364,7 @@ public class StrategyFactory2 {
             public Num frama;
 
             public FractalAdaptiveMAIndicator(ClosePriceIndicator close, HighPriceIndicator high,
-                                            LowPriceIndicator low, int period, BarSeries series) {
+                                              LowPriceIndicator low, int period, BarSeries series) {
                 super(series);
                 this.close = close;
                 this.high = high;
@@ -1411,7 +1426,7 @@ public class StrategyFactory2 {
                 // FRAMA = alpha * Close + (1 - alpha) * Previous FRAMA
                 Num prevFrama = frama != null ? frama : close.getValue(index);
                 frama = alpha.multipliedBy(close.getValue(index))
-                       .plus(series.numOf(1).minus(alpha).multipliedBy(prevFrama));
+                        .plus(series.numOf(1).minus(alpha).multipliedBy(prevFrama));
 
                 return frama;
             }
@@ -1456,7 +1471,7 @@ public class StrategyFactory2 {
                 // 计算EMA
                 Num alpha = series.numOf(2.0 / (period + 1));
                 Num ema = alpha.multipliedBy(close.getValue(index))
-                         .plus(series.numOf(1).minus(alpha).multipliedBy(getValue(index - 1)));
+                        .plus(series.numOf(1).minus(alpha).multipliedBy(getValue(index - 1)));
 
                 // 计算最小二乘法斜率来估计趋势
                 if (index < 7) {
@@ -1482,7 +1497,7 @@ public class StrategyFactory2 {
                 Num denominator = series.numOf(lookback).multipliedBy(sumX2).minus(sumX.multipliedBy(sumX));
                 if (!denominator.isZero()) {
                     slope = series.numOf(lookback).multipliedBy(sumXY).minus(sumX.multipliedBy(sumY))
-                           .dividedBy(denominator);
+                            .dividedBy(denominator);
                 }
 
                 // 应用增益限制
@@ -1533,11 +1548,11 @@ public class StrategyFactory2 {
                 // 第一次平滑
                 Num smoothingConstant = series.numOf(alpha);
                 Num firstSmooth = smoothingConstant.multipliedBy(close.getValue(index))
-                                  .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
 
                 // 第二次平滑
                 Num secondSmooth = smoothingConstant.multipliedBy(firstSmooth)
-                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
 
                 // DEMA = 2 * FirstSmooth - SecondSmooth
                 return series.numOf(2).multipliedBy(firstSmooth).minus(secondSmooth);
@@ -1549,7 +1564,7 @@ public class StrategyFactory2 {
                 }
                 Num smoothingConstant = series.numOf(alpha);
                 return smoothingConstant.multipliedBy(close.getValue(index))
-                       .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getFirstSmooth(index - 1)));
             }
 
             public Num getSecondSmooth(int index) {
@@ -1558,7 +1573,7 @@ public class StrategyFactory2 {
                 }
                 Num smoothingConstant = series.numOf(alpha);
                 return smoothingConstant.multipliedBy(getFirstSmooth(index))
-                       .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(getSecondSmooth(index - 1)));
             }
         }
 
@@ -1616,20 +1631,20 @@ public class StrategyFactory2 {
                 // 计算第一次平滑
                 Num smoothingConstant = series.numOf(alpha);
                 firstSmooth[index] = smoothingConstant.multipliedBy(close.getValue(index))
-                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(firstSmooth[index - 1]));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(firstSmooth[index - 1]));
 
                 // 计算第二次平滑
                 secondSmooth[index] = smoothingConstant.multipliedBy(firstSmooth[index])
-                                    .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(secondSmooth[index - 1]));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(secondSmooth[index - 1]));
 
                 // 计算第三次平滑
                 thirdSmooth[index] = smoothingConstant.multipliedBy(secondSmooth[index])
-                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(thirdSmooth[index - 1]));
+                        .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(thirdSmooth[index - 1]));
 
                 // TEMA = 3 * FirstSmooth - 3 * SecondSmooth + ThirdSmooth
                 return series.numOf(3).multipliedBy(firstSmooth[index])
-                       .minus(series.numOf(3).multipliedBy(secondSmooth[index]))
-                       .plus(thirdSmooth[index]);
+                        .minus(series.numOf(3).multipliedBy(secondSmooth[index]))
+                        .plus(thirdSmooth[index]);
             }
         }
 
@@ -1887,7 +1902,7 @@ public class StrategyFactory2 {
                 for (int pole = 0; pole < poles; pole++) {
                     if (index > 0) {
                         result = alphaNum.multipliedBy(result)
-                               .plus(oneMinusAlpha.multipliedBy(getValue(index - 1)));
+                                .plus(oneMinusAlpha.multipliedBy(getValue(index - 1)));
                     }
                 }
 
@@ -1958,10 +1973,10 @@ public class StrategyFactory2 {
                 // 巴特沃斯低通滤波器的差分方程：
                 // y[n] = c1*x[n] + c2*x[n-1] + c3*x[n-2] - c4*y[n-1] - c5*y[n-2]
                 Num result = currentInput.multipliedBy(series.numOf(c1))
-                           .plus(prevInput1.multipliedBy(series.numOf(c2)))
-                           .plus(prevInput2.multipliedBy(series.numOf(c3)))
-                           .minus(prevOutput1.multipliedBy(series.numOf(c4)))
-                           .minus(prevOutput2.multipliedBy(series.numOf(c5)));
+                        .plus(prevInput1.multipliedBy(series.numOf(c2)))
+                        .plus(prevInput2.multipliedBy(series.numOf(c3)))
+                        .minus(prevOutput1.multipliedBy(series.numOf(c4)))
+                        .minus(prevOutput2.multipliedBy(series.numOf(c5)));
 
                 return result;
             }
@@ -2005,12 +2020,12 @@ public class StrategyFactory2 {
                 // 网络周期计算
                 Num currentPrice = close.getValue(index);
                 Num smooth = currentPrice.plus(close.getValue(index - 1).multipliedBy(series.numOf(2)))
-                           .plus(close.getValue(index - 2).multipliedBy(series.numOf(2)))
-                           .plus(close.getValue(index - 3))
-                           .dividedBy(series.numOf(6));
+                        .plus(close.getValue(index - 2).multipliedBy(series.numOf(2)))
+                        .plus(close.getValue(index - 3))
+                        .dividedBy(series.numOf(6));
 
                 Num cycle = smooth.minus(prevValue).multipliedBy(series.numOf(alpha))
-                          .plus(prevCycle.multipliedBy(series.numOf(1 - alpha)));
+                        .plus(prevCycle.multipliedBy(series.numOf(1 - alpha)));
 
                 prevValue = smooth;
                 prevCycle = cycle;
@@ -2231,7 +2246,7 @@ public class StrategyFactory2 {
                 if (range.isZero()) return series.numOf(50);
 
                 Num rawK = close.getValue(index).minus(lowestLow)
-                          .dividedBy(range).multipliedBy(series.numOf(100));
+                        .dividedBy(range).multipliedBy(series.numOf(100));
 
                 // 平滑处理
                 Num smoothK = series.numOf(0);
@@ -2600,7 +2615,7 @@ public class StrategyFactory2 {
             private final int period;
 
             public PlusDirectionalIndicator(HighPriceIndicator high, LowPriceIndicator low,
-                                           ClosePriceIndicator close, int period, BarSeries series) {
+                                            ClosePriceIndicator close, int period, BarSeries series) {
                 super(series);
                 this.high = high;
                 this.low = low;
@@ -2664,7 +2679,7 @@ public class StrategyFactory2 {
             private final int period;
 
             public MinusDirectionalIndicator(HighPriceIndicator high, LowPriceIndicator low,
-                                            ClosePriceIndicator close, int period, BarSeries series) {
+                                             ClosePriceIndicator close, int period, BarSeries series) {
                 super(series);
                 this.high = high;
                 this.low = low;
@@ -2779,7 +2794,7 @@ public class StrategyFactory2 {
             private final int period;
 
             public MassIndexReversalIndicator(HighPriceIndicator high, LowPriceIndicator low,
-                                             int emaPeriod, int period, BarSeries series) {
+                                              int emaPeriod, int period, BarSeries series) {
                 super(series);
                 this.high = high;
                 this.low = low;
@@ -3107,8 +3122,8 @@ public class StrategyFactory2 {
                 Num lowest = ma1.getValue(index);
 
                 Num[] mas = {ma2.getValue(index), ma3.getValue(index), ma4.getValue(index),
-                            ma5.getValue(index), ma6.getValue(index), ma7.getValue(index),
-                            ma8.getValue(index), ma9.getValue(index), ma10.getValue(index)};
+                        ma5.getValue(index), ma6.getValue(index), ma7.getValue(index),
+                        ma8.getValue(index), ma9.getValue(index), ma10.getValue(index)};
 
                 for (Num ma : mas) {
                     if (ma.isGreaterThan(highest)) highest = ma;
@@ -3248,7 +3263,7 @@ public class StrategyFactory2 {
             private final int period;
 
             public RandomWalkIndexIndicator(HighPriceIndicator high, LowPriceIndicator low,
-                                           ClosePriceIndicator close, int period, BarSeries series) {
+                                            ClosePriceIndicator close, int period, BarSeries series) {
                 super(series);
                 this.high = high;
                 this.low = low;

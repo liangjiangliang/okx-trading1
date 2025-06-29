@@ -301,8 +301,10 @@ public class StrategyFactory3 {
 
 
         // 买入信号：价格突破唐奇安上轨且成交量放大
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.1);
         Rule buyRule = new CrossedUpIndicatorRule(closePrice, donchianUpper)
-                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1))));
+                .and(new OverIndicatorRule(volume, volumeThreshold));
 
         // 卖出信号：价格跌破唐奇安下轨
         Rule sellRule = new CrossedDownIndicatorRule(closePrice, donchianLower);
@@ -1258,11 +1260,15 @@ public class StrategyFactory3 {
         LinearRegressionIndicator regression = new LinearRegressionIndicator(closePrice, 20, series);
 
         // 改进的交易逻辑：使用更灵活的条件
+        // 创建回归线的上下阈值
+        TransformIndicator upperThreshold = TransformIndicator.multiply(regression, 1.01);
+        TransformIndicator lowerThreshold = TransformIndicator.multiply(regression, 0.99);
+        
         // 买入信号：价格相对于回归线有足够的向上偏差
-        Rule buyRule = new OverIndicatorRule(closePrice, regression.multipliedBy(series.numOf(1.01))); // 高于回归线1%
+        Rule buyRule = new OverIndicatorRule(closePrice, upperThreshold); // 高于回归线1%
 
         // 卖出信号：价格回归到回归线或下破
-        Rule sellRule = new UnderIndicatorRule(closePrice, regression.multipliedBy(series.numOf(0.99))); // 低于回归线1%
+        Rule sellRule = new UnderIndicatorRule(closePrice, lowerThreshold); // 低于回归线1%
 
         return new BaseStrategy("线性回归策略", buyRule, sellRule);
     }
@@ -1485,9 +1491,12 @@ public class StrategyFactory3 {
         SMAIndicator avgVolume = new SMAIndicator(volume, 10);
 
         // 买入信号：价格突破均线且波动率适中（降低ATR阈值）
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.1);
+        
         Rule buyRule = new OverIndicatorRule(closePrice, sma)
             .and(new OverIndicatorRule(atr, DecimalNum.valueOf(0.005))) // 大幅降低阈值（原来0.01）
-            .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(DecimalNum.valueOf(1.1))));
+            .and(new OverIndicatorRule(volume, volumeThreshold2));
 
         // 卖出信号：价格跌破均线或止盈2%
         Rule sellRule = new UnderIndicatorRule(closePrice, sma)

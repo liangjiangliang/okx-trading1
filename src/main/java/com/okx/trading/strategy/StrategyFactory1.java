@@ -24,6 +24,8 @@ import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 
+import java.math.BigDecimal;
+
 /**
  * 策略工厂类
  * 用于创建和管理各种交易策略
@@ -870,7 +872,7 @@ public class StrategyFactory1 {
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh20);
 
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow10)
-                .or(new CrossedUpIndicatorRule(closePrice, highestHigh10.multipliedBy(series.numOf(1.05)))); // 5%止盈
+                .or(new CrossedUpIndicatorRule(closePrice, TransformIndicator.multiply(highestHigh10, BigDecimal.valueOf(1.05)))); // 5%止盈
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -929,21 +931,21 @@ public class StrategyFactory1 {
 
         // 改进的突破规则：结合价格突破和成交量确认
         Rule upperBreakoutRule = new AndRule(
-            new OverIndicatorRule(closePrice, highestHigh),
-            new OverIndicatorRule(volume, avgVolume) // 成交量确认
+                new OverIndicatorRule(closePrice, highestHigh),
+                new OverIndicatorRule(volume, avgVolume) // 成交量确认
         );
 
         Rule lowerBreakoutRule = new AndRule(
-            new UnderIndicatorRule(closePrice, lowestLow),
-            new OverIndicatorRule(volume, avgVolume) // 成交量确认
+                new UnderIndicatorRule(closePrice, lowestLow),
+                new OverIndicatorRule(volume, avgVolume) // 成交量确认
         );
 
         Rule entryRule = new OrRule(upperBreakoutRule, lowerBreakoutRule);
 
         // 动态止损：基于ATR
         Rule exitRule = new OrRule(
-            new StopLossRule(closePrice, DecimalNum.valueOf(0.02)), // 2%固定止损
-            new StopGainRule(closePrice, DecimalNum.valueOf(0.04))  // 4%止盈
+                new StopLossRule(closePrice, DecimalNum.valueOf(0.02)), // 2%固定止损
+                new StopGainRule(closePrice, DecimalNum.valueOf(0.04))  // 4%止盈
         );
 
         return new BaseStrategy(entryRule, exitRule);
@@ -1119,7 +1121,8 @@ public class StrategyFactory1 {
                 if (index < period) {
                     return highestHigh.getValue(index);
                 }
-                return highestHigh.getValue(index).minus(atr.getValue(index).multipliedBy(multiplier));
+                Num atrMultiplied = atr.getValue(index).multipliedBy(multiplier);
+                return highestHigh.getValue(index).minus(atrMultiplied);
             }
         }
 
@@ -1141,7 +1144,8 @@ public class StrategyFactory1 {
                 if (index < period) {
                     return lowestLow.getValue(index);
                 }
-                return lowestLow.getValue(index).plus(atr.getValue(index).multipliedBy(multiplier));
+                Num atrMultiplied = atr.getValue(index).multipliedBy(multiplier);
+                return lowestLow.getValue(index).plus(atrMultiplied);
             }
         }
 
@@ -1338,7 +1342,12 @@ public class StrategyFactory1 {
                 .and(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.98)))); // 价格没有大幅下跌
 
         Rule exitRule = new BooleanIndicatorRule(hangingMan)  // 出现吊锤形态时卖出
-                .or(new OverIndicatorRule(closePrice, sma10.multipliedBy(series.numOf(1.02)))); // 或价格高于均线2%时止盈
+                .or(new OverIndicatorRule(closePrice, new CachedIndicator<Num>(series) {
+                    @Override
+                    protected Num calculate(int index) {
+                        return closePrice.getValue(index - 1).multipliedBy(series.numOf(0.98));
+                    }
+                })); // 或价格高于均线2%时止盈
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2071,7 +2080,7 @@ public class StrategyFactory1 {
                 }
 
                 Num fisherValue = half.multipliedBy(
-                    series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
+                        series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
                 );
 
                 return fisherValue;
@@ -3872,8 +3881,8 @@ public class StrategyFactory1 {
                 int count = 0;
 
                 for (int i = index - period + 1; i <= index && i > 0; i++) {
-                    double priceReturn = closePrice.getValue(i).doubleValue() / closePrice.getValue(i-1).doubleValue() - 1;
-                    double marketReturn = market.getValue(i).doubleValue() / market.getValue(i-1).doubleValue() - 1;
+                    double priceReturn = closePrice.getValue(i).doubleValue() / closePrice.getValue(i - 1).doubleValue() - 1;
+                    double marketReturn = market.getValue(i).doubleValue() / market.getValue(i - 1).doubleValue() - 1;
 
                     sumXY += priceReturn * marketReturn;
                     sumX2 += marketReturn * marketReturn;
@@ -4328,21 +4337,21 @@ public class StrategyFactory1 {
         // 使用RSI和布林带结合来模拟相位变化
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
         BollingerBandsUpperIndicator bbUpper = new BollingerBandsUpperIndicator(
-            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
-            new StandardDeviationIndicator(closePrice, 20),
-            DecimalNum.valueOf(2));
+                new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
+                new StandardDeviationIndicator(closePrice, 20),
+                DecimalNum.valueOf(2));
         BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(
-            new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
-            new StandardDeviationIndicator(closePrice, 20),
-            DecimalNum.valueOf(2));
+                new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)),
+                new StandardDeviationIndicator(closePrice, 20),
+                DecimalNum.valueOf(2));
 
         // 相位检测：RSI处于超卖区域且价格接近布林下轨时为买入相位
         Rule entryRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(30))
-            .and(new UnderIndicatorRule(closePrice, bbLower));
+                .and(new UnderIndicatorRule(closePrice, bbLower));
 
         // 相位结束：RSI过度超买或价格触及布林上轨
         Rule exitRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(70))
-            .or(new OverIndicatorRule(closePrice, bbUpper));
+                .or(new OverIndicatorRule(closePrice, bbUpper));
 
         return new BaseStrategy("希尔伯特变换主导相位策略", entryRule, exitRule);
     }
@@ -4411,7 +4420,7 @@ public class StrategyFactory1 {
     /**
      * 创建多层次止盈止损策略
      * 使用不同层次的止盈止损点来管理风险和锁定利润
-     *
+     * <p>
      * 策略逻辑：
      * 1. 当RSI<30且价格突破20日均线时买入
      * 2. 设置多个止盈点：2%、4%、6%
@@ -4549,8 +4558,8 @@ public class StrategyFactory1 {
         // 出场规则：多层次止盈止损或RSI超买
         Rule exitRule = new OrRule(
                 new OrRule(
-                    new DynamicTakeProfitRule(multiLevelTPSL),
-                    new DynamicStopLossRule(multiLevelTPSL)
+                        new DynamicTakeProfitRule(multiLevelTPSL),
+                        new DynamicStopLossRule(multiLevelTPSL)
                 ),
                 new OverIndicatorRule(rsi, series.numOf(70))
         );

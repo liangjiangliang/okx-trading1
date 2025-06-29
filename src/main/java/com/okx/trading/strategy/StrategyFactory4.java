@@ -8,6 +8,7 @@ import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
@@ -47,7 +48,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(macd, series.numOf(0)));
 
         // 节点3：成交量信号 (权重20%)
-        Rule volumeSignal = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1)));
+        Rule volumeSignal = new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.1)));
 
         // 节点4：波动率信号 (权重15%)
         Rule volatilitySignal = new UnderIndicatorRule(volatility, series.numOf(1.5));
@@ -90,13 +91,30 @@ public class StrategyFactory4 {
 
         // 基因3：成交量适应度
         SMAIndicator avgVolume = new SMAIndicator(volume, 10);
-        Rule gene3 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.2))); // 成交量放大
+        // 使用TransformIndicator正确创建乘法指标
+        Indicator<Num> volumeThreshold = TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.2));
+        Rule gene3 = new OverIndicatorRule(volume, volumeThreshold); // 成交量放大
 
         // 基因4：价格位置适应度
         HighestValueIndicator highest20 = new HighestValueIndicator(closePrice, 20);
         LowestValueIndicator lowest20 = new LowestValueIndicator(closePrice, 20);
-        Rule gene4 = new OverIndicatorRule(closePrice,
-                lowest20.plus(highest20.minus(lowest20).multipliedBy(series.numOf(0.3)))); // 价格在20%以上位置
+        // 使用TransformIndicator正确创建减法和乘法指标
+        Indicator<Num> range20 = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return highest20.getValue(index).minus(lowest20.getValue(index));
+            }
+        };
+        Indicator<Num> rangeMultiplied20 = TransformIndicator.multiply(range20, BigDecimal.valueOf(0.3));
+
+        // 创建一个CachedIndicator来正确处理两个Indicator的相加
+        Indicator<Num> threshold20 = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return lowest20.getValue(index).plus(rangeMultiplied20.getValue(index));
+            }
+        };
+        Rule gene4 = new OverIndicatorRule(closePrice, threshold20); // 价格在20%以上位置
 
         // 适应度评估：至少3个基因激活（高适应度个体）
         Rule highFitness = gene1.and(gene2).and(gene3)
@@ -136,7 +154,8 @@ public class StrategyFactory4 {
 
         // 决策树3：成交量树
         SMAIndicator avgVolume = new SMAIndicator(volume, 15);
-        Rule tree3 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.3)));
+        Indicator<Num> avgVolume13 = TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.3));
+        Rule tree3 = new OverIndicatorRule(volume, avgVolume13);
 
         // 决策树4：波动率树
         StandardDeviationIndicator volatility = new StandardDeviationIndicator(closePrice, 10);
@@ -147,8 +166,22 @@ public class StrategyFactory4 {
         // 决策树5：价格位置树
         HighestValueIndicator highest15 = new HighestValueIndicator(closePrice, 15);
         LowestValueIndicator lowest15 = new LowestValueIndicator(closePrice, 15);
-        Rule tree5 = new OverIndicatorRule(closePrice,
-                lowest15.plus(highest15.minus(lowest15).multipliedBy(series.numOf(0.4))));
+        Indicator<Num> range15_2 = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return highest15.getValue(index).minus(lowest15.getValue(index));
+            }
+        };
+        Indicator<Num> rangeMultiplied15 = TransformIndicator.multiply(range15_2, BigDecimal.valueOf(0.4));
+
+        // 创建一个CachedIndicator来正确处理两个Indicator的相加
+        Indicator<Num> threshold15 = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return lowest15.getValue(index).plus(rangeMultiplied15.getValue(index));
+            }
+        };
+        Rule tree5 = new OverIndicatorRule(closePrice, threshold15);
 
         // 随机森林投票：至少3棵树支持（多数投票）
         Rule forestBuy = tree1.and(tree2).and(tree3)
@@ -165,7 +198,7 @@ public class StrategyFactory4 {
         // 卖出：多数树反对
         Rule forestSell = new UnderIndicatorRule(sma10, sma20)
                 .or(new OverIndicatorRule(rsi, series.numOf(75)))
-                .or(new UnderIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(0.8))));
+                .or(new UnderIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(0.8))));
 
         return new BaseStrategy("随机森林策略", forestBuy, forestSell);
     }
@@ -193,7 +226,7 @@ public class StrategyFactory4 {
                 .and(new UnderIndicatorRule(rsi, series.numOf(75))); // 放宽RSI范围
         Rule boundary2 = new OverIndicatorRule(macd, series.numOf(0));
         Rule boundary3 = new OverIndicatorRule(closePrice, sma);
-        Rule boundary4 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1)));
+        Rule boundary4 = new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.1)));
         Rule boundary5 = new UnderIndicatorRule(volatility, series.numOf(2.0));
 
         // SVM分类：至少3个支持向量支持（多数决策）
@@ -240,7 +273,7 @@ public class StrategyFactory4 {
         Rule forgetGate = new UnderIndicatorRule(volatility, series.numOf(2.0)); // 低波动时保持记忆
 
         // 输入门：决定是否接受新信息
-        Rule inputGate = new OverIndicatorRule(volume, longVolumeMemory.multipliedBy(series.numOf(1.2))); // 成交量放大
+        Rule inputGate = new OverIndicatorRule(volume, TransformIndicator.multiply(longVolumeMemory, BigDecimal.valueOf(1.2))); // 成交量放大
 
         // 输出门：决定输出什么信息
         Rule outputGate = new OverIndicatorRule(shortMemory, longMemory) // 短期>长期
@@ -283,7 +316,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(closePrice, sma));
 
         // 邻居2：成交量确认 + 低波动
-        Rule neighbor2 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1)))
+        Rule neighbor2 = new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.1)))
                 .and(new UnderIndicatorRule(volatility, series.numOf(1.8)))
                 .and(new OverIndicatorRule(momentum, series.numOf(40)));
 
@@ -329,7 +362,7 @@ public class StrategyFactory4 {
         Rule prior2 = new OverIndicatorRule(macd, series.numOf(0));
         Rule prior3 = new OverIndicatorRule(roc, series.numOf(-0.005)); // 允许小幅下跌
         Rule prior4 = new OverIndicatorRule(closePrice, sma);
-        Rule prior5 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.05))); // 降低成交量要求
+        Rule prior5 = new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.05))); // 降低成交量要求
 
         // 后验概率P(买入|特征)：贝叶斯更新（至少4个条件满足）
         Rule bayesBuy = prior1.and(prior2).and(prior3).and(prior4)
@@ -372,7 +405,7 @@ public class StrategyFactory4 {
         Rule leftBranch = rootNode
                 .and(new OverIndicatorRule(closePrice, sma))
                 .and(new OverIndicatorRule(macd, series.numOf(0)))
-                .and(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.1))));
+                .and(new OverIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.1))));
 
         // 右分支：RSI <= 45时的决策路径（逆向策略）
         Rule rightBranch = new NotRule(rootNode)
@@ -417,7 +450,9 @@ public class StrategyFactory4 {
 
         // 模型3：成交量模型（权重20%）
         SMAIndicator avgVolume = new SMAIndicator(volume, 20);
-        Rule model3 = new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.2)));
+        // 使用TransformIndicator正确创建乘法指标
+        Indicator<Num> volumeThreshold = TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(1.2));
+        Rule model3 = new OverIndicatorRule(volume, volumeThreshold);
 
         // 模型4：波动率模型（权重15%）
         StandardDeviationIndicator volatility = new StandardDeviationIndicator(closePrice, 15);
@@ -426,8 +461,23 @@ public class StrategyFactory4 {
         // 模型5：价格位置模型（权重10%）
         HighestValueIndicator highest = new HighestValueIndicator(closePrice, 20);
         LowestValueIndicator lowest = new LowestValueIndicator(closePrice, 20);
-        Rule model5 = new OverIndicatorRule(closePrice,
-                lowest.plus(highest.minus(lowest).multipliedBy(series.numOf(0.3))));
+        // 使用TransformIndicator正确创建减法和乘法指标
+        Indicator<Num> range = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return highest.getValue(index).minus(lowest.getValue(index));
+            }
+        };
+        Indicator<Num> rangeMultiplied = TransformIndicator.multiply(range, BigDecimal.valueOf(0.3));
+
+        // 创建一个CachedIndicator来正确处理两个Indicator的相加
+        Indicator<Num> threshold = new CachedIndicator<Num>(series) {
+            @Override
+            protected Num calculate(int index) {
+                return lowest.getValue(index).plus(rangeMultiplied.getValue(index));
+            }
+        };
+        Rule model5 = new OverIndicatorRule(closePrice, threshold);
 
         // 集成投票：加权投票机制（至少3个强模型支持）
         Rule ensembleBuy = model1.and(model2).and(model3) // 趋势+动量+成交量
@@ -572,8 +622,7 @@ public class StrategyFactory4 {
 
         // 低波动信号：短期波动低于长期波动且有趋势
         Rule entryRule = new UnderIndicatorRule(shortVol, longVol)
-                .and(new OverIndicatorRule(closePrice, sma)) // 上涨趋势
-                .and(new OverIndicatorRule(rsi, series.numOf(40))); // RSI中位
+                .and(new OverIndicatorRule(closePrice, sma)); // 上涨趋势
         Rule exitRule = new OverIndicatorRule(shortVol, longVol)
                 .or(new UnderIndicatorRule(closePrice, sma));
 
@@ -1011,8 +1060,11 @@ public class StrategyFactory4 {
         SMAIndicator avgVolume = new SMAIndicator(volume, 20);
 
         // 市场情绪信号 - 修正逻辑错误
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.2);
+
         Rule bullishSentiment = new OverIndicatorRule(priceChange, series.numOf(0.005))  // 价格上涨
-                .or(new OverIndicatorRule(volume, avgVolume.multipliedBy(series.numOf(1.2)))); // 成交量放大
+                .or(new OverIndicatorRule(volume, volumeThreshold)); // 成交量放大
 
         Rule bearishSentiment = new UnderIndicatorRule(priceChange, series.numOf(-0.005))  // 价格下跌
                 .or(new OverIndicatorRule(volatility, series.numOf(1.5)));  // 波动率升高
