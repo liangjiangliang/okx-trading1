@@ -448,11 +448,6 @@ public class Ta4jBacktestController {
             response.put("total_strategies", strategyCodes.size());
             response.put("successful_backtests", successCount);
             response.put("failed_backtests", (long) allResults.size() - successCount);
-            response.put("zero_trade_backtests", allResults.stream().filter(r -> ((int) r.get("number_of_trades") > 0)).count());
-            response.put("zero_trade_backtests_details", allResults.stream().filter(r -> ((int) r.get("number_of_trades") > 0))
-                    .map(x -> x.get("strategy_name") + ":(" + x.get("strategy_code") + ")").collect(Collectors.toList()));
-            response.put("error_backtests_details", allResults.stream().filter(r -> !(boolean) r.get("success"))
-                    .map(x -> x.get("strategy_name") + ":(" + x.get("strategy_code") + ")").collect(Collectors.toList()));
 
             if (!allResults.isEmpty() && (boolean) allResults.get(0).get("success")) {
                 response.put("max_return", allResults.get(0).get("total_return"));

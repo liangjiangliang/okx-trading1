@@ -254,20 +254,21 @@ public class StrategyFactory2 {
             }
         }
 
-        // 大幅降低波动性阈值
-        int reducedLookback = 8; // 降低回看周期
-        double reducedMultiplier = 0.8; // 降低倍数
+        VolatilityUpperBand upperBand = new VolatilityUpperBand(closePrice, atr, lookbackPeriod, multiplier, series);
+        VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, lookbackPeriod, multiplier, series);
 
-        VolatilityUpperBand upperBand = new VolatilityUpperBand(closePrice, atr, reducedLookback, reducedMultiplier, series);
-        VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, reducedLookback, reducedMultiplier, series);
+        // 买入规则：价格突破上轨且成交量确认
+        // 创建成交量阈值指标
+        TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.1);
 
-        // 买入规则：价格突破上轨
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
+                .and(new OverIndicatorRule(volume, volumeThreshold2));
 
-        // 卖出规则：价格跌破下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 卖出规则：价格跌破下轨或止盈3%
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
+                .or(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(1.03))));
 
-        return new BaseStrategy("波动性突破策略", entryRule, exitRule);
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     /**
@@ -341,30 +342,30 @@ public class StrategyFactory2 {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
         SMAIndicator volumeSMA = new SMAIndicator(volume, 20);
-
+        
         // 缩短通道周期，使突破更容易发生
         int channelPeriod = 15; // 减少周期为15（原为20）
-
+        
         // 创建自定义上轨指标
         Indicator<Num> upperChannel = new CachedIndicator<Num>(series) {
             private final HighPriceIndicator highPrice = new HighPriceIndicator(series);
-
+            
             @Override
             protected Num calculate(int index) {
                 int startIndex = Math.max(0, index - channelPeriod + 1);
                 Num highest = highPrice.getValue(startIndex);
-
+                
                 for (int i = startIndex + 1; i <= index; i++) {
                     Num current = highPrice.getValue(i);
                     if (current.isGreaterThan(highest)) {
                         highest = current;
                     }
                 }
-
+                
                 return highest;
             }
         };
-
+        
         // 创建自定义下轨指标
         Indicator<Num> lowerChannel = new CachedIndicator<Num>(series) {
             private final LowPriceIndicator lowPrice = new LowPriceIndicator(series);
@@ -373,7 +374,7 @@ public class StrategyFactory2 {
             protected Num calculate(int index) {
                 int startIndex = Math.max(0, index - channelPeriod + 1);
                 Num lowest = lowPrice.getValue(startIndex);
-
+                
                 for (int i = startIndex + 1; i <= index; i++) {
                     Num current = lowPrice.getValue(i);
                     if (current.isLessThan(lowest)) {
@@ -384,26 +385,26 @@ public class StrategyFactory2 {
                 return lowest;
             }
         };
-
-        // 买入条件：价格突破上轨（降低成交量要求）
+        
+        // 买入条件：价格突破上轨且成交量放大
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperChannel)
-                .and(new OverIndicatorRule(volume, TransformIndicator.multiply(volumeSMA, BigDecimal.valueOf(0.8)))); // 降低成交量要求为0.8倍
-
+                .and(new OverIndicatorRule(volume, TransformIndicator.multiply(volumeSMA, BigDecimal.valueOf(1.1)))); // 降低成交量要求为1.1倍（原为1.5倍）
+        
         // 增加直接突破条件，不需要成交量确认
-        Rule directBreakout = new OverIndicatorRule(closePrice,
+        Rule directBreakout = new OverIndicatorRule(closePrice, 
                 new CachedIndicator<Num>(series) {
                     @Override
                     protected Num calculate(int index) {
-                        return upperChannel.getValue(index).multipliedBy(series.numOf(1.002)); // 降低突破阈值到0.2%
+                        return upperChannel.getValue(index).multipliedBy(series.numOf(1.01)); // 价格强势突破上轨1%
                     }
                 });
-
+        
         // 合并买入条件
         Rule finalEntryRule = entryRule.or(directBreakout);
 
         // 卖出条件：价格跌破下轨或回调5%
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerChannel);
-
+        
         // 增加止损条件
         Indicator<Num> stopLoss = new CachedIndicator<Num>(series) {
             @Override
@@ -412,7 +413,7 @@ public class StrategyFactory2 {
                 return closePrice.getValue(index - 1).multipliedBy(series.numOf(0.95)); // 5%止损条件
             }
         };
-
+        
         // 增加止盈条件
         Indicator<Num> takeProfit = new CachedIndicator<Num>(series) {
             @Override
@@ -421,7 +422,7 @@ public class StrategyFactory2 {
                 return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.07)); // 7%止盈条件
             }
         };
-
+        
         // 修改后的卖出条件，增加止损和止盈
         Rule finalExitRule = exitRule
                 .or(new UnderIndicatorRule(closePrice, stopLoss))
@@ -1410,67 +1411,55 @@ public class StrategyFactory2 {
                     return frama;
                 }
 
-                try {
-                    // 计算分形维度
-                    int halfPeriod = period / 2;
+                // 计算分形维度
+                int halfPeriod = period / 2;
 
-                    // 第一半周期的最高和最低价
-                    Num high1 = high.getValue(index - period + 1);
-                    Num low1 = low.getValue(index - period + 1);
-                    for (int i = index - period + 1; i <= index - halfPeriod; i++) {
-                        if (high.getValue(i).isGreaterThan(high1)) high1 = high.getValue(i);
-                        if (low.getValue(i).isLessThan(low1)) low1 = low.getValue(i);
-                    }
+                // 第一半周期的最高和最低价
+                Num high1 = series.numOf(series.getBar(index - period + 1).getClosePrice().doubleValue());
+                Num low1 = series.numOf(series.getBar(index - period + 1).getClosePrice().doubleValue());
+                for (int i = index - period + 1; i <= index - halfPeriod; i++) {
+                    if (high.getValue(i).isGreaterThan(high1)) high1 = high.getValue(i);
+                    if (low.getValue(i).isLessThan(low1)) low1 = low.getValue(i);
+                }
 
-                    // 第二半周期的最高和最低价
-                    Num high2 = high.getValue(index - halfPeriod + 1);
-                    Num low2 = low.getValue(index - halfPeriod + 1);
-                    for (int i = index - halfPeriod + 1; i <= index; i++) {
-                        if (high.getValue(i).isGreaterThan(high2)) high2 = high.getValue(i);
-                        if (low.getValue(i).isLessThan(low2)) low2 = low.getValue(i);
-                    }
+                // 第二半周期的最高和最低价
+                Num high2 = series.numOf(series.getBar(index - halfPeriod + 1).getClosePrice().doubleValue());
+                Num low2 = series.numOf(series.getBar(index - halfPeriod + 1).getClosePrice().doubleValue());
+                for (int i = index - halfPeriod + 1; i <= index; i++) {
+                    if (high.getValue(i).isGreaterThan(high2)) high2 = high.getValue(i);
+                    if (low.getValue(i).isLessThan(low2)) low2 = low.getValue(i);
+                }
 
-                    // 整个周期的最高和最低价
-                    Num highTotal = high.getValue(index - period + 1);
-                    Num lowTotal = low.getValue(index - period + 1);
-                    for (int i = index - period + 1; i <= index; i++) {
-                        if (high.getValue(i).isGreaterThan(highTotal)) highTotal = high.getValue(i);
-                        if (low.getValue(i).isLessThan(lowTotal)) lowTotal = low.getValue(i);
-                    }
+                // 整个周期的最高和最低价
+                Num highTotal = series.numOf(series.getBar(index - period + 1).getClosePrice().doubleValue());
+                Num lowTotal = series.numOf(series.getBar(index - period + 1).getClosePrice().doubleValue());
+                for (int i = index - period + 1; i <= index; i++) {
+                    if (high.getValue(i).isGreaterThan(highTotal)) highTotal = high.getValue(i);
+                    if (low.getValue(i).isLessThan(lowTotal)) lowTotal = low.getValue(i);
+                }
 
-                    // 计算分形维度
-                    Num n1 = high1.minus(low1).dividedBy(series.numOf(halfPeriod));
-                    Num n2 = high2.minus(low2).dividedBy(series.numOf(halfPeriod));
-                    Num n3 = highTotal.minus(lowTotal).dividedBy(series.numOf(period));
+                // 计算分形维度
+                Num n1 = high1.minus(low1).dividedBy(series.numOf(halfPeriod));
+                Num n2 = high2.minus(low2).dividedBy(series.numOf(halfPeriod));
+                Num n3 = highTotal.minus(lowTotal).dividedBy(series.numOf(period));
 
-                    // 防止除零和无效值
-                    if (n1.plus(n2).isZero() || n3.isZero() || n1.plus(n2).dividedBy(n3).doubleValue() <= 0) {
-                        return frama != null ? frama : close.getValue(index);
-                    }
-
-                    double dimensionValue = Math.log(n1.plus(n2).dividedBy(n3).doubleValue()) / Math.log(2.0);
-
-                    // 检查dimensionValue是否为有效数值
-                    if (Double.isNaN(dimensionValue) || Double.isInfinite(dimensionValue)) {
-                        return frama != null ? frama : close.getValue(index);
-                    }
-
-                    Num dimension = series.numOf(Math.max(1.0, Math.min(2.0, dimensionValue)));
-
-                    // 计算alpha
-                    double alphaValue = Math.exp(-4.6 * (dimension.doubleValue() - 1.0));
-                    Num alpha = series.numOf(Math.max(0.01, Math.min(1.0, alphaValue)));
-
-                    // FRAMA = alpha * Close + (1 - alpha) * Previous FRAMA
-                    Num prevFrama = frama != null ? frama : close.getValue(index);
-                    frama = alpha.multipliedBy(close.getValue(index))
-                           .plus(series.numOf(1).minus(alpha).multipliedBy(prevFrama));
-
-                    return frama;
-                } catch (Exception e) {
-                    // 如果计算出错，返回前一个值或当前收盘价
+                if (n1.plus(n2).isZero() || n3.isZero()) {
                     return frama != null ? frama : close.getValue(index);
                 }
+
+                double dimensionValue = Math.log(n1.plus(n2).dividedBy(n3).doubleValue()) / Math.log(2.0);
+                Num dimension = series.numOf(Math.max(1.0, Math.min(2.0, dimensionValue)));
+
+                // 计算alpha
+                double alphaValue = Math.exp(-4.6 * (dimension.doubleValue() - 1.0));
+                Num alpha = series.numOf(Math.max(0.01, Math.min(1.0, alphaValue)));
+
+                // FRAMA = alpha * Close + (1 - alpha) * Previous FRAMA
+                Num prevFrama = frama != null ? frama : close.getValue(index);
+                frama = alpha.multipliedBy(close.getValue(index))
+                       .plus(series.numOf(1).minus(alpha).multipliedBy(prevFrama));
+
+                return frama;
             }
         }
 
@@ -1636,34 +1625,57 @@ public class StrategyFactory2 {
     public static Strategy createTripleExponentialMAStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 三重指数移动平均 (TEMA) - 使用标准EMA指标避免空指针
+        // 三重指数移动平均 (TEMA) - 使用数组缓存避免递归
         class TripleExponentialMAIndicator extends CachedIndicator<Num> {
-            private final EMAIndicator firstEMA;
-            private final EMAIndicator secondEMA;
-            private final EMAIndicator thirdEMA;
+            public final ClosePriceIndicator close;
+            public final int period;
+            public final double alpha;
+            public final Num[] firstSmooth;
+            public final Num[] secondSmooth;
+            public final Num[] thirdSmooth;
 
             public TripleExponentialMAIndicator(ClosePriceIndicator close, int period, double alpha, BarSeries series) {
                 super(series);
-                // 使用标准的EMA指标来避免手动数组管理
-                this.firstEMA = new EMAIndicator(close, period);
-                this.secondEMA = new EMAIndicator(firstEMA, period);
-                this.thirdEMA = new EMAIndicator(secondEMA, period);
+                this.close = close;
+                this.period = period;
+                this.alpha = alpha;
+                int maxSize = Math.min(series.getBarCount(), 1000); // 限制缓存大小
+                this.firstSmooth = new Num[maxSize];
+                this.secondSmooth = new Num[maxSize];
+                this.thirdSmooth = new Num[maxSize];
             }
 
             @Override
             protected Num calculate(int index) {
-                if (index < 2) {
-                    return firstEMA.getValue(index);
+                if (index >= firstSmooth.length) {
+                    // 如果索引超出缓存范围，使用简化计算
+                    return close.getValue(index);
                 }
 
-                // TEMA = 3 * FirstEMA - 3 * SecondEMA + ThirdEMA
-                Num first = firstEMA.getValue(index);
-                Num second = secondEMA.getValue(index);
-                Num third = thirdEMA.getValue(index);
+                if (index == 0) {
+                    firstSmooth[0] = close.getValue(0);
+                    secondSmooth[0] = firstSmooth[0];
+                    thirdSmooth[0] = secondSmooth[0];
+                    return close.getValue(0);
+                }
 
-                return series.numOf(3).multipliedBy(first)
-                       .minus(series.numOf(3).multipliedBy(second))
-                       .plus(third);
+                // 计算第一次平滑
+                Num smoothingConstant = series.numOf(alpha);
+                firstSmooth[index] = smoothingConstant.multipliedBy(close.getValue(index))
+                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(firstSmooth[index - 1]));
+
+                // 计算第二次平滑
+                secondSmooth[index] = smoothingConstant.multipliedBy(firstSmooth[index])
+                                    .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(secondSmooth[index - 1]));
+
+                // 计算第三次平滑
+                thirdSmooth[index] = smoothingConstant.multipliedBy(secondSmooth[index])
+                                   .plus(series.numOf(1).minus(smoothingConstant).multipliedBy(thirdSmooth[index - 1]));
+
+                // TEMA = 3 * FirstSmooth - 3 * SecondSmooth + ThirdSmooth
+                return series.numOf(3).multipliedBy(firstSmooth[index])
+                       .minus(series.numOf(3).multipliedBy(secondSmooth[index]))
+                       .plus(thirdSmooth[index]);
             }
         }
 
