@@ -266,12 +266,12 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             // 计算交易数量
             if (BUY.equals(side)) {
                 // 买入：按照给定金额买入
-                if (state.getLastTradeType().equals(SELL)) {
-                    // 上次卖出剩下的钱
-                    preAmount = BigDecimal.valueOf(state.getLastTradeAmount());
-                } else {
+                if (null == state.getLastTradeType()) {
                     // 没有卖出记录，使用最初金额
                     preAmount = BigDecimal.valueOf(state.getTradeAmount());
+                } else {
+                    // 上次卖出剩下的钱
+                    preAmount = BigDecimal.valueOf(state.getLastTradeAmount());
                 }
             } else {
                 // 卖出：全仓卖出买入的数量
