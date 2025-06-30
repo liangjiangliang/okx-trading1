@@ -170,7 +170,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             singalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).get(ChronoUnit.SECONDS) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
         }
         // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && (state.getLastTradeType() == null || SELL.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
+        if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
             executeTradeSignal(state, candlestick, BUY);
         }
 
@@ -292,12 +292,12 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
                         state.getLastTradeAmount(), state.getLastTradeQuantity());
 
-                // 发送交易通知
-                try {
-                    notificationService.sendTradeNotification(state, order, side, candlestick.getClose().toString());
-                } catch (Exception e) {
-                    log.error("发送交易通知失败: {}", e.getMessage(), e);
-                }
+//                // 发送交易通知
+//                try {
+//                    notificationService.sendTradeNotification(state, order, side, candlestick.getClose().toString());
+//                } catch (Exception e) {
+//                    log.error("发送交易通知失败: {}", e.getMessage(), e);
+//                }
             }
         } catch (Exception e) {
             String strategyKey = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());

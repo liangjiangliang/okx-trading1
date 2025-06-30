@@ -11,6 +11,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,9 +22,11 @@ import java.util.Map;
 
 /**
  * Server酱通知服务实现类
+ * 仅在选择Server酱通知方式时生效
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "notification.type", havingValue = "server_chan", matchIfMissing = true)
 public class ServerChanNotificationServiceImpl implements NotificationService {
 
     @Value("${server.chan.key:}")

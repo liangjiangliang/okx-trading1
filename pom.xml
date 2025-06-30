@@ -164,6 +164,13 @@
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
         </dependency>
+        
+        <!-- 企业微信通知依赖 -->
+        <dependency>
+            <groupId>com.github.binarywang</groupId>
+            <artifactId>weixin-java-cp</artifactId>
+            <version>4.5.0</version>
+        </dependency>
     </dependencies>
 
     <build>
