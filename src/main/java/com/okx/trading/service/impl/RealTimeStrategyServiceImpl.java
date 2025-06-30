@@ -148,8 +148,8 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public boolean stopRealTimeStrategy(String strategyCode) {
-        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyByCode(strategyCode);
+    public boolean stopRealTimeStrategy(String id) {
+        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyById(Long.parseLong(id));
         if (optionalStrategy.isPresent()) {
             RealTimeStrategyEntity strategy = optionalStrategy.get();
             strategy.setStatus("STOPPED");
@@ -158,10 +158,10 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             realTimeStrategyRepository.save(strategy);
             String strategyKey = realTimeStrategyManager.buildStrategyKey(strategy.getStrategyCode(), strategy.getSymbol(), strategy.getInterval());
             realTimeStrategyManager.getRunningStrategies().remove(strategyKey);
-            log.info("停止实时策略成功: {}", strategyCode);
+            log.info("停止实时策略成功: {}", id);
             return true;
         }
-        log.warn("停止实时策略失败，策略不存在: {}", strategyCode);
+        log.warn("停止实时策略失败，策略不存在: {}", id);
         return false;
     }
 

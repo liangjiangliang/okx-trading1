@@ -80,20 +80,19 @@ public class RealTimeStrategyEntity {
      * 最后一次交易类型：BUY(买入), SELL(卖出)
      */
     @Column(name = "last_trade_type", length = 10)
-    private String lastTradeType;
+    private String lastTradeType = "";
 
     /**
      * 最后一次交易类型：BUY(买入), SELL(卖出)
      */
-    @Column(name = "last_trade_time", length = 10)
-    private String lastTradeTime;
+    @Column(name = "last_trade_time", nullable = false)
+    private LocalDateTime lastTradeTime;
 
 
     /**
      * 总盈利金额（USDT）
      */
     @Column(name = "total_profit")
-    @Builder.Default
     private Double totalProfit = 0.0;
 
 
@@ -101,32 +100,27 @@ public class RealTimeStrategyEntity {
      * 总手续费（USDT）
      */
     @Column(name = "total_fees")
-    @Builder.Default
     private Double totalFees = 0.0;
 
     /**
      * 总交易次数
      */
     @Column(name = "total_trades")
-    @Builder.Default
     private Integer totalTrades = 0;
 
     /**
      * 成功交易次数
      */
     @Column(name = "successful_trades")
-    @Builder.Default
     private Integer successfulTrades = 0;
 
 
     @Column(name = "is_active", length = 20)
-    @Builder.Default
     private Boolean isActive = true;
     /**
      * 策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)
      */
     @Column(name = "status", length = 20)
-    @Builder.Default
     private String status = "RUNNING";
 
     /**

@@ -213,12 +213,12 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         // 控制同一个周期内只能交易一次
         LocalDateTime lastTradeTime;
         boolean singalOfSamePeriod = false;
-        if (StringUtils.isNotBlank(state.getLastTradeTime())) {
-            lastTradeTime = LocalDateTime.parse(state.getLastTradeTime(), dateFormat);
-            singalOfSamePeriod = Duration.between(candlestick.getCloseTime(), lastTradeTime).get(ChronoUnit.MINUTES) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal());
+        if (null != state.getLastTradeTime()) {
+            lastTradeTime = state.getLastTradeTime();
+            singalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).get(ChronoUnit.SECONDS) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
         }
         // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && (state.getLastTradeType() == null || !BUY.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
+        if (shouldBuy && (state.getLastTradeType() == null || SELL.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
             executeTradeSignal(state, candlestick, BUY);
         }
 
@@ -320,7 +320,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 state.setLastTradeAmount(orderEntity.getExecutedAmount().doubleValue());
                 state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
                 state.setLastTradePrice(orderEntity.getPrice().doubleValue());
-                state.setLastTradeTime(orderEntity.getCreateTime().toString());
+                state.setLastTradeTime(orderEntity.getCreateTime());
                 if (BUY.equals(side)) {
                     state.setIsInPosition(true);
                 } else {
