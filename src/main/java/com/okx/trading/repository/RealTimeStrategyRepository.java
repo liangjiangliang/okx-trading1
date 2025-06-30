@@ -120,6 +120,6 @@ public interface RealTimeStrategyRepository extends JpaRepository<RealTimeStrate
      *
      * @param strategyCode 策略信息代码
      */
-    void deleteByStrategyCode(String strategyCode);
+    void deleteById(Long id);
 }
 

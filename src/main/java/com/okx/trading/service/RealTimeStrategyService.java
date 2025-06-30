@@ -161,7 +161,7 @@ public interface RealTimeStrategyService {
      * @param strategyCode 策略代码
      * @return 是否删除成功
      */
-    boolean deleteRealTimeStrategy(String strategyCode);
+    boolean deleteRealTimeStrategy(String strategyId);
 
     /**
      * 根据策略信息代码删除相关的实时策略

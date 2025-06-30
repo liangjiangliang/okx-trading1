@@ -246,36 +246,38 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public boolean deleteRealTimeStrategy(String strategyCode) {
-        if (StringUtils.isBlank(strategyCode)) {
+    public boolean deleteRealTimeStrategy(String id) {
+        if (StringUtils.isBlank(id)) {
             return false;
         }
 
         try {
-            realTimeStrategyRepository.deleteByStrategyCode(strategyCode);
-            log.info("删除实时策略成功: {}", strategyCode);
+            realTimeStrategyRepository.deleteById(Long.parseLong(id));
+            realTimeStrategyManager.getRunningStrategies().entrySet()
+                    .removeIf(entry -> entry.getKey().equals(id));
+            log.info("删除实时策略成功: {}", id);
             return true;
         } catch (Exception e) {
-            log.error("删除实时策略失败: {}", strategyCode, e);
+            log.error("删除实时策略失败: {}", id, e);
             return false;
         }
     }
 
     @Override
     @Transactional
-    public int deleteRealTimeStrategiesByCode(String strategyCode) {
-        if (StringUtils.isBlank(strategyCode)) {
+    public int deleteRealTimeStrategiesByCode(String id) {
+        if (StringUtils.isBlank(id)) {
             return 0;
         }
 
         try {
-            List<RealTimeStrategyEntity> strategies = getActiveRealTimeStrategiesByCode(strategyCode);
+            List<RealTimeStrategyEntity> strategies = getActiveRealTimeStrategiesByCode(id);
             int count = strategies.size();
-            realTimeStrategyRepository.deleteByStrategyCode(strategyCode);
-            log.info("根据策略信息代码删除实时策略成功: {}, 删除数量: {}", strategyCode, count);
+            realTimeStrategyRepository.deleteById(Long.parseLong(id));
+            log.info("根据策略信息代码删除实时策略成功: {}, 删除数量: {}", id, count);
             return count;
         } catch (Exception e) {
-            log.error("根据策略信息代码删除实时策略失败: {}", strategyCode, e);
+            log.error("根据策略信息代码删除实时策略失败: {}", id, e);
             return 0;
         }
     }

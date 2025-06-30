@@ -671,7 +671,7 @@ public class RealTimeStrategyController {
     /**
      * 删除实时策略
      */
-    @DeleteMapping("/delete/{strategyCode}")
+    @DeleteMapping("/delete/{id}")
     @ApiOperation(value = "删除实时策略", notes = "永久删除指定的实时策略记录")
     @ApiResponses({
             @ApiResponse(code = 200, message = "删除成功"),
@@ -680,20 +680,20 @@ public class RealTimeStrategyController {
             @ApiResponse(code = 500, message = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> deleteRealTimeStrategy(
-            @ApiParam("策略代码") @PathVariable String strategyCode) {
+            @ApiParam("策略代码") @PathVariable String id) {
         try {
-            if (StringUtils.isBlank(strategyCode)) {
+            if (StringUtils.isBlank(id)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
             }
 
-            boolean success = realTimeStrategyService.deleteRealTimeStrategy(strategyCode);
+            boolean success = realTimeStrategyService.deleteRealTimeStrategy(id);
             if (success) {
-                return com.okx.trading.util.ApiResponse.success("删除策略成功: " + strategyCode);
+                return com.okx.trading.util.ApiResponse.success("删除策略成功: " + id);
             } else {
-                return com.okx.trading.util.ApiResponse.error(503, "删除策略失败: " + strategyCode);
+                return com.okx.trading.util.ApiResponse.error(503, "删除策略失败: " + id);
             }
         } catch (Exception e) {
-            log.error("删除实时策略失败: {}", strategyCode, e);
+            log.error("删除实时策略失败: {}", id, e);
             return com.okx.trading.util.ApiResponse.error(503, "删除策略失败: " + e.getMessage());
         }
     }
