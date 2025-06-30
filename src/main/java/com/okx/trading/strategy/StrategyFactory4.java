@@ -20,9 +20,9 @@ public class StrategyFactory4 {
     // ==================== 机器学习启发策略 (91-100) ====================
 
     /**
-     * 创建神经网络策略（修复版）- 简化为多指标组合决策
+     * 创建多指标组合决策策略（原神经网络策略）- 使用多指标组合进行决策
      */
-    public static Strategy createNeuralNetworkStrategy(BarSeries series) {
+    public static Strategy createMultiIndicatorVotingStrategy(BarSeries series) {
         if (series.getBarCount() <= 30) {
             throw new IllegalArgumentException("数据点不足以计算指标");
         }

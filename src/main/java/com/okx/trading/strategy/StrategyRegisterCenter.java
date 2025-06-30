@@ -287,7 +287,7 @@ public class StrategyRegisterCenter {
 
         // ================= 策略工厂4注册 (策略91-130) =================
         // 机器学习启发策略 (91-100)
-        strategyCreators.put(STRATEGY_NEURAL_NETWORK, StrategyFactory4::createNeuralNetworkStrategy);
+        strategyCreators.put(STRATEGY_NEURAL_NETWORK, StrategyFactory4::createMultiIndicatorVotingStrategy);
         strategyCreators.put(STRATEGY_GENETIC_ALGORITHM, StrategyFactory4::createGeneticAlgorithmStrategy);
         strategyCreators.put(STRATEGY_RANDOM_FOREST, StrategyFactory4::createRandomForestStrategy);
         strategyCreators.put(STRATEGY_SVM, StrategyFactory4::createSVMStrategy);

@@ -57,11 +57,12 @@ public class StrategyFactory1 {
     }
 
     /**
-     * 创建布林带策略
+     * 创建布林带策略（增强版）- 添加风险管理
      */
     public static Strategy createBollingerBandsStrategy(BarSeries series) {
         int period = (int) (20);
         double multiplier = (double) (2.0);
+        double stopLossPercent = 2.0; // 2%止损
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (period + 1) + " 个数据点");
@@ -79,7 +80,15 @@ public class StrategyFactory1 {
 
         // 创建规则
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
-        Rule exitRule = new OverIndicatorRule(closePrice, upperBand);
+
+        // 基本卖出规则
+        Rule basicExitRule = new OverIndicatorRule(closePrice, upperBand);
+
+        // 止损规则 - 当价格下跌超过2%时
+        Rule stopLossRule = new StopLossRule(closePrice, series.numOf(stopLossPercent));
+
+        // 组合卖出规则：基本卖出规则或止损规则
+        Rule exitRule = basicExitRule.or(stopLossRule);
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -130,7 +139,9 @@ public class StrategyFactory1 {
 
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(rsi, series.numOf(oversold));
-        Rule exitRule = new CrossedDownIndicatorRule(rsi, series.numOf(overbought));
+
+        // 修正卖出规则：RSI高于70时卖出（而不是穿过70向下）
+        Rule exitRule = new OverIndicatorRule(rsi, series.numOf(overbought));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -865,8 +876,8 @@ public class StrategyFactory1 {
      * 创建海龟交易策略（修复版）- 修正指标匹配问题
      */
     public static Strategy createTurtleTradingStrategy(BarSeries series) {
-        int entryPeriod = 20;  // 入场周期
-        int exitPeriod = 10;   // 出场周期
+        int entryPeriod = 10;  // 大幅降低入场周期（原来20）
+        int exitPeriod = 5;    // 大幅降低出场周期（原来10）
 
         if (series.getBarCount() <= entryPeriod) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -876,22 +887,35 @@ public class StrategyFactory1 {
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
 
-        // 修正：创建正确的最高价和最低价指标
-        MaxPriceIndicator highestHigh20 = new MaxPriceIndicator(series, entryPeriod);  // 20日最高价
-        MinPriceIndicator lowestLow20 = new MinPriceIndicator(series, entryPeriod);   // 20日最低价
-        MinPriceIndicator lowestLow10 = new MinPriceIndicator(series, exitPeriod);    // 10日最低价
-        MaxPriceIndicator highestHigh10 = new MaxPriceIndicator(series, exitPeriod);  // 10日最高价
+        // 添加ATR用于波动率过滤
+        ATRIndicator atr = new ATRIndicator(series, 14);
+        SMAIndicator atrSMA = new SMAIndicator(atr, 10);
 
-        // 海龟交易策略 - 降低突破周期，移除成交量要求
-        // 使用更短的周期来增加突破机会
-        HighestValueIndicator highestHigh15 = new HighestValueIndicator(highPrice, 15); // 从20降低到15
-        LowestValueIndicator lowestLow8 = new LowestValueIndicator(lowPrice, 8); // 从10降低到8
+        // 创建正确的最高价和最低价指标
+        MaxPriceIndicator highestHigh = new MaxPriceIndicator(series, entryPeriod);  // 10日最高价
+        MinPriceIndicator lowestLow = new MinPriceIndicator(series, exitPeriod);    // 5日最低价
 
-        // 海龟买入条件：突破15日高点
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh15);
+        // 创建EMA作为趋势确认
+        EMAIndicator ema20 = new EMAIndicator(closePrice, 20);
 
-        // 海龟卖出条件：跌破8日最低价
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow8);
+        // 创建成交量指标
+        VolumeIndicator volume = new VolumeIndicator(series);
+        SMAIndicator volumeSMA = new SMAIndicator(volume, 10);
+
+        // 海龟买入条件：
+        // 1. 价格突破10日高点
+        // 2. 波动率扩大（ATR > ATR的10日均值）
+        // 3. 价格在20日EMA之上（趋势确认）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highestHigh)
+                .and(new OverIndicatorRule(atr, atrSMA)) // 波动率扩大
+                .and(new OverIndicatorRule(closePrice, ema20)) // 趋势确认
+                .and(new OverIndicatorRule(volume, volumeSMA)); // 成交量确认
+
+        // 海龟卖出条件：
+        // 1. 跌破5日最低价 或
+        // 2. 价格跌破20日EMA
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowestLow)
+                .or(new CrossedDownIndicatorRule(closePrice, ema20));
 
         return new BaseStrategy("海龟交易策略", entryRule, exitRule);
     }
@@ -934,8 +958,8 @@ public class StrategyFactory1 {
      * 创建突破策略
      */
     public static Strategy createBreakoutStrategy(BarSeries series) {
-        int period = (int) (10); // 减少周期使其更敏感
-        double breakoutThreshold = 0.01; // 1%的突破阈值
+        int period = (int) (5); // 进一步减少周期使其更敏感（原来10）
+        double breakoutThreshold = 0.005; // 降低突破阈值到0.5%（原来1%）
 
         if (series.getBarCount() <= period) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -948,26 +972,27 @@ public class StrategyFactory1 {
         MinPriceIndicator lowestLow = new MinPriceIndicator(series, period);
         SMAIndicator avgVolume = new SMAIndicator(volume, period);
 
-        // 改进的突破规则：结合价格突破和成交量确认
-        Rule upperBreakoutRule = new AndRule(
-                new OverIndicatorRule(closePrice, highestHigh),
-                new OverIndicatorRule(volume, avgVolume) // 成交量确认
+        // 添加EMA作为趋势确认
+        EMAIndicator ema = new EMAIndicator(closePrice, 20);
+
+        // 简化的突破规则：只需要价格突破，不强制要求成交量确认
+        Rule upperBreakoutRule = new OverIndicatorRule(closePrice,
+                new TransformIndicator(highestHigh,
+                        v -> v.multipliedBy(series.numOf(1.0 - breakoutThreshold))));
+
+        // 添加额外的入场条件：价格在EMA之上
+        Rule entryRule = new AndRule(
+                upperBreakoutRule,
+                new OverIndicatorRule(closePrice, ema)
         );
 
-        Rule lowerBreakoutRule = new AndRule(
-                new UnderIndicatorRule(closePrice, lowestLow),
-                new OverIndicatorRule(volume, avgVolume) // 成交量确认
-        );
-
-        Rule entryRule = new OrRule(upperBreakoutRule, lowerBreakoutRule);
-
-        // 动态止损：基于ATR
+        // 修改止损和止盈规则
         Rule exitRule = new OrRule(
-                new StopLossRule(closePrice, DecimalNum.valueOf(0.02)), // 2%固定止损
-                new StopGainRule(closePrice, DecimalNum.valueOf(0.04))  // 4%止盈
+                new StopLossRule(closePrice, DecimalNum.valueOf(0.015)), // 降低止损到1.5%
+                new StopGainRule(closePrice, DecimalNum.valueOf(0.03))   // 降低止盈到3%
         );
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("突破策略", entryRule, exitRule);
     }
 
     /**
@@ -1247,14 +1272,14 @@ public class StrategyFactory1 {
      * 创建MACD与布林带组合策略
      */
     public static Strategy createMACDWithBollingerStrategy(BarSeries series) {
-        // 获取MACD相关参数
-        int shortPeriod = (int) (12);
-        int longPeriod = (int) (26);
-        int signalPeriod = (int) (9);
+        // 获取MACD相关参数 - 使用更短的周期使其更敏感
+        int shortPeriod = (int) (8);  // 从12降低到8
+        int longPeriod = (int) (17);  // 从26降低到17
+        int signalPeriod = (int) (6); // 从9降低到6
 
-        // 获取布林带相关参数
-        int bollingerPeriod = (int) (20);
-        double bollingerDeviation = (double) (2.0);
+        // 获取布林带相关参数 - 使用更短的周期使其更敏感
+        int bollingerPeriod = (int) (15); // 从20降低到15
+        double bollingerDeviation = (double) (1.5); // 从2.0降低到1.5
 
         // 验证数据点数量是否足够
         if (series.getBarCount() <= Math.max(longPeriod + signalPeriod, bollingerPeriod)) {
@@ -1262,10 +1287,15 @@ public class StrategyFactory1 {
         }
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        VolumeIndicator volume = new VolumeIndicator(series);
+        SMAIndicator volumeSMA = new SMAIndicator(volume, 10);
 
         // 创建MACD指标
         MACDIndicator macd = new MACDIndicator(closePrice, shortPeriod, longPeriod);
         EMAIndicator signal = new EMAIndicator(macd, signalPeriod);
+
+        // 创建MACD柱状图指标
+        Indicator<Num> histogram = new DifferenceIndicator(macd, signal);
 
         // 创建布林带指标
         SMAIndicator sma = new SMAIndicator(closePrice, bollingerPeriod);
@@ -1275,19 +1305,37 @@ public class StrategyFactory1 {
         BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(bollingerDeviation));
         BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(bollingerDeviation));
 
+        // 创建RSI指标作为额外的过滤条件
+        RSIIndicator rsi = new RSIIndicator(closePrice, 14);
 
-        // MACD与布林带组合策略 - 降低布林带标准差
-        double reducedDeviation = 1.5; // 从2.0降低到1.5，使布林带更窄
-        BollingerBandsUpperIndicator narrowUpperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(reducedDeviation));
-        BollingerBandsLowerIndicator narrowLowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(reducedDeviation));
+        // 买入规则:
+        // 1. MACD金叉 或 MACD柱状图由负转正
+        // 2. 价格接近或低于下轨
+        // 3. RSI低于45（超卖区域）
+        // 4. 成交量大于平均成交量
+        Rule macdCrossRule = new CrossedUpIndicatorRule(macd, signal);
+        Rule histogramCrossRule = new CrossedUpIndicatorRule(histogram, series.numOf(0));
+        Rule priceNearLowerBand = new UnderIndicatorRule(closePrice,
+                new TransformIndicator(lowerBand, v -> v.multipliedBy(series.numOf(1.02)))); // 价格在下轨2%以内
 
-        // 买入规则: MACD金叉且价格触及下轨
-        Rule entryRule = new CrossedUpIndicatorRule(macd, signal)
-                .and(new UnderIndicatorRule(closePrice, narrowLowerBand));
+        Rule entryRule = new OrRule(macdCrossRule, histogramCrossRule)
+                .and(priceNearLowerBand)
+                .and(new UnderIndicatorRule(rsi, series.numOf(45)))
+                .and(new OverIndicatorRule(volume, volumeSMA));
 
-        // 卖出规则: MACD死叉或价格触及上轨
-        Rule exitRule = new CrossedDownIndicatorRule(macd, signal)
-                .or(new OverIndicatorRule(closePrice, narrowUpperBand));
+        // 卖出规则:
+        // 1. MACD死叉 或 MACD柱状图由正转负
+        // 2. 价格接近或高于上轨
+        // 3. RSI高于60
+        Rule macdDeathCrossRule = new CrossedDownIndicatorRule(macd, signal);
+        Rule histogramDeathCrossRule = new CrossedDownIndicatorRule(histogram, series.numOf(0));
+        Rule priceNearUpperBand = new OverIndicatorRule(closePrice,
+                new TransformIndicator(upperBand, v -> v.multipliedBy(series.numOf(0.98)))); // 价格在上轨2%以内
+
+        Rule exitRule = new OrRule(macdDeathCrossRule, histogramDeathCrossRule)
+                .or(priceNearUpperBand)
+                .or(new OverIndicatorRule(rsi, series.numOf(60)));
+
 
         return new BaseStrategy("MACD与布林带组合策略", entryRule, exitRule);
     }
@@ -1426,12 +1474,13 @@ public class StrategyFactory1 {
      * 创建ATR策略
      */
     public static Strategy createATRStrategy(BarSeries series) {
-        int period = (int) (14);
-        double multiplier = 2.0;
+        int period = (int) (7);  // 降低ATR周期，使指标更敏感
+        double multiplier = 1.0;  // 降低ATR倍数
 
         // 创建ATR指标
         ATRIndicator atr = new ATRIndicator(series, period);
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        SMAIndicator sma = new SMAIndicator(closePrice, 20);  // 添加移动平均线作为趋势判断
 
         // 创建自定义指标 - 上轨 (收盘价 + ATR * multiplier)
         class UpperBandIndicator extends CachedIndicator<Num> {
@@ -1471,16 +1520,20 @@ public class StrategyFactory1 {
             }
         }
 
-        // 大幅降低ATR倍数，使策略更敏感
-        double reducedMultiplier = 0.8; // 从2.0降低到0.8，更敏感
-        UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, reducedMultiplier, series);
-        LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, reducedMultiplier, series);
+        // 使用直接的ATR通道突破规则
+        UpperBandIndicator upperBand = new UpperBandIndicator(closePrice, atr, multiplier, series);
+        LowerBandIndicator lowerBand = new LowerBandIndicator(closePrice, atr, multiplier, series);
 
-        // ATR策略逻辑：纯粹基于ATR通道突破
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand); // ATR上轨突破
+        // 买入规则：价格上穿SMA且波动率扩大（ATR上升）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma)
+                .and(new OverIndicatorRule(atr, new TransformIndicator(
+                        new SMAIndicator(atr, 5), // ATR的5周期均值
+                        v -> v.multipliedBy(series.numOf(0.9)) // ATR > 0.9 * SMA(ATR, 5)
+                )));
 
-        // 卖出规则：价格跌破ATR下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 卖出规则：价格下穿SMA或触及下轨
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma)
+                .or(new UnderIndicatorRule(closePrice, lowerBand));
 
         return new BaseStrategy("ATR策略", entryRule, exitRule);
     }
@@ -1677,8 +1730,8 @@ public class StrategyFactory1 {
      * 创建超级趋势指标策略
      */
     public static Strategy createSupertrendStrategy(BarSeries series) {
-        int period = 10;
-        double multiplier = 2.0; // 减少乘数使策略更敏感
+        int period = 7; // 降低周期，使指标更敏感（原来10）
+        double multiplier = 1.0; // 大幅降低乘数使策略更敏感（原来2.0）
 
         // 创建ATR指标
         ATRIndicator atr = new ATRIndicator(series, period);
@@ -1728,17 +1781,18 @@ public class StrategyFactory1 {
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 超级趋势策略 - 降低ATR倍数，使策略更敏感
-        // 降低ATR倍数从默认值到更敏感的值
-        double reducedMultiplier = 2.0; // 假设原来是3.0，降低到2.0
+        // 添加EMA作为趋势确认
+        EMAIndicator ema = new EMAIndicator(closePrice, 20);
 
-        // 买入规则：价格突破上轨
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        // 买入规则：价格突破上轨且价格在EMA之上
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand)
+                .or(new OverIndicatorRule(closePrice, ema).and(new OverIndicatorRule(closePrice, medianPrice)));
 
-        // 卖出规则：价格跌破下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 卖出规则：价格跌破下轨或价格在EMA之下
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
+                .or(new UnderIndicatorRule(closePrice, ema).and(new UnderIndicatorRule(closePrice, medianPrice)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy("超级趋势指标策略", entryRule, exitRule);
     }
 
     /**
@@ -2770,70 +2824,86 @@ public class StrategyFactory1 {
     }
 
     /**
-     * 创建质量指数策略（修复版）- 改进计算逻辑并降低阈值
+     * 创建质量指数策略（修复版）- 彻底重构计算逻辑，使其更准确且能产生交易信号
      */
     public static Strategy createMassStrategy(BarSeries series) {
-        int emaPeriod = 9;
-        int sumPeriod = 25;
-        double threshold = 26.5; // 降低阈值（原来27.0）
-        double exitThreshold = 26.0; // 降低退出阈值（原来26.5）
+        int emaPeriod = 5; // 降低EMA周期（原来9）
+        int sumPeriod = 15; // 大幅降低求和周期（原来25）
 
-        if (series.getBarCount() <= sumPeriod) {
-            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (sumPeriod + 1) + " 个数据点");
+        if (series.getBarCount() <= sumPeriod + emaPeriod) {
+            throw new IllegalArgumentException("数据点不足以计算指标: 至少需要 " + (sumPeriod + emaPeriod + 1) + " 个数据点");
         }
 
         HighPriceIndicator highPrice = new HighPriceIndicator(series);
         LowPriceIndicator lowPrice = new LowPriceIndicator(series);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
-        // 改进的质量指数指标
+        // 创建标准的质量指数计算
+        // 1. 计算高低价差
+        Indicator<Num> highLowDiff = new DifferenceIndicator(highPrice, lowPrice);
+
+        // 2. 创建价差的EMA
+        EMAIndicator ema1 = new EMAIndicator(highLowDiff, emaPeriod);
+
+        // 3. 创建价差EMA的EMA
+        EMAIndicator ema2 = new EMAIndicator(ema1, emaPeriod);
+
+        // 4. 创建比率指标 (EMA1/EMA2)
+        Indicator<Num> emaRatio = new TransformIndicator(
+            new CachedIndicator<Num>(series) {
+                @Override
+                protected Num calculate(int index) {
+                    Num e2 = ema2.getValue(index);
+                    if (e2.isZero()) {
+                        return series.numOf(1);
+                    }
+                    return ema1.getValue(index).dividedBy(e2);
+                }
+            },
+            v -> v.isNaN() ? series.numOf(1) : v);
+
+        // 5. 创建真正的质量指数 - 比率的周期和
         class MassIndexIndicator extends CachedIndicator<Num> {
-            public final HighPriceIndicator highPrice;
-            public final LowPriceIndicator lowPrice;
-            public final int emaPeriod;
-            public final int sumPeriod;
+            private final Indicator<Num> emaRatio;
+            private final int sumPeriod;
 
-            public MassIndexIndicator(BarSeries series, int emaPeriod, int sumPeriod) {
+            public MassIndexIndicator(Indicator<Num> emaRatio, int sumPeriod, BarSeries series) {
                 super(series);
-                this.highPrice = new HighPriceIndicator(series);
-                this.lowPrice = new LowPriceIndicator(series);
-                this.emaPeriod = emaPeriod;
+                this.emaRatio = emaRatio;
                 this.sumPeriod = sumPeriod;
             }
 
             @Override
             protected Num calculate(int index) {
-                if (index < Math.max(sumPeriod, emaPeriod)) {
-                    return series.numOf(25); // 返回基准值
+                if (index < sumPeriod) {
+                    return series.numOf(9); // 默认基准值
                 }
 
-                // 改进计算：使用实际的高低价差和平均值
                 Num sum = series.numOf(0);
                 for (int i = index - sumPeriod + 1; i <= index; i++) {
-                    Num range = highPrice.getValue(i).minus(lowPrice.getValue(i));
-
-                    // 使用更合理的计算方法
-                    if (!range.isZero()) {
-                        // 计算相对波动性
-                        Num relativeRange = range.dividedBy(lowPrice.getValue(i));
-                        sum = sum.plus(relativeRange.multipliedBy(series.numOf(100))); // 放大以便观察
-                    }
+                    sum = sum.plus(emaRatio.getValue(i));
                 }
 
                 return sum;
             }
         }
 
-        MassIndexIndicator mass = new MassIndexIndicator(series, emaPeriod, sumPeriod);
+        MassIndexIndicator massIndex = new MassIndexIndicator(emaRatio, sumPeriod, series);
 
-        // 质量指数策略 - 降低阈值
-        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        // 创建SMA用于交叉信号
+        SMAIndicator massIndexSMA = new SMAIndicator(massIndex, 5);
 
-        // 质量指数策略：降低阈值使其更敏感
-        double lowerThreshold = 25.0; // 从27降低到25
-        double upperThreshold = 28.0; // 从30降低到28
+        // 添加趋势确认指标
+        EMAIndicator ema20 = new EMAIndicator(closePrice, 20);
 
-        Rule entryRule = new OverIndicatorRule(mass, series.numOf(lowerThreshold)); // 质量指数超过阈值
-        Rule exitRule = new UnderIndicatorRule(mass, series.numOf(upperThreshold)); // 质量指数回落
+        // 质量指数交易规则
+        // 买入条件：质量指数上穿SMA且价格在20日均线之上
+        Rule entryRule = new CrossedUpIndicatorRule(massIndex, massIndexSMA)
+                .and(new OverIndicatorRule(closePrice, ema20));
+
+        // 卖出条件：质量指数下穿SMA或价格跌破20日均线
+        Rule exitRule = new CrossedDownIndicatorRule(massIndex, massIndexSMA)
+                .or(new CrossedDownIndicatorRule(closePrice, ema20));
 
         return new BaseStrategy("质量指数策略", entryRule, exitRule);
     }

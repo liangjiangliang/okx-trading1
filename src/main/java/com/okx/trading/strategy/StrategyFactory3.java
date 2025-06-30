@@ -259,10 +259,7 @@ public class StrategyFactory3 {
                 int startIndex = Math.max(0, index - period + 1);
                 Num highest = highPrice.getValue(startIndex);
                 for (int i = startIndex + 1; i <= index; i++) {
-                    Num current = highPrice.getValue(i);
-                    if (current.isGreaterThan(highest)) {
-                        highest = current;
-                    }
+                    highest = highest.isLessThan(highPrice.getValue(i)) ? highPrice.getValue(i) : highest;
                 }
                 return highest;
             }
@@ -284,33 +281,32 @@ public class StrategyFactory3 {
                 int startIndex = Math.max(0, index - period + 1);
                 Num lowest = lowPrice.getValue(startIndex);
                 for (int i = startIndex + 1; i <= index; i++) {
-                    Num current = lowPrice.getValue(i);
-                    if (current.isLessThan(lowest)) {
-                        lowest = current;
-                    }
+                    lowest = lowest.isGreaterThan(lowPrice.getValue(i)) ? lowPrice.getValue(i) : lowest;
                 }
                 return lowest;
             }
         }
 
-        DonchianUpper donchianUpper = new DonchianUpper(highPrice, 10, series);
-        DonchianLower donchianLower = new DonchianLower(lowPrice, 10, series);
-
-        // 添加成交量确认
+        // 大幅降低周期，从20降至5，使策略更敏感
+        int period = 5;
+        
+        DonchianUpper upper = new DonchianUpper(highPrice, period, series);
+        DonchianLower lower = new DonchianLower(lowPrice, period, series);
+        
+        // 添加成交量过滤器
         VolumeIndicator volume = new VolumeIndicator(series);
-        SMAIndicator avgVolume = new SMAIndicator(volume, 10);
+        SMAIndicator avgVolume = new SMAIndicator(volume, period);
+        
+        // 买入规则：价格突破上轨，且成交量大于平均成交量的0.8倍（降低阈值）
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upper)
+                .and(new OverIndicatorRule(volume, new TransformIndicator(avgVolume, v -> v.multipliedBy(series.numOf(0.8)))));
+        
+        // 卖出规则：价格跌破下轨，或者价格下跌超过2%
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lower)
+                .or(new UnderIndicatorRule(closePrice, 
+                        new TransformIndicator(closePrice, v -> v.multipliedBy(series.numOf(0.98)))));
 
-
-        // 买入信号：价格突破唐奇安上轨且成交量放大
-        // 创建成交量阈值指标
-        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.1);
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, donchianUpper)
-                .and(new OverIndicatorRule(volume, volumeThreshold));
-
-        // 卖出信号：价格跌破唐奇安下轨
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, donchianLower);
-
-        return new BaseStrategy("唐奇安通道突破策略", buyRule, sellRule);
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     /**

@@ -126,8 +126,8 @@ public class StrategyFactory2 {
         AdaptiveBollingerLower lowerBand = new AdaptiveBollingerLower(sma, stdDev, adaptiveMultiplier, series);
 
         // 买入规则：价格触及下轨且成交量放大
-        // 创建成交量阈值指标
-        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.1);
+        // 创建成交量阈值指标 - 降低成交量确认阈值以提高交易频率
+        TransformIndicator volumeThreshold = TransformIndicator.multiply(avgVolume, 1.05);
 
         Rule entryRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
                 .and(new OverIndicatorRule(volume, volumeThreshold)); // 成交量确认
@@ -177,9 +177,9 @@ public class StrategyFactory2 {
      * 基于ATR的动态突破策略
      */
     public static Strategy createVolatilityBreakoutStrategy(BarSeries series) {
-        int atrPeriod = 14;
-        int lookbackPeriod = 15; // 缩短回看周期（原来20）
-        double multiplier = 1.5; // 降低ATR倍数（原来2.0）
+        int atrPeriod = 5; // 进一步降低ATR周期（原来14，后来改为10）
+        int lookbackPeriod = 5; // 进一步缩短回看周期（原来15，后来改为10）
+        double multiplier = 0.5; // 进一步降低ATR倍数（原来1.5，后来改为0.8）
 
         if (series.getBarCount() <= Math.max(atrPeriod, lookbackPeriod)) {
             throw new IllegalArgumentException("数据点不足以计算指标");
@@ -188,37 +188,39 @@ public class StrategyFactory2 {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
         ATRIndicator atr = new ATRIndicator(series, atrPeriod);
-        SMAIndicator avgVolume = new SMAIndicator(volume, 10);
+        SMAIndicator avgVolume = new SMAIndicator(volume, 5);
 
         // 动态突破上轨
         class VolatilityUpperBand extends CachedIndicator<Num> {
             public final ClosePriceIndicator closePrice;
             public final ATRIndicator atr;
-            public final int lookback;
             public final Num multiplier;
+            public final int lookbackPeriod;
 
-            public VolatilityUpperBand(ClosePriceIndicator closePrice, ATRIndicator atr,
-                                       int lookback, double multiplier, BarSeries series) {
+            public VolatilityUpperBand(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, int lookbackPeriod, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
-                this.lookback = lookback;
                 this.multiplier = series.numOf(multiplier);
+                this.lookbackPeriod = lookbackPeriod;
             }
 
             @Override
             protected Num calculate(int index) {
-                if (index < lookback) return closePrice.getValue(index);
+                if (index < lookbackPeriod) {
+                    return closePrice.getValue(index);
+                }
 
-                // 计算过去lookback期的最高价
-                Num highest = closePrice.getValue(index - lookback + 1);
-                for (int i = index - lookback + 2; i <= index; i++) {
-                    if (closePrice.getValue(i).isGreaterThan(highest)) {
-                        highest = closePrice.getValue(i);
+                int startIndex = index - lookbackPeriod + 1;
+                Num highestClose = closePrice.getValue(startIndex);
+
+                for (int i = startIndex + 1; i <= index; i++) {
+                    if (closePrice.getValue(i).isGreaterThan(highestClose)) {
+                        highestClose = closePrice.getValue(i);
                     }
                 }
 
-                return highest.plus(atr.getValue(index).multipliedBy(multiplier));
+                return highestClose.plus(atr.getValue(index).multipliedBy(multiplier));
             }
         }
 
@@ -226,48 +228,48 @@ public class StrategyFactory2 {
         class VolatilityLowerBand extends CachedIndicator<Num> {
             public final ClosePriceIndicator closePrice;
             public final ATRIndicator atr;
-            public final int lookback;
             public final Num multiplier;
+            public final int lookbackPeriod;
 
-            public VolatilityLowerBand(ClosePriceIndicator closePrice, ATRIndicator atr,
-                                       int lookback, double multiplier, BarSeries series) {
+            public VolatilityLowerBand(ClosePriceIndicator closePrice, ATRIndicator atr, double multiplier, int lookbackPeriod, BarSeries series) {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
-                this.lookback = lookback;
                 this.multiplier = series.numOf(multiplier);
+                this.lookbackPeriod = lookbackPeriod;
             }
 
             @Override
             protected Num calculate(int index) {
-                if (index < lookback) return closePrice.getValue(index);
+                if (index < lookbackPeriod) {
+                    return closePrice.getValue(index);
+                }
 
-                // 计算过去lookback期的最低价
-                Num lowest = closePrice.getValue(index - lookback + 1);
-                for (int i = index - lookback + 2; i <= index; i++) {
-                    if (closePrice.getValue(i).isLessThan(lowest)) {
-                        lowest = closePrice.getValue(i);
+                int startIndex = index - lookbackPeriod + 1;
+                Num lowestClose = closePrice.getValue(startIndex);
+
+                for (int i = startIndex + 1; i <= index; i++) {
+                    if (closePrice.getValue(i).isLessThan(lowestClose)) {
+                        lowestClose = closePrice.getValue(i);
                     }
                 }
 
-                return lowest.minus(atr.getValue(index).multipliedBy(multiplier));
+                return lowestClose.minus(atr.getValue(index).multipliedBy(multiplier));
             }
         }
 
-        // 大幅降低波动性阈值
-        int reducedLookback = 8; // 降低回看周期
-        double reducedMultiplier = 0.8; // 降低倍数
+        VolatilityUpperBand upperBand = new VolatilityUpperBand(closePrice, atr, multiplier, lookbackPeriod, series);
+        VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, multiplier, lookbackPeriod, series);
 
-        VolatilityUpperBand upperBand = new VolatilityUpperBand(closePrice, atr, reducedLookback, reducedMultiplier, series);
-        VolatilityLowerBand lowerBand = new VolatilityLowerBand(closePrice, atr, reducedLookback, reducedMultiplier, series);
-
-        // 买入规则：价格突破上轨
+        // 买入规则：价格突破上轨，不再要求成交量确认
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
 
-        // 卖出规则：价格跌破下轨
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        // 卖出规则：价格跌破下轨或者下跌超过1.5%（降低止损比例）
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand)
+                .or(new UnderIndicatorRule(closePrice, 
+                        new TransformIndicator(closePrice, v -> v.multipliedBy(series.numOf(0.985)))));
 
-        return new BaseStrategy("波动性突破策略", entryRule, exitRule);
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     /**
@@ -340,10 +342,10 @@ public class StrategyFactory2 {
     public static Strategy createPriceChannelBreakoutStrategy(BarSeries series) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         VolumeIndicator volume = new VolumeIndicator(series);
-        SMAIndicator volumeSMA = new SMAIndicator(volume, 20);
+        SMAIndicator volumeSMA = new SMAIndicator(volume, 10);
 
         // 缩短通道周期，使突破更容易发生
-        int channelPeriod = 15; // 减少周期为15（原为20）
+        int channelPeriod = 5; // 进一步减少周期为5（原为15）
 
         // 创建自定义上轨指标
         Indicator<Num> upperChannel = new CachedIndicator<Num>(series) {
@@ -355,9 +357,8 @@ public class StrategyFactory2 {
                 Num highest = highPrice.getValue(startIndex);
 
                 for (int i = startIndex + 1; i <= index; i++) {
-                    Num current = highPrice.getValue(i);
-                    if (current.isGreaterThan(highest)) {
-                        highest = current;
+                    if (highPrice.getValue(i).isGreaterThan(highest)) {
+                        highest = highPrice.getValue(i);
                     }
                 }
 
@@ -375,9 +376,8 @@ public class StrategyFactory2 {
                 Num lowest = lowPrice.getValue(startIndex);
 
                 for (int i = startIndex + 1; i <= index; i++) {
-                    Num current = lowPrice.getValue(i);
-                    if (current.isLessThan(lowest)) {
-                        lowest = current;
+                    if (lowPrice.getValue(i).isLessThan(lowest)) {
+                        lowest = lowPrice.getValue(i);
                     }
                 }
 
@@ -385,49 +385,32 @@ public class StrategyFactory2 {
             }
         };
 
-        // 买入条件：价格突破上轨（降低成交量要求）
-        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperChannel)
-                .and(new OverIndicatorRule(volume, TransformIndicator.multiply(volumeSMA, BigDecimal.valueOf(0.8)))); // 降低成交量要求为0.8倍
-
-        // 增加直接突破条件，不需要成交量确认
-        Rule directBreakout = new OverIndicatorRule(closePrice,
-                new CachedIndicator<Num>(series) {
-                    @Override
-                    protected Num calculate(int index) {
-                        return upperChannel.getValue(index).multipliedBy(series.numOf(1.002)); // 降低突破阈值到0.2%
-                    }
-                });
-
-        // 合并买入条件
-        Rule finalEntryRule = entryRule.or(directBreakout);
-
-        // 卖出条件：价格跌破下轨或回调5%
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerChannel);
-
-        // 增加止损条件
-        Indicator<Num> stopLoss = new CachedIndicator<Num>(series) {
+        // 创建通道宽度指标
+        Indicator<Num> channelWidth = new CachedIndicator<Num>(series) {
             @Override
             protected Num calculate(int index) {
-                if (index == 0) return series.numOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(series.numOf(0.95)); // 5%止损条件
+                return upperChannel.getValue(index).minus(lowerChannel.getValue(index));
             }
         };
 
-        // 增加止盈条件
-        Indicator<Num> takeProfit = new CachedIndicator<Num>(series) {
+        // 创建通道宽度阈值指标（降低阈值）
+        Indicator<Num> minWidth = new CachedIndicator<Num>(series) {
             @Override
             protected Num calculate(int index) {
-                if (index == 0) return series.numOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.07)); // 7%止盈条件
+                // 降低最小宽度要求为收盘价的0.5%（原来是1%）
+                return closePrice.getValue(index).multipliedBy(series.numOf(0.005));
             }
         };
 
-        // 修改后的卖出条件，增加止损和止盈
-        Rule finalExitRule = exitRule
-                .or(new UnderIndicatorRule(closePrice, stopLoss))
-                .or(new OverIndicatorRule(closePrice, takeProfit));
+        // 买入规则：价格突破上轨，不再要求通道宽度和成交量条件
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperChannel);
 
-        return new BaseStrategy("价格通道突破策略", finalEntryRule, finalExitRule);
+        // 卖出规则：价格跌破下轨或者下跌超过2%
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerChannel)
+                .or(new UnderIndicatorRule(closePrice, 
+                        new TransformIndicator(closePrice, v -> v.multipliedBy(series.numOf(0.98)))));
+
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     // 继续实现其他45个策略...
