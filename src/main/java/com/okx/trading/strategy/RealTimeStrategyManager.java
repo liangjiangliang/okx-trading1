@@ -7,6 +7,7 @@ import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.HistoricalDataService;
+import com.okx.trading.service.NotificationService;
 import com.okx.trading.service.RealTimeOrderService;
 import com.okx.trading.service.RealTimeStrategyService;
 import com.okx.trading.controller.TradeController;
@@ -60,13 +61,14 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final RealTimeStrategyRepository realTimeStrategyRepository;
     private final int kLineNum = 100;
     private boolean loadedStrategies = false;
+    private final NotificationService notificationService;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
                                    TradeController tradeController,
                                    HistoricalDataService historicalDataService,
                                    @Lazy RealTimeStrategyService realTimeStrategyService,
-                                   CandlestickBarSeriesConverter barSeriesConverter, StrategyInfoService strategyInfoService, RealTimeStrategyRepository realTimeStrategyRepository) {
+                                   CandlestickBarSeriesConverter barSeriesConverter, StrategyInfoService strategyInfoService, RealTimeStrategyRepository realTimeStrategyRepository, NotificationService notificationService) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
@@ -75,6 +77,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         this.barSeriesConverter = barSeriesConverter;
         this.strategyInfoService = strategyInfoService;
         this.realTimeStrategyRepository = realTimeStrategyRepository;
+        this.notificationService = notificationService;
     }
 
     // 存储正在运行的策略信息
@@ -84,57 +87,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /**
-     * 启动实时策略
-     */
-    public Map<String, Object> startRealTimeStrategy(RealTimeStrategyEntity state) {
-        String key = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
-
-        // 检查是否已经在运行
-        if (runningStrategies.containsKey(key)) {
-            log.warn("策略已在运行: {}", key);
-            // 6. 返回初始状态
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "实时回测已经存在，跳过执行");
-            response.put("strategyName", state.getStrategyName());
-            response.put("strategyCode", state.getStrategyCode());
-            response.put("symbol", state.getSymbol());
-            response.put("interval", state.getInterval());
-            response.put("tradeAmount", state.getTradeAmount());
-            response.put("status", CANCELED);
-            response.put("startTime", state.getStartTime());
-            return response;
-        }
-//        // 保存策略到MySQL（如果不存在）
-//        try {
-//            realTimeStrategyService.createRealTimeStrategy(state);
-//        } catch (Exception e) {
-//            log.warn("保存策略到数据库失败: {}", e.getMessage());
-//        }
-
-        // 订阅K线数据
-        try {
-            webSocketService.subscribeKlineData(state.getSymbol(), state.getInterval());
-        } catch (Exception e) {
-            log.error("订阅K线数据失败: {}", e.getMessage(), e);
-            throw new RuntimeException("订阅K线数据失败: " + e.getMessage());
-        }
-
-        // 存储策略状态
-        runningStrategies.put(key, state);
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "实时回测已成功执行");
-        response.put("strategyName", state.getStrategyName());
-        response.put("strategyCode", state.getStrategyCode());
-        response.put("symbol", state.getSymbol());
-        response.put("interval", state.getInterval());
-        response.put("tradeAmount", state.getTradeAmount());
-        response.put("status", RUNNING);
-        response.put("startTime", state.getStartTime());
-
-        log.info("实时策略已启动: {}", key);
-        return response;
-    }
 
     /**
      * 停止实时策略
@@ -339,6 +291,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
                 log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
                         state.getLastTradeAmount(), state.getLastTradeQuantity());
+
+                // 发送交易通知
+                try {
+                    notificationService.sendTradeNotification(state, order, side, candlestick.getClose().toString());
+                } catch (Exception e) {
+                    log.error("发送交易通知失败: {}", e.getMessage(), e);
+                }
             }
         } catch (Exception e) {
             String strategyKey = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
@@ -348,6 +307,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             state.setEndTime(LocalDateTime.now());
             realTimeStrategyRepository.save(state);
             log.error("执行策略 {} {}订单失败，停止策略: {},", state.getStrategyName(), side, e.getMessage(), e);
+
+            // 发送错误通知
+            try {
+                notificationService.sendStrategyErrorNotification(state, e.getMessage());
+            } catch (Exception ex) {
+                log.error("发送错误通知失败: {}", ex.getMessage(), ex);
+            }
         }
     }
 

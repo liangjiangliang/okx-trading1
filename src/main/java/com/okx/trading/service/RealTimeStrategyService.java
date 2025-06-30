@@ -226,5 +226,4 @@ public interface RealTimeStrategyService {
      */
     RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyEntity state);
 
-    Map<String, Object> executeRealTimeBacktest(RealTimeStrategyEntity realTimeStrategy);
 }
