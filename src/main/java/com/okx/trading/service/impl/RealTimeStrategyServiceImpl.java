@@ -254,7 +254,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         try {
             realTimeStrategyRepository.deleteById(Long.parseLong(id));
             realTimeStrategyManager.getRunningStrategies().entrySet()
-                    .removeIf(entry -> entry.getKey().equals(id));
+                    .removeIf(entry -> entry.getValue().getId() == Long.parseLong(id));
             log.info("删除实时策略成功: {}", id);
             return true;
         } catch (Exception e) {

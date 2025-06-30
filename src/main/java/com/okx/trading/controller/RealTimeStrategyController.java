@@ -174,132 +174,6 @@ public class RealTimeStrategyController {
         }
     }
 
-
-    /**
-     * 更新指标分布数据
-     * 从所有历史回测记录中重新计算指标分布
-     */
-    @PostMapping("/update-indicator-distributions")
-    public com.okx.trading.model.common.ApiResponse<Map<String, Object>> updateIndicatorDistributions() {
-        try {
-            log.info("收到更新指标分布数据的请求");
-
-            // 1. 查询所有有交易记录的回测数据
-            List<BacktestSummaryEntity> allBacktests = backtestTradeService.getAllBacktestSummaries();
-            List<BacktestSummaryEntity> validBacktests = allBacktests.stream()
-                    .filter(bt -> bt.getNumberOfTrades() != null && bt.getNumberOfTrades() > 0)
-                    .collect(Collectors.toList());
-
-            if (validBacktests.isEmpty()) {
-                return com.okx.trading.model.common.ApiResponse.error(400, "没有找到有效的回测数据，无法计算指标分布");
-            }
-
-            log.info("找到 {} 条有效回测记录", validBacktests.size());
-
-            // 2. 计算关键指标的分布统计
-            Map<String, Object> distributionStats = ta4jBacktestService.calculateDistributionStats(validBacktests);
-
-            log.info("成功计算指标分布统计数据");
-            return com.okx.trading.model.common.ApiResponse.success(distributionStats);
-
-        } catch (Exception e) {
-            log.error("更新指标分布数据失败: {}", e.getMessage(), e);
-            return com.okx.trading.model.common.ApiResponse.error(500, "更新指标分布数据失败: " + e.getMessage());
-        }
-    }
-
-
-    /**
-     * 查看指标分布详情
-     */
-    @GetMapping("/indicator-distribution-details")
-    public com.okx.trading.model.common.ApiResponse<Map<String, Object>> getIndicatorDistributionDetails() {
-        try {
-            log.info("查看指标分布详情");
-
-            // 查询有效回测数据
-            List<BacktestSummaryEntity> allBacktests = backtestTradeService.getAllBacktestSummaries();
-            List<BacktestSummaryEntity> validBacktests = allBacktests.stream()
-                    .filter(bt -> bt.getNumberOfTrades() != null && bt.getNumberOfTrades() > 0)
-                    .collect(Collectors.toList());
-
-            if (validBacktests.isEmpty()) {
-                return com.okx.trading.model.common.ApiResponse.error(400, "没有找到有效的回测数据");
-            }
-
-            // 年化收益率详细分析
-            List<BigDecimal> annualizedReturns = validBacktests.stream()
-                    .map(BacktestSummaryEntity::getAnnualizedReturn)
-                    .filter(Objects::nonNull)
-                    .sorted()
-                    .collect(Collectors.toList());
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("totalValidBacktests", validBacktests.size());
-            result.put("analysisTime", LocalDateTime.now());
-
-            // 年化收益率分析
-            if (!annualizedReturns.isEmpty()) {
-                Map<String, Object> returnAnalysis = new HashMap<>();
-                returnAnalysis.put("sampleCount", annualizedReturns.size());
-                returnAnalysis.put("min", annualizedReturns.get(0));
-                returnAnalysis.put("max", annualizedReturns.get(annualizedReturns.size() - 1));
-                returnAnalysis.put("p10", ta4jBacktestService.calculatePercentile(annualizedReturns, 0.10));
-                returnAnalysis.put("p25", ta4jBacktestService.calculatePercentile(annualizedReturns, 0.25));
-                returnAnalysis.put("p50", ta4jBacktestService.calculatePercentile(annualizedReturns, 0.50));
-                returnAnalysis.put("p75", ta4jBacktestService.calculatePercentile(annualizedReturns, 0.75));
-                returnAnalysis.put("p90", ta4jBacktestService.calculatePercentile(annualizedReturns, 0.90));
-                result.put("annualizedReturnAnalysis", returnAnalysis);
-            }
-
-            // 最大回撤分析
-            List<BigDecimal> maxDrawdowns = validBacktests.stream()
-                    .map(BacktestSummaryEntity::getMaxDrawdown)
-                    .filter(Objects::nonNull)
-                    .sorted()
-                    .collect(Collectors.toList());
-
-            if (!maxDrawdowns.isEmpty()) {
-                Map<String, Object> drawdownAnalysis = new HashMap<>();
-                drawdownAnalysis.put("sampleCount", maxDrawdowns.size());
-                drawdownAnalysis.put("min", maxDrawdowns.get(0));
-                drawdownAnalysis.put("max", maxDrawdowns.get(maxDrawdowns.size() - 1));
-                drawdownAnalysis.put("p10", ta4jBacktestService.calculatePercentile(maxDrawdowns, 0.10));
-                drawdownAnalysis.put("p25", ta4jBacktestService.calculatePercentile(maxDrawdowns, 0.25));
-                drawdownAnalysis.put("p50", ta4jBacktestService.calculatePercentile(maxDrawdowns, 0.50));
-                drawdownAnalysis.put("p75", ta4jBacktestService.calculatePercentile(maxDrawdowns, 0.75));
-                drawdownAnalysis.put("p90", ta4jBacktestService.calculatePercentile(maxDrawdowns, 0.90));
-                result.put("maxDrawdownAnalysis", drawdownAnalysis);
-            }
-
-            // 胜率分析
-            List<BigDecimal> winRates = validBacktests.stream()
-                    .map(BacktestSummaryEntity::getWinRate)
-                    .filter(Objects::nonNull)
-                    .sorted()
-                    .collect(Collectors.toList());
-
-            if (!winRates.isEmpty()) {
-                Map<String, Object> winRateAnalysis = new HashMap<>();
-                winRateAnalysis.put("sampleCount", winRates.size());
-                winRateAnalysis.put("min", winRates.get(0));
-                winRateAnalysis.put("max", winRates.get(winRates.size() - 1));
-                winRateAnalysis.put("p10", ta4jBacktestService.calculatePercentile(winRates, 0.10));
-                winRateAnalysis.put("p25", ta4jBacktestService.calculatePercentile(winRates, 0.25));
-                winRateAnalysis.put("p50", ta4jBacktestService.calculatePercentile(winRates, 0.50));
-                winRateAnalysis.put("p75", ta4jBacktestService.calculatePercentile(winRates, 0.75));
-                winRateAnalysis.put("p90", ta4jBacktestService.calculatePercentile(winRates, 0.90));
-                result.put("winRateAnalysis", winRateAnalysis);
-            }
-
-            return com.okx.trading.model.common.ApiResponse.success(result);
-
-        } catch (Exception e) {
-            log.error("查看指标分布详情失败: {}", e.getMessage(), e);
-            return com.okx.trading.model.common.ApiResponse.error(500, "查看指标分布详情失败: " + e.getMessage());
-        }
-    }
-
     /**
      * 获取所有实时策略
      */
@@ -671,7 +545,7 @@ public class RealTimeStrategyController {
     /**
      * 删除实时策略
      */
-    @DeleteMapping("/delete/{id}")
+    @PostMapping("/delete/{id}")
     @ApiOperation(value = "删除实时策略", notes = "永久删除指定的实时策略记录")
     @ApiResponses({
             @ApiResponse(code = 200, message = "删除成功"),
