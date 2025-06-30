@@ -380,9 +380,9 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
             try {
                 List<CandlestickEntity> cacheData = existingData.stream().filter(entity -> !cachedData.contains(entity)).collect(Collectors.toList());
                 if (!cacheData.isEmpty()) {
-                    redisCacheService.batchAddKlineToSortedSet(symbol, interval, cacheData, 24 * 60);
+                    redisCacheService.batchAddKlineToSortedSet(symbol, interval, cacheData, 15 * 24 * 60);
                 }
-                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
+                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 15天",
                         symbol, interval, existingData.size());
             } catch (Exception e) {
                 log.warn("⚠️ 存储历史K线数据到Redis Sorted Set失败: {}", e.getMessage());
@@ -502,8 +502,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
             Set<String> existTime = cachedData.stream().map(x -> x.getOpenTime().format(dateFormat)).collect(Collectors.toSet());
             List<CandlestickEntity> saveToCache = allData.stream().filter(x -> existTime.contains(x.getOpenTime().format(dateFormat))).collect(Collectors.toList());
             if (!saveToCache.isEmpty()) {
-                redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 24 * 60); // 24小时 = 1440分钟
-                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 24小时",
+                redisCacheService.batchAddKlineToSortedSet(symbol, interval, saveToCache, 15 * 24 * 60); // 24小时 = 1440分钟
+                log.info("💾 历史K线数据已存入Redis Sorted Set，key: coin_nrt_kline:{}{}, 条数: {}, 过期时间: 15天",
                         symbol, interval, saveToCache.size());
             } else {
                 log.info("💾 没有新增K线数据已存入，无需更新缓存");

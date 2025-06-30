@@ -2057,8 +2057,6 @@ public class BacktestMetricsCalculator {
         List<BigDecimal> adjustedStrategyReturns = strategyReturns.subList(0, minLength);
         List<BigDecimal> adjustedBenchmarkReturns = benchmarkReturns.subList(0, minLength);
 
-        System.out.println("计算Alpha/Beta: 策略收益率数量=" + adjustedStrategyReturns.size() + ", 基准收益率数量=" + adjustedBenchmarkReturns.size());
-
         int n = adjustedStrategyReturns.size();
 
         // 计算策略和基准的平均收益率
