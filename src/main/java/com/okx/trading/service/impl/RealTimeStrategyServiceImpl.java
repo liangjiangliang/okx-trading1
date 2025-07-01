@@ -1,6 +1,7 @@
 package com.okx.trading.service.impl;
 
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
+import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.RealTimeStrategyService;
 import com.okx.trading.strategy.RealTimeStrategyManager;
@@ -19,9 +20,9 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
-import static com.okx.trading.constant.IndicatorInfo.CANCELED;
-import static com.okx.trading.constant.IndicatorInfo.SUCCESS;
+import static com.okx.trading.constant.IndicatorInfo.*;
 
 /**
  * 实时运行策略服务实现类
@@ -156,6 +157,9 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             strategy.setIsActive(false);
             strategy.setEndTime(LocalDateTime.now());
             realTimeStrategyRepository.save(strategy);
+            if (strategy.getLastTradeType().equals(BUY)) {
+                realTimeStrategyManager.executeTradeSignal(strategy, new Candlestick(BigDecimal.ZERO), SELL);
+            }
             String strategyKey = realTimeStrategyManager.buildStrategyKey(strategy.getStrategyCode(), strategy.getSymbol(), strategy.getInterval());
             realTimeStrategyManager.getRunningStrategies().remove(strategyKey);
             log.info("停止实时策略成功: {}", id);
@@ -253,6 +257,11 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
         try {
             realTimeStrategyRepository.deleteById(Long.parseLong(id));
+            List<Map.Entry<String, RealTimeStrategyEntity>> strategy = realTimeStrategyManager.getRunningStrategies().entrySet().stream()
+                    .filter(entry -> entry.getValue().getId() == Long.parseLong(id)).collect(Collectors.toList());
+            if (!strategy.isEmpty() && strategy.get(0).getValue().getLastTradeType().equals(BUY)) {
+                realTimeStrategyManager.executeTradeSignal(strategy.get(0).getValue(), new Candlestick(BigDecimal.ZERO), SELL);
+            }
             realTimeStrategyManager.getRunningStrategies().entrySet()
                     .removeIf(entry -> entry.getValue().getId() == Long.parseLong(id));
             log.info("删除实时策略成功: {}", id);

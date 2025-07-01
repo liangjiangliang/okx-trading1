@@ -98,6 +98,11 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
     }
 
     @Override
+    public List<RealTimeOrderEntity> getOrdersByStrategyId(Long strategyId) {
+        return realTimeOrderRepository.findByStrategyId(strategyId);
+    }
+
+    @Override
     public List<RealTimeOrderEntity> getOrdersByStrategyAndSymbol(String strategyCode, String symbol) {
         return realTimeOrderRepository.findByStrategyCodeAndSymbolOrderByCreateTimeDesc(strategyCode, symbol);
     }

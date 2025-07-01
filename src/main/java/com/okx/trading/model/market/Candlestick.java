@@ -102,4 +102,8 @@ public class Candlestick implements Comparable<Candlestick>{
     public int compareTo(@NotNull Candlestick o){
         return this.getOpenTime().compareTo(o.getOpenTime());
     }
+
+    public Candlestick(BigDecimal close) {
+        this.close = close;
+    }
 }

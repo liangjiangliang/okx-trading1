@@ -69,7 +69,7 @@ public class HttpClientConfig {
                 .connectTimeout(15, TimeUnit.SECONDS)  // 减少连接超时时间，更快发现连接问题
                 .readTimeout(30, TimeUnit.SECONDS)     // 减少读取超时时间
                 .writeTimeout(15, TimeUnit.SECONDS)    // 减少写入超时时间
-                .pingInterval(10, TimeUnit.SECONDS)    // 更频繁的ping间隔，更快检测连接状态
+                .pingInterval(20, TimeUnit.SECONDS)    // 更频繁的ping间隔，更快检测连接状态
                 .retryOnConnectionFailure(true)
                 .followRedirects(false)
                 .connectionPool(new ConnectionPool(8, 15, TimeUnit.MINUTES)) // 增加连接池大小

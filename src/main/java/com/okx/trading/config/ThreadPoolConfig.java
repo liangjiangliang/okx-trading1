@@ -84,6 +84,12 @@ public class ThreadPoolConfig{
             createThreadFactory("实时策略计算"));
     }
 
+    @Bean(name = "executeTradeScheduler")
+    public ExecutorService executeTradeScheduler(){
+        return Executors.newFixedThreadPool(20,
+                createThreadFactory("执行交易和数据库更新"));
+    }
+
     /**
      * WebSocket心跳线程池
      * 用于定期发送WebSocket心跳消息

@@ -35,6 +35,9 @@ public interface RealTimeOrderRepository extends JpaRepository<RealTimeOrderEnti
      */
     RealTimeOrderEntity findByOrderId(String orderId);
 
+
+    List<RealTimeOrderEntity> findByStrategyId(Long strategyId);
+
     /**
      * 根据客户端订单ID查询订单
      */

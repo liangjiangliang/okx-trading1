@@ -38,6 +38,9 @@ public interface RealTimeOrderService {
      */
     List<RealTimeOrderEntity> getOrdersBySymbol(String symbol);
 
+
+    List<RealTimeOrderEntity> getOrdersByStrategyId(Long strategyId);
+
     /**
      * 根据策略代码和交易对查询订单
      */
