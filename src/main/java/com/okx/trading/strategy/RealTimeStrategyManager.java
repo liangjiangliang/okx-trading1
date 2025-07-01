@@ -171,21 +171,24 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
         boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
 
-        // 控制同一个周期内只能交易一次
-        LocalDateTime lastTradeTime;
-        boolean singalOfSamePeriod = false;
-        if (null != state.getLastTradeTime()) {
-            lastTradeTime = state.getLastTradeTime();
-            singalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).get(ChronoUnit.SECONDS) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
-        }
-        // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
-            executeTradeSignal(state, candlestick, BUY);
-        }
+        //同一币种+周期内不能重复交易，防止短时间都满足多次交易的情况
+        synchronized (state) {
+            // 控制同一个周期内只能交易一次
+            LocalDateTime lastTradeTime;
+            boolean singalOfSamePeriod = false;
+            if (null != state.getLastTradeTime()) {
+                lastTradeTime = state.getLastTradeTime();
+                singalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).get(ChronoUnit.SECONDS) <= historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
+            }
+            // 处理买入信号 - 只有在上一次不是买入时才触发
+            if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType())) && !singalOfSamePeriod) {
+                executeTradeSignal(state, candlestick, BUY);
+            }
 
-        // 处理卖出信号 - 只有在上一次是买入时才触发
-        if (shouldSell && BUY.equals(state.getLastTradeType())) {
-            executeTradeSignal(state, candlestick, SELL);
+            // 处理卖出信号 - 只有在上一次是买入时才触发
+            if (shouldSell && BUY.equals(state.getLastTradeType())) {
+                executeTradeSignal(state, candlestick, SELL);
+            }
         }
     }
 

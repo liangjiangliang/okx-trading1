@@ -1240,6 +1240,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         ZoneId zoneId = ZoneId.systemDefault();
         long startTimestamp = startTime.atZone(zoneId).toInstant().toEpochMilli();
         long endTimestamp = endTime.atZone(zoneId).toInstant().toEpochMilli();
+        LocalDateTime lastStart = LocalDateTime.now();
         if (startTimestamp == endTimestamp) {
             List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval, startTimestamp, endTimestamp, batchSize);
             // 转换并保存数据到MySQL
@@ -1250,7 +1251,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                 result.addAll(entities);
             }
         } else {
-            while (currentStart.isBefore(endTime)) {
+            while (currentStart.isBefore(endTime) && !lastStart.format(dateFormat).equals(currentStart.format(dateFormat))) {
                 try {
                     List<Candlestick> apiData = okxApiService.getHistoryKlineData(symbol, interval,
                             currentStart.atZone(zoneId).toEpochSecond() * 1000,
@@ -1260,6 +1261,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
                         List<CandlestickEntity> entities = convertAndSaveCandlesticks(apiData, symbol, interval);
                         result.addAll(entities);
                     }
+                    lastStart = currentStart;
                     currentStart = currentStart.plusMinutes(intervalMinutes * batchSize);
                 } catch (Exception e) {
                     log.error("  数据获取失败: {}", e.getMessage());
