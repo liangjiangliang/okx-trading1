@@ -954,139 +954,145 @@ public class WebSocketUtil {
      * 恢复公共频道的操作
      */
     private void restorePublicOperations() {
-        logger.info("开始恢复公共频道订阅，共 {} 个待执行操作", publicPendingOperations.size());
+        CompletableFuture.runAsync(() -> {
+            logger.info("开始恢复公共频道订阅，共 {} 个待执行操作", publicPendingOperations.size());
 
-        // 如果两个连接都已经就绪，才开始恢复操作
-        if (!publicConnected.get() || !bussinessConnected.get()) {
-            logger.info("公共频道连接尚未就绪，等待所有连接建立后再恢复");
-            return;
-        }
-
-        // 首先恢复队列中所有待执行的操作
-        int count = 0;
-        while (!publicPendingOperations.isEmpty()) {
-            PendingOperation operation = publicPendingOperations.poll();
-            if (operation != null) {
-                try {
-                    logger.info("恢复执行公共频道操作: {}", operation.getDescription());
-                    operation.execute();
-                    count++;
-                } catch (Exception e) {
-                    logger.error("恢复执行公共频道操作失败: {}", operation.getDescription(), e);
-                    // 如果执行失败，重新添加到队列末尾
-                    publicPendingOperations.offer(operation);
-                }
+            // 如果两个连接都已经就绪，才开始恢复操作
+            if (!publicConnected.get() || !bussinessConnected.get()) {
+                logger.info("公共频道连接尚未就绪，等待所有连接建立后再恢复");
+                return;
             }
-        }
 
-        // 重新订阅所有已记录的主题，确保所有币种都能及时更新价格
-        int topicCount = 0;
-        for (String topic : publicSubscribedTopics) {
-            try {
-                // 解析主题格式（例如："tickers:BTC-USDT"）
-                if (topic.contains(":")) {
-                    String[] parts = topic.split(":");
-                    String channel = parts[0];
-                    String symbol = parts[1];
-
-                    // 如果主题格式正确且不是自定义主题，重新订阅
-                    if (parts.length == 2 && !channel.equals("custom")) {
-                        logger.info("重新订阅主题: {}, 交易对: {}", channel, symbol);
-
-                        // 创建订阅消息
-                        JSONObject subscribeMessage = new JSONObject();
-                        subscribeMessage.put("op", "subscribe");
-
-                        JSONObject arg = new JSONObject();
-                        arg.put("channel", channel);
-                        arg.put("instId", symbol);
-
-                        JSONObject[] args = new JSONObject[]{arg};
-                        subscribeMessage.put("args", args);
-
-                        // 直接发送订阅请求
-                        publicWebSocket.send(subscribeMessage.toJSONString());
-                        topicCount++;
+            // 首先恢复队列中所有待执行的操作
+            int count = 0;
+            while (!publicPendingOperations.isEmpty()) {
+                PendingOperation operation = publicPendingOperations.poll();
+                if (operation != null) {
+                    try {
+                        logger.info("恢复执行公共频道操作: {}", operation.getDescription());
+                        operation.execute();
+                        count++;
+                    } catch (Exception e) {
+                        logger.error("恢复执行公共频道操作失败: {}", operation.getDescription(), e);
+                        // 如果执行失败，重新添加到队列末尾
+                        publicPendingOperations.offer(operation);
                     }
                 }
+            }
+
+            // 重新订阅所有已记录的主题，确保所有币种都能及时更新价格
+            int topicCount = 0;
+            for (String topic : publicSubscribedTopics) {
+                try {
+                    // 解析主题格式（例如："tickers:BTC-USDT"）
+                    if (topic.contains(":")) {
+                        String[] parts = topic.split(":");
+                        String channel = parts[0];
+                        String symbol = parts[1];
+
+                        // 如果主题格式正确且不是自定义主题，重新订阅
+                        if (parts.length == 2 && !channel.equals("custom")) {
+                            logger.info("重新订阅主题: {}, 交易对: {}", channel, symbol);
+
+                            // 创建订阅消息
+                            JSONObject subscribeMessage = new JSONObject();
+                            subscribeMessage.put("op", "subscribe");
+
+                            JSONObject arg = new JSONObject();
+                            arg.put("channel", channel);
+                            arg.put("instId", symbol);
+
+                            JSONObject[] args = new JSONObject[]{arg};
+                            subscribeMessage.put("args", args);
+
+                            // 直接发送订阅请求
+                            publicWebSocket.send(subscribeMessage.toJSONString());
+                            topicCount++;
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("重新订阅主题失败: {}", topic, e);
+                }
+            }
+
+            logger.info("公共频道操作恢复完成，成功执行 {} 个操作，重新订阅 {} 个主题", count, topicCount);
+
+            // 发布WebSocket重连事件
+            try {
+                // 由于WebSocketUtil不是Spring Bean，无法直接访问ApplicationEventPublisher
+                // 使用反射查找Spring上下文，获取ApplicationEventPublisher
+                // 静态方法获取ApplicationContext
+                if (applicationEventPublisher != null) {
+                    logger.info("发布WebSocket公共频道重连事件");
+                    applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PUBLIC));
+                }
             } catch (Exception e) {
-                logger.error("重新订阅主题失败: {}", topic, e);
+                logger.error("发布WebSocket重连事件失败", e);
             }
-        }
-
-        logger.info("公共频道操作恢复完成，成功执行 {} 个操作，重新订阅 {} 个主题", count, topicCount);
-
-        // 发布WebSocket重连事件
-        try {
-            // 由于WebSocketUtil不是Spring Bean，无法直接访问ApplicationEventPublisher
-            // 使用反射查找Spring上下文，获取ApplicationEventPublisher
-            // 静态方法获取ApplicationContext
-            if (applicationEventPublisher != null) {
-                logger.info("发布WebSocket公共频道重连事件");
-                applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PUBLIC));
-            }
-        } catch (Exception e) {
-            logger.error("发布WebSocket重连事件失败", e);
-        }
+        }, reconnectScheduler);
     }
 
     /**
      * 恢复私有频道的操作
      */
     private void restorePrivateOperations() {
-        logger.info("开始恢复私有频道订阅，共 {} 个待执行操作", privatePendingOperations.size());
+        CompletableFuture.runAsync(() -> {
+            logger.info("开始恢复私有频道订阅，共 {} 个待执行操作", privatePendingOperations.size());
 
-        if (!privateConnected.get()) {
-            logger.info("私有频道连接尚未就绪，等待连接建立后再恢复");
-            return;
-        }
+            if (!privateConnected.get()) {
+                logger.info("私有频道连接尚未就绪，等待连接建立后再恢复");
+                return;
+            }
 
-        // 遍历并执行所有待执行的操作
-        int count = 0;
-        while (!privatePendingOperations.isEmpty()) {
-            PendingOperation operation = privatePendingOperations.poll();
-            if (operation != null) {
-                try {
-                    logger.info("恢复执行私有频道操作: {}", operation.getDescription());
-                    operation.execute();
-                    count++;
-                } catch (Exception e) {
-                    logger.error("恢复执行私有频道操作失败: {}", operation.getDescription(), e);
-                    // 如果执行失败，重新添加到队列末尾
-                    privatePendingOperations.offer(operation);
+            // 遍历并执行所有待执行的操作
+            int count = 0;
+            while (!privatePendingOperations.isEmpty()) {
+                PendingOperation operation = privatePendingOperations.poll();
+                if (operation != null) {
+                    try {
+                        logger.info("恢复执行私有频道操作: {}", operation.getDescription());
+                        operation.execute();
+                        count++;
+                    } catch (Exception e) {
+                        logger.error("恢复执行私有频道操作失败: {}", operation.getDescription(), e);
+                        // 如果执行失败，重新添加到队列末尾
+                        privatePendingOperations.offer(operation);
+                    }
                 }
             }
-        }
 
-        logger.info("私有频道操作恢复完成，成功执行 {} 个操作", count);
+            logger.info("私有频道操作恢复完成，成功执行 {} 个操作", count);
 
-        // 发布WebSocket重连事件
-        try {
-            if (applicationEventPublisher != null) {
-                logger.info("发布WebSocket私有频道重连事件");
-                applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PRIVATE));
+            // 发布WebSocket重连事件
+            try {
+                if (applicationEventPublisher != null) {
+                    logger.info("发布WebSocket私有频道重连事件");
+                    applicationEventPublisher.publishEvent(new WebSocketReconnectEvent(this, WebSocketReconnectEvent.ReconnectType.PRIVATE));
+                }
+            } catch (Exception e) {
+                logger.error("发布WebSocket重连事件失败", e);
             }
-        } catch (Exception e) {
-            logger.error("发布WebSocket重连事件失败", e);
-        }
+        }, reconnectScheduler);
     }
 
     /**
      * 恢复业务频道的操作
      */
     private void restoreBusinessOperations() {
-        logger.info("开始恢复业务频道操作");
+        CompletableFuture.runAsync(() -> {
+            logger.info("开始恢复业务频道操作");
 
-        if (!bussinessConnected.get()) {
-            logger.info("业务频道连接尚未就绪，等待连接建立后再恢复");
-            return;
-        }
+            if (!bussinessConnected.get()) {
+                logger.info("业务频道连接尚未就绪，等待连接建立后再恢复");
+                return;
+            }
 
-        // 目前业务频道没有特定的待执行操作队列
-        // 可以在这里添加业务频道相关的恢复逻辑
-        logger.info("业务频道操作恢复完成");
+            // 目前业务频道没有特定的待执行操作队列
+            // 可以在这里添加业务频道相关的恢复逻辑
+            logger.info("业务频道操作恢复完成");
 
-        // 发布WebSocket重连事件（已在调用处处理）
+            // 发布WebSocket重连事件（已在调用处处理）
+        }, reconnectScheduler);
     }
 
     /**

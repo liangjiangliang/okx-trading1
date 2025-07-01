@@ -113,7 +113,7 @@ public class ThreadPoolConfig{
 
     @Bean(name = "websocketConnectScheduler")
     public ScheduledExecutorService websocketConnectScheduler(){
-        return Executors.newScheduledThreadPool(1,
+        return Executors.newScheduledThreadPool(5,
                 createThreadFactory("WebSocket初始化"));
     }
 
