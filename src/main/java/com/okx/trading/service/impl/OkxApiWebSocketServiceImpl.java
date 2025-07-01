@@ -1,8 +1,12 @@
 package com.okx.trading.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.okx.trading.adapter.CandlestickBarSeriesAdapter;
 import com.okx.trading.config.OkxApiConfig;
+import com.okx.trading.event.CoinSubscriptionEvent;
+import com.okx.trading.event.KlineSubscriptionEvent;
 import com.okx.trading.exception.BusinessException;
 import com.okx.trading.exception.OkxApiException;
 import com.okx.trading.model.account.AccountBalance;
@@ -23,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +37,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1305,5 +1311,95 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     @Override
     public void clearSubscribeCache() {
         subscribedSymbols.clear();
+    }
+
+    /**
+     * 获取所有已订阅币种的最新行情数据
+     *
+     * @return 所有已订阅币种的行情数据列表
+     */
+    @Override
+    public List<Ticker> getAllTickers() {
+        try {
+            // 使用REST API获取所有SPOT交易对的行情数据
+            String url = okxApiConfig.getBaseUrl() + "/api/v5/market/tickers?instType=SPOT";
+
+            okhttp3.Request request = new okhttp3.Request.Builder()
+                    .url(url)
+                    .get()
+                    .build();
+
+            okhttp3.Response response = okHttpClient.newCall(request).execute();
+            String responseBody = response.body() != null ? response.body().string() : null;
+
+            if (responseBody == null) {
+                log.error("获取所有币种行情数据失败: 响应为空");
+                return Collections.emptyList();
+            }
+
+            JSONObject jsonResponse = JSON.parseObject(responseBody);
+
+            if (!"0".equals(jsonResponse.getString("code"))) {
+                log.error("获取所有币种行情数据失败: {}", jsonResponse.getString("msg"));
+                return Collections.emptyList();
+            }
+
+            JSONArray dataArray = jsonResponse.getJSONArray("data");
+            List<Ticker> tickers = new ArrayList<>();
+
+            for (int i = 0; i < dataArray.size(); i++) {
+                JSONObject data = dataArray.getJSONObject(i);
+                String symbol = data.getString("instId");
+
+                // 只处理以USDT结尾的交易对
+                if (!symbol.endsWith("-USDT")) {
+                    continue;
+                }
+
+                // 使用现有的parseTicker方法解析Ticker对象
+                Ticker ticker = parseTicker(data, symbol, "tickers");
+
+                tickers.add(ticker);
+            }
+
+            return tickers;
+        } catch (Exception e) {
+            log.error("获取所有币种行情数据异常", e);
+
+            // 如果REST API调用失败，回退到使用已订阅的币种
+            log.info("尝试从已订阅币种中获取行情数据...");
+            List<Ticker> tickers = new ArrayList<>();
+            Set<String> subscribedSymbols = getSubscribedSymbols();
+
+            // 对每个已订阅的币种获取行情数据
+            for (String symbol : subscribedSymbols) {
+                try {
+                    Ticker ticker = getTicker(symbol);
+                    if (ticker != null) {
+                        tickers.add(ticker);
+                    }
+                } catch (Exception ex) {
+                    log.error("获取{}行情数据失败: {}", symbol, ex.getMessage());
+                }
+            }
+
+            // 如果没有已订阅的币种或获取失败，返回主要币种的行情
+            if (tickers.isEmpty()) {
+                log.info("没有已订阅的币种或获取失败，尝试获取主要币种行情...");
+                List<String> mainCoins = Arrays.asList("BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "XRP-USDT");
+                for (String symbol : mainCoins) {
+                    try {
+                        Ticker ticker = getTicker(symbol);
+                        if (ticker != null) {
+                            tickers.add(ticker);
+                        }
+                    } catch (Exception ex) {
+                        log.error("获取{}行情数据失败: {}", symbol, ex.getMessage());
+                    }
+                }
+            }
+
+            return tickers;
+        }
     }
 }

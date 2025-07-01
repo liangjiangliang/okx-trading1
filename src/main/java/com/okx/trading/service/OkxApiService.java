@@ -122,4 +122,11 @@ public interface OkxApiService {
     List<Candlestick> getHistoryKlineData(String symbol, String interval, Long startTime, Long endTime, Integer limit);
 
     void clearSubscribeCache();
+
+    /**
+     * 获取所有订阅币种的最新行情数据
+     *
+     * @return 所有订阅币种的行情数据列表
+     */
+    List<Ticker> getAllTickers();
 }

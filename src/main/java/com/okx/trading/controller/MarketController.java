@@ -304,4 +304,58 @@ public class MarketController {
         return ApiResponse.success(subscriptions);
     }
 
+    /**
+     * 获取所有订阅币种的最新行情数据
+     *
+     * @param filter 可选的过滤条件（默认为空，可选值：all=所有币种, hot=热门币种, rise=涨幅最大, fall=跌幅最大）
+     * @param search 搜索币种名称（可以是部分匹配，不区分大小写）
+     * @param limit 返回的数据条数，默认为50
+     * @return 所有订阅币种的行情数据列表
+     */
+    @ApiOperation(value = "获取所有币种最新行情", notes = "获取所有已订阅币种的最新价格、24小时涨跌幅等行情数据")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "filter", value = "过滤条件（all=所有币种, hot=热门币种, rise=涨幅最大, fall=跌幅最大）",
+                    required = false, dataType = "String", example = "hot", paramType = "query"),
+            @ApiImplicitParam(name = "search", value = "搜索币种名称，如BTC、ETH等（不区分大小写）",
+                    required = false, dataType = "String", example = "BTC", paramType = "query"),
+            @ApiImplicitParam(name = "limit", value = "返回数据条数，默认为50",
+                    required = false, dataType = "Integer", example = "20", paramType = "query")
+    })
+    @GetMapping("/all_tickers")
+    public ApiResponse<List<Ticker>> getAllTickers(
+            @RequestParam(required = false, defaultValue = "all") String filter,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "50") Integer limit) {
+        log.info("获取所有币种最新行情, filter: {}, search: {}, limit: {}", filter, search, limit);
+        
+        List<Ticker> tickers = okxApiService.getAllTickers();
+        
+        // 如果有搜索条件，先过滤
+        if (search != null && !search.trim().isEmpty()) {
+            String searchTerm = search.trim().toUpperCase();
+            tickers = tickers.stream()
+                    .filter(ticker -> ticker.getSymbol().toUpperCase().contains(searchTerm))
+                    .collect(Collectors.toList());
+        }
+        
+        // 根据过滤条件处理数据
+        if ("hot".equalsIgnoreCase(filter)) {
+            // 热门币种：按24小时成交量降序排序
+            tickers.sort((t1, t2) -> t2.getQuoteVolume().compareTo(t1.getQuoteVolume()));
+        } else if ("rise".equalsIgnoreCase(filter)) {
+            // 涨幅最大：按涨跌幅降序排序
+            tickers.sort((t1, t2) -> t2.getPriceChangePercent().compareTo(t1.getPriceChangePercent()));
+        } else if ("fall".equalsIgnoreCase(filter)) {
+            // 跌幅最大：按涨跌幅升序排序
+            tickers.sort((t1, t2) -> t1.getPriceChangePercent().compareTo(t2.getPriceChangePercent()));
+        }
+        
+        // 限制返回数量
+        if (limit != null && limit > 0 && tickers.size() > limit) {
+            tickers = tickers.subList(0, limit);
+        }
+        
+        return ApiResponse.success(tickers);
+    }
+
 }

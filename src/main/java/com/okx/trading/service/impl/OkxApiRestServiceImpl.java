@@ -769,6 +769,83 @@ public class OkxApiRestServiceImpl implements OkxApiService{
 
     @Override
     public void clearSubscribeCache() {
-//        subscribedSymbols.clear();
+        //REST模式下不需要实现
+    }
+
+    /**
+     * 获取所有币种的最新行情数据
+     *
+     * @return 所有币种的行情数据列表
+     */
+    @Override
+    public List<Ticker> getAllTickers() {
+        try {
+            String url = okxApiConfig.getBaseUrl() + MARKET_PATH + "/tickers?instType=SPOT";
+
+            String response = HttpUtil.get(okHttpClient, url, null);
+            JSONObject jsonResponse = JSON.parseObject(response);
+
+            if (!"0".equals(jsonResponse.getString("code"))) {
+                throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
+            }
+
+            JSONArray dataArray = jsonResponse.getJSONArray("data");
+            List<Ticker> tickers = new ArrayList<>();
+
+            for (int i = 0; i < dataArray.size(); i++) {
+                JSONObject data = dataArray.getJSONObject(i);
+                String symbol = data.getString("instId");
+
+                // 只处理以USDT结尾的交易对
+                if (!symbol.endsWith("-USDT")) {
+                    continue;
+                }
+
+                Ticker ticker = new Ticker();
+                ticker.setSymbol(symbol);
+                ticker.setLastPrice(new BigDecimal(data.getString("last")));
+
+                // 计算24小时价格变动
+                BigDecimal open24h = new BigDecimal(data.getString("open24h"));
+                BigDecimal priceChange = ticker.getLastPrice().subtract(open24h);
+                ticker.setPriceChange(priceChange);
+
+                // 计算24小时价格变动百分比
+                if (open24h.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal changePercent = priceChange.multiply(new BigDecimal("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
+                    ticker.setPriceChangePercent(changePercent);
+                } else {
+                    ticker.setPriceChangePercent(BigDecimal.ZERO);
+                }
+
+                ticker.setHighPrice(new BigDecimal(data.getString("high24h")));
+                ticker.setLowPrice(new BigDecimal(data.getString("low24h")));
+                ticker.setVolume(new BigDecimal(data.getString("vol24h")));
+                ticker.setQuoteVolume(new BigDecimal(data.getString("volCcy24h")));
+
+                ticker.setBidPrice(new BigDecimal(data.getString("bidPx")));
+                ticker.setBidQty(new BigDecimal(data.getString("bidSz")));
+                ticker.setAskPrice(new BigDecimal(data.getString("askPx")));
+                ticker.setAskQty(new BigDecimal(data.getString("askSz")));
+
+                // 转换时间戳为LocalDateTime
+                long timestamp = data.getLongValue("ts");
+                ticker.setTimestamp(LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(timestamp),
+                        ZoneId.systemDefault()));
+
+                tickers.add(ticker);
+
+                // 更新Redis缓存
+                redisCacheService.updateCoinPrice(symbol, ticker.getLastPrice());
+            }
+
+            return tickers;
+        } catch (OkxApiException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("获取所有币种行情数据异常", e);
+            throw new OkxApiException("获取所有币种行情数据失败: " + e.getMessage(), e);
+        }
     }
 }
