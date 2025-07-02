@@ -299,7 +299,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
                 // 发送错误通知
                 try {
-                    notificationService.sendStrategyErrorNotification(state, e.getMessage());
+                    notificationService.sendStrategyErrorNotification(state, state.getMessage());
                 } catch (Exception ex) {
                     log.error("发送错误通知失败: {}", ex.getMessage(), ex);
                 }

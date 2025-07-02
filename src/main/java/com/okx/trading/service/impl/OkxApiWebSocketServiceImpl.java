@@ -67,6 +67,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     private final OkHttpClient okHttpClient;
     @Lazy
     private final KlineCacheService klineCacheService;
+    @Lazy
+    private final RealTimeStrategyServiceImpl realTimeStrategyService;
 
     @Lazy
     @Autowired(required = false)
@@ -324,8 +326,19 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 log.info("收到订单消息: orderId={}, clientOrderId={}, status={}, sMsg={}",
                         orderData.getString("ordId"), clientOrderId, orderData.getString("state"), sMsg);
 
+
                 if (order.getSCode() != 0) {
-                    throw new BusinessException(order.getSCode(), order.getClientOrderId() + ": " + order.getSMsg());
+                    // 如果sMsg不为空，将内容保存到对应策略的mysql表里
+                    if (StringUtils.isNotBlank(sMsg)) {
+                        Long strategyId = realTimeStrategyManager.getClientOrderId2StrategyIdMap().get(clientOrderId);
+                        Optional<RealTimeStrategyEntity> realTimeStrategyById = realTimeStrategyService.getRealTimeStrategyById(strategyId);
+                        if (realTimeStrategyById.isPresent()) {
+                            RealTimeStrategyEntity realTimeStrategy = realTimeStrategyById.get();
+                            realTimeStrategy.setMessage(sMsg);
+                            realTimeStrategyService.saveRealTimeStrategy(realTimeStrategy);
+                        }
+                    }
+//                    throw new BusinessException(order.getSCode(), order.getClientOrderId() + ": " + order.getSMsg());
                 }
 
                 CompletableFuture<Order> future = orderFutures.get(clientOrderId);
@@ -342,13 +355,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                     }
                 }
 
-                // 如果sMsg不为空，将内容保存到对应策略的mysql表里
-                if (StringUtils.isNotBlank(sMsg)) {
-                    Long strategyId = realTimeStrategyManager.getClientOrderId2StrategyIdMap().get(clientOrderId);
-                    RealTimeStrategyEntity realTimeStrategy = realTimeStrategyManager.getRunningStrategies().get(strategyId);
-                    realTimeStrategy.setMessage(sMsg);
 
-                }
             }
         } catch (Exception e) {
             log.error("处理订单消息失败", e);
