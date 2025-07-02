@@ -6,12 +6,8 @@ import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
 import com.okx.trading.repository.RealTimeStrategyRepository;
-import com.okx.trading.service.HistoricalDataService;
-import com.okx.trading.service.NotificationService;
-import com.okx.trading.service.RealTimeOrderService;
-import com.okx.trading.service.RealTimeStrategyService;
+import com.okx.trading.service.*;
 import com.okx.trading.controller.TradeController;
-import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.service.impl.OkxApiWebSocketServiceImpl;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
@@ -57,6 +53,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private final RealTimeOrderService realTimeOrderService;
     private final TradeController tradeController;
     private final HistoricalDataService historicalDataService;
+    private final OkxApiService okxApiService;
     @Lazy
     private final RealTimeStrategyService realTimeStrategyService;
     private final CandlestickBarSeriesConverter barSeriesConverter;
@@ -70,7 +67,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
                                    TradeController tradeController,
-                                   HistoricalDataService historicalDataService,
+                                   HistoricalDataService historicalDataService, OkxApiService okxApiService,
                                    @Lazy RealTimeStrategyService realTimeStrategyService,
                                    CandlestickBarSeriesConverter barSeriesConverter,
                                    StrategyInfoService strategyInfoService,
@@ -81,6 +78,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
         this.historicalDataService = historicalDataService;
+        this.okxApiService = okxApiService;
         this.realTimeStrategyService = realTimeStrategyService;
         this.barSeriesConverter = barSeriesConverter;
         this.strategyInfoService = strategyInfoService;

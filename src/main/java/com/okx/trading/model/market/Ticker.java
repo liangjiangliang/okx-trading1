@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 行情数据模型
@@ -92,5 +93,17 @@ public class Ticker{
     @Override
     public String toString(){
         return JSONObject.toJSONString(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Ticker ticker = (Ticker) o;
+        return Objects.equals(channel, ticker.channel) && Objects.equals(symbol, ticker.symbol);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(channel, symbol);
     }
 }

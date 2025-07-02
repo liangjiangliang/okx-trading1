@@ -473,7 +473,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             // 获取配置的超时时间
             int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
             accountBalance = future.get(timeout, TimeUnit.SECONDS);
-            redisCacheService.setCache(BALANCE, accountBalance.toString(), 60);
+            redisCacheService.setCache(BALANCE, accountBalance.toString(), 3);
             balanceFutures.remove("real");
 
             return accountBalance;

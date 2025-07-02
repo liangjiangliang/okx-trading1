@@ -333,14 +333,12 @@ public class MarketController {
         List<Ticker> tickers = null;
         Set<Object> members = redisTemplate.opsForSet().members(ALL_COIN_RT_PRICE);
         if (!CollectionUtils.isEmpty(members)) {
-            tickers = members.stream().map(x -> JSONObject.parseObject((String) x, Ticker.class)).collect(Collectors.toList());
+            tickers = members.stream().map(x -> JSONObject.parseObject((String) x, Ticker.class)).distinct().collect(Collectors.toList());
             log.info("从缓存查询所有币种价格");
         } else {
             tickers = okxApiService.getAllTickers();
             log.info("从接口查询所有币种价格");
         }
-
-        tickers = okxApiService.getAllTickers();
 
         redisTemplate.opsForSet().add(ALL_COIN_RT_PRICE, Arrays.stream(tickers.toArray()).map(Object::toString).toArray(String[]::new));
         redisTemplate.expire(ALL_COIN_RT_PRICE, 10, TimeUnit.MINUTES);
