@@ -89,39 +89,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
     // 存储正在运行的策略信息
     // key: strategyCode_symbol_interval, value: 策略运行状态
-    private final Map<String, RealTimeStrategyEntity> runningStrategies = new ConcurrentHashMap<>();
+    private final Map<Long, RealTimeStrategyEntity> runningStrategies = new ConcurrentHashMap<>();
     private final Map<String, BarSeries> runningBarSeries = new ConcurrentHashMap<>();
 
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-
-    /**
-     * 停止实时策略
-     */
-    public void stopRealTimeStrategy(String strategyCode, String symbol, String interval) {
-        String key = buildStrategyKey(strategyCode, symbol, interval);
-
-        RealTimeStrategyEntity state = runningStrategies.remove(key);
-        if (state != null) {
-            // 取消订阅K线数据（如果没有其他策略使用）
-            if (!isSymbolIntervalInUse(symbol, interval)) {
-                try {
-                    webSocketService.unsubscribeKlineData(symbol, interval);
-                    log.info("已取消订阅K线数据: symbol={}, interval={}", symbol, interval);
-                } catch (Exception e) {
-                    log.error("取消订阅K线数据失败: {}", e.getMessage(), e);
-                }
-            }
-
-            // 完成Future
-            if (state.getFuture() != null && !state.getFuture().isDone()) {
-                Map<String, Object> result = buildFinalResult(state);
-                state.getFuture().complete(result);
-            }
-
-            log.info("实时策略已停止: {}", key);
-        }
-    }
 
     /**
      * 处理新的K线数据
@@ -318,7 +289,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 }
             } catch (Exception e) {
                 String strategyKey = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
-                runningStrategies.remove(strategyKey);
+                runningStrategies.remove(state.getId());
                 state.setIsActive(false);
                 state.setStatus("ERROR");
                 state.setEndTime(LocalDateTime.now());
@@ -424,18 +395,11 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
     }
 
-    /**
-     * 获取运行中的策略状态
-     */
-    public RealTimeStrategyEntity getRunningStrategy(String strategyCode, String symbol, String interval) {
-        String key = buildStrategyKey(strategyCode, symbol, interval);
-        return runningStrategies.get(key);
-    }
 
     /**
      * 获取所有运行中的策略
      */
-    public Map<String, RealTimeStrategyEntity> getAllRunningStrategies() {
+    public Map<Long, RealTimeStrategyEntity> getAllRunningStrategies() {
         return new ConcurrentHashMap<>(runningStrategies);
     }
 
@@ -487,11 +451,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         // 添加到运行中策略列表
-        String strategyKey = buildStrategyKey(strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-        runningStrategies.put(strategyKey, strategyEntity);
+        runningStrategies.put(strategyEntity.getId(), strategyEntity);
 
         log.info("已添加策略: strategyCode={}, symbol={}, interval={}", strategyEntity.getStrategyCode(), strategyEntity.getSymbol(), strategyEntity.getInterval());
-
+        response.put("id", strategyEntity.getId());
         response.put("message", "实时回测已经开始执行");
         response.put("status", SUCCESS);
         return response;
@@ -577,14 +540,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             default:
                 return openTime.plusMinutes(1); // 默认1分钟
         }
-    }
-
-    /**
-     * 检查symbol和interval是否还在使用中
-     */
-    private boolean isSymbolIntervalInUse(String symbol, String interval) {
-        return runningStrategies.values().stream()
-                .anyMatch(state -> state.getSymbol().equals(symbol) && state.getInterval().equals(interval));
     }
 
     /**

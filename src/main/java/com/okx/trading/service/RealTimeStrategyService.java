@@ -226,4 +226,11 @@ public interface RealTimeStrategyService {
      */
     RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyEntity state);
 
+    /**
+     * 复制实时策略
+     * 
+     * @param strategyId 要复制的策略ID
+     * @return 复制后的新策略实体
+     */
+    RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId);
 }

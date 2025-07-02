@@ -160,8 +160,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             if (strategy.getLastTradeType().equals(BUY)) {
                 realTimeStrategyManager.executeTradeSignal(strategy, new Candlestick(BigDecimal.ZERO), SELL);
             }
-            String strategyKey = realTimeStrategyManager.buildStrategyKey(strategy.getStrategyCode(), strategy.getSymbol(), strategy.getInterval());
-            realTimeStrategyManager.getRunningStrategies().remove(strategyKey);
+            realTimeStrategyManager.getRunningStrategies().remove(Long.parseLong(id));
             log.info("停止实时策略成功: {}", id);
             return true;
         }
@@ -257,13 +256,11 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
         try {
             realTimeStrategyRepository.deleteById(Long.parseLong(id));
-            List<Map.Entry<String, RealTimeStrategyEntity>> strategy = realTimeStrategyManager.getRunningStrategies().entrySet().stream()
-                    .filter(entry -> entry.getValue().getId() == Long.parseLong(id)).collect(Collectors.toList());
-            if (!strategy.isEmpty() && strategy.get(0).getValue().getLastTradeType().equals(BUY)) {
-                realTimeStrategyManager.executeTradeSignal(strategy.get(0).getValue(), new Candlestick(BigDecimal.ZERO), SELL);
+            RealTimeStrategyEntity strategy = realTimeStrategyManager.getRunningStrategies().get(Long.parseLong(id));
+            if (strategy != null && strategy.getLastTradeType().equals(BUY)) {
+                realTimeStrategyManager.executeTradeSignal(strategy, new Candlestick(BigDecimal.ZERO), SELL);
             }
-            realTimeStrategyManager.getRunningStrategies().entrySet()
-                    .removeIf(entry -> entry.getValue().getId() == Long.parseLong(id));
+            realTimeStrategyManager.getRunningStrategies().remove(Long.parseLong(id));
             log.info("删除实时策略成功: {}", id);
             return true;
         } catch (Exception e) {
@@ -339,11 +336,29 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
     @Override
     @Transactional
     public RealTimeStrategyEntity updateTradeInfo(RealTimeStrategyEntity state) {
-
-        RealTimeStrategyEntity realTimeStrategy = realTimeStrategyRepository.save(state);
+        RealTimeStrategyEntity entity = realTimeStrategyRepository.save(state);
         log.info("更新策略交易信息成功: strategyCode={}, tradeType={}, price={}, quantity={}, profit={}, fees={}",
                 state.getStrategyCode(), state.getLastTradeType(), state.getLastTradePrice(), state.getLastTradeQuantity(), state.getTotalProfit(), state.getTotalFees());
-        return realTimeStrategy;
+        return entity;
     }
 
+    @Override
+    @Transactional
+    public RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId) {
+        // 获取原策略
+        Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyById(strategyId);
+        if (!optionalStrategy.isPresent()) {
+            log.warn("复制策略失败，原策略不存在: {}", strategyId);
+            throw new IllegalArgumentException("策略不存在");
+        }
+
+        // 获取原策略
+        RealTimeStrategyEntity originalStrategy = optionalStrategy.get();
+        RealTimeStrategyEntity newStrategy = new RealTimeStrategyEntity(originalStrategy.getStrategyCode(), originalStrategy.getSymbol(), originalStrategy.getInterval(),
+                LocalDateTime.now(), originalStrategy.getTradeAmount(), originalStrategy.getStrategyName());
+        Map<String, Object> response = realTimeStrategyManager.startExecuteRealTimeStrategy(newStrategy);
+        RealTimeStrategyEntity savedStrategy = realTimeStrategyManager.getRunningStrategies().get(response.get("id"));
+        log.info("复制策略成功: {} -> {}", originalStrategy.getId(), savedStrategy.getId());
+        return savedStrategy;
+    }
 }

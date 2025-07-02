@@ -560,15 +560,44 @@ public class RealTimeStrategyController {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
             }
 
-            boolean success = realTimeStrategyService.deleteRealTimeStrategy(id);
-            if (success) {
-                return com.okx.trading.util.ApiResponse.success("删除策略成功: " + id);
+            boolean deleted = realTimeStrategyService.deleteRealTimeStrategy(id);
+            if (deleted) {
+                return com.okx.trading.util.ApiResponse.success("策略删除成功");
             } else {
-                return com.okx.trading.util.ApiResponse.error(503, "删除策略失败: " + id);
+                return com.okx.trading.util.ApiResponse.error(503, "策略删除失败，策略可能不存在或已被删除");
             }
         } catch (Exception e) {
-            log.error("删除实时策略失败: {}", id, e);
+            log.error("删除策略失败: {}", id, e);
             return com.okx.trading.util.ApiResponse.error(503, "删除策略失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 复制实时策略
+     */
+    @PostMapping("/copy/{id}")
+    @ApiOperation(value = "复制实时策略", notes = "复制一个已有的实时策略，创建一个新的策略实例")
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "复制成功"),
+            @ApiResponse(code = 400, message = "策略ID不能为空"),
+            @ApiResponse(code = 404, message = "策略不存在"),
+            @ApiResponse(code = 500, message = "服务器内部错误")
+    })
+    public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> copyRealTimeStrategy(
+            @ApiParam(value = "策略ID", required = true, example = "1") @PathVariable Long id) {
+        try {
+            if (id == null || id <= 0) {
+                return com.okx.trading.util.ApiResponse.error(400, "策略ID不能为空或无效");
+            }
+
+            RealTimeStrategyEntity copiedStrategy = realTimeStrategyService.copyRealTimeStrategy(id);
+            return com.okx.trading.util.ApiResponse.success(copiedStrategy);
+        } catch (IllegalArgumentException e) {
+            log.error("复制策略失败，策略不存在: {}", id);
+            return com.okx.trading.util.ApiResponse.error(404, "复制策略失败，策略不存在");
+        } catch (Exception e) {
+            log.error("复制策略失败: {}", id, e);
+            return com.okx.trading.util.ApiResponse.error(500, "复制策略失败: " + e.getMessage());
         }
     }
 
