@@ -25,10 +25,10 @@
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 日志文件名格式 -->
-            <fileNamePattern>${LOG_PATH}/all/all.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 日志文件保留天数 -->
-            <maxHistory>30</maxHistory>
+            <!-- 日志文件名格式，按小时滚动 -->
+            <fileNamePattern>${LOG_PATH}/all/all.%d{yyyy-MM-dd-HH}.log</fileNamePattern>
+            <!-- 日志文件保留天数，改为3天 -->
+            <maxHistory>72</maxHistory>
             <totalSizeCap>3GB</totalSizeCap>
         </rollingPolicy>
     </appender>
@@ -41,8 +41,10 @@
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/error/error.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
+            <!-- 日志文件名格式，按小时滚动 -->
+            <fileNamePattern>${LOG_PATH}/error/error.%d{yyyy-MM-dd-HH}.log</fileNamePattern>
+            <!-- 日志文件保留天数，改为3天 -->
+            <maxHistory>72</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <!-- 只记录ERROR级别日志 -->
@@ -53,14 +55,16 @@
     
     <!-- API相关日志文件输出 -->
     <appender name="API_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/api.log</file>
+        <file>${LOG_PATH}/api/api.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/api.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>15</maxHistory>
+            <!-- 日志文件名格式，按小时滚动 -->
+            <fileNamePattern>${LOG_PATH}/api/api.%d{yyyy-MM-dd-HH}.log</fileNamePattern>
+            <!-- 日志文件保留天数，改为3天 -->
+            <maxHistory>72</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
     </appender>

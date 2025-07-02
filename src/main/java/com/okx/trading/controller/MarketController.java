@@ -1,6 +1,7 @@
 package com.okx.trading.controller;
 
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,14 +32,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
+import static com.okx.trading.constant.IndicatorInfo.ALL_COIN_RT_PRICE;
 import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 
 /**
@@ -55,16 +55,18 @@ public class MarketController {
     private final HistoricalDataService historicalDataService;
     private final RedisCacheService redisCacheService;
     private final KlineCacheService klineCacheService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     public MarketController(OkxApiService okxApiService,
-                           HistoricalDataService historicalDataService,
-                           RedisCacheService redisCacheService,
-                           KlineCacheService klineCacheService) {
+                            HistoricalDataService historicalDataService,
+                            RedisCacheService redisCacheService,
+                            KlineCacheService klineCacheService, RedisTemplate<String, Object> redisTemplate) {
         this.okxApiService = okxApiService;
         this.historicalDataService = historicalDataService;
         this.redisCacheService = redisCacheService;
         this.klineCacheService = klineCacheService;
+        this.redisTemplate = redisTemplate;
     }
 
     // 判断是否为开发环境，用于控制日志详细程度
@@ -296,11 +298,11 @@ public class MarketController {
     @GetMapping("/subscriptions")
     public ApiResponse<Set<String>> getSubscriptions() {
         log.info("查看Redis中已有的K线订阅数据");
-        
+
         Set<String> subscriptions = klineCacheService.getAllSubscribedKlines();
-        
+
         log.info("发现 {} 个订阅记录: {}", subscriptions.size(), subscriptions);
-        
+
         return ApiResponse.success(subscriptions);
     }
 
@@ -309,7 +311,7 @@ public class MarketController {
      *
      * @param filter 可选的过滤条件（默认为空，可选值：all=所有币种, hot=热门币种, rise=涨幅最大, fall=跌幅最大）
      * @param search 搜索币种名称（可以是部分匹配，不区分大小写）
-     * @param limit 返回的数据条数，默认为50
+     * @param limit  返回的数据条数，默认为50
      * @return 所有订阅币种的行情数据列表
      */
     @ApiOperation(value = "获取所有币种最新行情", notes = "获取所有已订阅币种的最新价格、24小时涨跌幅等行情数据")
@@ -327,9 +329,22 @@ public class MarketController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "50") Integer limit) {
         log.info("获取所有币种最新行情, filter: {}, search: {}, limit: {}", filter, search, limit);
-        
-        List<Ticker> tickers = okxApiService.getAllTickers();
-        
+
+        List<Ticker> tickers = null;
+        Set<Object> members = redisTemplate.opsForSet().members(ALL_COIN_RT_PRICE);
+        if (!CollectionUtils.isEmpty(members)) {
+            tickers = members.stream().map(x -> JSONObject.parseObject((String) x, Ticker.class)).collect(Collectors.toList());
+            log.info("从缓存查询所有币种价格");
+        } else {
+            tickers = okxApiService.getAllTickers();
+            log.info("从接口查询所有币种价格");
+        }
+
+        tickers = okxApiService.getAllTickers();
+
+        redisTemplate.opsForSet().add(ALL_COIN_RT_PRICE, Arrays.stream(tickers.toArray()).map(Object::toString).toArray(String[]::new));
+        redisTemplate.expire(ALL_COIN_RT_PRICE, 10, TimeUnit.MINUTES);
+
         // 如果有搜索条件，先过滤
         if (search != null && !search.trim().isEmpty()) {
             String searchTerm = search.trim().toUpperCase();
@@ -337,7 +352,7 @@ public class MarketController {
                     .filter(ticker -> ticker.getSymbol().toUpperCase().contains(searchTerm))
                     .collect(Collectors.toList());
         }
-        
+
         // 根据过滤条件处理数据
         if ("hot".equalsIgnoreCase(filter)) {
             // 热门币种：按24小时成交量降序排序
@@ -349,12 +364,12 @@ public class MarketController {
             // 跌幅最大：按涨跌幅升序排序
             tickers.sort((t1, t2) -> t1.getPriceChangePercent().compareTo(t2.getPriceChangePercent()));
         }
-        
+
         // 限制返回数量
         if (limit != null && limit > 0 && tickers.size() > limit) {
             tickers = tickers.subList(0, limit);
         }
-        
+
         return ApiResponse.success(tickers);
     }
 

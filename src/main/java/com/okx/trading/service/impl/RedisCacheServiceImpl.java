@@ -4,6 +4,7 @@ import com.okx.trading.event.CoinSubscriptionEvent;
 import com.okx.trading.model.entity.CandlestickEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.service.RedisCacheService;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -16,6 +17,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.okx.trading.constant.IndicatorInfo.*;
+
 /**
  * Redis缓存服务实现类
  * 用于实时价格数据的缓存操作
@@ -23,29 +26,11 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Data
 public class RedisCacheServiceImpl implements RedisCacheService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
-
-    /**
-     * Redis中实时价格数据的key
-     */
-    private static final String COIN_PRICE_KEY = "coin-rt-price";
-
-    /**
-     * Redis中实时K线数据的key前缀
-     */
-    private static final String COIN_KLINE_PREFIX_KEY = "coin-rt-kline:";
-
-    /**
-     * Redis中历史K线数据的key前缀 (Sorted Set)
-     */
-    private static final String COIN_NRT_KLINE_PREFIX_KEY = "coin_nrt_kline:";
-    /**
-     * Redis中订阅币种列表的key
-     */
-    private static final String SUBSCRIBED_COINS_KEY = "subscribe-coins";
 
     /**
      * 默认订阅的币种

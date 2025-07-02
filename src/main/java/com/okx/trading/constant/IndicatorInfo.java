@@ -435,4 +435,28 @@ public class IndicatorInfo {
     public static final String STRATEGY_SUPPORT_RESISTANCE_BREAKOUT = "SUPPORT_RESISTANCE_BREAKOUT";
     public static final String STRATEGY_PRICE_PATTERN_RECOGNITION = "PRICE_PATTERN_RECOGNITION";
     public static final String STRATEGY_COMPREHENSIVE_SCORING = "COMPREHENSIVE_SCORING";
+
+
+    /**
+     * Redis中实时价格数据的key
+     */
+    public static final String COIN_PRICE_KEY = "coin-rt-price";
+
+    public static final String BALANCE = "balance";
+
+    public static final String ALL_COIN_RT_PRICE = "all_coin-rt-price";
+
+    /**
+     * Redis中实时K线数据的key前缀
+     */
+    public static final String COIN_KLINE_PREFIX_KEY = "coin-rt-kline:";
+
+    /**
+     * Redis中历史K线数据的key前缀 (Sorted Set)
+     */
+    public static final String COIN_NRT_KLINE_PREFIX_KEY = "coin_nrt_kline:";
+    /**
+     * Redis中订阅币种列表的key
+     */
+    public static final String SUBSCRIBED_COINS_KEY = "subscribe-coins";
 }

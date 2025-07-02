@@ -22,9 +22,11 @@ import com.okx.trading.strategy.RealTimeStrategyManager;
 import com.okx.trading.util.HttpUtil;
 import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
@@ -45,6 +47,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import static com.okx.trading.constant.IndicatorInfo.BALANCE;
+
+
 /**
  * OKX API WebSocket服务实现类
  * 通过WebSocket连接实现与OKX交易所的交互
@@ -52,6 +57,7 @@ import okhttp3.Response;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Data
 @ConditionalOnProperty(
         name = "okx.api.connection-mode",
         havingValue = "WEBSOCKET",
@@ -453,6 +459,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     @Override
     public AccountBalance getAccountBalance() {
         try {
+            AccountBalance accountBalance = null;
+            String jsonString = redisCacheService.getCache(BALANCE, String.class);
+            if (StringUtils.isNotBlank(jsonString)) {
+                return accountBalance = JSONObject.parseObject(jsonString, AccountBalance.class);
+            }
+
             CompletableFuture<AccountBalance> future = new CompletableFuture<>();
             balanceFutures.put("real", future);
 
@@ -460,7 +472,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
             // 获取配置的超时时间
             int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
-            AccountBalance accountBalance = future.get(timeout, TimeUnit.SECONDS);
+            accountBalance = future.get(timeout, TimeUnit.SECONDS);
+            redisCacheService.setCache(BALANCE, accountBalance.toString(), 60);
             balanceFutures.remove("real");
 
             return accountBalance;
