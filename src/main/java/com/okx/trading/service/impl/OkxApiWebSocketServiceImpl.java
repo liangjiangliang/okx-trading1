@@ -3,14 +3,12 @@ package com.okx.trading.service.impl;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.okx.trading.adapter.CandlestickBarSeriesAdapter;
 import com.okx.trading.config.OkxApiConfig;
-import com.okx.trading.event.CoinSubscriptionEvent;
-import com.okx.trading.event.KlineSubscriptionEvent;
 import com.okx.trading.exception.BusinessException;
 import com.okx.trading.exception.OkxApiException;
 import com.okx.trading.model.account.AccountBalance;
 import com.okx.trading.model.account.AccountBalance.AssetBalance;
+import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
@@ -29,7 +27,6 @@ import okhttp3.OkHttpClient;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +36,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -323,8 +319,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
                 // 使用clOrdId查找对应的future，而不是ordId
                 String clientOrderId = orderData.getString("clOrdId");
+                String sMsg = orderData.getString("sMsg");
+
                 log.info("收到订单消息: orderId={}, clientOrderId={}, status={}, sMsg={}",
-                        orderData.getString("ordId"), clientOrderId, orderData.getString("state"), orderData.getString("sMsg"));
+                        orderData.getString("ordId"), clientOrderId, orderData.getString("state"), sMsg);
+
                 if (order.getSCode() != 0) {
                     throw new BusinessException(order.getSCode(), order.getClientOrderId() + ": " + order.getSMsg());
                 }
@@ -341,6 +340,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                     if (cancelFuture != null && !cancelFuture.isDone()) {
                         cancelFuture.complete(true);
                     }
+                }
+
+                // 如果sMsg不为空，将内容保存到对应策略的mysql表里
+                if (StringUtils.isNotBlank(sMsg)) {
+                    Long strategyId = realTimeStrategyManager.getClientOrderId2StrategyIdMap().get(clientOrderId);
+                    RealTimeStrategyEntity realTimeStrategy = realTimeStrategyManager.getRunningStrategies().get(strategyId);
+                    realTimeStrategy.setMessage(sMsg);
+
                 }
             }
         } catch (Exception e) {
@@ -575,6 +582,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             String orderId = UUID.randomUUID().toString();
             String clientOrderId = orderRequest.getClientOrderId() != null ?
                     orderRequest.getClientOrderId() : System.currentTimeMillis() + orderId.substring(0, 8);
+            realTimeStrategyManager.getClientOrderId2StrategyIdMap().put(clientOrderId, orderRequest.getStrategyId());
 
             CompletableFuture<Order> future = new CompletableFuture<>();
 

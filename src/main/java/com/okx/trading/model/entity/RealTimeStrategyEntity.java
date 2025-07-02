@@ -123,6 +123,8 @@ public class RealTimeStrategyEntity {
     @Column(name = "status", length = 20)
     private String status = "RUNNING";
 
+    @Column(name = "message")
+    private String message = "";
     /**
      * 策略运行开始时间
      */

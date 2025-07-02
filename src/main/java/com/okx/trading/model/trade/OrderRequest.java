@@ -128,4 +128,8 @@ public class OrderRequest {
      */
     @ApiModelProperty(value = "是否为模拟交易", example = "false", position = 13)
     private Boolean simulated;
+
+    @ApiModelProperty(value = "所属策略id", example = "false", position = 14)
+    private Long strategyId;
+
 }

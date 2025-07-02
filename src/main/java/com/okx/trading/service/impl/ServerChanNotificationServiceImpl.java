@@ -104,7 +104,7 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
             content.append("- **交易对**: ").append(strategy.getSymbol()).append("\n");
             content.append("- **K线周期**: ").append(strategy.getInterval()).append("\n");
             content.append("- **错误时间**: ").append(FORMATTER.format(LocalDateTime.now())).append("\n");
-            content.append("- **错误信息**: ").append(errorMessage).append("\n");
+            content.append("- **错误信息**: ").append(strategy.getMessage()).append("\n");
 
             return sendServerChanMessage(title, content.toString());
         } catch (Exception e) {

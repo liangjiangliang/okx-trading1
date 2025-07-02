@@ -113,7 +113,8 @@ public class TradeController {
             @RequestParam(required = false) String clientOrderId,
 //            @RequestParam(required = false) String timeInForce,
             @RequestParam(required = false) Boolean postOnly,
-            @RequestParam(required = false) Boolean simulated) {
+            @RequestParam(required = false) Boolean simulated,
+            @RequestParam(required = false) Long startegyId) {
 
         log.info("创建现货订单, symbol: {}, type: {}, side: {}, price: {}, quantity: {}, amount: {}, buyRatio: {}, sellRatio: {}, clientOrderId: {},  postOnly: {}, simulated: {}",
                 symbol, type, side, price, quantity, amount, buyRatio, sellRatio, clientOrderId, postOnly, simulated);
@@ -132,6 +133,7 @@ public class TradeController {
                 .timeInForce("")
 //                .postOnly(postOnly)
                 .simulated(simulated)
+                .strategyId(startegyId)
                 .build();
 
         Order order = okxApiService.createSpotOrder(orderRequest);

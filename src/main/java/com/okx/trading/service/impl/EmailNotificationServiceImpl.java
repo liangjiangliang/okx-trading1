@@ -100,7 +100,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
         content.append("<p><strong>时间间隔：</strong>").append(strategy.getInterval()).append("</p>");
         content.append("<p><strong>错误时间：</strong>").append(LocalDateTime.now().format(DATE_TIME_FORMATTER)).append("</p>");
         content.append("<p><strong>错误信息：</strong></p>");
-        content.append("<pre style='background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto;'>").append(errorMessage).append("</pre>");
+        content.append("<pre style='background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto;'>").append(strategy.getMessage()).append("</pre>");
 
         content.append("</div>");
         content.append("<p style='font-size: 12px; color: #666; margin-top: 20px;'>此邮件由系统自动发送，请勿回复。</p>");

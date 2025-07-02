@@ -39,7 +39,7 @@ public class WechatCpNotificationServiceImpl implements NotificationService {
 
     @Autowired
     public WechatCpNotificationServiceImpl(WxCpService wxCpService,
-                                         @Value("${wechat.cp.userIds:}") String userIdsStr) {
+                                           @Value("${wechat.cp.userIds:}") String userIdsStr) {
         this.wxCpService = wxCpService;
         this.userIds = Arrays.asList(userIdsStr.split(","));
     }
@@ -105,7 +105,7 @@ public class WechatCpNotificationServiceImpl implements NotificationService {
             content.append("交易对: ").append(strategy.getSymbol()).append("\n");
             content.append("K线周期: ").append(strategy.getInterval()).append("\n");
             content.append("错误时间: ").append(FORMATTER.format(LocalDateTime.now())).append("\n");
-            content.append("错误信息: ").append(errorMessage).append("\n");
+            content.append("错误信息: ").append(strategy.getMessage()).append("\n");
 
             return sendMessage(title, content.toString());
         } catch (Exception e) {
@@ -117,7 +117,7 @@ public class WechatCpNotificationServiceImpl implements NotificationService {
     /**
      * 发送企业微信消息
      *
-     * @param title 消息标题
+     * @param title   消息标题
      * @param content 消息内容
      * @return 是否发送成功
      */

@@ -91,6 +91,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     // key: strategyCode_symbol_interval, value: 策略运行状态
     private final Map<Long, RealTimeStrategyEntity> runningStrategies = new ConcurrentHashMap<>();
     private final Map<String, BarSeries> runningBarSeries = new ConcurrentHashMap<>();
+    private final Map<String, Long> clientOrderId2StrategyIdMap = new HashMap<>();
 
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -218,7 +219,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                     if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity() > 0) {
                         preQuantity = BigDecimal.valueOf(state.getLastTradeQuantity());
                     } else {
-                        log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
+//                        log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
                         return;
                     }
                 }
@@ -231,7 +232,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                         preQuantity,
                         preAmount,
                         null, null, null, null,
-                        false
+                        false, state.getId()
                 ).getData();
 
                 if (order != null) {
