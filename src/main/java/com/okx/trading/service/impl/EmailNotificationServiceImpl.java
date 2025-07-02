@@ -43,7 +43,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
             return false;
         }
 
-        String subject = String.format("[交易提醒] %s %s %s", strategy.getSymbol(), "BUY".equals(side) ? "买入" : "卖出", strategy.getStrategyCode());
+        String subject = String.format("[交易提醒] %s %s %s", strategy.getSymbol(), "BUY".equals(side) ? "买入" : "卖出", strategy.getStrategyName());
 
         StringBuilder content = new StringBuilder();
         content.append("<div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;'>");

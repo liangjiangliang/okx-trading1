@@ -49,8 +49,8 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
 
         try {
             // 构建通知内容
-            String title = String.format("【交易提醒】%s %s 信号", strategy.getSymbol(), side);
-            
+            String title = String.format("【交易提醒】%s %s 信号", strategy.getStrategyName(), side);
+
             StringBuilder content = new StringBuilder();
             content.append("## 交易详情\n\n");
             content.append("- **策略名称**: ").append(strategy.getStrategyName()).append("\n");
@@ -59,27 +59,27 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
             content.append("- **交易类型**: ").append(side).append("\n");
             content.append("- **信号价格**: ").append(signalPrice).append("\n");
             content.append("- **成交价格**: ").append(order.getPrice()).append("\n");
-            
+
             if ("BUY".equals(side)) {
                 content.append("- **买入金额**: ").append(order.getCummulativeQuoteQty()).append("\n");
                 content.append("- **买入数量**: ").append(order.getExecutedQty()).append("\n");
             } else {
                 content.append("- **卖出数量**: ").append(order.getExecutedQty()).append("\n");
                 content.append("- **卖出金额**: ").append(order.getCummulativeQuoteQty()).append("\n");
-                
+
                 // 计算利润
                 if (strategy.getLastTradeAmount() != null) {
                     BigDecimal profit = order.getCummulativeQuoteQty().subtract(BigDecimal.valueOf(strategy.getLastTradeAmount()));
                     BigDecimal profitRate = profit.divide(BigDecimal.valueOf(strategy.getLastTradeAmount()), 4, BigDecimal.ROUND_HALF_UP)
                             .multiply(BigDecimal.valueOf(100));
-                    
+
                     content.append("- **本次利润**: ").append(profit).append(" (").append(profitRate).append("%)\n");
                 }
             }
-            
+
             content.append("- **手续费**: ").append(order.getFee()).append(" ").append(order.getFeeCurrency()).append("\n");
             content.append("- **成交时间**: ").append(FORMATTER.format(order.getCreateTime())).append("\n");
-            
+
             // 发送消息
             return sendServerChanMessage(title, content.toString());
         } catch (Exception e) {
@@ -96,7 +96,7 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
 
         try {
             String title = String.format("【策略错误】%s - %s", strategy.getStrategyName(), strategy.getSymbol());
-            
+
             StringBuilder content = new StringBuilder();
             content.append("## 错误详情\n\n");
             content.append("- **策略名称**: ").append(strategy.getStrategyName()).append("\n");
@@ -105,14 +105,14 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
             content.append("- **K线周期**: ").append(strategy.getInterval()).append("\n");
             content.append("- **错误时间**: ").append(FORMATTER.format(LocalDateTime.now())).append("\n");
             content.append("- **错误信息**: ").append(errorMessage).append("\n");
-            
+
             return sendServerChanMessage(title, content.toString());
         } catch (Exception e) {
             log.error("发送策略错误通知失败: {}", e.getMessage(), e);
             return false;
         }
     }
-    
+
     /**
      * 发送Server酱消息
      *
@@ -126,19 +126,19 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
             String url = SERVER_CHAN_URL + serverChanKey + ".send";
             HttpPost httpPost = new HttpPost(url);
             httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded");
-            
+
             // 构建请求参数
-            String params = "title=" + java.net.URLEncoder.encode(title, "UTF-8") + 
+            String params = "title=" + java.net.URLEncoder.encode(title, "UTF-8") +
                            "&desp=" + java.net.URLEncoder.encode(content, "UTF-8");
-            
+
             StringEntity entity = new StringEntity(params);
             httpPost.setEntity(entity);
-            
+
             // 发送请求
             try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
                 int statusCode = response.getStatusLine().getStatusCode();
                 String responseBody = EntityUtils.toString(response.getEntity());
-                
+
                 if (statusCode == 200 && responseBody.contains("\"code\":0")) {
                     log.info("Server酱通知发送成功: {}", title);
                     return true;
@@ -152,4 +152,4 @@ public class ServerChanNotificationServiceImpl implements NotificationService {
             return false;
         }
     }
-} 
+}

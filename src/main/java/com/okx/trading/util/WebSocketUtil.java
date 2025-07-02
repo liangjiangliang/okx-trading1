@@ -894,7 +894,7 @@ public class WebSocketUtil {
                         () -> {
                             if (publicWebSocket != null) {
                                 publicWebSocket.send(subscribeMessage.toJSONString());
-                                logger.info("恢复订阅公共频道自定义主题，参数: {}", arg);
+//                                logger.info("恢复订阅公共频道自定义主题，参数: {}", arg);
                             } else {
                                 throw new OkxApiException("公共频道WebSocket未连接");
                             }
