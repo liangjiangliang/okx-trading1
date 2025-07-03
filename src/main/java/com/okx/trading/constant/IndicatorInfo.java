@@ -459,4 +459,6 @@ public class IndicatorInfo {
      * Redis中订阅币种列表的key
      */
     public static final String SUBSCRIBED_COINS_KEY = "subscribe-coins";
+
+    public static final String TRADE_FLAG = "trade-control-flag:";
 }

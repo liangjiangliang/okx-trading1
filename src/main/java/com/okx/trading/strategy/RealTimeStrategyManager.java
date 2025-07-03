@@ -18,22 +18,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
 import org.ta4j.core.num.DecimalNum;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.okx.trading.constant.IndicatorInfo.*;
 import static javax.print.attribute.standard.JobState.CANCELED;
@@ -63,6 +62,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private boolean loadedStrategies = false;
     private final NotificationService notificationService;
     private ExecutorService executorService;
+    private RedisTemplate redisTemplate;
 
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
@@ -201,6 +201,16 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     public void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
         CompletableFuture.runAsync(() -> {
             try {
+
+                // 防止没更新状态的时候同时去更新状态
+                synchronized (state) {
+                    if (redisTemplate.opsForValue().get(TRADE_FLAG + state.getId()) != null) {
+                        // 已经执行过交易，买或者卖，同一策略同一周期内只能执行一次交易，防止频繁交易
+                        log.warn("同一策略同一周期内只能交易一次，跳过交易: strategyId={}", state.getId());
+                        return;
+                    }
+                }
+
                 BigDecimal preAmount = null;
                 BigDecimal preQuantity = null;
 
@@ -277,6 +287,11 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                     // 更新订单信息
                     orderEntity.setStrategyId(realTimeStrategy.getId());
                     realTimeOrderService.saveOrder(orderEntity);
+                    //更新交易控制标记,过期时间是本周期还剩的剩余的时间
+                    long seconds = Duration.between(candlestick.getOpenTime().plus(
+                                    historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
+                            candlestick.getCloseTime()).abs().getSeconds();
+                    redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), seconds, seconds, TimeUnit.SECONDS);
 
                     log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
                             state.getLastTradeAmount(), state.getLastTradeQuantity());
