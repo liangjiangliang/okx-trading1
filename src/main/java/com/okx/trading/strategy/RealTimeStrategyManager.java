@@ -64,6 +64,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
     private ExecutorService executorService;
     private RedisTemplate redisTemplate;
 
+
     public RealTimeStrategyManager(@Lazy OkxApiWebSocketServiceImpl webSocketService,
                                    RealTimeOrderService realTimeOrderService,
                                    TradeController tradeController,
@@ -73,7 +74,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                                    StrategyInfoService strategyInfoService,
                                    RealTimeStrategyRepository realTimeStrategyRepository,
                                    NotificationService notificationService,
-                                   @Qualifier("executeTradeScheduler") ExecutorService executorService) {
+                                   @Qualifier("executeTradeScheduler") ExecutorService executorService,
+                                   RedisTemplate redisTemplate) {
         this.webSocketService = webSocketService;
         this.realTimeOrderService = realTimeOrderService;
         this.tradeController = tradeController;
@@ -85,6 +87,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         this.realTimeStrategyRepository = realTimeStrategyRepository;
         this.notificationService = notificationService;
         this.executorService = executorService;
+        this.redisTemplate = redisTemplate;
     }
 
     // 存储正在运行的策略信息
@@ -290,8 +293,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                     //更新交易控制标记,过期时间是本周期还剩的剩余的时间
                     long seconds = Duration.between(candlestick.getOpenTime().plus(
                                     historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
-                            candlestick.getCloseTime()).abs().getSeconds();
-                    redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), seconds, seconds, TimeUnit.SECONDS);
+                            LocalDateTime.now()).abs().getSeconds();
+                    redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), String.valueOf(seconds), seconds, TimeUnit.SECONDS);
 
                     log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
                             state.getLastTradeAmount(), state.getLastTradeQuantity());
@@ -304,7 +307,6 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                     }
                 }
             } catch (Exception e) {
-                String strategyKey = buildStrategyKey(state.getStrategyCode(), state.getSymbol(), state.getInterval());
                 runningStrategies.remove(state.getId());
                 state.setIsActive(false);
                 state.setStatus("ERROR");

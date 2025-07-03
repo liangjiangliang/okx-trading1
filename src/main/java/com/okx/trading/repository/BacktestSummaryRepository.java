@@ -60,6 +60,14 @@ public interface BacktestSummaryRepository extends JpaRepository<BacktestSummary
     List<BacktestSummaryEntity> findBestPerformingBacktests();
 
     /**
+     * 查询所有批量回测ID不为空的回测汇总信息
+     *
+     * @return 批量回测ID不为空的回测汇总信息列表
+     */
+    @Query("SELECT b FROM BacktestSummaryEntity b WHERE b.batchBacktestId IS NOT NULL")
+    List<BacktestSummaryEntity> findByBatchBacktestIdNotNull();
+
+    /**
      * 删除指定回测ID的汇总信息
      *
      * @param backtestId 回测ID

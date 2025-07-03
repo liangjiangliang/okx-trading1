@@ -5,6 +5,7 @@ import com.okx.trading.model.common.ApiResponse;
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.entity.*;
 import com.okx.trading.model.dto.StrategyUpdateRequestDTO;
+import com.okx.trading.repository.BacktestSummaryRepository;
 import com.okx.trading.service.*;
 import com.okx.trading.service.impl.DeepSeekApiService;
 import com.okx.trading.service.impl.DynamicStrategyService;
@@ -64,6 +65,7 @@ public class Ta4jBacktestController {
     private final TradeController tradeController;
     private final RealTimeStrategyManager realTimeStrategyManager;
     private final RealTimeStrategyService realTimeStrategyService;
+    private final BacktestSummaryRepository backtestSummaryRepository;
 
     // 线程池
     private final ExecutorService scheduler;
@@ -89,6 +91,7 @@ public class Ta4jBacktestController {
                                   TradeController tradeController,
                                   RealTimeStrategyManager realTimeStrategyManager,
                                   RealTimeStrategyService realTimeStrategyService,
+                                  BacktestSummaryRepository backtestSummaryRepository,
                                   @Qualifier("tradeIndicatorCalculateScheduler") ExecutorService scheduler,
                                   @Qualifier("realTimeTradeIndicatorCalculateScheduler") ExecutorService realTimeTradeScheduler) {
         this.historicalDataService = historicalDataService;
@@ -108,6 +111,7 @@ public class Ta4jBacktestController {
         this.tradeController = tradeController;
         this.realTimeStrategyManager = realTimeStrategyManager;
         this.realTimeStrategyService = realTimeStrategyService;
+        this.backtestSummaryRepository = backtestSummaryRepository;
         this.scheduler = scheduler;
         this.realTimeTradeScheduler = realTimeTradeScheduler;
     }
@@ -663,45 +667,57 @@ public class Ta4jBacktestController {
     @ApiOperation(value = "获取批量回测统计信息", notes = "按批量回测ID聚合统计回测结果，包括回测数量、最大收益和回测ID列表等")
     public ApiResponse<List<Map<String, Object>>> getBatchBacktestStatistics() {
         try {
-            // 获取所有回测汇总信息
-            List<BacktestSummaryEntity> allSummaries = backtestTradeService.getAllBacktestSummaries();
+            // 直接从数据库中查询批量回测ID不为空的回测汇总信息
+            List<BacktestSummaryEntity> batchSummaries = backtestSummaryRepository.findByBatchBacktestIdNotNull();
 
-            // 过滤掉batchBacktestId为空的数据，并按batchBacktestId分组
-            Map<String, List<BacktestSummaryEntity>> batchGroups = allSummaries.stream()
-                    .filter(summary -> summary.getBatchBacktestId() != null && !summary.getBatchBacktestId().isEmpty())
+            // 按batchBacktestId分组
+            Map<String, List<BacktestSummaryEntity>> batchGroups = batchSummaries.stream()
                     .collect(Collectors.groupingBy(BacktestSummaryEntity::getBatchBacktestId));
 
             // 计算每个批次的统计信息
             List<Map<String, Object>> batchStatistics = new ArrayList<>();
             for (Map.Entry<String, List<BacktestSummaryEntity>> entry : batchGroups.entrySet()) {
                 String batchId = entry.getKey();
-                List<BacktestSummaryEntity> batchSummaries = entry.getValue();
+                List<BacktestSummaryEntity> summaries = entry.getValue();
 
                 // 计算统计信息
-                int backtestCount = batchSummaries.size();
+                int backtestCount = summaries.size();
+
+                // 如果批次中没有回测记录，跳过
+                if (backtestCount == 0) {
+                    continue;
+                }
 
                 // 找出最大收益率的回测
-                BacktestSummaryEntity bestBacktest = batchSummaries.stream()
+                BacktestSummaryEntity bestBacktest = summaries.stream()
                         .max(Comparator.comparing(BacktestSummaryEntity::getTotalReturn))
                         .orElse(null);
 
                 // 计算平均收益率
-                BigDecimal avgReturn = batchSummaries.stream()
+                BigDecimal avgReturn = summaries.stream()
                         .map(BacktestSummaryEntity::getTotalReturn)
+                        .filter(Objects::nonNull)
                         .reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(new BigDecimal(backtestCount), 4, RoundingMode.HALF_UP);
 
-                // 计算年华平均收益率
-                BigDecimal avgAnnualReturn = batchSummaries.stream()
-                        .map(BacktestSummaryEntity::getAnnualizedReturn).filter(x -> x != null)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(new BigDecimal(backtestCount), 4, RoundingMode.HALF_UP);
+                // 计算年化平均收益率
+                BigDecimal avgAnnualReturn = summaries.stream()
+                        .map(BacktestSummaryEntity::getAnnualizedReturn)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (backtestCount > 0) {
+                    avgAnnualReturn = avgAnnualReturn.divide(new BigDecimal(backtestCount), 4, RoundingMode.HALF_UP);
+                }
 
                 // 平均交易次数
-                int avgTradeNum = batchSummaries.stream().map(x -> x.getNumberOfTrades()).reduce(Integer::sum).get() / backtestCount;
+                int totalTrades = summaries.stream()
+                        .mapToInt(BacktestSummaryEntity::getNumberOfTrades)
+                        .sum();
+                int avgTradeNum = backtestCount > 0 ? totalTrades / backtestCount : 0;
 
                 // 收集所有回测ID
-                List<String> backtestIds = batchSummaries.stream()
+                List<String> backtestIds = summaries.stream()
                         .map(BacktestSummaryEntity::getBacktestId)
                         .collect(Collectors.toList());
 
@@ -732,6 +748,9 @@ public class Ta4jBacktestController {
             batchStatistics.sort((a, b) -> {
                 LocalDateTime timeA = (LocalDateTime) a.get("create_time");
                 LocalDateTime timeB = (LocalDateTime) b.get("create_time");
+                if (timeA == null && timeB == null) return 0;
+                if (timeA == null) return 1;
+                if (timeB == null) return -1;
                 return timeB.compareTo(timeA); // 降序排序
             });
 
