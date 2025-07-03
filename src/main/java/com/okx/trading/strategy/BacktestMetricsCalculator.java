@@ -327,6 +327,15 @@ public class BacktestMetricsCalculator {
                 // 实际盈亏（考虑手续费）
                 BigDecimal actualProfit = actualExitAmount.subtract(tradeAmount);
 
+                // 计算交易持续周期
+                int period = position.getExit().getIndex() - position.getEntry().getIndex() + 1;
+
+                // 计算每周期的利润率
+                BigDecimal profitPercentagePerPeriod = BigDecimal.ZERO;
+                if (period > 0) {
+                    profitPercentagePerPeriod = actualProfit.divide(BigDecimal.valueOf(period), 8, RoundingMode.HALF_UP);
+                }
+
                 // 创建交易记录DTO
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
@@ -339,6 +348,8 @@ public class BacktestMetricsCalculator {
                 recordDTO.setExitAmount(actualExitAmount);
                 recordDTO.setProfit(actualProfit);
                 recordDTO.setProfitPercentage(profitPercentage);
+                recordDTO.setPeriods(BigDecimal.valueOf(period));
+                recordDTO.setProfitPercentagePerPeriod(profitPercentagePerPeriod);
                 recordDTO.setClosed(true);
                 recordDTO.setFee(totalFee);
 
@@ -418,7 +429,7 @@ public class BacktestMetricsCalculator {
 
                     List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(entryIndex, actualExitIndex);
                     tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
-                    } else {
+                } else {
                     // 索引异常时设置默认值
                     log.warn("交易 {} 的索引异常: entry={}, exit={}, dailyListSize={}，设置默认值",
                             i, entryIndex, exitIndex, dailyLossList.size());
@@ -1235,7 +1246,7 @@ public class BacktestMetricsCalculator {
      */
     private BigDecimal calculateTrackingError(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
         if (strategyReturns == null || benchmarkReturns == null ||
-            strategyReturns.size() != benchmarkReturns.size()) {
+                strategyReturns.size() != benchmarkReturns.size()) {
             return BigDecimal.ZERO;
         }
 
@@ -1258,12 +1269,12 @@ public class BacktestMetricsCalculator {
      * 计算信息比率 (Information Ratio) - 超额收益相对于跟踪误差的比率
      */
     private BigDecimal calculateInformationRatio(List<BigDecimal> strategyReturns,
-                                                List<BigDecimal> benchmarkReturns,
-                                                BigDecimal trackingError,
-                                                int annualizationFactor) {
+                                                 List<BigDecimal> benchmarkReturns,
+                                                 BigDecimal trackingError,
+                                                 int annualizationFactor) {
         if (trackingError.compareTo(BigDecimal.ZERO) == 0 ||
-            strategyReturns == null || benchmarkReturns == null ||
-            strategyReturns.size() != benchmarkReturns.size()) {
+                strategyReturns == null || benchmarkReturns == null ||
+                strategyReturns.size() != benchmarkReturns.size()) {
             return BigDecimal.ZERO;
         }
 
@@ -1283,12 +1294,13 @@ public class BacktestMetricsCalculator {
 
     /**
      * 向后兼容的信息比率计算方法（不推荐使用）
+     *
      * @deprecated 请使用带年化因子的重载方法 {@link #calculateInformationRatio(List, List, BigDecimal, int)}
      */
     @Deprecated
     private BigDecimal calculateInformationRatio(List<BigDecimal> strategyReturns,
-                                                List<BigDecimal> benchmarkReturns,
-                                                BigDecimal trackingError) {
+                                                 List<BigDecimal> benchmarkReturns,
+                                                 BigDecimal trackingError) {
         // 默认使用252个交易日作为年化因子
         return calculateInformationRatio(strategyReturns, benchmarkReturns, trackingError, 252);
     }
@@ -1305,7 +1317,7 @@ public class BacktestMetricsCalculator {
 
         if (avgMaxDrawdown.compareTo(BigDecimal.ZERO) == 0) {
             return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ?
-                   new BigDecimal("999.9999") : BigDecimal.ZERO;
+                    new BigDecimal("999.9999") : BigDecimal.ZERO;
         }
 
         return annualizedReturn.divide(avgMaxDrawdown, 4, RoundingMode.HALF_UP);
@@ -1323,7 +1335,7 @@ public class BacktestMetricsCalculator {
 
         if (sqrtDrawdown.compareTo(BigDecimal.ZERO) == 0) {
             return annualizedReturn.compareTo(BigDecimal.ZERO) > 0 ?
-                   new BigDecimal("999.9999") : BigDecimal.ZERO;
+                    new BigDecimal("999.9999") : BigDecimal.ZERO;
         }
 
         return annualizedReturn.divide(sqrtDrawdown, 4, RoundingMode.HALF_UP);
@@ -1345,8 +1357,8 @@ public class BacktestMetricsCalculator {
 
         BigDecimal term1 = s.divide(BigDecimal.valueOf(6), 8, RoundingMode.HALF_UP).multiply(sr);
         BigDecimal term2 = k.subtract(BigDecimal.valueOf(3))
-                           .divide(BigDecimal.valueOf(24), 8, RoundingMode.HALF_UP)
-                           .multiply(sr.multiply(sr));
+                .divide(BigDecimal.valueOf(24), 8, RoundingMode.HALF_UP)
+                .multiply(sr.multiply(sr));
 
         BigDecimal modifier = BigDecimal.ONE.add(term1).subtract(term2);
 
@@ -1360,7 +1372,7 @@ public class BacktestMetricsCalculator {
      */
     private BigDecimal[] calculateCaptureRatios(List<BigDecimal> strategyReturns, List<BigDecimal> benchmarkReturns) {
         if (strategyReturns == null || benchmarkReturns == null ||
-            strategyReturns.size() != benchmarkReturns.size()) {
+                strategyReturns.size() != benchmarkReturns.size()) {
             return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         }
 
@@ -1458,9 +1470,9 @@ public class BacktestMetricsCalculator {
                 peak = currentPrice;
             } else {
                 if (currentPrice.compareTo(BigDecimal.ZERO) > 0) {
-                // 计算回撤百分比
-                BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
-                totalPain += drawdown.doubleValue();
+                    // 计算回撤百分比
+                    BigDecimal drawdown = peak.subtract(currentPrice).divide(peak, 8, RoundingMode.HALF_UP);
+                    totalPain += drawdown.doubleValue();
                 }
             }
         }
@@ -2155,7 +2167,7 @@ public class BacktestMetricsCalculator {
                     if (useLogReturn) {
                         double logR = Math.log(today.doubleValue() / yesterday.doubleValue());
                         dailyReturn = BigDecimal.valueOf(logR);
-            } else {
+                    } else {
                         BigDecimal change = today.subtract(yesterday).divide(yesterday, 10, RoundingMode.HALF_UP);
                         dailyReturn = change;
                     }

@@ -120,6 +120,18 @@ public class BacktestTradeEntity {
     private BigDecimal profitPercentage;
 
     /**
+     * 交易持续周期
+     */
+    @Column(name = "periods", precision = 10, scale = 4)
+    private BigDecimal periods;
+
+    /**
+     * 盈亏百分比（每周期）
+     */
+    @Column(name = "profit_percentage_per_period", precision = 10, scale = 4)
+    private BigDecimal prifitPercentagePerPeriod;
+
+    /**
      * 交易后的总资产
      */
     @Column(name = "total_assets", precision = 20, scale = 8)
@@ -202,6 +214,8 @@ public class BacktestTradeEntity {
         private BigDecimal exitPrice;
         private BigDecimal exitAmount;
         private BigDecimal profit;
+        private BigDecimal periods;
+        private BigDecimal profitPercentagePerPeriod;
         private BigDecimal profitPercentage;
         private BigDecimal totalAssets;
         private BigDecimal maxDrawdown;
@@ -340,10 +354,21 @@ public class BacktestTradeEntity {
             return this;
         }
 
+        public BacktestTradeEntityBuilder periods(BigDecimal periods) {
+            this.periods = periods;
+            return this;
+        }
+
+        public BacktestTradeEntityBuilder profitPercentagePerPeriod(BigDecimal profitPercentagePerPeriod) {
+            this.profitPercentagePerPeriod = profitPercentagePerPeriod;
+            return this;
+        }
+
+
         public BacktestTradeEntity build() {
             return new BacktestTradeEntity(id, backtestId, strategyName, strategyCode, strategyParams, index, type, symbol,
                     entryTime, entryPrice, entryAmount, entryPositionPercentage, exitTime,
-                    exitPrice, exitAmount, profit, profitPercentage, totalAssets, maxDrawdown, maxLoss,
+                    exitPrice, exitAmount, profit, profitPercentage, periods, profitPercentagePerPeriod, totalAssets, maxDrawdown, maxLoss,
                     closed, volume, fee, remark, createTime);
         }
     }

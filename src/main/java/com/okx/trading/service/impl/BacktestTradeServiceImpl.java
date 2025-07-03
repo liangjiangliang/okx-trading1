@@ -73,6 +73,8 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                     .exitAmount(trade.getExitAmount())
                     .profit(trade.getProfit())
                     .profitPercentage(trade.getProfitPercentage())
+                    .periods(trade.getPeriods())
+                    .profitPercentagePerPeriod(trade.getProfitPercentagePerPeriod())
                     .totalAssets(trade.getExitAmount())
                     .maxDrawdown(trade.getMaxDrowdown())
                     .maxLoss(trade.getMaxLoss())

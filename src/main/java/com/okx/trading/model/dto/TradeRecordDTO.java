@@ -64,6 +64,9 @@ public class TradeRecordDTO {
      */
     private BigDecimal profitPercentage;
 
+    private BigDecimal periods;
+
+    private BigDecimal profitPercentagePerPeriod;
     /**
      * 交易是否完成
      */
@@ -187,5 +190,21 @@ public class TradeRecordDTO {
 
     public void setMaxLoss(BigDecimal maxLoss) {
         this.maxLoss = maxLoss;
+    }
+
+    public BigDecimal getPeriods() {
+        return periods;
+    }
+
+    public void setPeriods(BigDecimal periods) {
+        this.periods = periods;
+    }
+
+    public BigDecimal getProfitPercentagePerPeriod() {
+        return profitPercentagePerPeriod;
+    }
+
+    public void setProfitPercentagePerPeriod(BigDecimal profitPercentagePerPeriod) {
+        this.profitPercentagePerPeriod = profitPercentagePerPeriod;
     }
 }

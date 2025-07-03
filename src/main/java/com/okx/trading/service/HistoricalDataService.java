@@ -15,6 +15,8 @@ import org.ta4j.core.BarSeries;
  */
 public interface HistoricalDataService {
 
+
+    List<String> calculateTimeRangePoints(LocalDateTime startTime, LocalDateTime endTime, String interval);
     /**
      * 根据时间范围获取并保存历史K线数据
      * 将自动分片、多线程获取并检查数据完整性
