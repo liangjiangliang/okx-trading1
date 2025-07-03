@@ -1184,6 +1184,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         // 如果结束时间在过去，无需调整
         if (endTime.isBefore(now.minusSeconds(1))) {
             return endTime;
+        } else {
+            endTime = now;
         }
         LocalDateTime adjustedEndTime = calculateLastCompletePeriodStart(endTime, interval);
         return endTime.isBefore(adjustedEndTime) ? endTime : adjustedEndTime;
