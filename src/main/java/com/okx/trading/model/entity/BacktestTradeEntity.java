@@ -129,7 +129,7 @@ public class BacktestTradeEntity {
      * 盈亏百分比（每周期）
      */
     @Column(name = "profit_percentage_per_period", precision = 10, scale = 4)
-    private BigDecimal prifitPercentagePerPeriod;
+    private BigDecimal profitPercentagePerPeriod;
 
     /**
      * 交易后的总资产
