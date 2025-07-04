@@ -327,13 +327,16 @@ public class BacktestMetricsCalculator {
                 // 实际盈亏（考虑手续费）
                 BigDecimal actualProfit = actualExitAmount.subtract(tradeAmount);
 
+                // 利润百分比
+                BigDecimal actualProfitPercentage = actualProfit.divide(tradeAmount, 4, RoundingMode.HALF_UP);
+
                 // 计算交易持续周期
                 int period = position.getExit().getIndex() - position.getEntry().getIndex() + 1;
 
                 // 计算每周期的利润率
                 BigDecimal profitPercentagePerPeriod = BigDecimal.ZERO;
                 if (period > 0) {
-                    profitPercentagePerPeriod = actualProfit.divide(BigDecimal.valueOf(period), 8, RoundingMode.HALF_UP);
+                    profitPercentagePerPeriod = actualProfitPercentage.divide(BigDecimal.valueOf(period), 8, RoundingMode.HALF_UP);
                 }
 
                 // 创建交易记录DTO
@@ -347,7 +350,7 @@ public class BacktestMetricsCalculator {
                 recordDTO.setEntryAmount(tradeAmount);
                 recordDTO.setExitAmount(actualExitAmount);
                 recordDTO.setProfit(actualProfit);
-                recordDTO.setProfitPercentage(profitPercentage);
+                recordDTO.setProfitPercentage(actualProfitPercentage);
                 recordDTO.setPeriods(BigDecimal.valueOf(period));
                 recordDTO.setProfitPercentagePerPeriod(profitPercentagePerPeriod);
                 recordDTO.setClosed(true);
