@@ -1,442 +1,370 @@
-# OKX Trading Intelligent Trading Strategy Backtesting System
+# OKX 智能交易策略回测系统
 
-## 🎯 Project Overview
+## 🎯 项目概述
 
-OKX Trading is an intelligent cryptocurrency trading strategy backtesting system developed with Java Spring Boot, integrating AI strategy generation, historical data backtesting, and performance analysis capabilities. The system supports automatic trading strategy generation through natural language descriptions, features 130+ pre-built technical analysis strategies, and provides detailed backtesting analysis results on historical candlestick data.
+OKX交易系统是一个基于Java Spring Boot开发的智能加密货币交易策略回测系统，集成了AI策略生成、历史数据回测和性能分析功能。系统支持通过自然语言描述自动生成交易策略，预内置130+技术分析策略，并在历史K线数据上提供详细的回测分析结果。
 
-## 🚀 Core Features
+## 🚀 核心功能
 
-### 🤖 AI Intelligent Strategy Generation
-- **Natural Language Strategy Generation**: Based on DeepSeek API, automatically generates Ta4j trading strategies through natural language descriptions
-- **Intelligent Strategy Understanding**: Supports understanding and parsing of complex strategy descriptions, such as "Trading strategy based on dual moving averages and RSI combination"
-- **Dynamic Compilation and Loading**: Real-time compilation of strategy code using Janino and Java Compiler API with dynamic loading
-- **Strategy Hot Reload**: Load new strategies without restarting the service, supports real-time strategy updates and deletion
-- **Multiple Compilation Methods**: Supports Janino, Java Compiler API, and intelligent selection of three compilation methods
-- **Strategy Management**: Complete strategy CRUD operations, supports strategy version control and historical tracking
+### 🤖 AI智能策略生成
+- **自然语言策略生成**：基于DeepSeek API，通过自然语言描述自动生成Ta4j交易策略
+- **智能策略理解**：支持理解和解析复杂的策略描述，如"基于双均线和RSI组合的交易策略"
+- **动态编译加载**：使用Janino和Java Compiler API进行实时策略代码编译和动态加载
+- **策略热重载**：无需重启服务即可加载新策略，支持策略的实时更新和删除
+- **多重编译方式**：支持Janino、Java Compiler API和三种编译方式的智能选择
+- **策略管理**：完整的策略CRUD操作，支持策略版本控制和历史追踪
 
-### 📊 Rich Strategy Library (130+ Strategies)
+### 📊 丰富的策略库 (130+ 策略)
 
-#### Moving Average Strategies (15 Types)
-- **Classic Moving Averages**: SMA, EMA, WMA, HMA and other basic moving averages
-- **Advanced Moving Averages**: KAMA adaptive, ZLEMA zero-lag, DEMA/TEMA multiple exponential smoothing
-- **Special Moving Averages**: VWAP volume-weighted, TRIMA triangular smoothing, T3 advanced smoothing
-- **Adaptive Moving Averages**: MAMA adaptive, VIDYA variable dynamic, Wilders smoothing
+#### 移动平均策略 (15种)
+- **经典移动平均**：SMA、EMA、WMA、HMA等基础移动平均
+- **高级移动平均**：KAMA自适应、ZLEMA零滞后、DEMA/TEMA多重指数平滑
+- **特殊移动平均**：VWAP成交量加权、TRIMA三角平滑、T3高级平滑
+- **自适应移动平均**：MAMA自适应、VIDYA变动态、Wilders平滑
 
-#### Oscillator Strategies (17 Types)
-- **Classic Indicators**: RSI, Stochastic, Williams %R, CCI
-- **Composite Indicators**: Stochastic RSI, CMO, ROC, PPO
-- **Advanced Indicators**: TRIX, Fisher Transform, EOM Ease of Movement
-- **Professional Indicators**: CHOP Choppiness Index, KVO Klinger Volume Oscillator, RVGI Relative Vigor
+#### 振荡器策略 (17种)
+- **经典指标**：RSI、随机指标、威廉指标、CCI
+- **复合指标**：随机RSI、CMO、ROC、PPO
+- **高级指标**：TRIX、Fisher变换、EOM易动性
+- **专业指标**：CHOP噪音指数、KVO克林格成交量振荡器、RVGI相对活力
 
-#### Trend Indicators (14 Types)
-- **Trend Confirmation**: MACD, ADX, Aroon, DMI
-- **Trend Following**: Supertrend, Parabolic SAR, Ichimoku Cloud
-- **Advanced Trend**: Vortex Indicator, QStick, Williams Alligator
-- **Mathematical Trend**: Hilbert Transform series
+#### 趋势指标 (14种)
+- **趋势确认**：MACD、ADX、Aroon、DMI
+- **趋势跟踪**：Supertrend、抛物线SAR、一目均衡表
+- **高级趋势**：涡流指标、QStick、威廉鳄鱼
+- **数学趋势**：希尔伯特变换系列
 
-#### Volatility Indicators (12 Types)
-- **Channel Indicators**: Bollinger Bands, Keltner Channel, Donchian Channels
-- **Volatility Measurement**: ATR, Ulcer Index, Standard Deviation, Volatility
-- **Advanced Volatility**: Mass Index, Squeeze, BBW Bollinger Band Width
-- **Special Volatility**: Chandelier Exit, NATR Normalized ATR
+#### 波动率指标 (12种)
+- **通道指标**：布林带、肯特纳通道、唐奇安通道
+- **波动率测量**：ATR、溃疡指数、标准差、波动率
+- **高级波动率**：质量指数、挤压、BBW布林带宽度
+- **特殊波动率**：吊灯止损、NATR标准化ATR
 
-#### Volume Indicators (12 Types)
-- **Classic Volume**: OBV On-Balance Volume, A/D Accumulation/Distribution Line, Mass Index
-- **Advanced Volume**: KDJ, AD/ADOSC Oscillators, PVI/NVI Positive/Negative Volume Index
-- **Volume Analysis**: VWMA Volume Weighted, VOSC Volume Oscillator, MarketFI Market Facilitation
+#### 成交量指标 (12种)
+- **经典成交量**：OBV能量潮、A/D累积分布线、质量指数
+- **高级成交量**：KDJ、AD/ADOSC振荡器、PVI/NVI正负成交量指数
+- **成交量分析**：VWMA成交量加权、VOSC成交量振荡器、MarketFI市场促进
 
-#### Candlestick Pattern Strategies (16 Types)
-- **Reversal Patterns**: Doji, Hammer, Shooting Star
-- **Engulfing Patterns**: Bullish/Bearish Engulfing
-- **Combination Patterns**: Morning/Evening Star, Piercing Line
-- **Special Patterns**: Three White Soldiers/Three Black Crows
+#### K线形态策略 (16种)
+- **反转形态**：十字星、锤子线、流星线
+- **吞没形态**：看涨/看跌吞没
+- **组合形态**：早晨之星/黄昏之星、穿刺线
+- **特殊形态**：三白兵/三黑鸦
 
-#### Statistical Function Strategies (8 Types)
-- **Correlation Analysis**: Beta coefficient, Pearson correlation coefficient
-- **Regression Analysis**: Linear regression, linear regression angle/slope/intercept
-- **Statistical Indicators**: Variance, time series forecasting, standard deviation
+#### 统计函数策略 (8种)
+- **相关性分析**：Beta系数、皮尔逊相关系数
+- **回归分析**：线性回归、线性回归角度/斜率/截距
+- **统计指标**：方差、时间序列预测、标准差
 
-#### Hilbert Transform Strategies (6 Types)
-- **Cycle Analysis**: Dominant cycle, dominant phase, trend mode
-- **Signal Processing**: Sine wave, phasor components, MESA sine wave
+#### 希尔伯特变换策略 (6种)
+- **周期分析**：主导周期、主导相位、趋势模式
+- **信号处理**：正弦波、相量分量、MESA正弦波
 
-#### Combination Strategies (20 Types)
-- **Classic Combinations**: Dual Thrust, Turtle Trading
-- **Trend Combinations**: Golden/Death Cross, Trend Following
-- **Composite Strategies**: Dual MA + RSI, MACD + Bollinger, Triple Screen
-- **Innovative Combinations**: Ichimoku Cloud Breakout, Elder Ray Force Analysis
+#### 组合策略 (20种)
+- **经典组合**：双重推力、海龟交易
+- **趋势组合**：金叉/死叉、趋势跟踪
+- **复合策略**：双均线+RSI、MACD+布林带、三重筛选
+- **创新组合**：一目均衡表突破、Elder Ray力度分析
 
-#### Advanced Strategy Library (50 Types)
-- **Adaptive Strategies**: Adaptive Bollinger Bands, Multi-timeframe MACD, Adaptive RSI
-- **Advanced Volume**: Klinger Oscillator, Chaikin Oscillator, Force Index
-- **Advanced Moving Averages**: Fractal Adaptive, Zero-lag EMA, Gaussian/Butterworth Filters
-- **Professional Indicators**: Rocket RSI, Connors RSI, Ultimate Oscillator
+#### 高级策略库 (50种)
+- **自适应策略**：自适应布林带、多时间框架MACD、自适应RSI
+- **高级成交量**：克林格振荡器、佳庆振荡器、力度指数
+- **高级移动平均**：分形自适应、零滞后EMA、高斯/巴特沃斯滤波器
+- **专业指标**：火箭RSI、康纳斯RSI、终极振荡器
 
-#### Innovative Strategy Set (40 Types)
-- **Machine Learning Inspired**: Neural Networks, Genetic Algorithms, Random Forest, SVM
-- **Quantitative Factors**: Momentum factor, Value factor, Quality factor, Low Volatility factor
-- **High-frequency Strategies**: Microstructure Imbalance, Intraday Mean Reversion, Statistical Arbitrage
-- **Risk Management**: Kelly Criterion, VaR Risk Management, Maximum Drawdown Control
+#### 创新策略集 (40种)
+- **机器学习启发**：神经网络、遗传算法、随机森林、SVM
+- **量化因子**：动量因子、价值因子、质量因子、低波动因子
+- **高频策略**：微观结构失衡、日内均值回归、统计套利
+- **风险管理**：凯利准则、VaR风险管理、最大回撤控制
 
-### 🔬 Advanced Backtesting System
+### 🔬 高级回测系统
 
-#### Multi-dimensional Backtesting Analysis
-- **Ta4j Integration**: Based on professional Ta4j technical analysis library, providing standardized backtesting framework
-- **Multiple Time Periods**: Supports backtesting with various candlestick periods from 1 minute to 1 month
-- **Batch Backtesting**: Supports batch backtesting of all strategies for strategy filtering and comparison
-- **Parallel Backtesting**: Supports multi-threaded parallel backtesting to improve efficiency
+#### 多维度回测分析
+- **Ta4j集成**：基于专业Ta4j技术分析库，提供标准化回测框架
+- **多时间周期**：支持1分钟到1个月各种K线周期的回测
+- **批量回测**：支持所有策略的批量回测，便于策略筛选和对比
+- **并行回测**：支持多线程并行回测，提高效率
 
-#### Rich Performance Indicators
-- **Return Indicators**: Total return, annualized return, absolute return, excess return
-- **Risk Indicators**: Maximum drawdown, Sharpe ratio, volatility, downside deviation
-- **Trading Indicators**: Win rate, profit-loss ratio, average holding time, trading frequency
-- **Advanced Indicators**: Calmar ratio, Sortino ratio, Information ratio, tracking error
+#### 丰富的性能指标
+- **收益指标**：总收益、年化收益、绝对收益、超额收益
+- **风险指标**：最大回撤、夏普比率、波动率、下行偏差
+- **交易指标**：胜率、盈亏比、平均持仓时间、交易频率
+- **高级指标**：卡尔玛比率、索提诺比率、信息比率、跟踪误差
 
-#### Detailed Trading Records
-- **Complete Records**: Saves buy/sell prices, times, and profit/loss for each trade
-- **Trading Analysis**: Provides trading distribution statistics, profit/loss analysis, holding period analysis
-- **Visualization Support**: Supports chart visualization and analysis of trading records
+#### 详细交易记录
+- **完整记录**：保存每笔交易的买入卖出价格、时间和盈亏
+- **交易分析**：提供交易分布统计、盈亏分析、持仓周期分析
+- **可视化支持**：支持交易记录的图表可视化分析
 
-### 💾 Data Management and Storage
+### 💾 数据管理与存储
 
-#### Historical Data Management
-- **OKX API Integration**: Automatically retrieves historical candlestick data from OKX exchange
-- **Multi-symbol Support**: Supports all trading pair data from OKX exchange
-- **Data Caching**: Redis cache optimization for improved data access performance
-- **Data Cleaning**: Automatic data cleaning and maintenance mechanisms
+#### 历史数据管理
+- **OKX API集成**：自动从OKX交易所获取历史K线数据
+- **多币种支持**：支持OKX交易所所有交易对数据
+- **数据缓存**：Redis缓存优化，提高数据访问性能
+- **数据清理**：自动化数据清理和维护机制
 
-#### Database Architecture
-- **MySQL Storage**: Uses MySQL to store strategy information, backtest results, and trading records
-- **Complete Architecture**: Includes strategy information table, backtest summary table, trade detail table
-- **Data Migration**: Liquibase manages database versions and migrations
-- **Performance Optimization**: Proper index design and query optimization
+#### 数据库架构
+- **MySQL存储**：使用MySQL存储策略信息、回测结果和交易记录
+- **完整架构**：包含策略信息表、回测摘要表、交易详情表
+- **数据迁移**：Liquibase管理数据库版本和迁移
+- **性能优化**：合理的索引设计和查询优化
 
-### 🔧 Technical Features
+### 🔧 技术特性
 
-#### System Architecture
-- **Microservice Design**: Modular design with independent and scalable functional modules
-- **Asynchronous Processing**: Supports asynchronous backtesting and data processing for improved system responsiveness
-- **Containerized Deployment**: Docker + Docker Compose support for easy deployment and scaling
-- **Configuration Management**: Flexible configuration management supporting multi-environment deployment
+#### 系统架构
+- **微服务设计**：模块化设计，功能模块独立且可扩展
+- **异步处理**：支持异步回测和数据处理，提高系统响应性
+- **容器化部署**：Docker + Docker Compose支持，便于部署和扩展
+- **配置管理**：灵活的配置管理，支持多环境部署
 
-#### Development Features
-- **Code Quality**: Complete unit test coverage, standardized code structure
-- **Complete Documentation**: Swagger API documentation, detailed code comments
-- **Hot Reload**: JRebel support for instant code changes during development
-- **Log Management**: Comprehensive logging system with hierarchical logging and log analysis
+#### 开发特性
+- **代码质量**：完整的单元测试覆盖，规范的代码结构
+- **完整文档**：Swagger API文档，详细的代码注释
+- **热重载**：JRebel支持，开发期间代码即时更改
+- **日志管理**：完善的日志系统，分级记录和日志分析
 
-## 🛠 Technology Stack
+## 🛠 技术栈
 
-### Backend Framework
-- **Spring Boot 2.7.8**: Core framework
-- **Java 8**: Development language
-- **Maven**: Project management and build tool
+### 后端框架
+- **Spring Boot 2.7.8**：核心框架
+- **Java 8**：开发语言
+- **Maven**：项目管理和构建工具
 
-### Data Storage
-- **MySQL 8.0**: Primary database
-- **Redis 6.0+**: Cache database
-- **Liquibase**: Database version management
+### 数据存储
+- **MySQL 8.0**：主要数据库
+- **Redis 6.0+**：缓存数据库
+- **Liquibase**：数据库版本管理
 
-### Technical Analysis
-- **Ta4j 0.14**: Professional technical analysis library
-- **Janino**: Dynamic code compilation
-- **Java Compiler API**: Advanced code compilation
+### 技术分析
+- **Ta4j 0.14**：专业技术分析库
+- **Janino**：动态代码编译
+- **Java Compiler API**：高级代码编译
 
-### AI Integration
-- **DeepSeek API**: AI strategy generation
-- **Natural Language Processing**: Strategy description parsing
-- **Intelligent Compilation**: Automatic selection of multiple compilation methods
+### AI集成
+- **DeepSeek API**：AI策略生成
+- **自然语言处理**：策略描述解析
+- **智能编译**：多种编译方式的自动选择
 
-### Network Communication
-- **OkHttp3 4.9.3**: HTTP client
-- **WebSocket**: Real-time data acquisition
-- **RESTful API**: Standard API interfaces
+### 网络通信
+- **OkHttp3 4.9.3**：HTTP客户端
+- **WebSocket**：实时数据获取
+- **RESTful API**：标准API接口
 
-### Deployment and Operations
-- **Docker**: Containerized deployment
-- **Docker Compose**: Multi-container orchestration
-- **Nginx**: Reverse proxy (optional)
+### 部署运维
+- **Docker**：容器化部署
+- **Docker Compose**：多容器编排
+- **Nginx**：反向代理(可选)
 
-## 📚 Detailed Feature Documentation
+## 📈 高级风险指标系统
 
-### AI Strategy Generation Workflow
+### 新增风险指标 (15个)
+- **峰度 (kurtosis)**：衡量收益率分布的尾部风险
+- **条件风险价值 (cvar)**：极端损失的期望值
+- **风险价值 (var95, var99)**：95%和99%置信度下的风险价值
+- **信息比率 (informationRatio)**：超额收益相对于跟踪误差的比率
+- **跟踪误差 (trackingError)**：策略与基准收益率的标准差
+- **Sterling比率 (sterlingRatio)**：年化收益与平均最大回撤的比率
+- **Burke比率 (burkeRatio)**：年化收益与平方根回撤的比率
+- **修正夏普比率 (modifiedSharpeRatio)**：考虑偏度和峰度的夏普比率
+- **下行偏差 (downsideDeviation)**：只考虑负收益的标准差
+- **上涨捕获率 (uptrendCapture)**：基准上涨时策略的表现
+- **下跌捕获率 (downtrendCapture)**：基准下跌时策略的表现
+- **最大回撤持续期 (maxDrawdownDuration)**：从峰值到恢复的最长时间
+- **痛苦指数 (painIndex)**：回撤深度与持续时间的综合指标
+- **风险调整收益 (riskAdjustedReturn)**：综合多种风险因素的收益评估
 
-#### 1. Strategy Description Parsing
-```
-User Input: "RSI overbought/oversold strategy, buy when RSI below 30, sell when above 70"
-         ↓
-DeepSeek API parsing
-         ↓
-Generate Ta4j strategy code
-         ↓
-Dynamic compilation and loading into system
-```
+### 综合评分系统
+- **科学评分体系**：0-10分的科学评分体系
+- **四个维度评估**：收益表现、风险控制、交易质量、稳定性
+- **权重分配**：收益表现40%、风险控制30%、交易质量20%、稳定性10%
 
-#### 2. Supported Strategy Description Types
-- **Basic Indicator Strategies**: RSI, MACD, Bollinger Bands, etc.
-- **Combination Strategies**: Multi-indicator combinations, different timeframe combinations
-- **Custom Logic**: Complex buy/sell conditions and risk control
-- **Parameterized Strategies**: Strategy templates supporting parameter customization
+## 🌐 动态指标分布评分系统
 
-#### 3. Intelligent Compilation System
-- **Three Compilation Methods**:
-  - `DynamicStrategyService`: Lightweight compilation based on Janino
-  - `JavaCompilerDynamicStrategyService`: Standard compilation based on Java Compiler API
-  - `SmartDynamicStrategyService`: Intelligent selection of optimal compilation method
-- **Error Handling**: Comprehensive compilation error handling and user feedback
-- **Performance Optimization**: Compilation result caching to avoid repeated compilation
+### 系统特点
+- **数据驱动**：基于6000个真实回测样本的分布情况
+- **动态阈值**：避免固定阈值的主观性和局限性
+- **分位数评分**：采用分位数划分区间，确保评分的均匀分布
+- **多维度评估**：收益、风险、质量、稳定性四个维度综合评估
 
-### Backtesting System Details
+### API接口
+- **指标分布统计**：`GET /api/backtest/ta4j/indicator-distribution-details`
+- **动态评分计算**：`POST /api/backtest/ta4j/calculate-dynamic-score`
 
-#### 1. Backtesting Execution Flow
-```
-Select Strategy → Set Parameters → Get Historical Data → Execute Backtest → Generate Report → Save Results
-```
+### 评分等级
+- **9.0-10.0分**：优秀策略 - 各项指标均表现卓越，风险控制良好
+- **8.0-8.9分**：良好策略 - 收益风险平衡较好，值得关注
+- **7.0-7.9分**：中上策略 - 整体表现良好，但某些指标有提升空间
+- **6.0-6.9分**：中等策略 - 表现平均，需要进一步优化
+- **5.0-5.9分**：中下策略 - 表现一般，存在明显改进空间
+- **4.0-4.9分**：较差策略 - 风险收益比不理想，需要重新评估
 
-#### 2. Data Acquisition and Processing
-- **Real-time Acquisition**: Real-time retrieval of latest candlestick data from OKX API
-- **Data Validation**: Integrity checks, outlier processing
-- **Format Conversion**: Raw data conversion to Ta4j BarSeries format
-- **Caching Strategy**: Intelligent caching to reduce API calls
+## 🔗 WebSocket连接优化
 
-#### 3. Performance Analysis Algorithms
-- **Statistical Indicator Calculation**: Based on strict financial mathematical formulas
-- **Risk Measurement**: VaR, CVaR, maximum drawdown and other risk indicators
-- **Benchmark Comparison**: Comparative analysis with buy-and-hold strategy
-- **Segmented Analysis**: Supports segmented performance analysis by year, month, week
+### 连接优化策略
+- **差异化检测**：不同频道采用不同的连接检测策略
+- **智能重连**：基于连接状态和频道特性的智能重连机制
+- **状态管理**：使用ConcurrentHashMap管理重连状态，防止并发重连
+- **延迟策略**：优化重连延迟策略，提高连接成功率
 
-### Strategy Management System
+### K线重新订阅解决方案
+- **重连事件监听**：WebSocket重连后自动触发K线重新订阅
+- **状态持久化**：订阅状态保存在Redis中，支持应用重启后恢复
+- **批量处理**：支持批量重新订阅，提高处理效率
+- **异步执行**：使用异步处理避免阻塞主线程
 
-#### 1. Strategy Registration Center
-- **StrategyRegisterCenter**: Unified strategy registration and management center
-- **Dynamic Loading**: Supports runtime dynamic addition, modification, deletion of strategies
-- **Version Control**: Strategy version management and rollback mechanisms
-- **Dependency Management**: Inter-strategy dependency relationship management
+## 🚀 快速开始
 
-#### 2. Strategy Classification System
-- **By Indicator Type**: Moving averages, oscillators, trend indicators, etc.
-- **By Trading Style**: Trend following, mean reversion, breakout strategies, etc.
-- **By Complexity**: Basic strategies, advanced strategies, professional strategies
-- **By Time Frame**: Ultra-short, short-term, medium-term, long-term strategies
+### 环境要求
+- Java 8+
+- MySQL 8.0+
+- Redis 6.0+
+- Maven 3.6+
+- Docker & Docker Compose (可选)
 
-#### 3. Strategy Rating System
-- **Historical Performance Rating**: Comprehensive scoring based on historical backtesting performance
-- **Risk Level Classification**: Low risk, medium risk, high risk classification
-- **Applicability Assessment**: Applicability scoring under different market environments
-- **Recommendation Index**: Comprehensive recommendation index considering returns, risk, stability
+### 本地开发部署
 
-## 🎯 Use Cases
-
-### Individual Investors
-- **Strategy Learning**: Learn implementation principles of various technical analysis strategies
-- **Strategy Validation**: Validate your own trading ideas and strategy effectiveness
-- **Parameter Optimization**: Find optimal strategy parameter combinations
-- **Risk Assessment**: Understand risk-return characteristics of strategies
-
-### Professional Traders
-- **Strategy Development**: Rapidly develop and test new trading strategies
-- **Portfolio Optimization**: Build and optimize strategy portfolios
-- **Risk Management**: Comprehensive risk assessment and control
-- **Live Trading Guidance**: Provide decision support for live trading
-
-### Quantitative Teams
-- **Strategy Research**: Large-scale strategy research and development
-- **Factor Mining**: Discover new trading signals and factors
-- **Backtesting Platform**: Build professional backtesting and research platforms
-- **Algorithmic Trading**: Provide strategy support for algorithmic trading systems
-
-### Education and Training
-- **Technical Analysis Teaching**: Intuitively demonstrate the effects of various technical indicators
-- **Strategy Education**: Help learners understand principles of different strategies
-- **Practical Training**: Provide safe strategy practice environment
-- **Case Analysis**: Rich historical cases and analysis
-
-## 🚦 Quick Start
-
-### Environment Requirements
-- **Java 8+**
-- **MySQL 8.0+**
-- **Redis 6.0+**
-- **Maven 3.6+**
-
-### Installation Steps
-
-1. **Clone Project**
+1. **克隆项目**
 ```bash
 git clone https://github.com/your-repo/okx-trading.git
 cd okx-trading
 ```
 
-2. **Configure Database**
-```sql
-CREATE DATABASE okx_trading;
-```
-
-3. **Configure Environment Variables**
+2. **配置数据库**
 ```bash
-export MYSQL_PASSWORD=your_mysql_password
-export DEEPSEEK_API_KEY=your_deepseek_api_key
+# 启动MySQL和Redis
+docker-compose up -d mysql redis
+
+# 或使用现有数据库，修改application.properties
 ```
 
-4. **Start Service**
+3. **配置参数**
+```properties
+# src/main/resources/application.properties
+spring.datasource.url=jdbc:mysql://localhost:3306/okx_trading
+spring.datasource.username=root
+spring.datasource.password=your_password
+
+spring.redis.host=localhost
+spring.redis.port=6379
+
+# OKX API配置
+okx.api.key=your_api_key
+okx.api.secret=your_api_secret
+okx.api.passphrase=your_passphrase
+```
+
+4. **启动应用**
 ```bash
 mvn spring-boot:run
 ```
 
-5. **Access System**
-- Application URL: http://localhost:8088
-- Swagger Documentation: http://localhost:8088/swagger-ui.html
+5. **访问系统**
+- API文档：http://localhost:8088/swagger-ui.html
+- 健康检查：http://localhost:8088/actuator/health
 
-### Docker Deployment
+### Docker部署
 
 ```bash
-# Build image
-docker-compose build
-
-# Start service
+# 构建并启动所有服务
 docker-compose up -d
 
-# View logs
-docker-compose logs -f
+# 查看日志
+docker-compose logs -f app
 ```
 
-## 📖 API Usage Guide
+## 📚 API文档
 
-### AI Strategy Generation
+### 策略管理
+- `GET /api/strategy/list` - 获取策略列表
+- `POST /api/strategy/generate` - AI生成策略
+- `PUT /api/strategy/update` - 更新策略
+- `DELETE /api/strategy/{id}` - 删除策略
+
+### 回测分析
+- `POST /api/backtest/ta4j/run` - 单策略回测
+- `POST /api/backtest/ta4j/run-all` - 批量回测
+- `GET /api/backtest/results/{id}` - 获取回测结果
+- `GET /api/backtest/ta4j/indicator-distribution-details` - 指标分布统计
+
+### 市场数据
+- `GET /api/market/candlestick` - 获取K线数据
+- `POST /api/market/subscribe` - 订阅实时数据
+- `DELETE /api/market/unsubscribe` - 取消订阅
+
+### 动态评分
+- `POST /api/backtest/ta4j/calculate-dynamic-score` - 计算动态评分
+
+## 🧪 测试说明
+
+### 新增风险指标测试
+1. **单个策略回测测试**
 ```bash
-# Generate single strategy
-curl -X POST "http://localhost:8088/api/backtest/ta4j/generate-strategy" \
-  -H "Content-Type: application/json" \
-  -d '"RSI overbought/oversold strategy, buy when RSI below 30, sell when above 70"'
-
-# Batch generate strategies
-curl -X POST "http://localhost:8088/api/backtest/ta4j/generate-strategy" \
-  -H "Content-Type: application/json" \
-  -d '"Dual moving average crossover strategy
-MACD golden cross/death cross strategy
-Bollinger Bands breakout strategy"'
+curl -X POST "http://localhost:8088/api/backtest/ta4j/run?endTime=2025-01-01%2000%3A00%3A00&initialAmount=10000&interval=1D&saveResult=true&startTime=2024-01-01%2000%3A00%3A00&strategyType=SMA&symbol=BTC-USDT"
 ```
 
-### Strategy Backtesting
+2. **批量策略回测测试**
 ```bash
-# Single strategy backtest
-curl "http://localhost:8088/api/backtest/ta4j/run?symbol=BTC-USDT&interval=1h&startTime=2023-01-01%2000:00:00&endTime=2023-12-31%2023:59:59&strategyType=RSI&initialAmount=100000&saveResult=true"
-
-# Batch backtest
-curl "http://localhost:8088/api/backtest/ta4j/run-all?symbol=BTC-USDT&interval=1d&startTime=2023-01-01%2000:00:00&endTime=2023-12-31%2023:59:59&initialAmount=100000&saveResult=true&threadCount=8"
+curl -X POST "http://localhost:8088/api/backtest/ta4j/run-all?startTime=2024-01-01%2000%3A00%3A00&endTime=2024-12-01%2000%3A00%3A00&initialAmount=10000&symbol=BTC-USDT&interval=1D&saveResult=true&feeRatio=0.001"
 ```
 
-### Strategy Management
+### 数据库迁移
 ```bash
-# Get strategy list
-curl "http://localhost:8088/api/backtest/ta4j/strategies"
-
-# Get strategy details
-curl "http://localhost:8088/api/backtest/ta4j/strategy/RSI"
-
-# Delete strategy
-curl -X DELETE "http://localhost:8088/api/backtest/ta4j/delete-strategy/AI_STRATEGY_001"
+mysql -u root -p okx_trading < src/main/resources/migration_add_risk_indicators.sql
 ```
 
-### Result Queries
-```bash
-# Get backtest history
-curl "http://localhost:8088/api/backtest/ta4j/summaries"
+## 📊 性能监控
 
-# Get specific backtest details
-curl "http://localhost:8088/api/backtest/ta4j/detail/{backtestId}"
+### 日志配置
+- 应用日志：`logs/all/`
+- API日志：`logs/api/`
+- 错误日志：`logs/error/`
 
-# Get batch backtest statistics
-curl "http://localhost:8088/api/backtest/ta4j/summaries/batch-statistics"
-```
+### 监控指标
+- WebSocket连接状态
+- 回测执行性能
+- 数据库查询性能
+- Redis缓存命中率
+- API调用频率
 
-## 🔍 Strategy Performance Examples
+## 🔒 安全配置
 
-### Classic Strategy Performance (BTC-USDT, 2023 Data)
+### API安全
+- OKX API密钥加密存储
+- 请求签名验证
+- 频率限制控制
 
-| Strategy Name | Annual Return | Sharpe Ratio | Max Drawdown | Win Rate | Trade Count |
-|---------------|---------------|--------------|--------------|----------|-------------|
-| Dual Thrust | 45.2% | 1.68 | -12.3% | 58% | 156 |
-| Turtle Trading | 38.7% | 1.42 | -15.8% | 52% | 28 |
-| MACD | 31.5% | 1.25 | -18.2% | 55% | 42 |
-| RSI | 28.9% | 1.15 | -16.7% | 61% | 73 |
-| Bollinger Bands | 35.6% | 1.33 | -14.1% | 59% | 84 |
+### 数据安全
+- 数据库连接加密
+- 敏感信息脱敏
+- 访问权限控制
 
-### AI-Generated Strategy Performance
+## 🤝 贡献指南
 
-| Strategy Description | Annual Return | Sharpe Ratio | Max Drawdown | Rating |
-|---------------------|---------------|--------------|--------------|--------|
-| "Dual MA RSI combo trading strategy" | 42.3% | 1.55 | -11.2% | ★★★★★ |
-| "Volume breakout confirmation momentum strategy" | 38.1% | 1.48 | -13.5% | ★★★★☆ |
-| "Multi-timeframe MACD trend strategy" | 35.7% | 1.39 | -12.8% | ★★★★☆ |
+### 开发流程
+1. Fork项目
+2. 创建功能分支
+3. 提交更改
+4. 创建Pull Request
 
-## 🎨 System Features
+### 代码规范
+- 遵循Java编码规范
+- 添加必要的单元测试
+- 更新相关文档
+- 保持代码质量
 
-### 1. Intelligence
-- **AI-Driven**: Strategy generation based on advanced AI technology
-- **Auto-Optimization**: Automatic strategy parameter optimization and adjustment
-- **Smart Selection**: Intelligent selection of optimal strategies based on market conditions
+## 📄 许可证
 
-### 2. Professionalism
-- **Rich Strategy Library**: 130+ professional technical analysis strategies
-- **Rigorous Backtesting**: Professional backtesting framework based on Ta4j
-- **Comprehensive Indicators**: Performance indicators covering returns, risk, and trading dimensions
+本项目采用MIT许可证，详见LICENSE文件。
 
-### 3. Usability
-- **Natural Language**: Supports natural language description for strategy generation
-- **Graphical Interface**: Intuitive web interface and API documentation
-- **Plug and Play**: One-click Docker deployment, quick to get started
+## 🙋‍♂️ 支持与反馈
 
-### 4. Scalability
-- **Modular Design**: Independent functional modules, easy to extend
-- **Open Architecture**: Supports custom strategies and indicators
-- **Diverse Interfaces**: RESTful API, easy to integrate
-
-### 5. Reliability
-- **Enterprise-grade**: Enterprise-level architecture based on Spring Boot
-- **High Availability**: Supports cluster deployment and load balancing
-- **Data Security**: Comprehensive data backup and recovery mechanisms
-
-## 📈 Development Roadmap
-
-### Near-term Plans
-- [ ] Frontend React interface development improvement
-- [ ] More AI model integration (GPT, Claude, etc.)
-- [ ] Real-time strategy execution engine
-- [ ] Mobile APP development
-
-### Medium-term Plans
-- [ ] Machine learning model training platform
-- [ ] Multi-exchange data support
-- [ ] Community strategy sharing platform
-- [ ] Strategy performance competition system
-
-### Long-term Vision
-- [ ] Fully automated trading platform
-- [ ] Intelligent investment advisory system
-- [ ] Decentralized strategy marketplace
-- [ ] Blockchain strategy certification
-
-## 🤝 Contributing Guide
-
-Welcome to contribute to the project! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
-
-### Ways to Contribute
-- **Bug Reports**: Submit issues when you find problems
-- **Feature Suggestions**: New feature ideas are welcome for discussion
-- **Code Contributions**: Fork the project and submit Pull Requests
-- **Documentation Improvements**: Help improve project documentation
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## 📞 Contact Us
-
-- **GitHub Issues**: [Project Issues Page](https://github.com/your-repo/okx-trading/issues)
-- **Email**: ralph_jungle@163.com
-- **WeChat Group**: Scan QR code to join technical discussion group
+如有问题或建议，请：
+1. 提交GitHub Issue
+2. 查看项目Wiki
+3. 联系项目维护者
 
 ---
 
-**⭐ If this project helps you, please give us a Star!**
+**OKX智能交易策略回测系统** - 让量化交易更智能，让策略开发更简单！
