@@ -2,8 +2,10 @@ package com.okx.trading.service.impl;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
+import com.okx.trading.model.entity.BacktestEquityCurveEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.BacktestTradeEntity;
+import com.okx.trading.repository.BacktestEquityCurveRepository;
 import com.okx.trading.repository.BacktestSummaryRepository;
 import com.okx.trading.repository.BacktestTradeRepository;
 import com.okx.trading.service.BacktestTradeService;
@@ -18,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 回测交易服务实现类
@@ -29,13 +32,16 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
 
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestSummaryRepository backtestSummaryRepository;
+    private final BacktestEquityCurveRepository backtestEquityCurveRepository;
     private Ta4jBacktestService ta4jBacktestService;
 
     @Autowired
     public BacktestTradeServiceImpl(BacktestTradeRepository backtestTradeRepository,
-                                    BacktestSummaryRepository backtestSummaryRepository) {
+                                    BacktestSummaryRepository backtestSummaryRepository,
+                                    BacktestEquityCurveRepository backtestEquityCurveRepository) {
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestSummaryRepository = backtestSummaryRepository;
+        this.backtestEquityCurveRepository = backtestEquityCurveRepository;
     }
 
     @Override
@@ -243,5 +249,36 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     @Override
     public List<BacktestSummaryEntity> getBacktestSummariesByBatchId(String batchBacktestId) {
         return backtestSummaryRepository.findByBatchBacktestIdOrderByTotalReturnDesc(batchBacktestId);
+    }
+
+    @Override
+    @Transactional
+    public void saveBacktestEquityCurve(String backtestId, List<BigDecimal> equityCurveData, List<LocalDateTime> timestamps) {
+        if (backtestId == null || backtestId.isEmpty() || equityCurveData == null || equityCurveData.isEmpty() || 
+            timestamps == null || timestamps.isEmpty() || equityCurveData.size() != timestamps.size()) {
+            logger.warn("保存资金曲线数据失败：参数无效");
+            return;
+        }
+
+        // 先删除已有数据
+        backtestEquityCurveRepository.deleteByBacktestId(backtestId);
+
+        // 批量保存数据
+        List<BacktestEquityCurveEntity> entities = IntStream.range(0, equityCurveData.size())
+                .mapToObj(i -> BacktestEquityCurveEntity.builder()
+                        .backtestId(backtestId)
+                        .equityValue(equityCurveData.get(i))
+                        .timestamp(timestamps.get(i))
+                        .indexPosition(i)
+                        .build())
+                .collect(Collectors.toList());
+
+        backtestEquityCurveRepository.saveAll(entities);
+        logger.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, equityCurveData.size());
+    }
+
+    @Override
+    public List<BacktestEquityCurveEntity> getEquityCurveByBacktestId(String backtestId) {
+        return backtestEquityCurveRepository.findByBacktestIdOrderByTimestampAsc(backtestId);
     }
 }

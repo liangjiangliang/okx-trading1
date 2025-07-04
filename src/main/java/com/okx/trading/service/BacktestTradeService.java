@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
+import com.okx.trading.model.entity.BacktestEquityCurveEntity;
 import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.BacktestTradeEntity;
 import reactor.util.function.Tuple2;
@@ -66,6 +67,23 @@ public interface BacktestTradeService {
                                               LocalDateTime endTime,
                                               String backtestId,
                                               String batchBacktestId);
+
+    /**
+     * 保存回测资金曲线数据
+     *
+     * @param backtestId 回测ID
+     * @param equityCurveData 资金曲线数据
+     * @param timestamps 对应的时间戳列表
+     */
+    void saveBacktestEquityCurve(String backtestId, List<java.math.BigDecimal> equityCurveData, List<LocalDateTime> timestamps);
+
+    /**
+     * 根据回测ID获取资金曲线数据
+     *
+     * @param backtestId 回测ID
+     * @return 资金曲线数据列表
+     */
+    List<BacktestEquityCurveEntity> getEquityCurveByBacktestId(String backtestId);
 
     /**
      * 根据回测ID查询交易记录列表

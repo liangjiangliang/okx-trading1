@@ -854,57 +854,71 @@ public class BacktestMetricsCalculator {
      * 构建最终结果
      */
     private BacktestResultDTO buildFinalResult() {
-        BacktestResultDTO result = new BacktestResultDTO();
-        result.setSuccess(true);
-        result.setInitialAmount(initialAmount);
-        result.setFinalAmount(tradeStats.finalAmount);
-        result.setTotalProfit(tradeStats.totalProfit);
-        result.setTotalReturn(returnMetrics.totalReturn);
-        result.setAnnualizedReturn(returnMetrics.annualizedReturn);
-        result.setNumberOfTrades(tradeStats.tradeCount);
-        result.setProfitableTrades(tradeStats.profitableTrades);
-        result.setUnprofitableTrades(tradeStats.tradeCount - tradeStats.profitableTrades);
-        result.setWinRate(tradeStats.winRate);
-        result.setAverageProfit(tradeStats.averageProfit);
-        result.setMaxDrawdown(tradeStats.maxDrawdown);
-        result.setSharpeRatio(riskMetrics.sharpeRatio);
-        result.setSortinoRatio(riskMetrics.sortinoRatio);
-        result.setCalmarRatio(riskMetrics.calmarRatio);
-        result.setOmega(riskMetrics.omega);
-        result.setAlpha(riskMetrics.alphaBeta[0]);
-        result.setBeta(riskMetrics.alphaBeta[1]);
-        result.setTreynorRatio(riskMetrics.treynorRatio);
-        result.setUlcerIndex(riskMetrics.ulcerIndex);
-        result.setSkewness(riskMetrics.skewness);
-        result.setMaximumLoss(tradeStats.maximumLoss);
-        result.setVolatility(riskMetrics.volatility);
-        result.setProfitFactor(tradeStats.profitFactor);
-        result.setStrategyName(strategyType);
-        result.setParameterDescription(paramDescription);
-        result.setTrades(tradeRecords);
-        result.setTotalFee(tradeStats.totalFee);
+        BacktestResultDTO finalResult = new BacktestResultDTO();
+        finalResult.setSuccess(true);
+        finalResult.setInitialAmount(initialAmount);
+        finalResult.setFinalAmount(tradeStats.finalAmount);
+        finalResult.setTotalProfit(tradeStats.totalProfit);
+        finalResult.setTotalReturn(returnMetrics.totalReturn);
+        finalResult.setAnnualizedReturn(returnMetrics.annualizedReturn);
+        finalResult.setNumberOfTrades(tradeStats.tradeCount);
+        finalResult.setProfitableTrades(tradeStats.profitableTrades);
+        finalResult.setUnprofitableTrades(tradeStats.tradeCount - tradeStats.profitableTrades);
+        finalResult.setWinRate(tradeStats.winRate);
+        finalResult.setAverageProfit(tradeStats.averageProfit);
+        finalResult.setMaxDrawdown(tradeStats.maxDrawdown);
+        finalResult.setSharpeRatio(riskMetrics.sharpeRatio);
+        finalResult.setSortinoRatio(riskMetrics.sortinoRatio);
+        finalResult.setCalmarRatio(riskMetrics.calmarRatio);
+        finalResult.setMaximumLoss(tradeStats.maximumLoss);
+        finalResult.setVolatility(riskMetrics.volatility);
+        finalResult.setProfitFactor(tradeStats.profitFactor);
+        finalResult.setTrades(tradeRecords);
+        finalResult.setStrategyName(strategyType);
+        finalResult.setParameterDescription(paramDescription);
+        finalResult.setTotalFee(tradeStats.totalFee);
 
-        // 设置新增的风险指标
-        result.setKurtosis(riskMetrics.kurtosis);
-        result.setCvar(riskMetrics.cvar);
-        result.setVar95(riskMetrics.var95);
-        result.setVar99(riskMetrics.var99);
-        result.setInformationRatio(riskMetrics.informationRatio);
-        result.setTrackingError(riskMetrics.trackingError);
-        result.setSterlingRatio(riskMetrics.sterlingRatio);
-        result.setBurkeRatio(riskMetrics.burkeRatio);
-        result.setModifiedSharpeRatio(riskMetrics.modifiedSharpeRatio);
-        result.setDownsideDeviation(riskMetrics.downsideDeviation);
-        result.setUptrendCapture(riskMetrics.uptrendCapture);
-        result.setDowntrendCapture(riskMetrics.downtrendCapture);
-        result.setMaxDrawdownDuration(riskMetrics.maxDrawdownDuration);
-        result.setPainIndex(riskMetrics.painIndex);
-        result.setRiskAdjustedReturn(riskMetrics.riskAdjustedReturn);
+        // 设置新增指标
+        finalResult.setOmega(riskMetrics.omega);
+        finalResult.setAlpha(riskMetrics.alphaBeta != null ? riskMetrics.alphaBeta[0] : BigDecimal.ZERO);
+        finalResult.setBeta(riskMetrics.alphaBeta != null ? riskMetrics.alphaBeta[1] : BigDecimal.ZERO);
+        finalResult.setTreynorRatio(riskMetrics.treynorRatio);
+        finalResult.setUlcerIndex(riskMetrics.ulcerIndex);
+        finalResult.setSkewness(riskMetrics.skewness);
+
+        // 设置高级风险指标
+        finalResult.setKurtosis(riskMetrics.kurtosis);
+        finalResult.setCvar(riskMetrics.cvar);
+        finalResult.setVar95(riskMetrics.var95);
+        finalResult.setVar99(riskMetrics.var99);
+        finalResult.setInformationRatio(riskMetrics.informationRatio);
+        finalResult.setTrackingError(riskMetrics.trackingError);
+        finalResult.setSterlingRatio(riskMetrics.sterlingRatio);
+        finalResult.setBurkeRatio(riskMetrics.burkeRatio);
+        finalResult.setModifiedSharpeRatio(riskMetrics.modifiedSharpeRatio);
+        finalResult.setDownsideDeviation(riskMetrics.downsideDeviation);
+        finalResult.setUptrendCapture(riskMetrics.uptrendCapture);
+        finalResult.setDowntrendCapture(riskMetrics.downtrendCapture);
+        finalResult.setMaxDrawdownDuration(riskMetrics.maxDrawdownDuration);
+        finalResult.setPainIndex(riskMetrics.painIndex);
+        finalResult.setRiskAdjustedReturn(riskMetrics.riskAdjustedReturn);
 
         // 设置综合评分
-        result.setComprehensiveScore(riskMetrics.comprehensiveScore);
+        finalResult.setComprehensiveScore(riskMetrics.comprehensiveScore);
 
-        return result;
+        // 设置资金曲线数据
+        if (strategyEquityCurve != null && !strategyEquityCurve.isEmpty()) {
+            finalResult.setEquityCurve(strategyEquityCurve);
+            
+            // 生成对应的时间戳列表
+            List<LocalDateTime> timestamps = new ArrayList<>();
+            for (int i = 0; i < series.getBarCount(); i++) {
+                timestamps.add(series.getBar(i).getEndTime().toLocalDateTime());
+            }
+            finalResult.setEquityCurveTimestamps(timestamps);
+        }
+
+        return finalResult;
     }
 
     /**

@@ -201,6 +201,13 @@ public class Ta4jBacktestController {
                 // 保存汇总信息
                 backtestTradeService.saveBacktestSummary(result, strategyParams, symbol, interval, startTime, endTime, backtestId);
 
+                // 保存资金曲线数据
+                if (result.getEquityCurve() != null && !result.getEquityCurve().isEmpty() &&
+                    result.getEquityCurveTimestamps() != null && !result.getEquityCurveTimestamps().isEmpty()) {
+                    backtestTradeService.saveBacktestEquityCurve(backtestId, result.getEquityCurve(), result.getEquityCurveTimestamps());
+                    log.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, result.getEquityCurve().size());
+                }
+
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");
 
                 // 打印回测ID信息
@@ -336,6 +343,13 @@ public class Ta4jBacktestController {
                                 // 保存交易明细
                                 String backtestId = backtestTradeService.saveBacktestTrades(symbol, result, defaultParams);
                                 result.setBacktestId(backtestId);
+
+                                // 保存资金曲线数据
+                                if (result.getEquityCurve() != null && !result.getEquityCurve().isEmpty() &&
+                                        result.getEquityCurveTimestamps() != null && !result.getEquityCurveTimestamps().isEmpty()) {
+                                    backtestTradeService.saveBacktestEquityCurve(backtestId, result.getEquityCurve(), result.getEquityCurveTimestamps());
+                                    log.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, result.getEquityCurve().size());
+                                }
 
                                 // 保存汇总信息，包含批量回测ID
                                 backtestTradeService.saveBacktestSummary(
@@ -1048,6 +1062,34 @@ public class Ta4jBacktestController {
         } catch (Exception e) {
             log.error("删除策略失败: {}", e.getMessage(), e);
             return ApiResponse.error(500, "删除策略失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/equity-curve/{backtestId}")
+    @ApiOperation(value = "获取回测资金曲线数据", notes = "根据回测ID获取资金曲线数据")
+    public ApiResponse<List<Map<String, Object>>> getBacktestEquityCurve(
+            @ApiParam(value = "回测ID", required = true, type = "string") @PathVariable String backtestId) {
+        try {
+            List<BacktestEquityCurveEntity> equityCurveData = backtestTradeService.getEquityCurveByBacktestId(backtestId);
+
+            if (equityCurveData == null || equityCurveData.isEmpty()) {
+                return ApiResponse.error(404, "未找到指定回测ID的资金曲线数据");
+            }
+
+            // 转换为前端需要的格式
+            List<Map<String, Object>> result = equityCurveData.stream()
+                    .map(data -> {
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("timestamp", data.getTimestamp());
+                        item.put("value", data.getEquityValue());
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取资金曲线数据时发生错误: {}", e.getMessage(), e);
+            return ApiResponse.error(500, "获取资金曲线数据时发生错误: " + e.getMessage());
         }
     }
 }

@@ -233,3 +233,16 @@ CREATE TABLE IF NOT EXISTS `strategy_conversation`
     REFERENCES `strategy_info` (`id`)
     ON DELETE CASCADE) ENGINE = InnoDB
     DEFAULT CHARSET = utf8mb4 COMMENT ='策略对话记录表';
+
+
+-- 创建回测资金曲线表
+CREATE TABLE IF NOT EXISTS backtest_equity_curve
+(id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+ backtest_id    VARCHAR(255)   NOT NULL,
+    timestamp      DATETIME       NOT NULL,
+    equity_value   DECIMAL(20, 8) NOT NULL,
+    index_position INT,
+    INDEX idx_backtest_id (backtest_id),
+    INDEX idx_timestamp (timestamp)) ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_unicode_ci;

@@ -3,6 +3,7 @@ package com.okx.trading.model.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -222,6 +223,16 @@ public class BacktestResultDTO {
      * 综合评分 (0-10分) - 基于科学合理的评分体系
      */
     private BigDecimal comprehensiveScore;
+
+    /**
+     * 资金曲线数据
+     */
+    private List<BigDecimal> equityCurve;
+
+    /**
+     * 资金曲线对应的时间戳
+     */
+    private List<LocalDateTime> equityCurveTimestamps;
 
     public BacktestResultDTO() {
     }
