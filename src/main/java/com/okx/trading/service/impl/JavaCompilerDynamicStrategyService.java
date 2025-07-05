@@ -5,7 +5,6 @@ import com.okx.trading.service.StrategyInfoService;
 import com.okx.trading.strategy.StrategyFactory1;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Strategy;
@@ -114,10 +113,7 @@ public class JavaCompilerDynamicStrategyService {
         if (!success) {
             StringBuilder errorMessage = new StringBuilder("编译失败:\n");
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                errorMessage.append(String.format("Line %d, Column %d: %s\n",
-                    diagnostic.getLineNumber(),
-                    diagnostic.getColumnNumber(),
-                    diagnostic.getMessage(null)));
+                errorMessage.append(String.format("Line %d, Column %d: %s\n",(Object) diagnostic.getLineNumber(), (Object) diagnostic.getColumnNumber(), diagnostic.getMessage(null)));
             }
             throw new RuntimeException(errorMessage.toString());
         }

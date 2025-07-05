@@ -9,7 +9,10 @@ import com.okx.trading.model.entity.StrategyInfoEntity;
 import com.okx.trading.service.*;
 import com.okx.trading.service.impl.*;
 import com.okx.trading.strategy.RealTimeStrategyManager;
-import io.swagger.annotations.*;
+import io.swagger.v3.oas.annotations.*;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +36,7 @@ import static com.okx.trading.constant.IndicatorInfo.RUNNING;
 @Slf4j
 @RestController
 @RequestMapping("/api/real-time-strategy")
-@Api(tags = "实时运行策略管理")
+@Tag(name = "实时运行策略管理")
 public class RealTimeStrategyController {
 
     private final HistoricalDataService historicalDataService;
@@ -106,12 +109,12 @@ public class RealTimeStrategyController {
      * 当触发交易信号时，实时调用交易接口创建订单
      */
     @PostMapping("/real-time")
-    @ApiOperation(value = "实时策略回测", notes = "基于实时K线数据进行策略回测，触发信号时自动下单")
+    @Operation(summary = "实时策略回测", description = "基于实时K线数据进行策略回测，触发信号时自动下单")
     public com.okx.trading.model.common.ApiResponse<Map<String, Object>> realTimeBacktest(
-            @ApiParam(value = "策略代码", required = true, example = "STOCHASTIC") @RequestParam String strategyCode,
-            @ApiParam(value = "交易对", required = true, example = "BTC-USDT") @RequestParam String symbol,
-            @ApiParam(value = "时间间隔", required = true, example = "1D") @RequestParam String interval,
-            @ApiParam(value = "交易金额", required = false, example = "20") @RequestParam(required = true) BigDecimal tradeAmount) {
+            @Parameter(name = "策略代码", required = true, example = "STOCHASTIC") @RequestParam String strategyCode,
+            @Parameter(name = "交易对", required = true, example = "BTC-USDT") @RequestParam String symbol,
+            @Parameter(name = "时间间隔", required = true, example = "1D") @RequestParam String interval,
+            @Parameter(name = "交易金额", required = false, example = "20") @RequestParam(required = true) BigDecimal tradeAmount) {
         try {
             if (!realTimeStrategyManager.isLoadedStrategies()) {
                 return com.okx.trading.model.common.ApiResponse.error(500, "策略未加载完成，请稍后再试");
@@ -144,12 +147,12 @@ public class RealTimeStrategyController {
      * 获取实时回测订单记录
      */
     @GetMapping("/real-time/orders")
-    @ApiOperation(value = "获取实时回测订单记录", notes = "查询指定策略的实时交易订单记录")
+    @Operation(summary = "获取实时回测订单记录", description = "查询指定策略的实时交易订单记录")
     public com.okx.trading.model.common.ApiResponse<List<RealTimeOrderEntity>> getRealTimeOrders(
-            @ApiParam(value = "策略代码", required = false) @RequestParam(required = false) String strategyCode,
-            @ApiParam(value = "交易对", required = false) @RequestParam(required = false) String symbol,
-            @ApiParam(value = "开始时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
+            @Parameter(name = "策略代码", required = false) @RequestParam(required = false) String strategyCode,
+            @Parameter(name = "交易对", required = false) @RequestParam(required = false) String symbol,
+            @Parameter(name = "开始时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @Parameter(name = "结束时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
 
         try {
             List<RealTimeOrderEntity> orders;
@@ -178,10 +181,10 @@ public class RealTimeStrategyController {
      * 获取所有实时策略
      */
     @GetMapping("/list")
-    @ApiOperation(value = "获取所有实时策略", notes = "获取系统中所有的实时策略列表，包括已激活和未激活的策略")
+    @Operation(summary = "获取所有实时策略", description = "获取系统中所有的实时策略列表，包括已激活和未激活的策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getAllRealTimeStrategies() {
         try {
@@ -197,10 +200,10 @@ public class RealTimeStrategyController {
      * 获取所有有效的实时策略
      */
     @GetMapping("/active")
-    @ApiOperation(value = "获取所有有效的实时策略", notes = "获取系统中所有已激活状态的实时策略列表")
+    @Operation(summary = "获取所有有效的实时策略", description = "获取系统中所有已激活状态的实时策略列表")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getActiveRealTimeStrategies() {
         try {
@@ -216,10 +219,10 @@ public class RealTimeStrategyController {
      * 获取正在运行的实时策略
      */
     @GetMapping("/running")
-    @ApiOperation(value = "获取正在运行的实时策略", notes = "获取系统中所有状态为RUNNING的实时策略列表")
+    @Operation(summary = "获取正在运行的实时策略", description = "获取系统中所有状态为RUNNING的实时策略列表")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getRunningRealTimeStrategies() {
         try {
@@ -235,15 +238,15 @@ public class RealTimeStrategyController {
      * 根据策略代码获取实时策略
      */
     @GetMapping("/code/{strategyCode}")
-    @ApiOperation(value = "根据策略代码获取实时策略", notes = "通过唯一的策略代码查询特定的实时策略详情")
+    @Operation(summary = "根据策略代码获取实时策略", description = "通过唯一的策略代码查询特定的实时策略详情")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> getRealTimeStrategyByCode(
-            @ApiParam(value = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
+            @Parameter(name = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -265,15 +268,15 @@ public class RealTimeStrategyController {
      * 根据ID获取实时策略
      */
     @GetMapping("/id/{id}")
-    @ApiOperation(value = "根据ID获取实时策略", notes = "通过数据库主键ID查询特定的实时策略详情")
+    @Operation(summary = "根据ID获取实时策略", description = "通过数据库主键ID查询特定的实时策略详情")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "策略ID不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "策略ID不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> getRealTimeStrategyById(
-            @ApiParam(value = "策略ID", required = true, example = "1") @PathVariable Long id) {
+            @Parameter(name = "策略ID", required = true, example = "1") @PathVariable Long id) {
         try {
             if (id == null) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略ID不能为空");
@@ -295,14 +298,14 @@ public class RealTimeStrategyController {
      * 根据策略信息代码获取有效的实时策略
      */
     @GetMapping("/info-code/{strategyCode}")
-    @ApiOperation(value = "根据策略信息代码获取有效的实时策略", notes = "通过策略信息代码查询所有关联的有效实时策略")
+    @Operation(summary = "根据策略信息代码获取有效的实时策略", description = "通过策略信息代码查询所有关联的有效实时策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "策略信息代码不能为空"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "策略信息代码不能为空"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getActiveRealTimeStrategiesByInfoCode(
-            @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @PathVariable String strategyCode) {
+            @Parameter(name = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略信息代码不能为空");
@@ -320,14 +323,14 @@ public class RealTimeStrategyController {
      * 根据交易对获取有效的实时策略
      */
     @GetMapping("/symbol/{symbol}")
-    @ApiOperation(value = "根据交易对获取有效的实时策略", notes = "通过交易对符号查询所有关联的有效实时策略")
+    @Operation(summary = "根据交易对获取有效的实时策略", description = "通过交易对符号查询所有关联的有效实时策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "交易对符号不能为空"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "交易对符号不能为空"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getActiveRealTimeStrategiesBySymbol(
-            @ApiParam(value = "交易对符号", required = true, example = "BTC-USDT") @PathVariable String symbol) {
+            @Parameter(name = "交易对符号", required = true, example = "BTC-USDT") @PathVariable String symbol) {
         try {
             if (StringUtils.isBlank(symbol)) {
                 return com.okx.trading.util.ApiResponse.error(503, "交易对符号不能为空");
@@ -345,14 +348,14 @@ public class RealTimeStrategyController {
      * 根据状态获取实时策略
      */
     @GetMapping("/status/{status}")
-    @ApiOperation(value = "根据状态获取实时策略", notes = "通过运行状态查询所有匹配的实时策略")
+    @Operation(summary = "根据状态获取实时策略", description = "通过运行状态查询所有匹配的实时策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "运行状态不能为空"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "运行状态不能为空"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getRealTimeStrategiesByStatus(
-            @ApiParam(value = "运行状态", required = true, example = "RUNNING", allowableValues = "RUNNING,STOPPED,COMPLETED,ERROR") @PathVariable String status) {
+            @Parameter(name = "运行状态", required = true, example = "RUNNING") @PathVariable String status) {
         try {
             if (StringUtils.isBlank(status)) {
                 return com.okx.trading.util.ApiResponse.error(503, "运行状态不能为空");
@@ -370,15 +373,15 @@ public class RealTimeStrategyController {
      * 获取指定时间范围内创建的实时策略
      */
     @GetMapping("/time-range")
-    @ApiOperation(value = "获取指定时间范围内创建的实时策略", notes = "查询在指定时间范围内创建的所有实时策略")
+    @Operation(summary = "获取指定时间范围内创建的实时策略", description = "查询在指定时间范围内创建的所有实时策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 400, message = "时间参数错误"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "400", description = "时间参数错误"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getRealTimeStrategiesByTimeRange(
-            @ApiParam(value = "开始时间", required = true, example = "2024-01-01 00:00:00") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
-            @ApiParam(value = "结束时间", required = true, example = "2024-12-31 23:59:59") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
+            @Parameter(name = "开始时间", required = true, example = "2024-01-01 00:00:00") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @Parameter(name = "结束时间", required = true, example = "2024-12-31 23:59:59") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
         try {
             if (startTime == null || endTime == null) {
                 return com.okx.trading.util.ApiResponse.error(503, "开始时间和结束时间不能为空");
@@ -400,15 +403,15 @@ public class RealTimeStrategyController {
      * 更新实时策略
      */
     @PutMapping("/update")
-    @ApiOperation(value = "更新实时策略", notes = "更新现有实时策略的配置信息")
+    @Operation(summary = "更新实时策略", description = "更新现有实时策略的配置信息")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "更新成功"),
-            @ApiResponse(code = 400, message = "参数错误"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "更新成功"),
+            @ApiResponse(responseCode = "400", description = "参数错误"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> updateRealTimeStrategy(
-            @ApiParam(value = "实时策略实体", required = true) @RequestBody RealTimeStrategyEntity realTimeStrategy) {
+            @Parameter(name = "实时策略实体", required = true) @RequestBody RealTimeStrategyEntity realTimeStrategy) {
         try {
             if (realTimeStrategy == null) {
                 return com.okx.trading.util.ApiResponse.error(503, "实时策略不能为空");
@@ -429,15 +432,15 @@ public class RealTimeStrategyController {
      * 启动实时策略
      */
     @PostMapping("/start/{id}")
-    @ApiOperation(value = "启动实时策略", notes = "启动指定的实时策略，将状态设置为RUNNING")
+    @Operation(summary = "启动实时策略", description = "启动指定的实时策略，将状态设置为RUNNING")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "启动成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "启动成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> startRealTimeStrategy(
-            @ApiParam(value = "策略id", required = true, example = "58") @PathVariable String id) {
+            @Parameter(name = "策略id", required = true, example = "58") @PathVariable String id) {
         try {
 
             boolean success = realTimeStrategyService.startRealTimeStrategy(Long.parseLong(id));
@@ -456,15 +459,15 @@ public class RealTimeStrategyController {
      * 停止实时策略
      */
     @PostMapping("/stop/{strategyCode}")
-    @ApiOperation(value = "停止实时策略", notes = "停止指定的实时策略，将状态设置为STOPPED")
+    @Operation(summary = "停止实时策略", description = "停止指定的实时策略，将状态设置为STOPPED")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "停止成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "停止成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> stopRealTimeStrategy(
-            @ApiParam(value = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
+            @Parameter(name = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -486,15 +489,15 @@ public class RealTimeStrategyController {
      * 激活策略
      */
     @PostMapping("/activate/{strategyCode}")
-    @ApiOperation(value = "激活策略", notes = "激活指定的实时策略，将isActive设置为true")
+    @Operation(summary = "激活策略", description = "激活指定的实时策略，将isActive设置为true")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "激活成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "激活成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> activateStrategy(
-            @ApiParam(value = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
+            @Parameter(name = "策略代码", required = true, example = "STRATEGY_001") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -516,15 +519,15 @@ public class RealTimeStrategyController {
      * 停用策略
      */
     @PostMapping("/deactivate/{strategyCode}")
-    @ApiOperation(value = "停用策略", notes = "停用指定的实时策略，将isActive设置为false")
+    @Operation(summary = "停用策略", description = "停用指定的实时策略，将isActive设置为false")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "停用成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "停用成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> deactivateStrategy(
-            @ApiParam("策略代码") @PathVariable String strategyCode) {
+            @Parameter(name = "策略代码") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -546,15 +549,15 @@ public class RealTimeStrategyController {
      * 删除实时策略
      */
     @PostMapping("/delete/{id}")
-    @ApiOperation(value = "删除实时策略", notes = "永久删除指定的实时策略记录")
+    @Operation(summary = "删除实时策略", description = "永久删除指定的实时策略记录")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "删除成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "删除成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<String> deleteRealTimeStrategy(
-            @ApiParam("策略代码") @PathVariable String id) {
+            @Parameter(name = "策略代码") @PathVariable String id) {
         try {
             if (StringUtils.isBlank(id)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -576,15 +579,15 @@ public class RealTimeStrategyController {
      * 复制实时策略
      */
     @PostMapping("/copy/{id}")
-    @ApiOperation(value = "复制实时策略", notes = "复制一个已有的实时策略，创建一个新的策略实例")
+    @Operation(summary = "复制实时策略", description = "复制一个已有的实时策略，创建一个新的策略实例")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "复制成功"),
-            @ApiResponse(code = 400, message = "策略ID不能为空"),
-            @ApiResponse(code = 404, message = "策略不存在"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "复制成功"),
+            @ApiResponse(responseCode = "400", description = "策略ID不能为空"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> copyRealTimeStrategy(
-            @ApiParam(value = "策略ID", required = true, example = "1") @PathVariable Long id) {
+            @Parameter(name = "策略ID", required = true, example = "1") @PathVariable Long id) {
         try {
             if (id == null || id <= 0) {
                 return com.okx.trading.util.ApiResponse.error(400, "策略ID不能为空或无效");
@@ -605,14 +608,14 @@ public class RealTimeStrategyController {
      * 检查策略代码是否已存在
      */
     @GetMapping("/exists/{strategyCode}")
-    @ApiOperation(value = "检查策略代码是否已存在", notes = "验证指定的策略代码是否已被使用")
+    @Operation(summary = "检查策略代码是否已存在", description = "验证指定的策略代码是否已被使用")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "检查成功"),
-            @ApiResponse(code = 400, message = "策略代码不能为空"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "检查成功"),
+            @ApiResponse(responseCode = "400", description = "策略代码不能为空"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<Boolean> existsByStrategyCode(
-            @ApiParam("策略代码") @PathVariable String strategyCode) {
+            @Parameter(name = "策略代码") @PathVariable String strategyCode) {
         try {
             if (StringUtils.isBlank(strategyCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略代码不能为空");
@@ -630,15 +633,15 @@ public class RealTimeStrategyController {
      * 检查是否存在运行中的策略
      */
     @GetMapping("/has-running")
-    @ApiOperation(value = "检查是否存在运行中的策略", notes = "检查指定策略信息代码和交易对是否有正在运行的策略")
+    @Operation(summary = "检查是否存在运行中的策略", description = "检查指定策略信息代码和交易对是否有正在运行的策略")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "检查成功"),
-            @ApiResponse(code = 400, message = "参数不能为空"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "检查成功"),
+            @ApiResponse(responseCode = "400", description = "参数不能为空"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<Boolean> hasRunningStrategy(
-            @ApiParam(value = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @RequestParam String strategyInfoCode,
-            @ApiParam(value = "交易对符号", required = true, example = "BTC-USDT") @RequestParam String symbol) {
+            @Parameter(name = "策略信息代码", required = true, example = "MA_CROSS_STRATEGY") @RequestParam String strategyInfoCode,
+            @Parameter(name = "交易对符号", required = true, example = "BTC-USDT") @RequestParam String symbol) {
         try {
             if (StringUtils.isBlank(strategyInfoCode)) {
                 return com.okx.trading.util.ApiResponse.error(503, "策略信息代码不能为空");
@@ -659,10 +662,10 @@ public class RealTimeStrategyController {
      * 获取需要自动启动的策略
      */
     @GetMapping("/auto-start")
-    @ApiOperation(value = "获取需要自动启动的策略", notes = "获取所有标记为自动启动且状态为RUNNING的策略列表")
+    @Operation(summary = "获取需要自动启动的策略", description = "获取所有标记为自动启动且状态为RUNNING的策略列表")
     @ApiResponses({
-            @ApiResponse(code = 200, message = "获取成功"),
-            @ApiResponse(code = 500, message = "服务器内部错误")
+            @ApiResponse(responseCode = "200", description = "获取成功"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<List<RealTimeStrategyEntity>> getStrategiesToAutoStart() {
         try {

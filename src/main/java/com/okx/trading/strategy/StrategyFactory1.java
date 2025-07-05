@@ -1,8 +1,13 @@
 package com.okx.trading.strategy;
 
+import com.okx.trading.indicator.CustomIndicators;
+import com.okx.trading.util.Ta4jNumUtil;
 import org.ta4j.core.*;
 import org.ta4j.core.indicators.*;
 import org.ta4j.core.indicators.adx.ADXIndicator;
+import org.ta4j.core.indicators.aroon.AroonDownIndicator;
+import org.ta4j.core.indicators.aroon.AroonUpIndicator;
+import org.ta4j.core.indicators.averages.*;
 import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
 import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
@@ -75,8 +80,9 @@ public class StrategyFactory1 {
         StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, period);
 
         BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
-        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(multiplier));
-        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(multiplier));
+        // 使用Ta4jNumUtil替代Ta4jNumUtil.valueOf()
+        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, Ta4jNumUtil.valueOf(multiplier));
+        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, Ta4jNumUtil.valueOf(multiplier));
 
         // 创建规则
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
@@ -85,7 +91,7 @@ public class StrategyFactory1 {
         Rule basicExitRule = new OverIndicatorRule(closePrice, upperBand);
 
         // 止损规则 - 当价格下跌超过2%时
-        Rule stopLossRule = new StopLossRule(closePrice, series.numOf(stopLossPercent));
+        Rule stopLossRule = new StopLossRule(closePrice, Ta4jNumUtil.valueOf(stopLossPercent));
 
         // 组合卖出规则：基本卖出规则或止损规则
         Rule exitRule = basicExitRule.or(stopLossRule);
@@ -138,10 +144,10 @@ public class StrategyFactory1 {
         RSIIndicator rsi = new RSIIndicator(closePrice, period);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(rsi, series.numOf(oversold));
+        Rule entryRule = new CrossedUpIndicatorRule(rsi, Ta4jNumUtil.valueOf(oversold));
 
         // 修正卖出规则：RSI高于70时卖出（而不是穿过70向下）
-        Rule exitRule = new OverIndicatorRule(rsi, series.numOf(overbought));
+        Rule exitRule = new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(overbought));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -166,10 +172,10 @@ public class StrategyFactory1 {
 
         // 创建规则
         Rule entryRule = new CrossedUpIndicatorRule(stochasticK, stochasticD)
-                .and(new UnderIndicatorRule(stochasticK, series.numOf(oversold)));
+                .and(new UnderIndicatorRule(stochasticK, Ta4jNumUtil.valueOf(oversold)));
 
         Rule exitRule = new CrossedDownIndicatorRule(stochasticK, stochasticD)
-                .and(new OverIndicatorRule(stochasticK, series.numOf(overbought)));
+                .and(new OverIndicatorRule(stochasticK, Ta4jNumUtil.valueOf(overbought)));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -198,10 +204,10 @@ public class StrategyFactory1 {
         SMAIndicator sma = new SMAIndicator(closePrice, diPeriod);
 
         // 创建规则
-        Rule entryRule = new OverIndicatorRule(rsi, series.numOf(threshold))
+        Rule entryRule = new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(threshold))
                 .and(new OverIndicatorRule(closePrice, sma));
 
-        Rule exitRule = new UnderIndicatorRule(rsi, series.numOf(threshold))
+        Rule exitRule = new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(threshold))
                 .and(new UnderIndicatorRule(closePrice, sma));
 
         return new BaseStrategy(entryRule, exitRule);
@@ -223,8 +229,8 @@ public class StrategyFactory1 {
         CCIIndicator cci = new CCIIndicator(series, period);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(cci, series.numOf(oversold));
-        Rule exitRule = new CrossedDownIndicatorRule(cci, series.numOf(overbought));
+        Rule entryRule = new CrossedUpIndicatorRule(cci, Ta4jNumUtil.valueOf(oversold));
+        Rule exitRule = new CrossedDownIndicatorRule(cci, Ta4jNumUtil.valueOf(overbought));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -245,8 +251,8 @@ public class StrategyFactory1 {
         WilliamsRIndicator williamsR = new WilliamsRIndicator(series, period);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(williamsR, series.numOf(oversold));
-        Rule exitRule = new CrossedDownIndicatorRule(williamsR, series.numOf(overbought));
+        Rule entryRule = new CrossedUpIndicatorRule(williamsR, Ta4jNumUtil.valueOf(oversold));
+        Rule exitRule = new CrossedDownIndicatorRule(williamsR, Ta4jNumUtil.valueOf(overbought));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -512,10 +518,10 @@ public class StrategyFactory1 {
         double upperOverbought = 75; // 从80降低到75
 
         Rule entryRule = new CrossedUpIndicatorRule(k, d)
-                .and(new UnderIndicatorRule(k, series.numOf(lowerOversold))); // 降低超卖阈值
+                .and(new UnderIndicatorRule(k, Ta4jNumUtil.valueOf(lowerOversold))); // 降低超卖阈值
 
         Rule exitRule = new CrossedDownIndicatorRule(k, d)
-                .and(new OverIndicatorRule(k, series.numOf(upperOverbought))); // 降低超买阈值
+                .and(new OverIndicatorRule(k, Ta4jNumUtil.valueOf(upperOverbought))); // 降低超买阈值
 
         return new BaseStrategy("随机RSI策略", entryRule, exitRule);
     }
@@ -643,7 +649,7 @@ public class StrategyFactory1 {
         SMAIndicator longSma = new SMAIndicator(closePrice, longPeriod);
 
         // DMA = 短期均线 - 长期均线
-        DifferenceIndicator dma = new DifferenceIndicator(shortSma, longSma);
+        CustomIndicators.DifferenceIndicator dma = new CustomIndicators.DifferenceIndicator(shortSma, longSma);
         SMAIndicator signal = new SMAIndicator(dma, signalPeriod);
 
         // 创建规则
@@ -816,7 +822,7 @@ public class StrategyFactory1 {
         // 优化规则 - 增加更多买入条件
         Rule entryRule = new BooleanIndicatorRule(threeWhiteSoldiers)
                 .or(new CrossedUpIndicatorRule(closePrice, sma10)) // 增加短期均线突破
-                .or(new OverIndicatorRule(rsi, series.numOf(70))); // 增加RSI强势条件
+                .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(70))); // 增加RSI强势条件
 
         // 卖出：价格跌破短期均线
         Rule exitRule = new UnderIndicatorRule(closePrice, sma10);
@@ -837,7 +843,7 @@ public class StrategyFactory1 {
         // 优化规则 - 增加更多买入条件
         Rule entryRule = new OverIndicatorRule(closePrice, sma20)
                 .or(new CrossedUpIndicatorRule(closePrice, sma10)) // 增加短期均线突破
-                .or(new UnderIndicatorRule(rsi, series.numOf(30))); // 增加RSI超卖条件
+                .or(new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(30))); // 增加RSI超卖条件
 
         // 卖出：三黑乌鸦形态或价格跌破短期均线
         Rule exitRule = new BooleanIndicatorRule(threeBlackCrows)
@@ -978,7 +984,7 @@ public class StrategyFactory1 {
         // 简化的突破规则：只需要价格突破，不强制要求成交量确认
         Rule upperBreakoutRule = new OverIndicatorRule(closePrice,
                 new TransformIndicator(highestHigh,
-                        v -> v.multipliedBy(series.numOf(1.0 - breakoutThreshold))));
+                        v -> v.multipliedBy(Ta4jNumUtil.valueOf(1.0 - breakoutThreshold))));
 
         // 添加额外的入场条件：价格在EMA之上
         Rule entryRule = new AndRule(
@@ -1112,7 +1118,7 @@ public class StrategyFactory1 {
         }
 
         // 创建抛物线SAR指标
-        ParabolicSarIndicator sar = new ParabolicSarIndicator(series, series.numOf(step), series.numOf(max));
+        ParabolicSarIndicator sar = new ParabolicSarIndicator(series, Ta4jNumUtil.valueOf(step), Ta4jNumUtil.valueOf(max));
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
         // 创建规则
@@ -1149,6 +1155,11 @@ public class StrategyFactory1 {
 
         // 创建自定义指标 - 多头吊灯线退出位置 (最高价 - ATR * multiplier)
         class LongChandelierExitIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final MaxPriceIndicator highestHigh;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1157,7 +1168,7 @@ public class StrategyFactory1 {
                 super(highestHigh);
                 this.highestHigh = highestHigh;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1172,6 +1183,11 @@ public class StrategyFactory1 {
 
         // 创建自定义指标 - 空头吊灯线退出位置 (最低价 + ATR * multiplier)
         class ShortChandelierExitIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final MinPriceIndicator lowestLow;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1180,7 +1196,7 @@ public class StrategyFactory1 {
                 super(lowestLow);
                 this.lowestLow = lowestLow;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1216,6 +1232,11 @@ public class StrategyFactory1 {
 
     // 自定义最大价格指标
     public static class MaxPriceIndicator extends CachedIndicator<Num> {
+        @Override
+        public int getCountOfUnstableBars() {
+            return 0;
+        }
+
         public final HighPriceIndicator highPrice;
         public final int period;
 
@@ -1243,6 +1264,11 @@ public class StrategyFactory1 {
 
     // 自定义最小价格指标
     public static class MinPriceIndicator extends CachedIndicator<Num> {
+        @Override
+        public int getCountOfUnstableBars() {
+            return 0;
+        }
+
         public final LowPriceIndicator lowPrice;
         public final int period;
 
@@ -1295,15 +1321,15 @@ public class StrategyFactory1 {
         EMAIndicator signal = new EMAIndicator(macd, signalPeriod);
 
         // 创建MACD柱状图指标
-        Indicator<Num> histogram = new DifferenceIndicator(macd, signal);
+        Indicator<Num> histogram = new CustomIndicators.DifferenceIndicator(macd, signal);
 
         // 创建布林带指标
         SMAIndicator sma = new SMAIndicator(closePrice, bollingerPeriod);
         StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, bollingerPeriod);
 
         BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
-        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, series.numOf(bollingerDeviation));
-        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, series.numOf(bollingerDeviation));
+        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, sd, Ta4jNumUtil.valueOf(bollingerDeviation));
+        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, sd, Ta4jNumUtil.valueOf(bollingerDeviation));
 
         // 创建RSI指标作为额外的过滤条件
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
@@ -1314,13 +1340,13 @@ public class StrategyFactory1 {
         // 3. RSI低于45（超卖区域）
         // 4. 成交量大于平均成交量
         Rule macdCrossRule = new CrossedUpIndicatorRule(macd, signal);
-        Rule histogramCrossRule = new CrossedUpIndicatorRule(histogram, series.numOf(0));
+        Rule histogramCrossRule = new CrossedUpIndicatorRule(histogram, Ta4jNumUtil.zero());
         Rule priceNearLowerBand = new UnderIndicatorRule(closePrice,
-                new TransformIndicator(lowerBand, v -> v.multipliedBy(series.numOf(1.02)))); // 价格在下轨2%以内
+                new TransformIndicator(lowerBand, v -> v.multipliedBy(Ta4jNumUtil.valueOf(1.02)))); // 价格在下轨2%以内
 
         Rule entryRule = new OrRule(macdCrossRule, histogramCrossRule)
                 .and(priceNearLowerBand)
-                .and(new UnderIndicatorRule(rsi, series.numOf(45)))
+                .and(new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(45)))
                 .and(new OverIndicatorRule(volume, volumeSMA));
 
         // 卖出规则:
@@ -1328,13 +1354,13 @@ public class StrategyFactory1 {
         // 2. 价格接近或高于上轨
         // 3. RSI高于60
         Rule macdDeathCrossRule = new CrossedDownIndicatorRule(macd, signal);
-        Rule histogramDeathCrossRule = new CrossedDownIndicatorRule(histogram, series.numOf(0));
+        Rule histogramDeathCrossRule = new CrossedDownIndicatorRule(histogram, Ta4jNumUtil.zero());
         Rule priceNearUpperBand = new OverIndicatorRule(closePrice,
-                new TransformIndicator(upperBand, v -> v.multipliedBy(series.numOf(0.98)))); // 价格在上轨2%以内
+                new TransformIndicator(upperBand, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.98)))); // 价格在上轨2%以内
 
         Rule exitRule = new OrRule(macdDeathCrossRule, histogramDeathCrossRule)
                 .or(priceNearUpperBand)
-                .or(new OverIndicatorRule(rsi, series.numOf(60)));
+                .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(60)));
 
 
         return new BaseStrategy("MACD与布林带组合策略", entryRule, exitRule);
@@ -1388,7 +1414,7 @@ public class StrategyFactory1 {
 
                 // 实体不能太小
                 Num totalRange = high.minus(low);
-                if (body.dividedBy(totalRange).isLessThan(series.numOf(0.1))) {
+                if (body.dividedBy(totalRange).isLessThan(Ta4jNumUtil.valueOf(0.1))) {
                     return false;
                 }
 
@@ -1397,13 +1423,18 @@ public class StrategyFactory1 {
                 Num lowerShadow = (open.isLessThan(close) ? open : close).minus(low);
 
                 // 放宽条件：上影线相对较短，下影线相对较长
-                boolean isShortUpperShadow = upperShadow.dividedBy(body).isLessThanOrEqual(series.numOf(upperShadowRatio));
-                boolean isLongLowerShadow = lowerShadow.dividedBy(body).isGreaterThanOrEqual(series.numOf(lowerShadowRatio));
+                boolean isShortUpperShadow = upperShadow.dividedBy(body).isLessThanOrEqual(Ta4jNumUtil.valueOf(upperShadowRatio));
+                boolean isLongLowerShadow = lowerShadow.dividedBy(body).isGreaterThanOrEqual(Ta4jNumUtil.valueOf(lowerShadowRatio));
 
                 // 简化趋势判断：最近3天平均收盘价上涨
                 boolean isUptrend = index > 3 && closePrice.getValue(index - 1).isGreaterThan(closePrice.getValue(index - 3));
 
                 return isShortUpperShadow && isLongLowerShadow && isUptrend;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -1411,14 +1442,20 @@ public class StrategyFactory1 {
 
         // 改进交易规则：使用更灵活的条件
         Rule entryRule = new UnderIndicatorRule(closePrice, sma10)  // 价格低于短期均线时买入
-                .and(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(series.numOf(0.98)))); // 价格没有大幅下跌
+                .and(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(Ta4jNumUtil.valueOf(0.98)))); // 价格没有大幅下跌
 
         Rule exitRule = new BooleanIndicatorRule(hangingMan)  // 出现吊锤形态时卖出
                 .or(new OverIndicatorRule(closePrice, new CachedIndicator<Num>(series) {
                     @Override
-                    protected Num calculate(int index) {
-                        return closePrice.getValue(index - 1).multipliedBy(series.numOf(0.98));
+                    public int getCountOfUnstableBars() {
+                        return 0;
                     }
+
+                    @Override
+                    protected Num calculate(int index) {
+                        return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(0.98));
+                    }
+
                 })); // 或价格高于均线2%时止盈
 
         return new BaseStrategy(entryRule, exitRule);
@@ -1484,6 +1521,11 @@ public class StrategyFactory1 {
 
         // 创建自定义指标 - 上轨 (收盘价 + ATR * multiplier)
         class UpperBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1492,7 +1534,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1503,6 +1545,11 @@ public class StrategyFactory1 {
 
         // 创建自定义指标 - 下轨 (收盘价 - ATR * multiplier)
         class LowerBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1511,7 +1558,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.closePrice = closePrice;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1528,7 +1575,7 @@ public class StrategyFactory1 {
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma)
                 .and(new OverIndicatorRule(atr, new TransformIndicator(
                         new SMAIndicator(atr, 5), // ATR的5周期均值
-                        v -> v.multipliedBy(series.numOf(0.9)) // ATR > 0.9 * SMA(ATR, 5)
+                        v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.9)) // ATR > 0.9 * SMA(ATR, 5)
                 )));
 
         // 卖出规则：价格下穿SMA或触及下轨
@@ -1554,6 +1601,11 @@ public class StrategyFactory1 {
 
         // J = 3 * K - 2 * D
         class JIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final StochasticOscillatorKIndicator k;
             public final StochasticOscillatorDIndicator d;
             public final Num three;
@@ -1563,8 +1615,8 @@ public class StrategyFactory1 {
                 super(series);
                 this.k = k;
                 this.d = d;
-                this.three = series.numOf(3);
-                this.two = series.numOf(2);
+                this.three = Ta4jNumUtil.valueOf(3);
+                this.two = Ta4jNumUtil.valueOf(2);
             }
 
             @Override
@@ -1576,8 +1628,8 @@ public class StrategyFactory1 {
         JIndicator j = new JIndicator(k, d, series);
 
         // 创建超买超卖阈值
-        Num overboughtThreshold = series.numOf(overbought);
-        Num oversoldThreshold = series.numOf(oversold);
+        Num overboughtThreshold = Ta4jNumUtil.valueOf(overbought);
+        Num oversoldThreshold = Ta4jNumUtil.valueOf(oversold);
 
         // 买入规则：J值上穿超卖线
         Rule entryRule = new CrossedUpIndicatorRule(j, oversoldThreshold);
@@ -1604,6 +1656,11 @@ public class StrategyFactory1 {
 
         // 创建神奇震荡指标 (短期SMA - 长期SMA)
         class AwesomeOscillatorIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final SMAIndicator shortSma;
             public final SMAIndicator longSma;
 
@@ -1622,7 +1679,7 @@ public class StrategyFactory1 {
         AwesomeOscillatorIndicator ao = new AwesomeOscillatorIndicator(shortSma, longSma, series);
 
         // 创建零线指标
-        ConstantIndicator<Num> zeroLine = new ConstantIndicator<>(series, series.numOf(0));
+        ConstantIndicator<Num> zeroLine = new ConstantIndicator<>(series, Ta4jNumUtil.valueOf(0));
 
         // 买入规则：神奇震荡指标上穿零线
         Rule entryRule = new CrossedUpIndicatorRule(ao, zeroLine);
@@ -1645,6 +1702,11 @@ public class StrategyFactory1 {
 
         // 自定义实现+DI和-DI指标
         class DirectionalMovementPlusIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final ATRIndicator atr;
             public final int period;
@@ -1659,24 +1721,29 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // +DM = 如果(当日最高价-前日最高价) > (前日最低价-当日最低价)，取较大值，否则为0
                 Num highDiff = highPrice.getValue(index).minus(highPrice.getValue(index - 1));
                 Num lowDiff = new LowPriceIndicator(series).getValue(index - 1).minus(new LowPriceIndicator(series).getValue(index));
 
-                Num plusDM = series.numOf(0);
-                if (highDiff.isGreaterThan(series.numOf(0)) && highDiff.isGreaterThan(lowDiff)) {
+                Num plusDM = Ta4jNumUtil.valueOf(0);
+                if (highDiff.isGreaterThan(Ta4jNumUtil.valueOf(0)) && highDiff.isGreaterThan(lowDiff)) {
                     plusDM = highDiff;
                 }
 
                 // +DI = 100 * EMA(+DM) / ATR
-                return plusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
+                return plusDM.multipliedBy(Ta4jNumUtil.valueOf(100)).dividedBy(atr.getValue(index));
             }
         }
 
         class DirectionalMovementMinusIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final LowPriceIndicator lowPrice;
             public final ATRIndicator atr;
             public final int period;
@@ -1691,20 +1758,20 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // -DM = 如果(前日最低价-当日最低价) > (当日最高价-前日最高价)，取较大值，否则为0
                 Num lowDiff = lowPrice.getValue(index - 1).minus(lowPrice.getValue(index));
                 Num highDiff = new HighPriceIndicator(series).getValue(index).minus(new HighPriceIndicator(series).getValue(index - 1));
 
-                Num minusDM = series.numOf(0);
-                if (lowDiff.isGreaterThan(series.numOf(0)) && lowDiff.isGreaterThan(highDiff)) {
+                Num minusDM = Ta4jNumUtil.valueOf(0);
+                if (lowDiff.isGreaterThan(Ta4jNumUtil.valueOf(0)) && lowDiff.isGreaterThan(highDiff)) {
                     minusDM = lowDiff;
                 }
 
                 // -DI = 100 * EMA(-DM) / ATR
-                return minusDM.multipliedBy(series.numOf(100)).dividedBy(atr.getValue(index));
+                return minusDM.multipliedBy(Ta4jNumUtil.valueOf(100)).dividedBy(atr.getValue(index));
             }
         }
 
@@ -1713,7 +1780,7 @@ public class StrategyFactory1 {
         DirectionalMovementMinusIndicator minusDI = new DirectionalMovementMinusIndicator(series, period);
 
         // 创建阈值指标
-        ConstantIndicator<Num> threshold = new ConstantIndicator<>(series, series.numOf(adxThreshold));
+        ConstantIndicator<Num> threshold = new ConstantIndicator<>(series, Ta4jNumUtil.valueOf(adxThreshold));
 
         // 买入规则：+DI上穿-DI且ADX大于阈值
         Rule entryRule = new CrossedUpIndicatorRule(plusDI, minusDI)
@@ -1741,6 +1808,11 @@ public class StrategyFactory1 {
 
         // 创建上轨和下轨指标
         class UpperBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final MedianPriceIndicator medianPrice;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1749,7 +1821,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.medianPrice = medianPrice;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1759,6 +1831,11 @@ public class StrategyFactory1 {
         }
 
         class LowerBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final MedianPriceIndicator medianPrice;
             public final ATRIndicator atr;
             public final Num multiplier;
@@ -1767,7 +1844,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.medianPrice = medianPrice;
                 this.atr = atr;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -1811,6 +1888,11 @@ public class StrategyFactory1 {
 
         // 转换线 (Conversion Line, Tenkan-sen) = (n日高点 + n日低点) / 2，一般n取9
         class ConversionLineIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final int period;
@@ -1821,13 +1903,13 @@ public class StrategyFactory1 {
                 this.highPrice = highPrice;
                 this.lowPrice = lowPrice;
                 this.period = period;
-                this.two = series.numOf(2);
+                this.two = Ta4jNumUtil.valueOf(2);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num highest = highPrice.getValue(index);
@@ -1844,6 +1926,11 @@ public class StrategyFactory1 {
 
         // 基准线 (Base Line, Kijun-sen) = (n日高点 + n日低点) / 2，一般n取26
         class BaseLineIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final int period;
@@ -1854,13 +1941,13 @@ public class StrategyFactory1 {
                 this.highPrice = highPrice;
                 this.lowPrice = lowPrice;
                 this.period = period;
-                this.two = series.numOf(2);
+                this.two = Ta4jNumUtil.valueOf(2);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num highest = highPrice.getValue(index);
@@ -1880,6 +1967,11 @@ public class StrategyFactory1 {
 
         // 先行带1号 (Leading Span A, Senkou Span A) = (转换线 + 基准线) / 2，向前平移26日
         class LeadingSpanAIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ConversionLineIndicator conversionLine;
             public final BaseLineIndicator baseLine;
             public final int displacement;
@@ -1890,13 +1982,13 @@ public class StrategyFactory1 {
                 this.conversionLine = conversionLine;
                 this.baseLine = baseLine;
                 this.displacement = displacement;
-                this.two = series.numOf(2);
+                this.two = Ta4jNumUtil.valueOf(2);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < 0) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 return conversionLine.getValue(index).plus(baseLine.getValue(index)).dividedBy(two);
@@ -1905,6 +1997,11 @@ public class StrategyFactory1 {
 
         // 先行带2号 (Leading Span B, Senkou Span B) = (n日高点 + n日低点) / 2，一般n取52，向前平移26日
         class LeadingSpanBIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final int period;
@@ -1917,13 +2014,13 @@ public class StrategyFactory1 {
                 this.lowPrice = lowPrice;
                 this.period = period;
                 this.displacement = displacement;
-                this.two = series.numOf(2);
+                this.two = Ta4jNumUtil.valueOf(2);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num highest = highPrice.getValue(index);
@@ -2066,6 +2163,11 @@ public class StrategyFactory1 {
 
         // 创建威尔德平滑指标（威尔德平滑是一种特殊的EMA，alpha = 1/period）
         class WilderSmoothingIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final Indicator<Num> indicator;
             public final int period;
             public final Num alpha;
@@ -2074,7 +2176,7 @@ public class StrategyFactory1 {
                 super(indicator);
                 this.indicator = indicator;
                 this.period = period;
-                this.alpha = series.numOf(1.0 / period);  // 威尔德平滑因子
+                this.alpha = Ta4jNumUtil.valueOf(1.0 / period);  // 威尔德平滑因子
             }
 
             @Override
@@ -2086,7 +2188,7 @@ public class StrategyFactory1 {
                 Num prevWilder = getValue(index - 1);
                 Num currentValue = indicator.getValue(index);
 
-                return prevWilder.multipliedBy(series.numOf(1).minus(alpha)).plus(currentValue.multipliedBy(alpha));
+                return prevWilder.multipliedBy(Ta4jNumUtil.valueOf(1).minus(alpha)).plus(currentValue.multipliedBy(alpha));
             }
         }
 
@@ -2115,6 +2217,11 @@ public class StrategyFactory1 {
 
         // 创建自定义Fisher变换指标
         class FisherTransformIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final Indicator<Num> indicator;
             public final int period;
             public final Num one;
@@ -2124,14 +2231,14 @@ public class StrategyFactory1 {
                 super(indicator);
                 this.indicator = indicator;
                 this.period = period;
-                this.one = series.numOf(1);
-                this.half = series.numOf(0.5);
+                this.one = Ta4jNumUtil.valueOf(1);
+                this.half = Ta4jNumUtil.valueOf(0.5);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 找出period内的最高价和最低价
@@ -2146,21 +2253,21 @@ public class StrategyFactory1 {
 
                 // 如果最高价等于最低价，返回0
                 if (highest.equals(lowest)) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 归一化价格到-1到1之间
                 Num range = highest.minus(lowest);
-                Num normalizedPrice = indicator.getValue(index).minus(lowest).dividedBy(range).multipliedBy(series.numOf(2)).minus(one);
+                Num normalizedPrice = indicator.getValue(index).minus(lowest).dividedBy(range).multipliedBy(Ta4jNumUtil.valueOf(2)).minus(one);
 
                 // 应用Fisher变换，避免递归调用
-                if (normalizedPrice.isGreaterThanOrEqual(one) || normalizedPrice.isLessThanOrEqual(one.multipliedBy(series.numOf(-1)))) {
+                if (normalizedPrice.isGreaterThanOrEqual(one) || normalizedPrice.isLessThanOrEqual(one.multipliedBy(Ta4jNumUtil.valueOf(-1)))) {
                     // 防止对数函数的参数无效
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num fisherValue = half.multipliedBy(
-                        series.numOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
+                        Ta4jNumUtil.valueOf(Math.log((one.plus(normalizedPrice)).dividedBy(one.minus(normalizedPrice)).doubleValue()))
                 );
 
                 return fisherValue;
@@ -2171,8 +2278,8 @@ public class StrategyFactory1 {
         FisherTransformIndicator fisher = new FisherTransformIndicator(closePrice, period, series);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(fisher, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(fisher, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(fisher, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(fisher, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2192,6 +2299,11 @@ public class StrategyFactory1 {
 
         // 创建自定义预测振荡器指标
         class ForecastOscillatorIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final Indicator<Num> indicator;
             public final int period;
             public final Num hundred;
@@ -2200,13 +2312,13 @@ public class StrategyFactory1 {
                 super(indicator);
                 this.indicator = indicator;
                 this.period = period;
-                this.hundred = series.numOf(100);
+                this.hundred = Ta4jNumUtil.valueOf(100);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 计算线性回归预测值
@@ -2237,7 +2349,7 @@ public class StrategyFactory1 {
                 double currentPrice = indicator.getValue(index).doubleValue();
                 double oscillator = ((currentPrice - forecast) / forecast) * 100;
 
-                return series.numOf(oscillator);
+                return Ta4jNumUtil.valueOf(oscillator);
             }
         }
 
@@ -2245,8 +2357,8 @@ public class StrategyFactory1 {
         ForecastOscillatorIndicator fosc = new ForecastOscillatorIndicator(closePrice, period, series);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(fosc, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(fosc, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(fosc, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(fosc, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2268,6 +2380,11 @@ public class StrategyFactory1 {
 
         // 创建自定义移动便利性指标
         class EaseOfMovementIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final VolumeIndicator volume;
@@ -2280,18 +2397,18 @@ public class StrategyFactory1 {
                 this.lowPrice = new LowPriceIndicator(series);
                 this.volume = new VolumeIndicator(series);
                 this.period = period;
-                this.divisor = series.numOf(divisor);
+                this.divisor = Ta4jNumUtil.valueOf(divisor);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 计算当前和前一个K线的中点价格
-                Num currentMiddlePoint = highPrice.getValue(index).plus(lowPrice.getValue(index)).dividedBy(series.numOf(2));
-                Num prevMiddlePoint = highPrice.getValue(index - 1).plus(lowPrice.getValue(index - 1)).dividedBy(series.numOf(2));
+                Num currentMiddlePoint = highPrice.getValue(index).plus(lowPrice.getValue(index)).dividedBy(Ta4jNumUtil.valueOf(2));
+                Num prevMiddlePoint = highPrice.getValue(index - 1).plus(lowPrice.getValue(index - 1)).dividedBy(Ta4jNumUtil.valueOf(2));
 
                 // 计算价格变动
                 Num priceChange = currentMiddlePoint.minus(prevMiddlePoint);
@@ -2301,7 +2418,7 @@ public class StrategyFactory1 {
 
                 // 避免除以零
                 if (boxRatio.isZero() || volume.getValue(index).isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 计算单日移动便利性
@@ -2309,10 +2426,10 @@ public class StrategyFactory1 {
 
                 // 如果需要计算移动平均
                 if (period > 1 && index >= period) {
-                    Num sum = series.numOf(0);
+                    Num sum = Ta4jNumUtil.valueOf(0);
                     for (int i = index - period + 1; i <= index; i++) {
-                        Num mp = highPrice.getValue(i).plus(lowPrice.getValue(i)).dividedBy(series.numOf(2));
-                        Num prevMp = highPrice.getValue(i - 1).plus(lowPrice.getValue(i - 1)).dividedBy(series.numOf(2));
+                        Num mp = highPrice.getValue(i).plus(lowPrice.getValue(i)).dividedBy(Ta4jNumUtil.valueOf(2));
+                        Num prevMp = highPrice.getValue(i - 1).plus(lowPrice.getValue(i - 1)).dividedBy(Ta4jNumUtil.valueOf(2));
                         Num pc = mp.minus(prevMp);
                         Num br = highPrice.getValue(i).minus(lowPrice.getValue(i));
 
@@ -2320,7 +2437,7 @@ public class StrategyFactory1 {
                             sum = sum.plus(pc.multipliedBy(divisor).dividedBy(volume.getValue(i).dividedBy(br)));
                         }
                     }
-                    return sum.dividedBy(series.numOf(period));
+                    return sum.dividedBy(Ta4jNumUtil.valueOf(period));
                 }
 
                 return dailyEom;
@@ -2331,8 +2448,8 @@ public class StrategyFactory1 {
         EaseOfMovementIndicator eom = new EaseOfMovementIndicator(series, period, divisor);
 
         // 创建规则
-        Rule entryRule = new CrossedUpIndicatorRule(eom, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(eom, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(eom, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(eom, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2354,6 +2471,11 @@ public class StrategyFactory1 {
 
         // 创建自定义震荡指数指标
         class ChoppinessIndexIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final ATRIndicator atr;
@@ -2366,17 +2488,17 @@ public class StrategyFactory1 {
                 this.lowPrice = new LowPriceIndicator(series);
                 this.atr = new ATRIndicator(series, 1);
                 this.period = period;
-                this.hundred = series.numOf(100);
+                this.hundred = Ta4jNumUtil.valueOf(100);
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(50);
+                    return Ta4jNumUtil.valueOf(50);
                 }
 
                 // 计算ATR和
-                Num atrSum = series.numOf(0);
+                Num atrSum = Ta4jNumUtil.valueOf(0);
                 for (int i = index - period + 1; i <= index; i++) {
                     atrSum = atrSum.plus(atr.getValue(i));
                 }
@@ -2393,20 +2515,20 @@ public class StrategyFactory1 {
                 // 计算震荡指数
                 Num range = highest.minus(lowest);
                 if (range.isZero() || atrSum.isZero()) {
-                    return series.numOf(50);
+                    return Ta4jNumUtil.valueOf(50);
                 }
 
                 double chopIndex = 100 * Math.log10(atrSum.doubleValue() / range.doubleValue()) / Math.log10(period);
 
-                return series.numOf(chopIndex);
+                return Ta4jNumUtil.valueOf(chopIndex);
             }
         }
 
         ChoppinessIndexIndicator chop = new ChoppinessIndexIndicator(series, period);
 
         // 震荡指数策略：高值表示震荡，低值表示趋势
-        Rule entryRule = new CrossedDownIndicatorRule(chop, series.numOf(38.2)); // 趋势开始
-        Rule exitRule = new CrossedUpIndicatorRule(chop, series.numOf(61.8)); // 震荡开始
+        Rule entryRule = new CrossedDownIndicatorRule(chop, Ta4jNumUtil.valueOf(38.2)); // 趋势开始
+        Rule exitRule = new CrossedUpIndicatorRule(chop, Ta4jNumUtil.valueOf(61.8)); // 震荡开始
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2455,6 +2577,11 @@ public class StrategyFactory1 {
 
         // 创建RVGI指标
         class RvgiIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final OpenPriceIndicator openPrice;
             public final ClosePriceIndicator closePrice;
             public final HighPriceIndicator highPrice;
@@ -2473,11 +2600,11 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
-                Num numeratorSum = series.numOf(0);
-                Num denominatorSum = series.numOf(0);
+                Num numeratorSum = Ta4jNumUtil.valueOf(0);
+                Num denominatorSum = Ta4jNumUtil.valueOf(0);
 
                 for (int i = index - period + 1; i <= index; i++) {
                     Num numerator = closePrice.getValue(i).minus(openPrice.getValue(i));
@@ -2488,7 +2615,7 @@ public class StrategyFactory1 {
                 }
 
                 if (denominatorSum.isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 return numeratorSum.dividedBy(denominatorSum);
@@ -2524,6 +2651,11 @@ public class StrategyFactory1 {
         EMAIndicator slowEma = new EMAIndicator(closePrice, slowPeriod);
 
         class MacdIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final EMAIndicator fastEma;
             public final EMAIndicator slowEma;
 
@@ -2565,6 +2697,11 @@ public class StrategyFactory1 {
 
         // 创建VI+指标
         class VortexPositiveIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final ClosePriceIndicator closePrice;
@@ -2581,11 +2718,11 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(1);
+                    return Ta4jNumUtil.valueOf(1);
                 }
 
-                Num viPlus = series.numOf(0);
-                Num trueRange = series.numOf(0);
+                Num viPlus = Ta4jNumUtil.valueOf(0);
+                Num trueRange = Ta4jNumUtil.valueOf(0);
 
                 for (int i = index - period + 1; i <= index; i++) {
                     if (i > 0) {
@@ -2603,7 +2740,7 @@ public class StrategyFactory1 {
                 }
 
                 if (trueRange.isZero()) {
-                    return series.numOf(1);
+                    return Ta4jNumUtil.valueOf(1);
                 }
 
                 return viPlus.dividedBy(trueRange);
@@ -2612,6 +2749,11 @@ public class StrategyFactory1 {
 
         // 创建VI-指标
         class VortexNegativeIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final ClosePriceIndicator closePrice;
@@ -2628,11 +2770,11 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(1);
+                    return Ta4jNumUtil.valueOf(1);
                 }
 
-                Num viMinus = series.numOf(0);
-                Num trueRange = series.numOf(0);
+                Num viMinus = Ta4jNumUtil.valueOf(0);
+                Num trueRange = Ta4jNumUtil.valueOf(0);
 
                 for (int i = index - period + 1; i <= index; i++) {
                     if (i > 0) {
@@ -2650,7 +2792,7 @@ public class StrategyFactory1 {
                 }
 
                 if (trueRange.isZero()) {
-                    return series.numOf(1);
+                    return Ta4jNumUtil.valueOf(1);
                 }
 
                 return viMinus.dividedBy(trueRange);
@@ -2682,6 +2824,11 @@ public class StrategyFactory1 {
 
         // 创建QStick指标
         class QStickIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final OpenPriceIndicator openPrice;
             public final ClosePriceIndicator closePrice;
             public final int period;
@@ -2696,22 +2843,22 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < period - 1) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
-                Num sum = series.numOf(0);
+                Num sum = Ta4jNumUtil.valueOf(0);
                 for (int i = index - period + 1; i <= index; i++) {
                     sum = sum.plus(closePrice.getValue(i).minus(openPrice.getValue(i)));
                 }
 
-                return sum.dividedBy(series.numOf(period));
+                return sum.dividedBy(Ta4jNumUtil.valueOf(period));
             }
         }
 
         QStickIndicator qstick = new QStickIndicator(series, period);
 
-        Rule entryRule = new CrossedUpIndicatorRule(qstick, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(qstick, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(qstick, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(qstick, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -2790,6 +2937,11 @@ public class StrategyFactory1 {
 
         // 创建NATR指标
         class NatrIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ATRIndicator atr;
             public final ClosePriceIndicator closePrice;
             public final Num hundred;
@@ -2798,14 +2950,14 @@ public class StrategyFactory1 {
                 super(series);
                 this.atr = atr;
                 this.closePrice = closePrice;
-                this.hundred = series.numOf(100);
+                this.hundred = Ta4jNumUtil.valueOf(100);
             }
 
             @Override
             protected Num calculate(int index) {
                 Num close = closePrice.getValue(index);
                 if (close.isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
                 return atr.getValue(index).dividedBy(close).multipliedBy(hundred);
             }
@@ -2817,8 +2969,8 @@ public class StrategyFactory1 {
         double lowerThreshold = 1.0; // 从2.0降低到1.0
         double upperThreshold = 0.5; // 从1.0降低到0.5
 
-        Rule entryRule = new CrossedUpIndicatorRule(natr, series.numOf(lowerThreshold)); // NATR上升
-        Rule exitRule = new CrossedDownIndicatorRule(natr, series.numOf(upperThreshold)); // NATR下降
+        Rule entryRule = new CrossedUpIndicatorRule(natr, Ta4jNumUtil.valueOf(lowerThreshold)); // NATR上升
+        Rule exitRule = new CrossedDownIndicatorRule(natr, Ta4jNumUtil.valueOf(upperThreshold)); // NATR下降
 
         return new BaseStrategy("NATR策略", entryRule, exitRule);
     }
@@ -2840,7 +2992,7 @@ public class StrategyFactory1 {
 
         // 创建标准的质量指数计算
         // 1. 计算高低价差
-        Indicator<Num> highLowDiff = new DifferenceIndicator(highPrice, lowPrice);
+        Indicator<Num> highLowDiff = new CustomIndicators.DifferenceIndicator(highPrice, lowPrice);
 
         // 2. 创建价差的EMA
         EMAIndicator ema1 = new EMAIndicator(highLowDiff, emaPeriod);
@@ -2850,20 +3002,30 @@ public class StrategyFactory1 {
 
         // 4. 创建比率指标 (EMA1/EMA2)
         Indicator<Num> emaRatio = new TransformIndicator(
-            new CachedIndicator<Num>(series) {
-                @Override
-                protected Num calculate(int index) {
-                    Num e2 = ema2.getValue(index);
-                    if (e2.isZero()) {
-                        return series.numOf(1);
+                new CachedIndicator<Num>(series) {
+                    @Override
+                    public int getCountOfUnstableBars() {
+                        return 0;
                     }
-                    return ema1.getValue(index).dividedBy(e2);
-                }
-            },
-            v -> v.isNaN() ? series.numOf(1) : v);
+
+                    @Override
+                    protected Num calculate(int index) {
+                        Num e2 = ema2.getValue(index);
+                        if (e2.isZero()) {
+                            return Ta4jNumUtil.valueOf(1);
+                        }
+                        return ema1.getValue(index).dividedBy(e2);
+                    }
+                },
+                v -> v.isNaN() ? Ta4jNumUtil.valueOf(1) : v);
 
         // 5. 创建真正的质量指数 - 比率的周期和
         class MassIndexIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final Indicator<Num> emaRatio;
             private final int sumPeriod;
 
@@ -2876,10 +3038,10 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index < sumPeriod) {
-                    return series.numOf(9); // 默认基准值
+                    return Ta4jNumUtil.valueOf(9); // 默认基准值
                 }
 
-                Num sum = series.numOf(0);
+                Num sum = Ta4jNumUtil.valueOf(0);
                 for (int i = index - sumPeriod + 1; i <= index; i++) {
                     sum = sum.plus(emaRatio.getValue(i));
                 }
@@ -2926,6 +3088,11 @@ public class StrategyFactory1 {
 
         // 创建上下轨
         class UpperBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final SMAIndicator sma;
             public final StandardDeviationIndicator stdDev;
             public final Num multiplier;
@@ -2934,7 +3101,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.sma = sma;
                 this.stdDev = stdDev;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -2944,6 +3111,11 @@ public class StrategyFactory1 {
         }
 
         class LowerBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final SMAIndicator sma;
             public final StandardDeviationIndicator stdDev;
             public final Num multiplier;
@@ -2952,7 +3124,7 @@ public class StrategyFactory1 {
                 super(series);
                 this.sma = sma;
                 this.stdDev = stdDev;
-                this.multiplier = series.numOf(multiplier);
+                this.multiplier = Ta4jNumUtil.valueOf(multiplier);
             }
 
             @Override
@@ -3028,6 +3200,11 @@ public class StrategyFactory1 {
 
         // 创建布林带宽度指标
         class BollingerBandWidthIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final BollingerBandsUpperIndicator upper;
             public final BollingerBandsLowerIndicator lower;
             public final BollingerBandsMiddleIndicator middle;
@@ -3043,7 +3220,7 @@ public class StrategyFactory1 {
             protected Num calculate(int index) {
                 Num middleValue = middle.getValue(index);
                 if (middleValue.isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
                 return upper.getValue(index).minus(lower.getValue(index)).dividedBy(middleValue);
             }
@@ -3073,6 +3250,11 @@ public class StrategyFactory1 {
 
         // 创建年化波动率指标
         class VolatilityIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final int period;
             public final Num sqrt252;
@@ -3081,34 +3263,34 @@ public class StrategyFactory1 {
                 super(series);
                 this.closePrice = closePrice;
                 this.period = period;
-                this.sqrt252 = series.numOf(Math.sqrt(252)); // 年化因子
+                this.sqrt252 = Ta4jNumUtil.valueOf(Math.sqrt(252)); // 年化因子
             }
 
             @Override
             protected Num calculate(int index) {
                 if (index < period) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
-                Num sum = series.numOf(0);
-                Num sumSquared = series.numOf(0);
+                Num sum = Ta4jNumUtil.valueOf(0);
+                Num sumSquared = Ta4jNumUtil.valueOf(0);
 
                 for (int i = index - period + 1; i <= index; i++) {
                     if (i > 0) {
-                        Num logReturn = series.numOf(Math.log(closePrice.getValue(i).doubleValue() / closePrice.getValue(i - 1).doubleValue()));
+                        Num logReturn = Ta4jNumUtil.valueOf(Math.log(closePrice.getValue(i).doubleValue() / closePrice.getValue(i - 1).doubleValue()));
                         sum = sum.plus(logReturn);
                         sumSquared = sumSquared.plus(logReturn.multipliedBy(logReturn));
                     }
                 }
 
-                Num mean = sum.dividedBy(series.numOf(period));
-                Num variance = sumSquared.dividedBy(series.numOf(period)).minus(mean.multipliedBy(mean));
+                Num mean = sum.dividedBy(Ta4jNumUtil.valueOf(period));
+                Num variance = sumSquared.dividedBy(Ta4jNumUtil.valueOf(period)).minus(mean.multipliedBy(mean));
 
                 if (variance.doubleValue() < 0) {
-                    variance = series.numOf(0);
+                    variance = Ta4jNumUtil.valueOf(0);
                 }
 
-                return series.numOf(Math.sqrt(variance.doubleValue())).multipliedBy(sqrt252);
+                return Ta4jNumUtil.valueOf(Math.sqrt(variance.doubleValue())).multipliedBy(sqrt252);
             }
         }
 
@@ -3138,6 +3320,11 @@ public class StrategyFactory1 {
 
         // 创建唐奇安上轨
         class DonchianUpperIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final int period;
 
@@ -3163,6 +3350,11 @@ public class StrategyFactory1 {
 
         // 创建唐奇安下轨
         class DonchianLowerIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final LowPriceIndicator lowPrice;
             public final int period;
 
@@ -3214,6 +3406,11 @@ public class StrategyFactory1 {
 
         // 创建累积分配线指标
         class AccumulationDistributionIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final ClosePriceIndicator closePrice;
@@ -3230,7 +3427,7 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index == 0) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num high = highPrice.getValue(index);
@@ -3242,7 +3439,7 @@ public class StrategyFactory1 {
                 Num range = high.minus(low);
                 Num moneyFlowMultiplier;
                 if (range.isZero()) {
-                    moneyFlowMultiplier = series.numOf(0);
+                    moneyFlowMultiplier = Ta4jNumUtil.valueOf(0);
                 } else {
                     moneyFlowMultiplier = close.minus(low).minus(high.minus(close)).dividedBy(range);
                 }
@@ -3287,6 +3484,11 @@ public class StrategyFactory1 {
         EMAIndicator slowEma = new EMAIndicator(vwap, slowPeriod);
 
         class AdoscIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final EMAIndicator fastEma;
             public final EMAIndicator slowEma;
 
@@ -3304,8 +3506,8 @@ public class StrategyFactory1 {
 
         AdoscIndicator adosc = new AdoscIndicator(fastEma, slowEma, series);
 
-        Rule entryRule = new CrossedUpIndicatorRule(adosc, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(adosc, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(adosc, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(adosc, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -3327,6 +3529,11 @@ public class StrategyFactory1 {
 
         // 创建负成交量指数
         class NegativeVolumeIndexIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final VolumeIndicator volume;
 
@@ -3339,7 +3546,7 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index == 0) {
-                    return series.numOf(1000); // 起始值
+                    return Ta4jNumUtil.valueOf(1000); // 起始值
                 }
 
                 Num currentVolume = volume.getValue(index);
@@ -3384,6 +3591,11 @@ public class StrategyFactory1 {
 
         // 创建正成交量指数
         class PositiveVolumeIndexIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final VolumeIndicator volume;
 
@@ -3396,7 +3608,7 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index == 0) {
-                    return series.numOf(1000); // 起始值
+                    return Ta4jNumUtil.valueOf(1000); // 起始值
                 }
 
                 Num currentVolume = volume.getValue(index);
@@ -3440,6 +3652,11 @@ public class StrategyFactory1 {
 
         // 创建VWMA指标
         class VwmaIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final ClosePriceIndicator closePrice;
             public final VolumeIndicator volume;
             public final int period;
@@ -3457,8 +3674,8 @@ public class StrategyFactory1 {
                     return closePrice.getValue(index);
                 }
 
-                Num sumPriceVolume = series.numOf(0);
-                Num sumVolume = series.numOf(0);
+                Num sumPriceVolume = Ta4jNumUtil.valueOf(0);
+                Num sumVolume = Ta4jNumUtil.valueOf(0);
 
                 for (int i = index - period + 1; i <= index; i++) {
                     Num price = closePrice.getValue(i);
@@ -3502,6 +3719,11 @@ public class StrategyFactory1 {
         SMAIndicator longVolumeAvg = new SMAIndicator(volume, longPeriod);
 
         class VolumeOscillatorIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final SMAIndicator shortAvg;
             public final SMAIndicator longAvg;
             public final Num hundred;
@@ -3510,14 +3732,14 @@ public class StrategyFactory1 {
                 super(series);
                 this.shortAvg = shortAvg;
                 this.longAvg = longAvg;
-                this.hundred = series.numOf(100);
+                this.hundred = Ta4jNumUtil.valueOf(100);
             }
 
             @Override
             protected Num calculate(int index) {
                 Num longValue = longAvg.getValue(index);
                 if (longValue.isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 return shortAvg.getValue(index).minus(longValue).dividedBy(longValue).multipliedBy(hundred);
@@ -3526,8 +3748,8 @@ public class StrategyFactory1 {
 
         VolumeOscillatorIndicator vosc = new VolumeOscillatorIndicator(shortVolumeAvg, longVolumeAvg, series);
 
-        Rule entryRule = new CrossedUpIndicatorRule(vosc, series.numOf(0));
-        Rule exitRule = new CrossedDownIndicatorRule(vosc, series.numOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(vosc, Ta4jNumUtil.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(vosc, Ta4jNumUtil.valueOf(0));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -3549,6 +3771,11 @@ public class StrategyFactory1 {
 
         // 创建市场便利指数
         class MarketFacilitationIndexIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             public final HighPriceIndicator highPrice;
             public final LowPriceIndicator lowPrice;
             public final VolumeIndicator volume;
@@ -3567,7 +3794,7 @@ public class StrategyFactory1 {
                 Num vol = volume.getValue(index);
 
                 if (vol.isZero()) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 return high.minus(low).dividedBy(vol);
@@ -3648,9 +3875,9 @@ public class StrategyFactory1 {
                 // 2. 下影线很短（小于实体的1/3）
                 // 3. 实体位于K线下半部分
                 // 4. 前期是下跌趋势
-                boolean longUpperShadow = upperShadow.isGreaterThan(body.multipliedBy(series.numOf(2)));
-                boolean shortLowerShadow = lowerShadow.isLessThan(body.multipliedBy(series.numOf(0.3)));
-                boolean bodyInLowerHalf = close.max(open).minus(low).isLessThan(totalRange.multipliedBy(series.numOf(0.6)));
+                boolean longUpperShadow = upperShadow.isGreaterThan(body.multipliedBy(Ta4jNumUtil.valueOf(2)));
+                boolean shortLowerShadow = lowerShadow.isLessThan(body.multipliedBy(Ta4jNumUtil.valueOf(0.3)));
+                boolean bodyInLowerHalf = close.max(open).minus(low).isLessThan(totalRange.multipliedBy(Ta4jNumUtil.valueOf(0.6)));
 
                 // 检查前期下跌趋势
                 boolean downtrend = false;
@@ -3661,6 +3888,11 @@ public class StrategyFactory1 {
                 }
 
                 return longUpperShadow && shortLowerShadow && bodyInLowerHalf && downtrend;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -3731,16 +3963,21 @@ public class StrategyFactory1 {
 
                 // 第二根K线：星线（小实体，向下跳空）
                 Num body2 = close2.minus(open2).abs();
-                boolean smallBody2 = body2.isLessThan(body1.multipliedBy(series.numOf(0.3)));
+                boolean smallBody2 = body2.isLessThan(body1.multipliedBy(Ta4jNumUtil.valueOf(0.3)));
                 boolean gapDown = high2.isLessThan(close1);
 
                 // 第三根K线：长阳线，向上跳空
                 boolean thirdBullish = close3.isGreaterThan(open3);
                 Num body3 = close3.minus(open3);
                 boolean gapUp = open3.isGreaterThan(high2);
-                boolean strongBullish = body3.isGreaterThan(body1.multipliedBy(series.numOf(0.5)));
+                boolean strongBullish = body3.isGreaterThan(body1.multipliedBy(Ta4jNumUtil.valueOf(0.5)));
 
                 return firstBearish && smallBody2 && gapDown && thirdBullish && gapUp && strongBullish;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -3798,16 +4035,21 @@ public class StrategyFactory1 {
 
                 // 第二根K线：星线（小实体，向上跳空）
                 Num body2 = close2.minus(open2).abs();
-                boolean smallBody2 = body2.isLessThan(body1.multipliedBy(series.numOf(0.3)));
+                boolean smallBody2 = body2.isLessThan(body1.multipliedBy(Ta4jNumUtil.valueOf(0.3)));
                 boolean gapUp = low2.isGreaterThan(close1);
 
                 // 第三根K线：长阴线，向下跳空
                 boolean thirdBearish = close3.isLessThan(open3);
                 Num body3 = open3.minus(close3);
                 boolean gapDown = open3.isLessThan(low2);
-                boolean strongBearish = body3.isGreaterThan(body1.multipliedBy(series.numOf(0.5)));
+                boolean strongBearish = body3.isGreaterThan(body1.multipliedBy(Ta4jNumUtil.valueOf(0.5)));
 
                 return firstBullish && smallBody2 && gapUp && thirdBearish && gapDown && strongBearish;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -3873,13 +4115,18 @@ public class StrategyFactory1 {
                 boolean gapDown = open2.isLessThan(close1);
 
                 // 第二根K线收盘价至少穿透第一根K线实体的50%
-                Num midPoint = close1.plus(body1.dividedBy(series.numOf(2)));
+                Num midPoint = close1.plus(body1.dividedBy(Ta4jNumUtil.valueOf(2)));
                 boolean penetration = close2.isGreaterThan(midPoint);
 
                 // 第二根K线的收盘价不能高于第一根K线的开盘价
                 boolean notAboveFirstOpen = close2.isLessThan(open1);
 
                 return firstBearish && secondBullish && gapDown && penetration && notAboveFirstOpen;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -3934,10 +4181,15 @@ public class StrategyFactory1 {
                 // 1. 第二根K线开盘价高于第一根K线最高价
                 // 2. 第二根K线收盘价深入第一根K线实体超过50%
                 boolean gapUpOpen = open2.isGreaterThan(close1);
-                Num penetration = close1.plus(open1).dividedBy(series.numOf(2)); // 第一根K线中点
+                Num penetration = close1.plus(open1).dividedBy(Ta4jNumUtil.valueOf(2)); // 第一根K线中点
                 boolean deepPenetration = close2.isLessThan(penetration);
 
                 return firstBullish && secondBearish && gapUpOpen && deepPenetration;
+            }
+
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
             }
         }
 
@@ -3971,6 +4223,11 @@ public class StrategyFactory1 {
 
         // Beta系数指标（相对于自身价格变动的Beta，这里简化为相对于移动平均线）
         class BetaIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4029,6 +4286,11 @@ public class StrategyFactory1 {
 
         // 相关性指标（价格与其滞后序列的相关性）
         class CorrelationIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
             private final int lag;
@@ -4101,6 +4363,11 @@ public class StrategyFactory1 {
 
         // 线性回归指标
         class LinearRegressionTrendIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4158,6 +4425,11 @@ public class StrategyFactory1 {
 
         // 方差指标
         class VarianceIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4211,6 +4483,11 @@ public class StrategyFactory1 {
 
         // 线性回归角度指标
         class LinearRegressionAngleIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4267,6 +4544,11 @@ public class StrategyFactory1 {
 
         // 线性回归截距指标
         class LinearRegressionInterceptIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4322,6 +4604,11 @@ public class StrategyFactory1 {
 
         // 线性回归斜率指标
         class LinearRegressionSlopeIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4375,6 +4662,11 @@ public class StrategyFactory1 {
 
         // 时间序列预测指标
         class TimeSeriesForecastIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -4555,6 +4847,11 @@ public class StrategyFactory1 {
 
         // 多层次止盈止损指标
         class MultiLevelTPSLIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final ATRIndicator atr;
             private final double[] takeProfitLevels = {0.02, 0.04, 0.06}; // 2%, 4%, 6%
@@ -4573,14 +4870,14 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (index == 0) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num currentPrice = closePrice.getValue(index);
 
                 // 如果还没有入场价格，返回0
                 if (entryPrice == null) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 // 计算当前收益率
@@ -4594,16 +4891,16 @@ public class StrategyFactory1 {
                         if (i > 0) {
                             currentSLLevel = Math.min(currentSLLevel + 1, stopLossLevels.length - 1);
                         }
-                        return series.numOf(1); // 部分止盈信号
+                        return Ta4jNumUtil.valueOf(1); // 部分止盈信号
                     }
                 }
 
                 // 检查止损条件
                 if (profitRate.doubleValue() <= stopLossLevels[currentSLLevel]) {
-                    return series.numOf(-1); // 止损信号
+                    return Ta4jNumUtil.valueOf(-1); // 止损信号
                 }
 
-                return series.numOf(0); // 持仓信号
+                return Ta4jNumUtil.valueOf(0); // 持仓信号
             }
 
             public void setEntryPrice(Num price) {
@@ -4665,7 +4962,7 @@ public class StrategyFactory1 {
         }
 
         // 入场规则：RSI超卖且价格突破20日均线
-        Rule entryRule = new UnderIndicatorRule(rsi, series.numOf(30))
+        Rule entryRule = new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(30))
                 .and(new CrossedUpIndicatorRule(closePrice, sma20));
 
         // 出场规则：多层次止盈止损或RSI超买
@@ -4674,7 +4971,7 @@ public class StrategyFactory1 {
                         new DynamicTakeProfitRule(multiLevelTPSL),
                         new DynamicStopLossRule(multiLevelTPSL)
                 ),
-                new OverIndicatorRule(rsi, series.numOf(70))
+                new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(70))
         );
 
         // 在出场时重置指标
@@ -4722,6 +5019,11 @@ public class StrategyFactory1 {
 
         // 高级多层次管理指标
         class AdvancedMultiLevelIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final ATRIndicator atr;
             private final RSIIndicator rsi;
@@ -4742,7 +5044,7 @@ public class StrategyFactory1 {
             @Override
             protected Num calculate(int index) {
                 if (entryPrice == null) {
-                    return series.numOf(0);
+                    return Ta4jNumUtil.valueOf(0);
                 }
 
                 Num currentPrice = closePrice.getValue(index);
@@ -4757,29 +5059,29 @@ public class StrategyFactory1 {
                         if (i > 0 && activeStopLevel < stopLevels.length - 1) {
                             activeStopLevel++;
                         }
-                        return series.numOf(2); // 部分止盈信号
+                        return Ta4jNumUtil.valueOf(2); // 部分止盈信号
                     }
                 }
 
                 // 检查止损
                 if (profit <= stopLevels[activeStopLevel]) {
-                    return series.numOf(-1); // 止损信号
+                    return Ta4jNumUtil.valueOf(-1); // 止损信号
                 }
 
                 // 追踪止损（当利润超过2%时启用）
                 if (profit > 0.02) {
                     double trailingStop = profit - trailingStopDistance;
                     if (profit <= trailingStop) {
-                        return series.numOf(-2); // 追踪止损信号
+                        return Ta4jNumUtil.valueOf(-2); // 追踪止损信号
                     }
                 }
 
                 // RSI过热出场
                 if (rsi.getValue(index).doubleValue() > 80) {
-                    return series.numOf(-3); // RSI过热出场
+                    return Ta4jNumUtil.valueOf(-3); // RSI过热出场
                 }
 
-                return series.numOf(0); // 持仓
+                return Ta4jNumUtil.valueOf(0); // 持仓
             }
 
             public void setEntry(Num price) {
@@ -4799,8 +5101,8 @@ public class StrategyFactory1 {
 
         // 入场规则：MACD金叉且RSI在30-70之间
         Rule entryRule = new CrossedUpIndicatorRule(macd, macdSignal)
-                .and(new OverIndicatorRule(rsi, series.numOf(30)))
-                .and(new UnderIndicatorRule(rsi, series.numOf(70)));
+                .and(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(30)))
+                .and(new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(70)));
 
         // 高级出场规则
         class AdvancedExitRule implements Rule {
@@ -4853,8 +5155,8 @@ public class StrategyFactory1 {
 
         // 使用布林带指标创建上下轨
         BollingerBandsMiddleIndicator middleBand = new BollingerBandsMiddleIndicator(sma);
-        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, stdDev, series.numOf(multiplier));
-        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, stdDev, series.numOf(multiplier));
+        BollingerBandsUpperIndicator upperBand = new BollingerBandsUpperIndicator(middleBand, stdDev, Ta4jNumUtil.valueOf(multiplier));
+        BollingerBandsLowerIndicator lowerBand = new BollingerBandsLowerIndicator(middleBand, stdDev, Ta4jNumUtil.valueOf(multiplier));
 
         // 当价格跌破下轨时买入，涨破上轨时卖出（均值回归）
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
@@ -4886,6 +5188,11 @@ public class StrategyFactory1 {
 
         // 计算买入卖出阈值 - 创建自定义指标
         class BuyThresholdIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator avgClose;
             private final SMAIndicator avgHigh;
             private final SMAIndicator avgLow;
@@ -4905,11 +5212,16 @@ public class StrategyFactory1 {
                 Num high = avgHigh.getValue(index);
                 Num low = avgLow.getValue(index);
                 Num range = high.minus(low);
-                return close.plus(range.multipliedBy(series.numOf(k1)));
+                return close.plus(range.multipliedBy(Ta4jNumUtil.valueOf(k1)));
             }
         }
 
         class SellThresholdIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator avgClose;
             private final SMAIndicator avgHigh;
             private final SMAIndicator avgLow;
@@ -4929,7 +5241,7 @@ public class StrategyFactory1 {
                 Num high = avgHigh.getValue(index);
                 Num low = avgLow.getValue(index);
                 Num range = high.minus(low);
-                return close.minus(range.multipliedBy(series.numOf(k2)));
+                return close.minus(range.multipliedBy(Ta4jNumUtil.valueOf(k2)));
             }
         }
 
@@ -4956,11 +5268,11 @@ public class StrategyFactory1 {
                 .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加上穿均线的条件
 
         // 筛选2：动量筛选 - RSI大于45（降低门槛，原为50）
-        Rule filter2 = new OverIndicatorRule(rsi, series.numOf(45));
+        Rule filter2 = new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(45));
 
         // 筛选3：触发筛选 - MACD大于0或上穿0轴
-        Rule filter3 = new OverIndicatorRule(macd, series.numOf(0))
-                .or(new CrossedUpIndicatorRule(macd, series.numOf(0))); // 增加上穿0轴的条件
+        Rule filter3 = new OverIndicatorRule(macd, Ta4jNumUtil.valueOf(0))
+                .or(new CrossedUpIndicatorRule(macd, Ta4jNumUtil.valueOf(0))); // 增加上穿0轴的条件
 
         // 买入条件：通过三重筛选中的两项（降低门槛，原为三项全部）
         Rule entryRule = filter1.and(filter2)
@@ -4969,15 +5281,20 @@ public class StrategyFactory1 {
 
         // 卖出条件：不满足任一筛选条件
         Rule exitRule = new NotRule(filter1)
-                .or(new UnderIndicatorRule(rsi, series.numOf(40))) // 降低RSI卖出阈值（原为45）
-                .or(new UnderIndicatorRule(macd, series.numOf(-0.0001))); // 允许MACD轻微为负
+                .or(new UnderIndicatorRule(rsi, Ta4jNumUtil.valueOf(40))) // 降低RSI卖出阈值（原为45）
+                .or(new UnderIndicatorRule(macd, Ta4jNumUtil.valueOf(-0.0001))); // 允许MACD轻微为负
 
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                if (index == 0) return series.numOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.05)); // 5%止盈条件
+                if (index == 0) return Ta4jNumUtil.valueOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(1.05)); // 5%止盈条件
             }
         };
 

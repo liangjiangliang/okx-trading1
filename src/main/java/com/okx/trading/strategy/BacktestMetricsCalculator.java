@@ -8,8 +8,6 @@ import com.okx.trading.service.IndicatorWeightService;
 import com.okx.trading.service.impl.Ta4jBacktestService;
 import com.okx.trading.util.SpringContextUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Position;
 import org.ta4j.core.TradingRecord;
@@ -18,6 +16,7 @@ import org.ta4j.core.Bar;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -124,8 +123,6 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
  */
 @Slf4j
 public class BacktestMetricsCalculator {
-
-    private static final Logger log = LoggerFactory.getLogger(BacktestMetricsCalculator.class);
 
     // 计算结果
     private BacktestResultDTO result;
@@ -287,8 +284,8 @@ public class BacktestMetricsCalculator {
                 Bar entryBar = series.getBar(entryIndex);
                 Bar exitBar = series.getBar(exitIndex);
 
-                ZonedDateTime entryTime = entryBar.getEndTime();
-                ZonedDateTime exitTime = exitBar.getEndTime();
+                ZonedDateTime entryTime = ZonedDateTime.from(entryBar.getEndTime().atZone(ZoneId.systemDefault()));
+                ZonedDateTime exitTime = ZonedDateTime.from(exitBar.getEndTime().atZone(ZoneId.systemDefault()));
 
                 BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
                 BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
@@ -563,8 +560,8 @@ public class BacktestMetricsCalculator {
         // 计算年化收益率
         metrics.annualizedReturn = calculateAnnualizedReturn(
                 metrics.totalReturn,
-                series.getFirstBar().getEndTime().toLocalDateTime(),
-                series.getLastBar().getEndTime().toLocalDateTime()
+                ZonedDateTime.from(series.getFirstBar().getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime(),
+                ZonedDateTime.from(series.getLastBar().getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime()
         );
 
         return metrics;
@@ -909,11 +906,11 @@ public class BacktestMetricsCalculator {
         // 设置资金曲线数据
         if (strategyEquityCurve != null && !strategyEquityCurve.isEmpty()) {
             finalResult.setEquityCurve(strategyEquityCurve);
-            
+
             // 生成对应的时间戳列表
             List<LocalDateTime> timestamps = new ArrayList<>();
             for (int i = 0; i < series.getBarCount(); i++) {
-                timestamps.add(series.getBar(i).getEndTime().toLocalDateTime());
+                timestamps.add(ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime());
             }
             finalResult.setEquityCurveTimestamps(timestamps);
         }
@@ -1831,7 +1828,7 @@ public class BacktestMetricsCalculator {
         BigDecimal latestAmount = initialAmount;
 
         for (int i = 1; i < series.getBarCount(); i++) {
-            LocalDateTime barTime = series.getBar(i).getEndTime().toLocalDateTime();
+            LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime();
 
             // 检查这一天是否有交易完成
             if (tradeAmounts.containsKey(barTime)) {
@@ -1879,7 +1876,7 @@ public class BacktestMetricsCalculator {
 
                 // 找到目标时间对应的价格
                 for (int i = 0; i < series.getBarCount(); i++) {
-                    LocalDateTime barTime = series.getBar(i).getEndTime().toLocalDateTime();
+                    LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime();
                     if (barTime.equals(targetTime)) {
                         BigDecimal currentPrice = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
 

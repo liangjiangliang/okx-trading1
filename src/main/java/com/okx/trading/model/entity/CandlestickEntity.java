@@ -7,9 +7,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 
 /**
@@ -103,6 +104,24 @@ public class CandlestickEntity implements Comparable<CandlestickEntity> {
      */
     @Column(name = "fetch_time")
     private LocalDateTime fetchTime;
+
+    /**
+     * 获取开盘时间的时间戳（毫秒）
+     * 为了兼容Ta4j 0.18版本的API
+     * @return 开盘时间的时间戳（毫秒）
+     */
+    public long getTimestamp() {
+        return getTime();
+    }
+
+    /**
+     * 获取开盘时间的时间戳（毫秒）
+     * 为了兼容Ta4j 0.18版本的API
+     * @return 开盘时间的时间戳（毫秒）
+     */
+    public long getTime() {
+        return openTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
 
     @Override
     public int compareTo(@NotNull CandlestickEntity o) {

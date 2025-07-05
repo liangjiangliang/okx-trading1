@@ -17,31 +17,37 @@ public class BollingerBandsStrategyParamDTO {
     /**
      * 布林带周期
      */
+    @Builder.Default
     private int period = 20;
     
     /**
      * 布林带标准差乘数
      */
+    @Builder.Default
     private double multiplier = 2.0;
     
     /**
      * 初始投资金额
      */
+    @Builder.Default
     private double initialAmount = 10000;
     
     /**
      * 交易手续费率
      */
+    @Builder.Default
     private double tradingFeeRate = 0.001;
     
     /**
      * 止损比例 (%)，默认为0表示不启用止损
      */
+    @Builder.Default
     private double stopLossPercent = 0;
     
     /**
      * 止盈比例 (%)，默认为0表示不启用止盈
      */
+    @Builder.Default
     private double takeProfitPercent = 0;
     
     /**
@@ -49,5 +55,6 @@ public class BollingerBandsStrategyParamDTO {
      * 突破模式：当价格突破上轨做空，突破下轨做多
      * 回归模式：当价格突破上轨后回落至中轨做多，突破下轨后回升至中轨做空
      */
+    @Builder.Default
     private int tradingMode = 0;
 } 

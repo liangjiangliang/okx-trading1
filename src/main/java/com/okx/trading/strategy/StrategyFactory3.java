@@ -1,7 +1,10 @@
 package com.okx.trading.strategy;
 
+import com.okx.trading.util.Ta4jNumUtil;
 import org.ta4j.core.*;
 import org.ta4j.core.indicators.*;
+import org.ta4j.core.indicators.averages.EMAIndicator;
+import org.ta4j.core.indicators.averages.SMAIndicator;
 import org.ta4j.core.indicators.helpers.*;
 import org.ta4j.core.indicators.bollinger.*;
 import org.ta4j.core.indicators.statistics.*;
@@ -61,6 +64,11 @@ public class StrategyFactory3 {
 
         // 动量指标 = 当前价格 / N期前价格
         class MomentumIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -126,6 +134,11 @@ public class StrategyFactory3 {
         EMAIndicator ema3 = new EMAIndicator(ema2, 14);
 
         class TRIXIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final EMAIndicator ema3;
             private final Num multiplier;
 
@@ -186,6 +199,11 @@ public class StrategyFactory3 {
 
         // ATR带宽突破
         class ATRUpperBand extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final ATRIndicator atr;
             private final Num multiplier;
@@ -204,6 +222,11 @@ public class StrategyFactory3 {
         }
 
         class ATRLowerBand extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final ATRIndicator atr;
             private final Num multiplier;
@@ -245,6 +268,11 @@ public class StrategyFactory3 {
 
         // 唐奇安通道上轨 = N期最高价
         class DonchianUpper extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final HighPriceIndicator highPrice;
             private final int period;
 
@@ -267,6 +295,11 @@ public class StrategyFactory3 {
 
         // 唐奇安通道下轨 = N期最低价
         class DonchianLower extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final LowPriceIndicator lowPrice;
             private final int period;
 
@@ -289,22 +322,22 @@ public class StrategyFactory3 {
 
         // 大幅降低周期，从20降至5，使策略更敏感
         int period = 5;
-        
+
         DonchianUpper upper = new DonchianUpper(highPrice, period, series);
         DonchianLower lower = new DonchianLower(lowPrice, period, series);
-        
+
         // 添加成交量过滤器
         VolumeIndicator volume = new VolumeIndicator(series);
         SMAIndicator avgVolume = new SMAIndicator(volume, period);
-        
+
         // 买入规则：价格突破上轨，且成交量大于平均成交量的0.8倍（降低阈值）
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, upper)
-                .and(new OverIndicatorRule(volume, new TransformIndicator(avgVolume, v -> v.multipliedBy(series.numOf(0.8)))));
-        
+                .and(new OverIndicatorRule(volume, new TransformIndicator(avgVolume, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.8)))));
+
         // 卖出规则：价格跌破下轨，或者价格下跌超过2%
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, lower)
-                .or(new UnderIndicatorRule(closePrice, 
-                        new TransformIndicator(closePrice, v -> v.multipliedBy(series.numOf(0.98)))));
+                .or(new UnderIndicatorRule(closePrice,
+                        new TransformIndicator(closePrice, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.98)))));
 
         return new BaseStrategy(entryRule, exitRule);
     }
@@ -338,6 +371,11 @@ public class StrategyFactory3 {
 
         // 价格通道上轨
         class UpperChannel extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
             private final Num multiplier;
@@ -357,6 +395,11 @@ public class StrategyFactory3 {
 
         // 价格通道下轨
         class LowerChannel extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
             private final Num multiplier;
@@ -396,6 +439,11 @@ public class StrategyFactory3 {
 
         // 成交量加权移动平均线
         class VWMAIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final VolumeIndicator volume;
             private final int period;
@@ -448,6 +496,11 @@ public class StrategyFactory3 {
 
         // A/D线指标
         class ADLineIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final HighPriceIndicator highPrice;
             private final LowPriceIndicator lowPrice;
             private final ClosePriceIndicator closePrice;
@@ -531,6 +584,11 @@ public class StrategyFactory3 {
 
         // 成交量阈值指标
         class VolumeThresholdIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator volumeMA;
             private final Num multiplier;
 
@@ -568,6 +626,11 @@ public class StrategyFactory3 {
 
         // 成交量振荡器 = (短期成交量MA - 长期成交量MA) / 长期成交量MA * 100
         class VolumeOscillator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator shortMA;
             private final SMAIndicator longMA;
             private final Num hundred;
@@ -613,6 +676,11 @@ public class StrategyFactory3 {
 
         // 正成交量指数
         class PVIIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final VolumeIndicator volume;
 
@@ -663,6 +731,11 @@ public class StrategyFactory3 {
 
         // 负成交量指数
         class NVIIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final VolumeIndicator volume;
 
@@ -753,6 +826,11 @@ public class StrategyFactory3 {
 
         // 20日最高价
         class HighestHighIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final HighPriceIndicator highPrice;
             private final int period;
 
@@ -778,6 +856,11 @@ public class StrategyFactory3 {
 
         // 20日最低价
         class LowestLowIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final LowPriceIndicator lowPrice;
             private final int period;
 
@@ -807,6 +890,11 @@ public class StrategyFactory3 {
 
         // 成交量阈值指标
         class VolumeThresholdIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator volumeMA;
             private final Num multiplier;
 
@@ -840,6 +928,7 @@ public class StrategyFactory3 {
     }
 
     // 波动性统计分析策略 (71-80)
+
     /**
      * 策略71: 历史波动率策略
      */
@@ -848,6 +937,11 @@ public class StrategyFactory3 {
 
         // 历史波动率指标
         class HistoricalVolatilityIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -897,6 +991,11 @@ public class StrategyFactory3 {
 
         // 上轨 = SMA + 2 * StdDev
         class UpperBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
             private final Num multiplier;
@@ -916,6 +1015,11 @@ public class StrategyFactory3 {
 
         // 下轨 = SMA - 2 * StdDev
         class LowerBandIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
             private final Num multiplier;
@@ -955,6 +1059,11 @@ public class StrategyFactory3 {
 
         // 变异系数 = 标准差 / 均值
         class CoefficientOfVariationIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
 
@@ -993,6 +1102,11 @@ public class StrategyFactory3 {
 
         // 真正的偏度计算指标
         class SkewnessIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -1058,6 +1172,11 @@ public class StrategyFactory3 {
 
         // 真正的峰度计算指标
         class KurtosisIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -1127,6 +1246,11 @@ public class StrategyFactory3 {
 
         // Z-Score = (价格 - 均值) / 标准差
         class ZScoreIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final SMAIndicator sma;
             private final StandardDeviationIndicator stdDev;
@@ -1168,6 +1292,11 @@ public class StrategyFactory3 {
 
         // 百分位指标
         class PercentileIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
             private final double percentile;
@@ -1220,6 +1349,11 @@ public class StrategyFactory3 {
 
         // 线性回归指标
         class LinearRegressionIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -1283,6 +1417,11 @@ public class StrategyFactory3 {
 
         // 线性回归斜率指标
         class LinearRegressionSlopeIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -1322,10 +1461,10 @@ public class StrategyFactory3 {
 
         // 改进的斜率策略：使用更敏感的阈值
         // 买入信号：斜率显著为正（上升趋势）
-        Rule buyRule = new OverIndicatorRule(slope, series.numOf(0.1)); // 斜率 > 0.1
+        Rule buyRule = new OverIndicatorRule(slope, Ta4jNumUtil.valueOf(0.1)); // 斜率 > 0.1
 
         // 卖出信号：斜率转为负或接近零（趋势减弱）
-        Rule sellRule = new UnderIndicatorRule(slope, series.numOf(-0.05)); // 斜率 < -0.05
+        Rule sellRule = new UnderIndicatorRule(slope, Ta4jNumUtil.valueOf(-0.05)); // 斜率 < -0.05
 
         return new BaseStrategy("线性回归斜率策略", buyRule, sellRule);
     }
@@ -1338,6 +1477,11 @@ public class StrategyFactory3 {
 
         // R平方指标
         class RSquaredIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final ClosePriceIndicator closePrice;
             private final int period;
 
@@ -1531,6 +1675,11 @@ public class StrategyFactory3 {
 
         // 20日最高价作为阻力位
         class ResistanceIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final HighPriceIndicator highPrice;
             private final int period;
 
@@ -1556,6 +1705,11 @@ public class StrategyFactory3 {
 
         // 20日最低价作为支撑位
         class SupportIndicator extends CachedIndicator<Num> {
+            @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
             private final LowPriceIndicator lowPrice;
             private final int period;
 
@@ -1635,15 +1789,25 @@ public class StrategyFactory3 {
         // 计算上下轨
         Indicator<Num> upperBand = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                return sma.getValue(index).plus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低上轨为1.5倍标准差(原为2.0)
+                return sma.getValue(index).plus(stdDev.getValue(index).multipliedBy(Ta4jNumUtil.valueOf(1.5))); // 降低上轨为1.5倍标准差(原为2.0)
             }
         };
 
         Indicator<Num> lowerBand = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                return sma.getValue(index).minus(stdDev.getValue(index).multipliedBy(series.numOf(1.5))); // 降低下轨为1.5倍标准差(原为2.0)
+                return sma.getValue(index).minus(stdDev.getValue(index).multipliedBy(Ta4jNumUtil.valueOf(1.5))); // 降低下轨为1.5倍标准差(原为2.0)
             }
         };
 
@@ -1673,26 +1837,36 @@ public class StrategyFactory3 {
         // 成交量阈值
         Indicator<Num> volumeThreshold = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                return volumeMA.getValue(index).multipliedBy(series.numOf(1.1)); // 降低成交量阈值为1.1倍（原为1.5倍）
+                return volumeMA.getValue(index).multipliedBy(Ta4jNumUtil.valueOf(1.1)); // 降低成交量阈值为1.1倍（原为1.5倍）
             }
         };
 
         // 买入条件：价格上涨且成交量放大
-        Rule entryRule = new OverIndicatorRule(priceROC, series.numOf(0.005)) // 降低价格上涨阈值为0.5%（原为1%）
+        Rule entryRule = new OverIndicatorRule(priceROC, Ta4jNumUtil.valueOf(0.005)) // 降低价格上涨阈值为0.5%（原为1%）
                 .and(new OverIndicatorRule(volume, volumeThreshold))
-                .or(new OverIndicatorRule(priceROC, series.numOf(0.01))); // 增加一个条件：价格强势上涨时无需成交量确认
+                .or(new OverIndicatorRule(priceROC, Ta4jNumUtil.valueOf(0.01))); // 增加一个条件：价格强势上涨时无需成交量确认
 
         // 卖出条件：价格下跌或成交量萎缩
-        Rule exitRule = new UnderIndicatorRule(priceROC, series.numOf(-0.005)) // 降低价格下跌阈值为-0.5%（原为-1%）
+        Rule exitRule = new UnderIndicatorRule(priceROC, Ta4jNumUtil.valueOf(-0.005)) // 降低价格下跌阈值为-0.5%（原为-1%）
                 .or(new UnderIndicatorRule(volume, volumeMA)); // 成交量低于均线即卖出
 
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                if (index == 0) return series.numOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.06)); // 6%止盈条件
+                if (index == 0) return Ta4jNumUtil.valueOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(1.06)); // 6%止盈条件
             }
         };
 
@@ -1719,21 +1893,26 @@ public class StrategyFactory3 {
         SMAIndicator volumeMA = new SMAIndicator(volume, 10);
 
         // 买入条件：短期和中期动量均为正，且短期动量大于中期动量
-        Rule entryRule = new OverIndicatorRule(shortROC, series.numOf(0.003)) // 降低短期动量阈值为0.3%（原为0.5%）
-                .and(new OverIndicatorRule(mediumROC, series.numOf(0.002))) // 降低中期动量阈值为0.2%（原为0.3%）
+        Rule entryRule = new OverIndicatorRule(shortROC, Ta4jNumUtil.valueOf(0.003)) // 降低短期动量阈值为0.3%（原为0.5%）
+                .and(new OverIndicatorRule(mediumROC, Ta4jNumUtil.valueOf(0.002))) // 降低中期动量阈值为0.2%（原为0.3%）
                 .and(new OverIndicatorRule(shortROC, mediumROC))
-                .or(new OverIndicatorRule(shortROC, series.numOf(0.01))); // 增加一个条件：短期动量很强时直接买入
+                .or(new OverIndicatorRule(shortROC, Ta4jNumUtil.valueOf(0.01))); // 增加一个条件：短期动量很强时直接买入
 
         // 卖出条件：短期动量转为负值，或短期动量低于中期动量
-        Rule exitRule = new UnderIndicatorRule(shortROC, series.numOf(0))
+        Rule exitRule = new UnderIndicatorRule(shortROC, Ta4jNumUtil.valueOf(0))
                 .or(new UnderIndicatorRule(shortROC, mediumROC));
 
         // 增加止盈条件
         Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
             @Override
+            public int getCountOfUnstableBars() {
+                return 0;
+            }
+
+            @Override
             protected Num calculate(int index) {
-                if (index == 0) return series.numOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(series.numOf(1.04)); // 4%止盈条件
+                if (index == 0) return Ta4jNumUtil.valueOf(0);
+                return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(1.04)); // 4%止盈条件
             }
         };
 

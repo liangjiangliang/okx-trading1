@@ -3,7 +3,9 @@ package com.okx.trading.service.impl;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -24,10 +26,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
+import org.ta4j.core.analysis.cost.ZeroCostModel;
+import org.ta4j.core.backtest.BarSeriesManager;
+import org.ta4j.core.backtest.TradeOnCurrentCloseModel;
+import org.ta4j.core.num.DecimalNum;
 
 import com.okx.trading.model.dto.BacktestResultDTO;
 import com.okx.trading.model.dto.TradeRecordDTO;
-import org.ta4j.core.cost.ZeroCostModel;
 import ta4jexamples.logging.StrategyExecutionLogging;
 
 /**
@@ -61,8 +66,8 @@ public class Ta4jBacktestService {
             // 使用策略工厂创建策略
             Strategy strategy = StrategyRegisterCenter.createStrategy(series, strategyType);
 
-            // 执行回测
-            BarSeriesManager seriesManager = new BarSeriesManager(series, new ZeroCostModel(), new ZeroCostModel());
+            // 执行回测，使用TradeOnCurrentCloseModel作为交易执行模型
+            BarSeriesManager seriesManager = new BarSeriesManager(series, new ZeroCostModel(), new ZeroCostModel(), new TradeOnCurrentCloseModel());
             TradingRecord tradingRecord = seriesManager.run(strategy, Trade.TradeType.BUY);
 
             // unloadLoggerConfiguration();
@@ -413,8 +418,8 @@ public class Ta4jBacktestService {
                 Bar entryBar = series.getBar(entryIndex);
                 Bar exitBar = series.getBar(exitIndex);
 
-                ZonedDateTime entryTime = entryBar.getEndTime();
-                ZonedDateTime exitTime = exitBar.getEndTime();
+                Instant entryTime = entryBar.getEndTime().atZone(ZoneId.systemDefault()).toInstant();
+                Instant exitTime = exitBar.getEndTime().atZone(ZoneId.systemDefault()).toInstant();
 
                 BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
                 BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
@@ -457,8 +462,8 @@ public class Ta4jBacktestService {
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
                 recordDTO.setType(position.getEntry().isBuy() ? "BUY" : "SELL");
-                recordDTO.setEntryTime(entryTime.toLocalDateTime());
-                recordDTO.setExitTime(exitTime.toLocalDateTime());
+                recordDTO.setEntryTime(LocalDateTime.ofInstant(entryTime, ZoneId.systemDefault()));
+                recordDTO.setExitTime(LocalDateTime.ofInstant(exitTime, ZoneId.systemDefault()));
                 recordDTO.setEntryPrice(entryPrice);
                 recordDTO.setExitPrice(exitPrice);
                 recordDTO.setEntryAmount(tradeAmount);

@@ -11,13 +11,18 @@ import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.util.TechnicalIndicatorUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
+
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.validation.annotation.Validated;
@@ -26,8 +31,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -48,7 +53,7 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 @Validated
 @RestController
 @RequestMapping("/market")
-@Api(tags = "市场数据接口", description = "提供K线数据获取和技术指标计算的接口")
+@Tag(name = "市场数据接口")
 public class MarketController {
 
     private final OkxApiService okxApiService;
@@ -88,14 +93,13 @@ public class MarketController {
      * @param limit    获取数据条数，最大为1000
      * @return K线数据列表
      */
-    @ApiOperation(value = "订阅实时标记价格K线数据,订阅完成后自动推送最新行情信息", notes = "获取指定交易对的K线数据，支持多种时间间隔")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-                    required = true, dataType = "String", example = "1m", paramType = "query",
-                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-            @ApiImplicitParam(name = "limit", value = "获取数据条数，最大为1000，不传默认返回500条数据",
-                    required = false, dataType = "Integer", example = "100", paramType = "query")
+    @Operation(description = "订阅实时标记价格K线数据,订阅完成后自动推送最新行情信息")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对", required = true,   example = "BTC-USDT" ),
+            @Parameter(name = "interval", description = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true,  example = "1m"),
+            @Parameter(name = "limit", description = "获取数据条数，最大为1000，不传默认返回500条数据",
+                    required = false, example = "100" )
     })
     @GetMapping("/subscribe_klines")
     public ApiResponse<List<Candlestick>> subscribeKlineData(
@@ -116,10 +120,10 @@ public class MarketController {
      * @param symbol 交易对，如BTC-USDT
      * @return 行情数据
      */
-    @ApiOperation(value = "获取最新行情", notes = "获取指定交易对的最新价格、24小时涨跌幅等行情数据")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
-                    required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
+    @Operation(summary = "获取最新行情", description = "获取指定交易对的最新价格、24小时涨跌幅等行情数据")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
+                    required = true,  example = "BTC-USDT" )
     })
     @GetMapping("/ticker")
     public ApiResponse<Ticker> getTicker(
@@ -139,12 +143,11 @@ public class MarketController {
      * @param interval K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M
      * @return 操作结果
      */
-    @ApiOperation(value = "取消订阅K线数据", notes = "取消订阅指定交易对的K线数据")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-                    required = true, dataType = "String", example = "1m", paramType = "query",
-                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M")
+    @Operation(summary = "取消订阅K线数据", description = "取消订阅指定交易对的K线数据")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对", required = true,  example = "BTC-USDT"),
+            @Parameter(name = "interval", description = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true,  example = "1m")
     })
     @GetMapping("/unsubscribe_klines")
     public ApiResponse<Boolean> unsubscribeKlineData(
@@ -164,10 +167,10 @@ public class MarketController {
      * @param symbol 交易对，如BTC-USDT
      * @return 操作结果
      */
-    @ApiOperation(value = "取消订阅行情数据", notes = "取消订阅指定交易对的实时行情数据")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
-                    required = true, dataType = "String", example = "BTC-USDT", paramType = "query")
+    @Operation(summary = "取消订阅行情数据", description = "取消订阅指定交易对的实时行情数据")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对 (格式为 基础资产-计价资产，如BTC-USDT、ETH-USDT等)",
+                    required = true,  example = "BTC-USDT" )
     })
     @GetMapping("/unsubscribe_ticker")
     public ApiResponse<Boolean> unsubscribeTicker(
@@ -188,14 +191,13 @@ public class MarketController {
      * @param limit    获取数据条数，默认100
      * @return 最新的K线数据列表
      */
-    @ApiOperation(value = "获取最新K线数据", notes = "从数据库获取最新的K线数据，按时间降序排列")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-                    required = true, dataType = "String", example = "1m", paramType = "query",
-                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-            @ApiImplicitParam(name = "limit", value = "获取数据条数，默认100",
-                    required = false, dataType = "Integer", example = "100", paramType = "query")
+    @Operation(summary = "获取最新K线数据", description = "从数据库获取最新的K线数据，按时间降序排列")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对", required = true,  example = "BTC-USDT" ),
+            @Parameter(name = "interval", description = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true,  example = "1m"),
+            @Parameter(name = "limit", description = "获取数据条数，默认100",
+                    required = false, example = "100")
     })
     @GetMapping("/latest_klines")
     public ApiResponse<List<CandlestickEntity>> getLatestKlineData(
@@ -219,14 +221,13 @@ public class MarketController {
      * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
      * @return 历史K线数据列表
      */
-    @ApiOperation(value = "查询已保存的历史K线数据", notes = "查询数据库中已保存的历史K线数据")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-                    required = true, dataType = "String", example = "1m", paramType = "query",
-                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-            @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-01 00:00:00", paramType = "query"),
-            @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2023-01-02 00:00:00", paramType = "query")
+    @Operation(summary = "查询已保存的历史K线数据", description = "查询数据库中已保存的历史K线数据")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对", required = true,  example = "BTC-USDT" ),
+            @Parameter(name = "interval", description = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true,  example = "1m"),
+            @Parameter(name = "startTimeStr", description = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true,  example = "2023-01-01 00:00:00" ),
+            @Parameter(name = "endTimeStr", description = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true,  example = "2023-01-02 00:00:00" )
     })
     @GetMapping("/query_saved_history")
     public ApiResponse<List<CandlestickEntity>> querySavedHistoricalData(
@@ -264,14 +265,13 @@ public class MarketController {
      * @param endTimeStr   结束时间 (yyyy-MM-dd HH:mm:ss)
      * @return 操作结果，包含获取的K线数据
      */
-    @ApiOperation(value = "智能获取历史K线数据", notes = "根据入参计算需要获取的K线数量，扣除已有数据，按需获取并保存")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "symbol", value = "交易对", required = true, dataType = "String", example = "BTC-USDT", paramType = "query"),
-            @ApiImplicitParam(name = "interval", value = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
-                    required = true, dataType = "String", example = "1m", paramType = "query",
-                    allowableValues = "1m,5m,15m,30m,1H,2H,4H,6H,12H,1D,1W,1M"),
-            @ApiImplicitParam(name = "startTimeStr", value = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2018-01-01 00:00:00", paramType = "query"),
-            @ApiImplicitParam(name = "endTimeStr", value = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true, dataType = "String", example = "2025-04-01 00:00:00", paramType = "query")
+    @Operation(summary = "智能获取历史K线数据", description = "根据入参计算需要获取的K线数量，扣除已有数据，按需获取并保存")
+    @Parameters({
+            @Parameter(name = "symbol", description = "交易对", required = true,  example = "BTC-USDT"),
+            @Parameter(name = "interval", description = "K线间隔 (1m=1分钟, 5m=5分钟, 15m=15分钟, 30m=30分钟, 1H=1小时, 2H=2小时, 4H=4小时, 6H=6小时, 12H=12小时, 1D=1天, 1W=1周, 1M=1个月)",
+                    required = true,  example = "1m"),
+            @Parameter(name = "startTimeStr", description = "开始时间 (yyyy-MM-dd HH:mm:ss)", required = true,  example = "2018-01-01 00:00:00" ),
+            @Parameter(name = "endTimeStr", description = "结束时间 (yyyy-MM-dd HH:mm:ss)", required = true,  example = "2025-04-01 00:00:00" )
     })
     @GetMapping("/fetch_history_with_integrity_check")
     public ApiResponse<List<CandlestickEntity>> fetchAndSaveHistoryWithIntegrityCheck(
@@ -294,7 +294,7 @@ public class MarketController {
      * 查看Redis中已有的K线订阅数据
      * 用于调试和检查当前订阅状态
      */
-    @ApiOperation(value = "查看已有订阅", notes = "查看Redis中已保存的K线订阅数据")
+    @Operation(summary = "查看已有订阅", description = "查看Redis中已保存的K线订阅数据")
     @GetMapping("/subscriptions")
     public ApiResponse<Set<String>> getSubscriptions() {
         log.info("查看Redis中已有的K线订阅数据");
@@ -314,14 +314,14 @@ public class MarketController {
      * @param limit  返回的数据条数，默认为50
      * @return 所有订阅币种的行情数据列表
      */
-    @ApiOperation(value = "获取所有币种最新行情", notes = "获取所有已订阅币种的最新价格、24小时涨跌幅等行情数据")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "filter", value = "过滤条件（all=所有币种, hot=热门币种, rise=涨幅最大, fall=跌幅最大）",
-                    required = false, dataType = "String", example = "hot", paramType = "query"),
-            @ApiImplicitParam(name = "search", value = "搜索币种名称，如BTC、ETH等（不区分大小写）",
-                    required = false, dataType = "String", example = "BTC", paramType = "query"),
-            @ApiImplicitParam(name = "limit", value = "返回数据条数，默认为50",
-                    required = false, dataType = "Integer", example = "20", paramType = "query")
+    @Operation(summary = "获取所有币种最新行情", description = "获取所有已订阅币种的最新价格、24小时涨跌幅等行情数据")
+    @Parameters({
+            @Parameter(name = "filter", description = "过滤条件（all=所有币种, hot=热门币种, rise=涨幅最大, fall=跌幅最大）",
+                    required = false,  example = "hot"),
+            @Parameter(name = "search", description = "搜索币种名称，如BTC、ETH等（不区分大小写）",
+                    required = false,  example = "BTC"),
+            @Parameter(name = "limit", description = "返回数据条数，默认为50",
+                    required = false, example = "20")
     })
     @GetMapping("/all_tickers")
     public ApiResponse<List<Ticker>> getAllTickers(

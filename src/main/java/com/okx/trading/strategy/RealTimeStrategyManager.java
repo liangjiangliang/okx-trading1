@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.okx.trading.constant.IndicatorInfo.*;
-import static javax.print.attribute.standard.JobState.CANCELED;
 
 
 /**
@@ -47,6 +46,10 @@ import static javax.print.attribute.standard.JobState.CANCELED;
 @Data
 @Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class RealTimeStrategyManager implements ApplicationRunner {
+
+    // 定义常量替代javax.print.attribute.standard.JobState.CANCELED
+    private static final String CANCELED = "CANCELED";
+    private static final String SUCCESS = "SUCCESS";
 
     private final OkxApiWebSocketServiceImpl webSocketService;
     private final RealTimeOrderService realTimeOrderService;
@@ -187,8 +190,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         Bar lastBar = series.getLastBar();
-        LocalDateTime newBarStartTime = newBar.getBeginTime().toLocalDateTime();
-        LocalDateTime lastBarStartTime = lastBar.getBeginTime().toLocalDateTime();
+        LocalDateTime newBarStartTime = newBar.getBeginTime().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        LocalDateTime lastBarStartTime = lastBar.getBeginTime().atZone(ZoneId.systemDefault()).toLocalDateTime();
 
         // 计算周期的开始时间
         LocalDateTime newPeriodStart = getPeriodStartTime(newBarStartTime, interval);
@@ -339,15 +342,18 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             endTime = calculateEndTimeFromInterval(candlestick.getOpenTime(), candlestick.getIntervalVal());
         }
 
-        return BaseBar.builder()
-                .timePeriod(java.time.Duration.ofMinutes(intervalMinutes)) // 根据实际interval调整
-                .openPrice(DecimalNum.valueOf(candlestick.getOpen()))
-                .endTime(endTime.atZone(ZoneId.systemDefault()))
-                .highPrice(DecimalNum.valueOf(candlestick.getHigh()))
-                .lowPrice(DecimalNum.valueOf(candlestick.getLow()))
-                .closePrice(DecimalNum.valueOf(candlestick.getClose()))
-                .volume(DecimalNum.valueOf(candlestick.getVolume()))
-                .build();
+        // 使用Ta4j 0.18版本的BaseBar构造函数
+        return new BaseBar(
+            Duration.ofMinutes(intervalMinutes),
+            endTime.atZone(ZoneId.systemDefault()).toInstant(),
+            DecimalNum.valueOf(candlestick.getOpen()),
+            DecimalNum.valueOf(candlestick.getHigh()),
+            DecimalNum.valueOf(candlestick.getLow()),
+            DecimalNum.valueOf(candlestick.getClose()),
+            DecimalNum.valueOf(candlestick.getVolume()),
+            DecimalNum.valueOf(BigDecimal.ZERO), // 默认成交额为0
+            0L // 添加交易次数参数，默认为0
+        );
     }
 
     /**

@@ -6,8 +6,8 @@ import com.okx.trading.model.dto.IndicatorWeightConfig;
 import com.okx.trading.model.entity.IndicatorDistributionEntity;
 import com.okx.trading.service.IndicatorDistributionService;
 import com.okx.trading.service.IndicatorWeightService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +25,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/indicator-distribution")
 @RequiredArgsConstructor
-@Api(tags = "指标分布管理")
+@Tag(name = "指标分布管理")
 public class IndicatorDistributionController {
 
     private final IndicatorDistributionService indicatorDistributionService;
@@ -35,7 +35,7 @@ public class IndicatorDistributionController {
      * 更新指标分布数据
      */
     @PostMapping("/update")
-    @ApiOperation("更新指标分布统计数据")
+    @Operation(summary = "更新指标分布统计数据")
     public ResponseEntity<ApiResponse<List<IndicatorDistributionEntity>>> updateIndicatorDistributions() {
         try {
             log.info("开始更新指标分布数据...");
@@ -57,7 +57,7 @@ public class IndicatorDistributionController {
      * 获取当前指标分布详情
      */
     @GetMapping("/current")
-    @ApiOperation("获取当前指标分布详情")
+    @Operation(summary = "获取当前指标分布详情")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCurrentDistributions() {
         try {
             Map<String, IndicatorDistributionEntity> currentDistributions = indicatorDistributionService.getCurrentDistributions();
@@ -102,7 +102,7 @@ public class IndicatorDistributionController {
      * 计算动态评分
      */
     @PostMapping("/calculate-score")
-    @ApiOperation("基于真实分布计算动态评分")
+    @Operation(summary = "基于真实分布计算动态评分")
     public ResponseEntity<ApiResponse<Map<String, Object>>> calculateDynamicScore(@RequestBody Map<String, BigDecimal> indicatorValues) {
         try {
             Map<String, Double> scores = indicatorDistributionService.calculateIndicatorScores(indicatorValues);
@@ -124,7 +124,7 @@ public class IndicatorDistributionController {
      * 获取分布统计信息
      */
     @GetMapping("/statistics")
-    @ApiOperation("获取指标分布统计信息")
+    @Operation(summary = "获取指标分布统计信息")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDistributionStatistics() {
         try {
             Map<String, Object> statistics = indicatorDistributionService.getDistributionStatistics();
@@ -141,7 +141,7 @@ public class IndicatorDistributionController {
      * 获取权重配置统计信息
      */
     @GetMapping("/weight-config/statistics")
-    @ApiOperation("获取权重配置统计信息")
+    @Operation(summary = "获取权重配置统计信息")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getWeightConfigStatistics() {
         try {
             Map<String, Object> statistics = indicatorWeightService.getConfigStatistics();
@@ -156,7 +156,7 @@ public class IndicatorDistributionController {
      * 重新加载权重配置
      */
     @PostMapping("/weight-config/reload")
-    @ApiOperation("重新加载权重配置")
+    @Operation(summary = "重新加载权重配置")
     public ResponseEntity<ApiResponse<String>> reloadWeightConfig() {
         try {
             boolean success = indicatorWeightService.reloadConfig();
@@ -175,7 +175,7 @@ public class IndicatorDistributionController {
      * 基于权重配置计算综合评分
      */
     @PostMapping("/weight-config/calculate-comprehensive-score")
-    @ApiOperation("基于权重配置计算综合评分")
+    @Operation(summary = "基于权重配置计算综合评分")
     public ResponseEntity<ApiResponse<Map<String, Object>>> calculateComprehensiveScore(@RequestBody Map<String, BigDecimal> indicatorValues) {
         try {
             // 首先计算各指标的评分（8分制）
@@ -207,7 +207,7 @@ public class IndicatorDistributionController {
      * 获取权重配置详情
      */
     @GetMapping("/weight-config/details")
-    @ApiOperation("获取权重配置详情")
+    @Operation(summary = "获取权重配置详情")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getWeightConfigDetails() {
         try {
             IndicatorWeightConfig config = indicatorWeightService.getCurrentConfig();
