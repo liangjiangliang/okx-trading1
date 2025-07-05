@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -106,8 +107,9 @@ public class CandlestickEntity implements Comparable<CandlestickEntity> {
     private LocalDateTime fetchTime;
 
     /**
-     * 获取开盘时间的时间戳（毫秒）
+     * 获取收盘时间的时间戳（毫秒）
      * 为了兼容Ta4j 0.18版本的API
+     *
      * @return 开盘时间的时间戳（毫秒）
      */
     public long getTimestamp() {
@@ -115,12 +117,13 @@ public class CandlestickEntity implements Comparable<CandlestickEntity> {
     }
 
     /**
-     * 获取开盘时间的时间戳（毫秒）
+     * 获取收盘时间的时间戳（毫秒）
      * 为了兼容Ta4j 0.18版本的API
+     *
      * @return 开盘时间的时间戳（毫秒）
      */
     public long getTime() {
-        return openTime.atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
+        return closeTime.atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
     }
 
     @Override
