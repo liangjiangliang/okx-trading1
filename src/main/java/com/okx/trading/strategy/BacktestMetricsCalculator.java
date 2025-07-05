@@ -287,8 +287,9 @@ public class BacktestMetricsCalculator {
                 ZonedDateTime entryTime = ZonedDateTime.from(entryBar.getEndTime().atZone(ZoneId.systemDefault()));
                 ZonedDateTime exitTime = ZonedDateTime.from(exitBar.getEndTime().atZone(ZoneId.systemDefault()));
 
-                BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
-                BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
+                // 使用position中的实际交易价格，而不是K线的收盘价
+                BigDecimal entryPrice = new BigDecimal(position.getEntry().getPricePerAsset().doubleValue());
+                BigDecimal exitPrice = new BigDecimal(position.getExit().getPricePerAsset().doubleValue());
 
                 // 计算入场手续费
                 BigDecimal entryFee = tradeAmount.multiply(feeRatio);
