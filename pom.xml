@@ -232,14 +232,6 @@
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
                         <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
                     </compilerArgs>
-                    <!-- 暂时排除所有controller -->
-                    <excludes>
-                        <exclude>**/controller/**</exclude>
-                        <exclude>**/strategy/StrategyFactory1.java</exclude>
-                        <exclude>**/strategy/StrategyFactory2.java</exclude>
-                        <exclude>**/strategy/StrategyFactory3.java</exclude>
-                        <exclude>**/strategy/StrategyFactory4.java</exclude>
-                    </excludes>
                 </configuration>
             </plugin>
         </plugins>

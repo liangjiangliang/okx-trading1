@@ -340,7 +340,7 @@ public class MarketController {
             log.info("从接口查询所有币种价格");
         }
 
-        redisTemplate.opsForSet().add(ALL_COIN_RT_PRICE, Arrays.stream(tickers.toArray()).map(Object::toString).toArray(String[]::new));
+        redisTemplate.opsForSet().add(ALL_COIN_RT_PRICE, (Object[])Arrays.stream(tickers.toArray()).map(Object::toString).toArray(String[]::new));
         redisTemplate.expire(ALL_COIN_RT_PRICE, 10, TimeUnit.MINUTES);
 
         // 如果有搜索条件，先过滤
