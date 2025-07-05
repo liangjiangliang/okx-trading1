@@ -418,11 +418,12 @@ public class Ta4jBacktestService {
                 Bar entryBar = series.getBar(entryIndex);
                 Bar exitBar = series.getBar(exitIndex);
 
-                Instant entryTime = entryBar.getEndTime().atZone(ZoneId.systemDefault()).toInstant();
-                Instant exitTime = exitBar.getEndTime().atZone(ZoneId.systemDefault()).toInstant();
+                Instant entryTime = entryBar.getEndTime().atZone(ZoneId.of("UTC+8")).toInstant();
+                Instant exitTime = exitBar.getEndTime().atZone(ZoneId.of("UTC+8")).toInstant();
 
-                BigDecimal entryPrice = new BigDecimal(entryBar.getClosePrice().doubleValue());
-                BigDecimal exitPrice = new BigDecimal(exitBar.getClosePrice().doubleValue());
+                // 使用position中的实际交易价格，而不是直接使用K线的收盘价
+                BigDecimal entryPrice = new BigDecimal(position.getEntry().getPricePerAsset().doubleValue());
+                BigDecimal exitPrice = new BigDecimal(position.getExit().getPricePerAsset().doubleValue());
 
                 // 计算入场手续费
                 BigDecimal entryFee = tradeAmount.multiply(feeRatio);
@@ -462,8 +463,8 @@ public class Ta4jBacktestService {
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
                 recordDTO.setType(position.getEntry().isBuy() ? "BUY" : "SELL");
-                recordDTO.setEntryTime(LocalDateTime.ofInstant(entryTime, ZoneId.systemDefault()));
-                recordDTO.setExitTime(LocalDateTime.ofInstant(exitTime, ZoneId.systemDefault()));
+                recordDTO.setEntryTime(LocalDateTime.ofInstant(entryTime, ZoneId.of("UTC+8")));
+                recordDTO.setExitTime(LocalDateTime.ofInstant(exitTime, ZoneId.of("UTC+8")));
                 recordDTO.setEntryPrice(entryPrice);
                 recordDTO.setExitPrice(exitPrice);
                 recordDTO.setEntryAmount(tradeAmount);

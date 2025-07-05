@@ -113,7 +113,7 @@ public class CandlestickBarSeriesConverter {
     private Bar convertToBar(CandlestickEntity candle, Duration duration) {
         if (candle.getCloseTime() == null) {
             log.warn("K线数据的关闭时间为null，使用开盘时间作为替代");
-            ZonedDateTime endTime = candle.getOpenTime().atZone(ZoneId.systemDefault());
+            ZonedDateTime endTime = candle.getOpenTime().atZone(ZoneId.of("UTC+8"));
 
             // 获取价格和成交量数据
             Num openPrice = CandlestickAdapter.getOpen(candle);
@@ -124,7 +124,7 @@ public class CandlestickBarSeriesConverter {
 
             return new BaseBar(
                     duration,
-                    endTime.toInstant(),
+                    endTime.toInstant().atZone(ZoneId.of("UTC+8")).toInstant(),
                     openPrice,
                     highPrice,
                     lowPrice,
@@ -136,7 +136,7 @@ public class CandlestickBarSeriesConverter {
         }
 
         // 使用Java 21兼容的方式创建ZonedDateTime
-        ZonedDateTime endTime = candle.getCloseTime().atZone(ZoneId.systemDefault());
+        ZonedDateTime endTime = candle.getCloseTime().atZone(ZoneId.of("UTC+8"));
 
         // 获取价格和成交量数据
         Num openPrice = CandlestickAdapter.getOpen(candle);

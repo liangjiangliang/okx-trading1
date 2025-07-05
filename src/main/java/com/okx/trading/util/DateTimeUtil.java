@@ -17,7 +17,7 @@ public class DateTimeUtil {
      * @return LocalDateTime对象
      */
     public static LocalDateTime instantToLocalDateTime(Instant instant) {
-        return instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return instant.atZone(ZoneId.of("UTC+8")).toLocalDateTime();
     }
 
     /**
@@ -27,7 +27,7 @@ public class DateTimeUtil {
      * @return Instant对象
      */
     public static Instant localDateTimeToInstant(LocalDateTime localDateTime) {
-        return localDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        return localDateTime.atZone(ZoneId.of("UTC+8")).toInstant();
     }
 
     /**
@@ -47,7 +47,7 @@ public class DateTimeUtil {
      * @return ZonedDateTime对象
      */
     public static ZonedDateTime instantToZonedDateTime(Instant instant) {
-        return instant.atZone(ZoneId.systemDefault());
+        return instant.atZone(ZoneId.of("UTC+8"));
     }
 
     /**
@@ -57,7 +57,7 @@ public class DateTimeUtil {
      * @return ZonedDateTime对象
      */
     public static ZonedDateTime timestampToZonedDateTime(long timestamp) {
-        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault());
+        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("UTC+8"));
     }
 
     /**
@@ -67,7 +67,7 @@ public class DateTimeUtil {
      * @return LocalDateTime对象
      */
     public static LocalDateTime timestampToLocalDateTime(long timestamp) {
-        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("UTC+8")).toLocalDateTime();
     }
 
     /**
@@ -87,6 +87,6 @@ public class DateTimeUtil {
      * @return 系统默认时区
      */
     public static ZoneId getSystemDefaultZoneId() {
-        return ZoneId.systemDefault();
+        return ZoneId.of("UTC+8");
     }
 } 

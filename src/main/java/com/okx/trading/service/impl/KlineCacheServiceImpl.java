@@ -389,7 +389,7 @@ public class KlineCacheServiceImpl implements KlineCacheService {
                     if (openTime == null) return false;
 
                     // 将LocalDateTime转换为long进行比较
-                    long openTimeMillis = openTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                    long openTimeMillis = openTime.atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
                     return (startTime == null || openTimeMillis >= startTime) &&
                             (endTime == null || openTimeMillis <= endTime);
                 })

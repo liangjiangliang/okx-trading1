@@ -71,7 +71,7 @@ public class CandlestickAdapter {
      * @return 开盘时间
      */
     public static ZonedDateTime getOpenTime(CandlestickEntity candle) {
-        return candle.getOpenTime().atZone(ZoneId.systemDefault());
+        return candle.getOpenTime().atZone(ZoneId.of("UTC+8"));
     }
 
     /**

@@ -50,7 +50,7 @@ LocalDateTime ldt = instant.toLocalDateTime();
 
 **新版本:**
 ```java
-LocalDateTime ldt = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+LocalDateTime ldt = instant.atZone(ZoneId.of("UTC+8")).toLocalDateTime();
 ```
 
 ### 5. 包名变更

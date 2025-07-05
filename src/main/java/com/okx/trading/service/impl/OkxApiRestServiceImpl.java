@@ -87,7 +87,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(timestamp),
-                    ZoneId.systemDefault());
+                    ZoneId.of("UTC+8"));
 
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));
@@ -170,7 +170,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
             long timestamp = data.getLongValue("ts");
             ticker.setTimestamp(LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(timestamp),
-                ZoneId.systemDefault()));
+                ZoneId.of("UTC+8")));
 
             return ticker;
         }catch(OkxApiException e){
@@ -350,12 +350,12 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 long cTime = item.getLongValue("cTime");
                 order.setCreateTime(LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(cTime),
-                    ZoneId.systemDefault()));
+                    ZoneId.of("UTC+8")));
 
                 long uTime = item.getLongValue("uTime");
                 order.setUpdateTime(LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(uTime),
-                    ZoneId.systemDefault()));
+                    ZoneId.of("UTC+8")));
 
                 // 设置模拟标志
                 order.setSimulated(false);
@@ -714,7 +714,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(timestamp),
-                    ZoneId.systemDefault());
+                    ZoneId.of("UTC+8"));
 
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));
@@ -832,7 +832,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
                 long timestamp = data.getLongValue("ts");
                 ticker.setTimestamp(LocalDateTime.ofInstant(
                         Instant.ofEpochMilli(timestamp),
-                        ZoneId.systemDefault()));
+                        ZoneId.of("UTC+8")));
 
                 tickers.add(ticker);
 

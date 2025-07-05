@@ -333,8 +333,8 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", rangePoints.size());
 
         TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
-        long startTimestamp = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-        long endTimestamp = endTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long startTimestamp = startTime.atZone(java.time.ZoneId.of("UTC+8")).toInstant().toEpochMilli();
+        long endTimestamp = endTime.atZone(java.time.ZoneId.of("UTC+8")).toInstant().toEpochMilli();
 
         Set<String> cachedJsonSet = redisCacheService.getKlineFromSortedSet(symbol, interval, startTimestamp, endTimestamp);
         // 先检查Redis Sorted Set缓存
@@ -825,7 +825,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
      * 将LocalDateTime转换为毫秒时间戳
      */
     private Long toEpochMilli(LocalDateTime time) {
-        return time.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return time.atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
     }
 
     /**
@@ -1239,7 +1239,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
 
         // 准备所有批次的任务
         // 调用API获取数据 (将LocalDateTime转换为时间戳)
-        ZoneId zoneId = ZoneId.systemDefault();
+        ZoneId zoneId = ZoneId.of("UTC+8");
         long startTimestamp = startTime.atZone(zoneId).toInstant().toEpochMilli();
         long endTimestamp = endTime.atZone(zoneId).toInstant().toEpochMilli();
         LocalDateTime lastStart = LocalDateTime.now();

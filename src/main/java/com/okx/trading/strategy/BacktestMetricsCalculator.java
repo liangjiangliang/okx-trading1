@@ -284,8 +284,8 @@ public class BacktestMetricsCalculator {
                 Bar entryBar = series.getBar(entryIndex);
                 Bar exitBar = series.getBar(exitIndex);
 
-                ZonedDateTime entryTime = ZonedDateTime.from(entryBar.getEndTime().atZone(ZoneId.systemDefault()));
-                ZonedDateTime exitTime = ZonedDateTime.from(exitBar.getEndTime().atZone(ZoneId.systemDefault()));
+                ZonedDateTime entryTime = ZonedDateTime.from(entryBar.getEndTime().atZone(ZoneId.of("UTC+8")));
+                ZonedDateTime exitTime = ZonedDateTime.from(exitBar.getEndTime().atZone(ZoneId.of("UTC+8")));
 
                 // 使用position中的实际交易价格，而不是K线的收盘价
                 BigDecimal entryPrice = new BigDecimal(position.getEntry().getPricePerAsset().doubleValue());
@@ -561,8 +561,8 @@ public class BacktestMetricsCalculator {
         // 计算年化收益率
         metrics.annualizedReturn = calculateAnnualizedReturn(
                 metrics.totalReturn,
-                ZonedDateTime.from(series.getFirstBar().getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime(),
-                ZonedDateTime.from(series.getLastBar().getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime()
+                ZonedDateTime.from(series.getFirstBar().getEndTime().atZone(ZoneId.of("UTC+8"))).toLocalDateTime(),
+                ZonedDateTime.from(series.getLastBar().getEndTime().atZone(ZoneId.of("UTC+8"))).toLocalDateTime()
         );
 
         return metrics;
@@ -911,7 +911,7 @@ public class BacktestMetricsCalculator {
             // 生成对应的时间戳列表
             List<LocalDateTime> timestamps = new ArrayList<>();
             for (int i = 0; i < series.getBarCount(); i++) {
-                timestamps.add(ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime());
+                timestamps.add(ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.of("UTC+8"))).toLocalDateTime());
             }
             finalResult.setEquityCurveTimestamps(timestamps);
         }
@@ -1829,7 +1829,7 @@ public class BacktestMetricsCalculator {
         BigDecimal latestAmount = initialAmount;
 
         for (int i = 1; i < series.getBarCount(); i++) {
-            LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime();
+            LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.of("UTC+8"))).toLocalDateTime();
 
             // 检查这一天是否有交易完成
             if (tradeAmounts.containsKey(barTime)) {
@@ -1877,7 +1877,7 @@ public class BacktestMetricsCalculator {
 
                 // 找到目标时间对应的价格
                 for (int i = 0; i < series.getBarCount(); i++) {
-                    LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.systemDefault())).toLocalDateTime();
+                    LocalDateTime barTime = ZonedDateTime.from(series.getBar(i).getEndTime().atZone(ZoneId.of("UTC+8"))).toLocalDateTime();
                     if (barTime.equals(targetTime)) {
                         BigDecimal currentPrice = BigDecimal.valueOf(series.getBar(i).getClosePrice().doubleValue());
 

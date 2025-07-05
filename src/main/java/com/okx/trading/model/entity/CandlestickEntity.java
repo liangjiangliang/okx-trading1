@@ -120,7 +120,7 @@ public class CandlestickEntity implements Comparable<CandlestickEntity> {
      * @return 开盘时间的时间戳（毫秒）
      */
     public long getTime() {
-        return openTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return openTime.atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
     }
 
     @Override

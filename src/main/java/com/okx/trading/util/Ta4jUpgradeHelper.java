@@ -69,7 +69,7 @@ public class Ta4jUpgradeHelper {
         if (instant == null) {
             return null;
         }
-        return instant.atZone(ZoneId.systemDefault());
+        return instant.atZone(ZoneId.of("UTC+8"));
     }
 
     /**
@@ -98,7 +98,7 @@ public class Ta4jUpgradeHelper {
                 // 如果反射也失败，使用时间戳作为备选方案
                 try {
                     return Instant.ofEpochMilli(zonedDateTime.toLocalDateTime()
-                            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+                            .atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli());
                 } catch (Exception exc) {
                     throw new RuntimeException("无法将ZonedDateTime转换为Instant: " + zonedDateTime, exc);
                 }
@@ -116,7 +116,7 @@ public class Ta4jUpgradeHelper {
         if (localDateTime == null) {
             return null;
         }
-        return localDateTime.atZone(ZoneId.systemDefault());
+        return localDateTime.atZone(ZoneId.of("UTC+8"));
     }
 
     /**
@@ -126,7 +126,7 @@ public class Ta4jUpgradeHelper {
      * @return ZonedDateTime对象
      */
     public static ZonedDateTime timestampToZonedDateTime(long timestamp) {
-        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault());
+        return Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("UTC+8"));
     }
 
     /**

@@ -190,8 +190,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         Bar lastBar = series.getLastBar();
-        LocalDateTime newBarStartTime = newBar.getBeginTime().atZone(ZoneId.systemDefault()).toLocalDateTime();
-        LocalDateTime lastBarStartTime = lastBar.getBeginTime().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        LocalDateTime newBarStartTime = newBar.getBeginTime().atZone(ZoneId.of("UTC+8")).toLocalDateTime();
+        LocalDateTime lastBarStartTime = lastBar.getBeginTime().atZone(ZoneId.of("UTC+8")).toLocalDateTime();
 
         // 计算周期的开始时间
         LocalDateTime newPeriodStart = getPeriodStartTime(newBarStartTime, interval);
@@ -345,7 +345,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         // 使用Ta4j 0.18版本的BaseBar构造函数
         return new BaseBar(
             Duration.ofMinutes(intervalMinutes),
-            endTime.atZone(ZoneId.systemDefault()).toInstant(),
+            endTime.atZone(ZoneId.of("UTC+8")).toInstant(),
             DecimalNum.valueOf(candlestick.getOpen()),
             DecimalNum.valueOf(candlestick.getHigh()),
             DecimalNum.valueOf(candlestick.getLow()),

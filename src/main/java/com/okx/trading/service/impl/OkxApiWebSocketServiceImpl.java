@@ -223,7 +223,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             // 解析时间戳
             if (candleObj.containsKey("ts")) {
                 long timestamp = candleObj.getLongValue("ts");
-                LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+                LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.of("UTC+8"));
                 candlestick.setOpenTime(time);
             }
 
@@ -785,7 +785,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
         // 解析时间戳
         long timestamp = tickerData.getLongValue("ts");
-        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.of("UTC+8"));
         ticker.setTimestamp(time);
 
         // 计算24小时涨跌幅
@@ -811,7 +811,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
         // 解析时间戳
         long timestamp = Long.parseLong(candleData.getString(0));
-        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.of("UTC+8"));
         candlestick.setOpenTime(time);
 
         candlestick.setOpen(new BigDecimal(candleData.getString(1)));
@@ -917,12 +917,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
         // 解析时间戳
         if (orderData.containsKey("cTime")) {
             long createTime = Long.parseLong(orderData.getString("cTime"));
-            order.setCreateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(createTime), ZoneId.systemDefault()));
+            order.setCreateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(createTime), ZoneId.of("UTC+8")));
         }
 
         if (orderData.containsKey("uTime")) {
             long updateTime = Long.parseLong(orderData.getString("uTime"));
-            order.setUpdateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(updateTime), ZoneId.systemDefault()));
+            order.setUpdateTime(LocalDateTime.ofInstant(Instant.ofEpochMilli(updateTime), ZoneId.of("UTC+8")));
         }
         log.info("返回订单信息:{}", order);
         return order;
@@ -1175,7 +1175,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 long timestamp = item.getLongValue(0);
                 LocalDateTime dateTime = LocalDateTime.ofInstant(
                         Instant.ofEpochMilli(timestamp),
-                        ZoneId.systemDefault());
+                        ZoneId.of("UTC+8"));
 
                 candlestick.setOpenTime(dateTime);
                 candlestick.setOpen(new BigDecimal(item.getString(1)));

@@ -55,7 +55,7 @@ public class RedisCacheServiceImpl implements RedisCacheService {
     public void updateCandlestick(Candlestick candlestick) {
         try {
             String key = COIN_KLINE_PREFIX_KEY + candlestick.getSymbol() + ":" + candlestick.getIntervalVal();
-            long openTime = candlestick.getOpenTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long openTime = candlestick.getOpenTime().atZone(ZoneId.of("UTC+8")).toInstant().toEpochMilli();
             double parseDouble = Double.parseDouble(String.valueOf(openTime));
             Set<Object> exist = redisTemplate.opsForZSet().rangeByScore(key, parseDouble, parseDouble);
             if (!exist.isEmpty()) {
@@ -267,7 +267,7 @@ public class RedisCacheServiceImpl implements RedisCacheService {
             for (com.okx.trading.model.entity.CandlestickEntity candlestick : candlesticks) {
                 if (candlestick.getOpenTime() != null) {
                     // 使用开盘时间的时间戳作为score
-                    long openTimeTimestamp = candlestick.getOpenTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+                    long openTimeTimestamp = candlestick.getOpenTime().atZone(java.time.ZoneId.of("UTC+8")).toInstant().toEpochMilli();
                     double score = (double) openTimeTimestamp;
 
                     // 将K线数据转换为JSON字符串作为value
