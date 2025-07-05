@@ -52,7 +52,7 @@ import static com.okx.trading.util.BacktestDataGenerator.parseIntervalToMinutes;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/market")
+@RequestMapping("/api/market")
 @Tag(name = "市场数据接口")
 public class MarketController {
 
