@@ -17,36 +17,36 @@ public class SMAStrategyParamDTO {
     /**
      * 快速均线周期
      */
-    @Builder.Default
+    
     private int shortPeriod = 9;
     
     /**
      * 慢速均线周期
      */
-    @Builder.Default
+    
     private int longPeriod = 26;
     
     /**
      * 初始投资金额
      */
-    @Builder.Default
+    
     private double initialAmount = 10000;
     
     /**
      * 交易手续费率
      */
-    @Builder.Default
+    
     private double tradingFeeRate = 0.001;
     
     /**
      * 止损比例 (%)，默认为0表示不启用止损
      */
-    @Builder.Default
+    
     private double stopLossPercent = 0;
     
     /**
      * 止盈比例 (%)，默认为0表示不启用止盈
      */
-    @Builder.Default
+    
     private double takeProfitPercent = 0;
 } 

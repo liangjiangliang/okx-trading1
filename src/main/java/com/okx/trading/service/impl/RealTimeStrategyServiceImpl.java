@@ -157,7 +157,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             strategy.setIsActive(false);
             strategy.setEndTime(LocalDateTime.now());
             realTimeStrategyRepository.save(strategy);
-            if (strategy.getLastTradeType().equals(BUY)) {
+            if (StringUtils.isNotBlank(strategy.getLastTradeType()) && strategy.getLastTradeType().equals(BUY)) {
                 realTimeStrategyManager.executeTradeSignal(strategy, new Candlestick(BigDecimal.ZERO), SELL);
             }
             realTimeStrategyManager.getRunningStrategies().remove(Long.parseLong(id));

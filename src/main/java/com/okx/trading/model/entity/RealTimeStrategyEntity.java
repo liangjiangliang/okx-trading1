@@ -53,14 +53,12 @@ public class RealTimeStrategyEntity {
      * 投资金额
      */
     @Column(name = "trade_amount")
-    @Builder.Default
     private Double tradeAmount = 0.0;
 
     /**
      * 交易金额
      */
     @Column(name = "last_trade_amount")
-    @Builder.Default
     private Double lastTradeAmount = 0.0;
 
 
@@ -68,7 +66,6 @@ public class RealTimeStrategyEntity {
      * 最后交易价格
      */
     @Column(name = "last_trade_price")
-    @Builder.Default
     private Double lastTradePrice = 0.0;
 
 
@@ -76,7 +73,6 @@ public class RealTimeStrategyEntity {
      * 最后一次交易数量
      */
     @Column(name = "last_trade_quantity")
-    @Builder.Default
     private Double lastTradeQuantity = 0.0;
 
 
@@ -84,7 +80,6 @@ public class RealTimeStrategyEntity {
      * 最后一次交易类型：BUY(买入), SELL(卖出)
      */
     @Column(name = "last_trade_type", length = 10)
-    @Builder.Default
     private String lastTradeType = "";
 
     /**
@@ -98,7 +93,6 @@ public class RealTimeStrategyEntity {
      * 总盈利金额（USDT）
      */
     @Column(name = "total_profit")
-    @Builder.Default
     private Double totalProfit = 0.0;
 
 
@@ -106,36 +100,30 @@ public class RealTimeStrategyEntity {
      * 总手续费（USDT）
      */
     @Column(name = "total_fees")
-    @Builder.Default
     private Double totalFees = 0.0;
 
     /**
      * 总交易次数
      */
     @Column(name = "total_trades")
-    @Builder.Default
     private Integer totalTrades = 0;
 
     /**
      * 成功交易次数
      */
     @Column(name = "successful_trades")
-    @Builder.Default
     private Integer successfulTrades = 0;
 
 
     @Column(name = "is_active", length = 20)
-    @Builder.Default
     private Boolean isActive = true;
     /**
      * 策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)
      */
     @Column(name = "status", length = 20)
-    @Builder.Default
     private String status = "RUNNING";
 
     @Column(name = "message")
-    @Builder.Default
     private String message = "";
     /**
      * 策略运行开始时间
@@ -168,7 +156,6 @@ public class RealTimeStrategyEntity {
     private Strategy strategy;
 
     @Transient
-    @Builder.Default
     private Boolean isInPosition = false;
 
     @PrePersist
