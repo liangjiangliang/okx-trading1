@@ -90,6 +90,11 @@ public class RealTimeOrderEntity {
     @Column(name = "side", nullable = false, length = 10)
     private String side;
 
+    /**
+     * 订单利润
+     */
+    @Column(name = "profit", precision = 20, scale = 8)
+    private BigDecimal profit;
 
     /**
      * 触发信号时的价格

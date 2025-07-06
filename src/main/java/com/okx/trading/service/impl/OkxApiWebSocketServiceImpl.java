@@ -907,7 +907,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
         }
 
         if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
-            order.setFee(new BigDecimal(orderData.getString("fee")));
+            if (!orderData.getString("feeCcy").equals("USDT")) {
+                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))));
+            } else {
+                order.setFee(new BigDecimal(orderData.getString("fee")));
+            }
         }
 
         if (orderData.containsKey("feeCcy")) {

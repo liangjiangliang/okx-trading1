@@ -143,36 +143,36 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         //同一策略同周期内不能重复交易，买、卖只能触发一次，防止短时间都满足多次交易的情况
-        synchronized (state) {
-            // 控制同一个周期内只能交易一次
-            boolean signalOfSamePeriod = false;
-            if (state.getLastTradeTime() != null) {
-                LocalDateTime lastTradeTime = state.getLastTradeTime();
-                long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
-                signalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).abs().get(ChronoUnit.SECONDS) <= intervalSeconds;
-            }
-
-            // 如果是同一周期内的信号，不执行任何交易操作
-            if (signalOfSamePeriod) {
-                return;
-            }
-
-            // 检查交易信号
-            int currentIndex = series.getEndIndex();
-            boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
-            boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
-
-
-            // 处理买入信号 - 只有在上一次不是买入时才触发
-            if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType()))) {
-                executeTradeSignal(state, candlestick, BUY);
-            }
-
-            // 处理卖出信号 - 只有在上一次是买入时才触发
-            if (shouldSell && BUY.equals(state.getLastTradeType())) {
-                executeTradeSignal(state, candlestick, SELL);
-            }
+//        synchronized (state) {
+        // 控制同一个周期内只能交易一次
+        boolean signalOfSamePeriod = false;
+        if (state.getLastTradeTime() != null) {
+            LocalDateTime lastTradeTime = state.getLastTradeTime();
+            long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
+            signalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).abs().get(ChronoUnit.SECONDS) <= intervalSeconds;
         }
+
+        // 如果是同一周期内的信号，不执行任何交易操作
+        if (signalOfSamePeriod) {
+            return;
+        }
+
+        // 检查交易信号
+        int currentIndex = series.getEndIndex();
+        boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
+        boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
+
+
+        // 处理买入信号 - 只有在上一次不是买入时才触发
+        if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType()))) {
+            executeTradeSignal(state, candlestick, BUY);
+        }
+
+        // 处理卖出信号 - 只有在上一次是买入时才触发
+        if (shouldSell && BUY.equals(state.getLastTradeType())) {
+            executeTradeSignal(state, candlestick, SELL);
+        }
+//        }
     }
 
     /**
@@ -208,14 +208,14 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 //        CompletableFuture.runAsync(() -> {
         try {
 
-            // 防止没更新状态的时候同时去更新状态
-            synchronized (state) {
-                if (redisTemplate.opsForValue().get(TRADE_FLAG + state.getId()) != null) {
-                    // 已经执行过交易，买或者卖，同一策略同一周期内只能执行一次交易，防止频繁交易
-                    log.warn("同一策略同一周期内只能交易一次，跳过交易: strategyId={}", state.getId());
-                    return;
-                }
-            }
+//            // 防止没更新状态的时候同时去更新状态
+//            synchronized (state) {
+//                if (redisTemplate.opsForValue().get(TRADE_FLAG + state.getId()) != null) {
+//                    // 已经执行过交易，买或者卖，同一策略同一周期内只能执行一次交易，防止频繁交易
+//                    log.warn("同一策略同一周期内只能交易一次，跳过交易: strategyId={}", state.getId());
+//                    return;
+//                }
+//            }
 
             BigDecimal preAmount = null;
             BigDecimal preQuantity = null;
@@ -267,7 +267,9 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 // 利润统计
                 // 更新累计统计信息
                 if (orderEntity.getSide().equals(SELL)) {
-                    state.setTotalProfit(state.getTotalProfit() + (orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount()));
+                    double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount();
+                    state.setTotalProfit(state.getTotalProfit() + profit);
+                    orderEntity.setProfit(BigDecimal.valueOf(profit));
                 }
                 // 费用每次都有
                 state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
@@ -294,10 +296,10 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 orderEntity.setStrategyId(realTimeStrategy.getId());
                 realTimeOrderService.saveOrder(orderEntity);
                 //更新交易控制标记,过期时间是本周期还剩的剩余的时间
-                long seconds = Duration.between(candlestick.getOpenTime().plus(
-                                historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
-                        LocalDateTime.now()).abs().getSeconds();
-                redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), String.valueOf(seconds), seconds, TimeUnit.SECONDS);
+//                long seconds = Duration.between(candlestick.getOpenTime().plus(
+//                                historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
+//                        LocalDateTime.now()).abs().getSeconds();
+//                redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), String.valueOf(seconds), seconds, TimeUnit.SECONDS);
 
                 log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
                         state.getLastTradeAmount(), state.getLastTradeQuantity());
