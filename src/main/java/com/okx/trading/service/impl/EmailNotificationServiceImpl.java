@@ -66,9 +66,9 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<p><strong>金额：</strong>").append(order.getCummulativeQuoteQty()).append("</p>");
             content.append("<p><strong>价格：</strong>").append(order.getPrice()).append("</p>");
             if ("SELL".equals(side)) {
-                content.append("<p><strong>利润：</strong>").append(strategy.getLastTradeProfit()).append("</p>");
+                content.append("<p><strong>利润：</strong>").append(BigDecimal.valueOf(strategy.getLastTradeProfit()).setScale(8, BigDecimal.ROUND_HALF_UP)).append("</p>");
             }
-            content.append("<p><strong>数量：</strong>").append(order.getOrigQty()).append("</p>");
+            content.append("<p><strong>数量：</strong>").append(order.getExecutedQty()).append("</p>");
             content.append("<p><strong>费用：</strong>").append(order.getFee()).append("</p>");
 
         }
