@@ -92,6 +92,12 @@ public class RealTimeStrategyEntity {
     /**
      * 总盈利金额（USDT）
      */
+    @Column(name = "last_trade_profit")
+    private Double lastTradeProfit = 0.0;
+
+    /**
+     * 总盈利金额（USDT）
+     */
     @Column(name = "total_profit")
     private Double totalProfit = 0.0;
 

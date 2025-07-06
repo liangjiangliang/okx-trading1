@@ -269,6 +269,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 if (orderEntity.getSide().equals(SELL)) {
                     double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount();
                     state.setTotalProfit(state.getTotalProfit() + profit);
+                    state.setLastTradeProfit(profit);
                     orderEntity.setProfit(BigDecimal.valueOf(profit));
                 }
                 // 费用每次都有

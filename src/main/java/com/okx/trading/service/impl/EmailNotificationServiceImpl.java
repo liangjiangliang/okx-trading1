@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -64,8 +65,12 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<p><strong>订单ID：</strong>").append(order.getOrderId()).append("</p>");
             content.append("<p><strong>金额：</strong>").append(order.getCummulativeQuoteQty()).append("</p>");
             content.append("<p><strong>价格：</strong>").append(order.getPrice()).append("</p>");
+            if ("SELL".equals(side)) {
+                content.append("<p><strong>利润：</strong>").append(strategy.getLastTradeProfit()).append("</p>");
+            }
             content.append("<p><strong>数量：</strong>").append(order.getOrigQty()).append("</p>");
             content.append("<p><strong>费用：</strong>").append(order.getFee()).append("</p>");
+
         }
 
         // 信号价格
