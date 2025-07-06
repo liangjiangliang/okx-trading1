@@ -205,126 +205,126 @@ public class RealTimeStrategyManager implements ApplicationRunner {
      * 执行交易信号
      */
     public void executeTradeSignal(RealTimeStrategyEntity state, Candlestick candlestick, String side) {
-        CompletableFuture.runAsync(() -> {
-            try {
+//        CompletableFuture.runAsync(() -> {
+        try {
 
-                // 防止没更新状态的时候同时去更新状态
-                synchronized (state) {
-                    if (redisTemplate.opsForValue().get(TRADE_FLAG + state.getId()) != null) {
-                        // 已经执行过交易，买或者卖，同一策略同一周期内只能执行一次交易，防止频繁交易
-                        log.warn("同一策略同一周期内只能交易一次，跳过交易: strategyId={}", state.getId());
-                        return;
-                    }
-                }
-
-                BigDecimal preAmount = null;
-                BigDecimal preQuantity = null;
-
-                // 计算交易数量
-                if (BUY.equals(side)) {
-                    // 买入：按照给定金额买入
-                    if (StringUtils.isBlank(state.getLastTradeType())) {
-                        // 没有卖出记录，使用最初金额
-                        preAmount = BigDecimal.valueOf(state.getTradeAmount());
-                    } else {
-                        // 上次卖出剩下的钱
-                        preAmount = BigDecimal.valueOf(state.getLastTradeAmount());
-                    }
-                } else {
-                    // 卖出：全仓卖出买入的数量
-                    if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity() > 0) {
-                        preQuantity = BigDecimal.valueOf(state.getLastTradeQuantity());
-                    } else {
-//                        log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
-                        return;
-                    }
-                }
-
-                Order order = tradeController.createSpotOrder(
-                        state.getSymbol(),
-                        null,
-                        side,
-                        null,
-                        preQuantity,
-                        preAmount,
-                        null, null, null, null,
-                        false, state.getId()
-                ).getData();
-
-                if (order != null) {
-                    // 保存订单记录
-                    RealTimeOrderEntity orderEntity = realTimeOrderService.createOrderRecord(
-                            state.getStrategyCode(),
-                            state.getSymbol(),
-                            order,
-                            side + "_SIGNAL",
-                            side,
-                            candlestick.getClose().toString(),
-                            false,
-                            preAmount,
-                            preQuantity);  // 打算买入金额，不是成交金额
-
-                    // 利润统计
-                    // 更新累计统计信息
-                    if (orderEntity.getSide().equals(SELL)) {
-                        state.setTotalProfit(state.getTotalProfit() + (orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount()));
-                    }
-                    // 费用每次都有
-                    state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
-                    // 更新策略状态
-                    state.setLastTradeType(orderEntity.getSide());
-                    // 买入时记录购买数量
-                    state.setLastTradeAmount(orderEntity.getExecutedAmount().doubleValue());
-                    state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
-                    state.setLastTradePrice(orderEntity.getPrice().doubleValue());
-                    state.setLastTradeTime(orderEntity.getCreateTime());
-                    if (BUY.equals(side)) {
-                        state.setIsInPosition(true);
-                    } else {
-                        state.setIsInPosition(false);
-                    }
-                    // 成交次数统计
-                    state.setTotalTrades(state.getTotalTrades() + 1);
-                    if (FILLED.equals(order.getStatus())) {
-                        state.setSuccessfulTrades(state.getSuccessfulTrades() + 1);
-                    }
-                    // 更新数据库中的交易信息
-                    RealTimeStrategyEntity realTimeStrategy = realTimeStrategyService.updateTradeInfo(state);
-                    // 更新订单信息
-                    orderEntity.setStrategyId(realTimeStrategy.getId());
-                    realTimeOrderService.saveOrder(orderEntity);
-                    //更新交易控制标记,过期时间是本周期还剩的剩余的时间
-                    long seconds = Duration.between(candlestick.getOpenTime().plus(
-                                    historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
-                            LocalDateTime.now()).abs().getSeconds();
-                    redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), String.valueOf(seconds), seconds, TimeUnit.SECONDS);
-
-                    log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
-                            state.getLastTradeAmount(), state.getLastTradeQuantity());
-
-                    // 发送交易通知
-                    try {
-                        notificationService.sendTradeNotification(state, order, side, candlestick.getClose().toString());
-                    } catch (Exception e) {
-                        log.error("发送交易通知失败: {}", e.getMessage(), e);
-                    }
-                }
-            } catch (Exception e) {
-                runningStrategies.remove(state.getId());
-                state.setIsActive(false);
-                state.setStatus("ERROR");
-                state.setEndTime(LocalDateTime.now());
-                realTimeStrategyRepository.save(state);
-                log.error("执行策略 {} {}订单失败，停止策略: {},", state.getStrategyName(), side, e.getMessage(), e);
-
-                // 发送错误通知
-                try {
-                    notificationService.sendStrategyErrorNotification(state, state.getMessage());
-                } catch (Exception ex) {
-                    log.error("发送错误通知失败: {}", ex.getMessage(), ex);
+            // 防止没更新状态的时候同时去更新状态
+            synchronized (state) {
+                if (redisTemplate.opsForValue().get(TRADE_FLAG + state.getId()) != null) {
+                    // 已经执行过交易，买或者卖，同一策略同一周期内只能执行一次交易，防止频繁交易
+                    log.warn("同一策略同一周期内只能交易一次，跳过交易: strategyId={}", state.getId());
+                    return;
                 }
             }
-        }, executorService);
+
+            BigDecimal preAmount = null;
+            BigDecimal preQuantity = null;
+
+            // 计算交易数量
+            if (BUY.equals(side)) {
+                // 买入：按照给定金额买入
+                if (StringUtils.isBlank(state.getLastTradeType())) {
+                    // 没有卖出记录，使用最初金额
+                    preAmount = BigDecimal.valueOf(state.getTradeAmount());
+                } else {
+                    // 上次卖出剩下的钱
+                    preAmount = BigDecimal.valueOf(state.getLastTradeAmount());
+                }
+            } else {
+                // 卖出：全仓卖出买入的数量
+                if (state.getLastTradeQuantity() != null && state.getLastTradeQuantity() > 0) {
+                    preQuantity = BigDecimal.valueOf(state.getLastTradeQuantity());
+                } else {
+//                        log.warn("卖出信号触发但没有持仓数量，跳过交易: strategyCode={}", state.getStrategyCode());
+                    return;
+                }
+            }
+
+            Order order = tradeController.createSpotOrder(
+                    state.getSymbol(),
+                    null,
+                    side,
+                    null,
+                    preQuantity,
+                    preAmount,
+                    null, null, null, null,
+                    false, state.getId()
+            ).getData();
+
+            if (order != null) {
+                // 保存订单记录
+                RealTimeOrderEntity orderEntity = realTimeOrderService.createOrderRecord(
+                        state.getStrategyCode(),
+                        state.getSymbol(),
+                        order,
+                        side + "_SIGNAL",
+                        side,
+                        candlestick.getClose().toString(),
+                        false,
+                        preAmount,
+                        preQuantity);  // 打算买入金额，不是成交金额
+
+                // 利润统计
+                // 更新累计统计信息
+                if (orderEntity.getSide().equals(SELL)) {
+                    state.setTotalProfit(state.getTotalProfit() + (orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount()));
+                }
+                // 费用每次都有
+                state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
+                // 更新策略状态
+                state.setLastTradeType(orderEntity.getSide());
+                // 买入时记录购买数量
+                state.setLastTradeAmount(orderEntity.getExecutedAmount().doubleValue());
+                state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
+                state.setLastTradePrice(orderEntity.getPrice().doubleValue());
+                state.setLastTradeTime(orderEntity.getCreateTime());
+                if (BUY.equals(side)) {
+                    state.setIsInPosition(true);
+                } else {
+                    state.setIsInPosition(false);
+                }
+                // 成交次数统计
+                state.setTotalTrades(state.getTotalTrades() + 1);
+                if (FILLED.equals(order.getStatus())) {
+                    state.setSuccessfulTrades(state.getSuccessfulTrades() + 1);
+                }
+                // 更新数据库中的交易信息
+                RealTimeStrategyEntity realTimeStrategy = realTimeStrategyService.updateTradeInfo(state);
+                // 更新订单信息
+                orderEntity.setStrategyId(realTimeStrategy.getId());
+                realTimeOrderService.saveOrder(orderEntity);
+                //更新交易控制标记,过期时间是本周期还剩的剩余的时间
+                long seconds = Duration.between(candlestick.getOpenTime().plus(
+                                historicalDataService.getIntervalMinutes(state.getInterval()), ChronoUnit.MINUTES),
+                        LocalDateTime.now()).abs().getSeconds();
+                redisTemplate.opsForValue().set(TRADE_FLAG + realTimeStrategy.getId(), String.valueOf(seconds), seconds, TimeUnit.SECONDS);
+
+                log.info("执行{}订单成功: symbol={}, price={}, amount={}, quantity={}", side, state.getSymbol(), state.getLastTradePrice(),
+                        state.getLastTradeAmount(), state.getLastTradeQuantity());
+
+                // 发送交易通知
+                try {
+                    notificationService.sendTradeNotification(state, order, side, candlestick.getClose().toString());
+                } catch (Exception e) {
+                    log.error("发送交易通知失败: {}", e.getMessage(), e);
+                }
+            }
+        } catch (Exception e) {
+            runningStrategies.remove(state.getId());
+            state.setIsActive(false);
+            state.setStatus("ERROR");
+            state.setEndTime(LocalDateTime.now());
+            realTimeStrategyRepository.save(state);
+            log.error("执行策略 {} {}订单失败，停止策略: {},", state.getStrategyName(), side, e.getMessage(), e);
+
+            // 发送错误通知
+            try {
+                notificationService.sendStrategyErrorNotification(state, state.getMessage());
+            } catch (Exception ex) {
+                log.error("发送错误通知失败: {}", ex.getMessage(), ex);
+            }
+        }
+//        }, executorService);
     }
 
     /**
@@ -344,15 +344,15 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
         // 使用Ta4j 0.18版本的BaseBar构造函数
         return new BaseBar(
-            Duration.ofMinutes(intervalMinutes),
-            endTime.atZone(ZoneId.of("UTC+8")).toInstant(),
-            DecimalNum.valueOf(candlestick.getOpen()),
-            DecimalNum.valueOf(candlestick.getHigh()),
-            DecimalNum.valueOf(candlestick.getLow()),
-            DecimalNum.valueOf(candlestick.getClose()),
-            DecimalNum.valueOf(candlestick.getVolume()),
-            DecimalNum.valueOf(BigDecimal.ZERO), // 默认成交额为0
-            0L // 添加交易次数参数，默认为0
+                Duration.ofMinutes(intervalMinutes),
+                endTime.atZone(ZoneId.of("UTC+8")).toInstant(),
+                DecimalNum.valueOf(candlestick.getOpen()),
+                DecimalNum.valueOf(candlestick.getHigh()),
+                DecimalNum.valueOf(candlestick.getLow()),
+                DecimalNum.valueOf(candlestick.getClose()),
+                DecimalNum.valueOf(candlestick.getVolume()),
+                DecimalNum.valueOf(BigDecimal.ZERO), // 默认成交额为0
+                0L // 添加交易次数参数，默认为0
         );
     }
 
