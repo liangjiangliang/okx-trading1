@@ -3,6 +3,7 @@ package com.okx.trading.listener;
 import com.okx.trading.event.WebSocketReconnectEvent;
 import com.okx.trading.service.KlineCacheService;
 import com.okx.trading.service.OkxApiService;
+import com.okx.trading.strategy.RealTimeStrategyManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * WebSocket重连事件监听器
@@ -27,12 +29,14 @@ public class WebSocketReconnectEventListener {
 
     private final KlineCacheService klineCacheService;
     private final OkxApiService okxApiService;
+    private final RealTimeStrategyManager realTimeStrategyManager;
 
     @Autowired
     public WebSocketReconnectEventListener(KlineCacheService klineCacheService,
-                                           @Lazy OkxApiService okxApiService) {
+                                           @Lazy OkxApiService okxApiService, RealTimeStrategyManager realTimeStrategyManager) {
         this.klineCacheService = klineCacheService;
         this.okxApiService = okxApiService;
+        this.realTimeStrategyManager = realTimeStrategyManager;
     }
 
     /**
@@ -71,7 +75,8 @@ public class WebSocketReconnectEventListener {
     private void resubscribeAllKlineData() {
         try {
             // 从缓存服务获取所有之前订阅的K线数据
-            Set<String> allSubscribedKlines = klineCacheService.getAllSubscribedKlines();
+            Set<String> allSubscribedKlines = realTimeStrategyManager.getRunningStrategies().values().stream()
+                    .map(x -> x.getSymbol() + ":" + x.getInterval()).collect(Collectors.toSet());
 
             if (allSubscribedKlines.isEmpty()) {
                 log.info("没有发现之前订阅的K线数据，跳过重新订阅");

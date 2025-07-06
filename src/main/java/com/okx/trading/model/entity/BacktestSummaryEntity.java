@@ -1,7 +1,6 @@
 package com.okx.trading.model.entity;
 
 
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -323,6 +322,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
      */
     @Column(name = "risk_adjusted_return", precision = 10, scale = 4)
     private BigDecimal riskAdjustedReturn;
+
+    /**
+     * 是否实盘策略，默认-1不是，为1的时候是实盘策略
+     */
+    @Column(name = "is_real", precision = 4, scale = 4)
+    private int is_real = -1;
 
     /**
      * 创建时间
