@@ -2,7 +2,6 @@ package com.okx.trading.controller;
 
 
 import com.okx.trading.adapter.CandlestickBarSeriesConverter;
-import com.okx.trading.model.entity.BacktestSummaryEntity;
 import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.model.entity.StrategyInfoEntity;
@@ -25,7 +24,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 import static com.okx.trading.constant.IndicatorInfo.RUNNING;
 
@@ -149,25 +147,13 @@ public class RealTimeStrategyController {
     @GetMapping("/real-time/orders")
     @Operation(summary = "获取实时回测订单记录", description = "查询指定策略的实时交易订单记录")
     public com.okx.trading.model.common.ApiResponse<List<RealTimeOrderEntity>> getRealTimeOrders(
-            @Parameter(name = "策略代码", required = false) @RequestParam(required = false) String strategyCode,
+            @Parameter(name = "策略代码", required = false) @RequestParam(required = false) String id,
             @Parameter(name = "交易对", required = false) @RequestParam(required = false) String symbol,
             @Parameter(name = "开始时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @Parameter(name = "结束时间", required = false) @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
 
         try {
-            List<RealTimeOrderEntity> orders;
-
-            if (StringUtils.isNotBlank(strategyCode) && StringUtils.isNotBlank(symbol)) {
-                orders = realTimeOrderService.getOrdersByStrategyAndSymbol(strategyCode, symbol);
-            } else if (StringUtils.isNotBlank(strategyCode)) {
-                orders = realTimeOrderService.getOrdersByStrategy(strategyCode);
-            } else if (StringUtils.isNotBlank(symbol)) {
-                orders = realTimeOrderService.getOrdersBySymbol(symbol);
-            } else if (startTime != null && endTime != null) {
-                orders = realTimeOrderService.getOrdersByTimeRange(startTime, endTime);
-            } else {
-                orders = realTimeOrderService.getAllOrders();
-            }
+            List<RealTimeOrderEntity> orders = realTimeOrderService.getOrdersByStrategyId(Long.parseLong(id));
 
             return com.okx.trading.model.common.ApiResponse.success(orders);
 
