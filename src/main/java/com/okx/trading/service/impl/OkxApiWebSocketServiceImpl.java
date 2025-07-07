@@ -28,9 +28,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -88,6 +90,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
     // 消息ID生成
     private final AtomicLong messageIdGenerator = new AtomicLong(1);
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @PostConstruct
     public void init() {
@@ -268,20 +272,20 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
      */
     private void handleAccountMessage(JSONObject message) {
         try {
+            if (!message.containsKey("data")) {
+                return;
+            }
             JSONArray data = message.getJSONArray("data");
             if (data != null && !data.isEmpty()) {
                 JSONObject balanceData = data.getJSONObject(0);
                 AccountBalance accountBalance = parseAccountBalance(balanceData);
-                
+
                 // 将余额信息转换为Map并存入Redis
-                Map<String, BigDecimal> balanceMap = new HashMap<>();
                 if (accountBalance.getAssetBalances() != null) {
                     for (AccountBalance.AssetBalance assetBalance : accountBalance.getAssetBalances()) {
-                        balanceMap.put(assetBalance.getAsset(), assetBalance.getAvailable());
+                        redisTemplate.opsForHash().put(BALANCE, assetBalance.getAsset(), assetBalance.getAvailable().toString());
+                        redisTemplate.expire(BALANCE, 10, TimeUnit.MINUTES);
                     }
-                    // 将余额Map存入Redis
-                    redisCacheService.setCache(BALANCE, JSON.toJSONString(balanceMap), 5); // 5分钟过期
-                    log.info("账户余额信息已更新到Redis，共{}种币种", balanceMap.size());
                 }
 
                 String key = message.getJSONObject("arg").containsKey("simulated") ? "simulated" : "real";
@@ -489,10 +493,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     @Override
     public AccountBalance getAccountBalance() {
         try {
-            AccountBalance accountBalance = null;
-            String jsonString = redisCacheService.getCache(BALANCE, String.class);
-            if (StringUtils.isNotBlank(jsonString)) {
-                return accountBalance = JSONObject.parseObject(jsonString, AccountBalance.class);
+            AccountBalance accountBalance = new AccountBalance();
+            String balance = (String) redisTemplate.opsForHash().get(BALANCE, "USDT");
+            if (StringUtils.isNotBlank(balance)) {
+                accountBalance.setAvailableBalance(BigDecimal.valueOf(Double.valueOf(balance)));
+                return accountBalance;
             }
 
             CompletableFuture<AccountBalance> future = new CompletableFuture<>();
@@ -501,9 +506,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             webSocketUtil.subscribePrivateTopic("account");
 
             // 获取配置的超时时间
-            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
-            accountBalance = future.get(timeout, TimeUnit.SECONDS);
-            redisCacheService.setCache(BALANCE, accountBalance.toString(), 3);
+            accountBalance = future.get(okxApiConfig.getTimeout(), TimeUnit.SECONDS);
             balanceFutures.remove("real");
 
             return accountBalance;
