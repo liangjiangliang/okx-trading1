@@ -272,6 +272,17 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             if (data != null && !data.isEmpty()) {
                 JSONObject balanceData = data.getJSONObject(0);
                 AccountBalance accountBalance = parseAccountBalance(balanceData);
+                
+                // 将余额信息转换为Map并存入Redis
+                Map<String, BigDecimal> balanceMap = new HashMap<>();
+                if (accountBalance.getAssetBalances() != null) {
+                    for (AccountBalance.AssetBalance assetBalance : accountBalance.getAssetBalances()) {
+                        balanceMap.put(assetBalance.getAsset(), assetBalance.getAvailable());
+                    }
+                    // 将余额Map存入Redis
+                    redisCacheService.setCache(BALANCE, JSON.toJSONString(balanceMap), 5); // 5分钟过期
+                    log.info("账户余额信息已更新到Redis，共{}种币种", balanceMap.size());
+                }
 
                 String key = message.getJSONObject("arg").containsKey("simulated") ? "simulated" : "real";
                 CompletableFuture<AccountBalance> future = balanceFutures.get(key);
