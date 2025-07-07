@@ -330,7 +330,7 @@ public class HistoricalDataServiceImpl implements HistoricalDataService {
         long intervalMinutes = getIntervalMinutes(interval);
 //        long totalExpectedCount = ChronoUnit.MINUTES.between(startTime, endTime) / intervalMinutes;
         List<String> rangePoints = calculateTimeRangePoints(startTime, endTime, interval);
-        log.info("📊 根据时间范围计算，预期需要获取的K线数量: {}", rangePoints.size());
+        log.info("📊 查询时间范围{}-{}根据时间范围计算，预期需要获取的K线数量: {}", dateFormat.format(startTime), dateFormat.format(endTime), rangePoints.size());
 
         TreeSet<CandlestickEntity> cachedData = new TreeSet<>();
         long startTimestamp = startTime.atZone(java.time.ZoneId.of("UTC+8")).toInstant().toEpochMilli();
