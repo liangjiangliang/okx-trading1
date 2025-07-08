@@ -897,14 +897,24 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             order.setOrigQty(new BigDecimal(orderData.getString("sz")));
         }
 
-        if (orderData.containsKey("accFillSz")) {
-            order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")));
+        if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
+            if (!orderData.getString("feeCcy").equals("USDT")) {
+                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))).abs());
+            } else {
+                order.setFee(new BigDecimal(orderData.getString("fee")).abs());
+            }
         }
 
+        // 接口返回的成交数量没有扣除手续费，需要扣除才是实际成交数量，成交金额也是，返回的费用是负数，所以要加上
+        if (orderData.containsKey("accFillSz")) {
+            order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(new BigDecimal(orderData.getString("fee")).abs()));
+        }
+
+        // 返回的费用是负值
         if (orderData.containsKey("fillPx") && !orderData.getString("fillPx").isEmpty()) {
             BigDecimal fillPrice = new BigDecimal(orderData.getString("fillPx"));
             BigDecimal fillSize = new BigDecimal(orderData.getString("accFillSz"));
-            order.setCummulativeQuoteQty(fillPrice.multiply(fillSize));
+            order.setCummulativeQuoteQty(fillPrice.multiply(fillSize).subtract(order.getFee()));
         }
         if (orderData.containsKey("fillPx")) {
             order.setPrice(new BigDecimal(orderData.getString("fillPx")));
@@ -920,13 +930,6 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             order.setSide(orderData.getString("side").toUpperCase());
         }
 
-        if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
-            if (!orderData.getString("feeCcy").equals("USDT")) {
-                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))));
-            } else {
-                order.setFee(new BigDecimal(orderData.getString("fee")));
-            }
-        }
 
         if (orderData.containsKey("feeCcy")) {
             order.setFeeCurrency(orderData.getString("feeCcy"));
