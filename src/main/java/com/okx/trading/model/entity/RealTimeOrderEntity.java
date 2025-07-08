@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -95,6 +96,9 @@ public class RealTimeOrderEntity {
      */
     @Column(name = "profit", precision = 20, scale = 8)
     private BigDecimal profit;
+
+    @Column(name = "profit_rate", precision = 20, scale = 8)
+    private BigDecimal profitRate;
 
     /**
      * 触发信号时的价格

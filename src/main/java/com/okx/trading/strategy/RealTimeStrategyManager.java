@@ -267,10 +267,13 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 // 利润统计
                 // 更新累计统计信息
                 if (orderEntity.getSide().equals(SELL)) {
-                    double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount();
+                    double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount() -
+                            orderEntity.getFee().doubleValue() - state.getLastTradeFee();
                     state.setTotalProfit(state.getTotalProfit() + profit);
+                    state.setTotalProfitRate(state.getTotalProfit() / state.getTradeAmount());
                     state.setLastTradeProfit(profit);
                     orderEntity.setProfit(BigDecimal.valueOf(profit));
+                    orderEntity.setProfitRate(BigDecimal.valueOf(profit / state.getLastTradeAmount()));
                 }
                 // 费用每次都有
                 state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
@@ -281,6 +284,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 state.setLastTradeQuantity(orderEntity.getExecutedQty().doubleValue());
                 state.setLastTradePrice(orderEntity.getPrice().doubleValue());
                 state.setLastTradeTime(orderEntity.getCreateTime());
+                state.setLastTradeFee(orderEntity.getFee().doubleValue());
                 if (BUY.equals(side)) {
                     state.setIsInPosition(true);
                 } else {

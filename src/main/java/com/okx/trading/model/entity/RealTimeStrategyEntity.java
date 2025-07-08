@@ -82,6 +82,11 @@ public class RealTimeStrategyEntity {
     @Column(name = "last_trade_type", length = 10)
     private String lastTradeType = "";
 
+
+    @Column(name = "last_trade_fee")
+    private Double lastTradeFee = 0.0;
+
+
     /**
      * 最后一次交易类型：BUY(买入), SELL(卖出)
      */
@@ -101,6 +106,8 @@ public class RealTimeStrategyEntity {
     @Column(name = "total_profit")
     private Double totalProfit = 0.0;
 
+    @Column(name = "total_profit_rate")
+    private Double totalProfitRate = 0.0;
 
     /**
      * 总手续费（USDT）
