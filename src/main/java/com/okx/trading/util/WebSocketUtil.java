@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -366,6 +367,8 @@ public class WebSocketUtil {
                         }
                     }
                 });
+
+                subscribeToBalanceUpdates();
             } catch (Exception e) {
                 logger.error("连接私有频道失败", e);
                 privateConnected.set(false);
@@ -729,6 +732,9 @@ public class WebSocketUtil {
 
         JSONObject arg = new JSONObject();
         arg.put("channel", topic);
+        if (topic.equals("orders")) {
+            arg.put("instType", "SPOT");
+        }
 
         JSONObject[] args = new JSONObject[]{arg};
         subscribeMessage.put("args", args);
@@ -1402,5 +1408,17 @@ public class WebSocketUtil {
                 markReconnectEnd("public");
             }
         });
+    }
+
+    @PostConstruct
+    public void subscribeToBalanceUpdates() {
+        try {
+            log.info("订阅账户余额更新...");
+            subscribePrivateTopic("account");
+//            log.info("订阅订单更新...");
+//            subscribePrivateTopic("orders");
+        } catch (Exception e) {
+            log.error("订阅账户信息失败", e);
+        }
     }
 }

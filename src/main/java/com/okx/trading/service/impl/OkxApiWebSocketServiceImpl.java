@@ -500,14 +500,14 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 return accountBalance;
             }
 
-            CompletableFuture<AccountBalance> future = new CompletableFuture<>();
-            balanceFutures.put("real", future);
-
-            webSocketUtil.subscribePrivateTopic("account");
-
-            // 获取配置的超时时间
-            accountBalance = future.get(okxApiConfig.getTimeout(), TimeUnit.SECONDS);
-            balanceFutures.remove("real");
+//            CompletableFuture<AccountBalance> future = new CompletableFuture<>();
+//            balanceFutures.put("real", future);
+//
+//            webSocketUtil.subscribePrivateTopic("account");
+//
+//            // 获取配置的超时时间
+//            accountBalance = future.get(okxApiConfig.getTimeout(), TimeUnit.SECONDS);
+//            balanceFutures.remove("real");
 
             return accountBalance;
         } catch (Exception e) {
