@@ -216,8 +216,8 @@ public class WebSocketUtil {
                         // 重连成功，重置重试计数器
                         businessRetryCount.set(0);
 
-                        // 恢复之前的操作
-                        restorePublicOperations();
+                        // 恢复业务频道的操作
+                        restoreBusinessOperations();
                     }
 
                     @Override
@@ -367,8 +367,6 @@ public class WebSocketUtil {
                         }
                     }
                 });
-
-                subscribeToBalanceUpdates();
             } catch (Exception e) {
                 logger.error("连接私有频道失败", e);
                 privateConnected.set(false);
@@ -598,6 +596,8 @@ public class WebSocketUtil {
                     privateConnected.set(true);
                     // 登录成功后恢复私有频道的订阅
                     restorePrivateOperations();
+                    // 自动订阅账户余额更新
+                    subscribeToBalanceUpdates();
                 } else {
                     // 登录失败
                     String code = jsonMessage.getString("code");
@@ -641,6 +641,8 @@ public class WebSocketUtil {
                     privateConnected.set(true);
                     // 登录成功后恢复私有频道的订阅
                     restorePrivateOperations();
+                    // 自动订阅账户余额更新
+                    subscribeToBalanceUpdates();
                 }
                 return;
             }
@@ -1069,6 +1071,11 @@ public class WebSocketUtil {
 
             logger.info("私有频道操作恢复完成，成功执行 {} 个操作", count);
 
+            // 确保account频道被订阅
+            if (privateSubscribedTopics.isEmpty() || !privateSubscribedTopics.contains("account")) {
+                subscribeToBalanceUpdates();
+            }
+
             // 发布WebSocket重连事件
             try {
                 if (applicationEventPublisher != null) {
@@ -1375,16 +1382,7 @@ public class WebSocketUtil {
                     }
                 }
 
-                if (bussinessWebSocket != null) {
-                    try {
-                        bussinessWebSocket.close(1000, "Reconnecting");
-                    } catch (Exception e) {
-                        debugLog("关闭旧业务频道连接失败: {}", e.getMessage());
-                    }
-                }
-
                 connectPublicChannel();
-                connectBussinessChannel();
 
                 // 检查重连是否成功 - 缩短等待时间
                 Thread.sleep(3000); // 等待3秒检查连接状态
@@ -1410,15 +1408,16 @@ public class WebSocketUtil {
         });
     }
 
-    @PostConstruct
-    public void subscribeToBalanceUpdates() {
+    /**
+     * 自动订阅账户余额更新
+     * 在程序启动和重连时自动订阅account频道
+     */
+    private void subscribeToBalanceUpdates() {
         try {
-            log.info("订阅账户余额更新...");
+            logger.info("自动订阅账户余额更新");
             subscribePrivateTopic("account");
-//            log.info("订阅订单更新...");
-//            subscribePrivateTopic("orders");
         } catch (Exception e) {
-            log.error("订阅账户信息失败", e);
+            logger.error("订阅账户余额更新失败", e);
         }
     }
 }
