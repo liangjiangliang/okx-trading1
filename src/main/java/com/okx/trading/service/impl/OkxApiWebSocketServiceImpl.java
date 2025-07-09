@@ -890,32 +890,39 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             order.setSCode(Integer.parseInt(orderData.getString("sCode")));
         }
 
-        if (orderData.containsKey("px") && !orderData.getString("px").isEmpty()) {
-            order.setPrice(new BigDecimal(orderData.getString("px")));
-        }
+        // 下单数量 买 "sz":"4.7"  下单usdt金额 ，卖 "sz":"0.00004225"  交易币的数量
         if (orderData.containsKey("sz") && !orderData.getString("sz").isEmpty()) {
             order.setOrigQty(new BigDecimal(orderData.getString("sz")));
         }
 
+        // 买是买的货币数量 "fee":"-0.00000004324"  ，卖是usdt数量 "fee":"-0.004593758"
         if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
-            if (!orderData.getString("feeCcy").equals("USDT")) {
-                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))).abs());
-            } else {
+            if (orderData.getString("feeCcy").equals("USDT")) {
                 order.setFee(new BigDecimal(orderData.getString("fee")).abs());
+            } else {
+                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))).abs());
             }
         }
 
+        // 成交数量，扣除手续费 ，买入扣除的是交易货币，要参照成交价格转换成usdt
         // 接口返回的成交数量没有扣除手续费，需要扣除才是实际成交数量，成交金额也是，返回的费用是负数，所以要加上
+        // 卖买都一样都是币的数量，不是usdt的数量 "accFillSz":"0.00004324"   "fillSz":"0.00004324"
         if (orderData.containsKey("accFillSz")) {
-            order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(new BigDecimal(orderData.getString("fee")).abs()));
+            if (orderData.containsKey("side") && orderData.getString("side").equals("buy")) {
+                order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(new BigDecimal(orderData.getString("fee")).abs()));
+            } else {
+                BigDecimal accFillFeeSz = order.getFee().divide(BigDecimal.valueOf(Double.valueOf(orderData.getString("fillPx"))), 8, BigDecimal.ROUND_DOWN);
+                order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(accFillFeeSz));
+            }
         }
 
-        // 返回的费用是负值
+        // 成交金额，扣除手续费  avgPx  fillPx  都是成交价，一般一样
         if (orderData.containsKey("fillPx") && !orderData.getString("fillPx").isEmpty()) {
             BigDecimal fillPrice = new BigDecimal(orderData.getString("fillPx"));
-            BigDecimal fillSize = new BigDecimal(orderData.getString("accFillSz"));
-            order.setCummulativeQuoteQty(fillPrice.multiply(fillSize).subtract(order.getFee()));
+            order.setCummulativeQuoteQty(order.getExecutedQty().multiply(fillPrice));
         }
+
+        //成交价格
         if (orderData.containsKey("fillPx")) {
             order.setPrice(new BigDecimal(orderData.getString("fillPx")));
         }
