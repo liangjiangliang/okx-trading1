@@ -125,3 +125,4 @@ application-local.properties
 /*test*
 /temp*
 nohup.out
+/logs/orders

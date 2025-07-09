@@ -48,6 +48,14 @@ import okhttp3.Response;
 import static com.okx.trading.constant.IndicatorInfo.BALANCE;
 import static com.okx.trading.constant.IndicatorInfo.RUNNING;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 /**
  * OKX API WebSocket服务实现类
@@ -725,6 +733,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 String responseBody = response.body().string();
                 log.info("REST API查询订单响应: {}", responseBody);
 
+                // 将响应数据写入CSV文件
+                appendOrderResponseToCsv(responseBody, orderRequest.getSymbol(), clientOrderId);
+
                 JSONObject responseJson = JSONObject.parseObject(responseBody);
                 if ("0".equals(responseJson.getString("code"))) {
                     JSONArray data = responseJson.getJSONArray("data");
@@ -747,6 +758,87 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             orderFutures.remove(clientOrderId);
         }
         return order;
+    }
+
+    /**
+     * 将订单响应数据追加到CSV文件
+     * @param responseBody 响应数据JSON字符串
+     * @param symbol 交易对
+     * @param clientOrderId 客户端订单ID
+     */
+    private void appendOrderResponseToCsv(String responseBody, String symbol, String clientOrderId) {
+        try {
+            // 确保日志目录存在
+            String logDir = "logs/orders";
+            Files.createDirectories(Paths.get(logDir));
+
+            // 创建CSV文件名，使用当前日期
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            String fileName = logDir + "/orders_" + dateFormat.format(new Date()) + ".csv";
+            File file = new File(fileName);
+
+            // 如果文件不存在，创建文件并写入表头
+            boolean newFile = !file.exists();
+
+            // 解析JSON响应数据
+            JSONObject responseJson = JSONObject.parseObject(responseBody);
+            if (!"0".equals(responseJson.getString("code"))) {
+                log.error("订单查询返回错误码: {}", responseJson.getString("code"));
+                return;
+            }
+
+            JSONArray data = responseJson.getJSONArray("data");
+            if (data == null || data.isEmpty()) {
+                log.error("订单查询无数据返回");
+                return;
+            }
+
+            JSONObject orderData = data.getJSONObject(0);
+
+            // 获取所有字段作为schema
+            Set<String> fields = orderData.keySet();
+            List<String> fieldNames = new ArrayList<>(fields);
+            // 排序字段，确保schema顺序一致
+            Collections.sort(fieldNames);
+
+            try (FileWriter writer = new FileWriter(file, true)) {
+                // 如果是新文件，写入schema
+                if (newFile) {
+                    writer.write(String.join(",", fieldNames) + "\n");
+                }
+
+                // 按照schema顺序写入数据
+                StringBuilder line = new StringBuilder();
+                for (int i = 0; i < fieldNames.size(); i++) {
+                    String fieldName = fieldNames.get(i);
+                    String value = orderData.getString(fieldName);
+
+                    // 处理值中可能包含的逗号和引号
+                    if (value != null) {
+                        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+                            value = "\"" + value.replace("\"", "\"\"") + "\"";
+                        }
+                    } else {
+                        value = "";
+                    }
+
+                    line.append(value);
+                    if (i < fieldNames.size() - 1) {
+                        line.append(",");
+                    }
+                }
+                line.append("\n");
+
+                // 写入数据
+                writer.write(line.toString());
+
+                log.info("订单响应数据已按schema追加到CSV文件: {}", fileName);
+            }
+        } catch (IOException e) {
+            log.error("写入订单响应数据到CSV文件失败: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("解析订单响应数据失败: {}", e.getMessage(), e);
+        }
     }
 
     @Override
