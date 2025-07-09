@@ -45,7 +45,7 @@ public class HttpClientConfig {
                 .addInterceptor(loggingInterceptor);
 
         // 如果启用代理，则设置代理 ,http 都启用 代理 ,订阅不需要代理
-        if (true) {
+        if (proxyConfig.isEnabled()) {
             Proxy proxy = new Proxy(Proxy.Type.HTTP,
                     new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort()));
             builder.proxy(proxy);
