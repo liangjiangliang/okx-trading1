@@ -1003,7 +1003,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             if (orderData.containsKey("side") && orderData.getString("side").equals("buy")) {
                 order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(new BigDecimal(orderData.getString("fee")).abs()));
             } else {
-                BigDecimal accFillFeeSz = order.getFee().divide(BigDecimal.valueOf(Double.valueOf(orderData.getString("fillPx"))), 8, BigDecimal.ROUND_DOWN);
+                BigDecimal accFillFeeSz = order.getFee().divide(BigDecimal.valueOf(Double.valueOf(orderData.getString("fillPx"))), 12, BigDecimal.ROUND_DOWN);
                 order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(accFillFeeSz));
             }
         }
