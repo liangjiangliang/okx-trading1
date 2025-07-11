@@ -8,8 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.MessagingException;
@@ -18,6 +21,9 @@ import jakarta.mail.internet.MimeMessage;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedList;
+import java.util.Queue;
+
 
 /**
  * 邮件通知服务实现
@@ -32,6 +38,19 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
     @Autowired
     private NotificationConfig notificationConfig;
+
+    @Autowired
+    RedisTemplate<String, Object> redisTemplate;
+
+    private static final String REDIS_PRICE_KEY = "coin-rt-price";
+    private static final String SYMBOL = "BTC-USDT";
+    private static final int MAX_UNCHANGED_COUNT = 3;
+    private final Queue<String> priceQueue = new LinkedList<>();
+    private String lastPrice = null;
+    private int unchangedCount = 0;
+
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -143,6 +162,86 @@ public class EmailNotificationServiceImpl implements NotificationService {
         } catch (MessagingException e) {
             log.error("邮件发送失败: {}", e.getMessage(), e);
             return false;
+        }
+    }
+
+    /**
+     * 每10秒执行一次，检查价格变化
+     */
+    @Scheduled(fixedRate = 10000)
+    public void monitorPrice() {
+        try {
+            // 从Redis获取价格
+            Object priceObj = redisTemplate.opsForHash().get(REDIS_PRICE_KEY, SYMBOL);
+            String currentPrice = priceObj != null ? priceObj.toString() : null;
+
+            if (currentPrice == null) {
+                log.warn("无法从Redis获取{}的价格", SYMBOL);
+                return;
+            }
+
+            // 记录到队列中
+            priceQueue.add(currentPrice);
+            if (priceQueue.size() > MAX_UNCHANGED_COUNT) {
+                priceQueue.poll(); // 保持队列长度
+            }
+
+            log.debug("当前{}价格: {}", SYMBOL, currentPrice);
+
+            // 检查价格是否变化
+            if (lastPrice != null && lastPrice.equals(currentPrice)) {
+                unchangedCount++;
+                log.debug("{}价格连续{}次未变化", SYMBOL, unchangedCount);
+
+                if (unchangedCount >= MAX_UNCHANGED_COUNT) {
+                    // 检查队列中的所有价格是否都相同
+                    boolean allSame = priceQueue.stream().allMatch(price -> price.equals(currentPrice));
+
+                    if (allSame) {
+                        sendAlertEmail(currentPrice);
+                        unchangedCount = 0; // 重置计数器，避免连续告警
+                    }
+                }
+            } else {
+                // 价格发生变化，重置计数器
+                unchangedCount = 0;
+            }
+
+            // 更新上次价格
+            lastPrice = currentPrice;
+
+        } catch (Exception e) {
+            log.error("监控价格时发生错误", e);
+        }
+    }
+
+    /**
+     * 发送告警邮件
+     *
+     * @param price 当前价格
+     */
+    private void sendAlertEmail(String price) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(notificationConfig.getEmailRecipient());
+            message.setSubject("【价格监控告警】" + SYMBOL + "价格连续" + MAX_UNCHANGED_COUNT + "次未变化");
+
+            String time = LocalDateTime.now().format(formatter);
+            StringBuilder content = new StringBuilder();
+            content.append("【价格监控告警】\n\n");
+            content.append("币种: ").append(SYMBOL).append("\n");
+            content.append("当前价格: ").append(price).append("\n");
+            content.append("告警原因: 连续").append(MAX_UNCHANGED_COUNT).append("次（").append(MAX_UNCHANGED_COUNT * 10).append("秒）价格未发生变化\n");
+            content.append("告警时间: ").append(time).append("\n");
+            content.append("\n请检查数据源是否正常更新。");
+
+            message.setText(content.toString());
+
+            mailSender.send(message);
+            log.info("已发送{}价格告警邮件", SYMBOL);
+        } catch (Exception e) {
+            log.error("发送告警邮件失败", e);
         }
     }
 }
