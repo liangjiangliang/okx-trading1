@@ -84,6 +84,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     @Lazy
     @Autowired(required = false)
     private RealTimeStrategyManager realTimeStrategyManager;
+    
+    @Autowired
+    private EmailNotificationServiceImpl emailNotificationService;
 
     // 缓存和回调
     private final Map<String, CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -147,6 +150,8 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 BigDecimal lastPrice = ticker.getLastPrice();
                 if (lastPrice != null) {
 //                    redisCacheService.updateCoinPrice(symbol, lastPrice);
+                    // 更新邮件通知服务的最新价格
+                    emailNotificationService.updateLatestPrice(symbol, lastPrice);
                 }
 
 
@@ -199,7 +204,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                 if (candlestick != null) {
                     candlestick.setIntervalVal(interval);
 //                    redisCacheService.updateCandlestick(candlestick);
-                    redisCacheService.updateCoinPrice(symbol, candlestick.getClose());
+//                    redisCacheService.updateCoinPrice(symbol, candlestick.getClose());
+                    
+                    // 更新邮件通知服务的最新价格
+                    emailNotificationService.updateLatestPrice(symbol, candlestick.getClose());
+                    
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
 //                    candlesticks.add(candlestick);
 
