@@ -37,7 +37,6 @@ import java.util.EnumMap;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "notification.type", havingValue = "email")
 public class EmailNotificationServiceImpl implements NotificationService {
 
     @Autowired
@@ -60,7 +59,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     // 用于跟踪每个符号最后接收价格的时间和价格
     private final Map<String, LocalDateTime> lastPriceUpdateTimeMap = new ConcurrentHashMap<>();
     private final Map<String, String> latestPriceMap = new ConcurrentHashMap<>();
-    
+
     // 用于记录WebSocket频道重启次数
     private final Map<ReconnectType, Integer> channelRestartCountMap = new EnumMap<>(ReconnectType.class);
 
@@ -68,7 +67,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     private String fromEmail;
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    
+
     public EmailNotificationServiceImpl() {
         // 初始化各频道重启次数
         for (ReconnectType type : ReconnectType.values()) {
@@ -78,63 +77,60 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
     /**
      * 监听WebSocket重连事件并发送告警邮件
-     * 
+     *
      * @param event WebSocket重连事件
      */
     @EventListener
     @Async
+    @Override
     public void onWebSocketReconnect(WebSocketReconnectEvent event) {
         ReconnectType type = event.getType();
-        
+
         // 增加重启次数
         int count = channelRestartCountMap.getOrDefault(type, 0) + 1;
         channelRestartCountMap.put(type, count);
-        
+
         // 发送重启告警邮件
         sendWebSocketRestartAlert(type, count);
-        
+
         log.info("WebSocket频道 {} 重启，当前重启次数: {}", type, count);
     }
-    
+
     /**
      * 发送WebSocket重启告警邮件
-     * 
+     *
      * @param type 重启的频道类型
      * @param count 当前重启次数
      */
     private void sendWebSocketRestartAlert(ReconnectType type, int count) {
         try {
-            if (!notificationConfig.isEmailNotificationEnabled()) {
-                log.warn("邮件通知未启用，无法发送WebSocket重启告警");
-                return;
-            }
-            
+
             String subject = "【WebSocket告警】" + type + "频道已重启";
             String time = LocalDateTime.now().format(formatter);
-            
+
             StringBuilder content = new StringBuilder();
             content.append("<div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;'>");
             content.append("<h2 style='color: #cc0000;'>WebSocket重启告警</h2>");
             content.append("<div style='background-color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>");
-            
+
             // 基本信息
             content.append("<h3 style='color: #cc0000;'>重启信息</h3>");
             content.append("<p><strong>频道类型：</strong>").append(getChannelTypeName(type)).append("</p>");
             content.append("<p><strong>重启时间：</strong>").append(time).append("</p>");
             content.append("<p><strong>当前重启次数：</strong><span style='color: #cc0000; font-weight: bold;'>")
                   .append(count).append("</span></p>");
-            
+
             // 其他频道重启情况
             content.append("<h3 style='color: #0066cc;'>其他频道重启情况</h3>");
             content.append("<ul style='list-style-type: none; padding-left: 10px;'>");
-            
+
             for (Map.Entry<ReconnectType, Integer> entry : channelRestartCountMap.entrySet()) {
                 if (entry.getKey() != type) {
                     content.append("<li><strong>").append(getChannelTypeName(entry.getKey()))
                            .append("：</strong> ").append(entry.getValue()).append("次</li>");
                 }
             }
-            
+
             content.append("</ul>");
             content.append("</div>");
             content.append("<p style='font-size: 12px; color: #666; margin-top: 20px;'>此邮件由系统自动发送，请勿回复。</p>");
@@ -146,10 +142,10 @@ public class EmailNotificationServiceImpl implements NotificationService {
             log.error("发送WebSocket重启告警邮件失败", e);
         }
     }
-    
+
     /**
      * 获取频道类型的中文名称
-     * 
+     *
      * @param type 频道类型
      * @return 中文名称
      */
@@ -165,20 +161,20 @@ public class EmailNotificationServiceImpl implements NotificationService {
                 return type.name();
         }
     }
-    
+
     /**
      * 获取指定频道的重启次数
-     * 
+     *
      * @param type 频道类型
      * @return 重启次数
      */
     public int getChannelRestartCount(ReconnectType type) {
         return channelRestartCountMap.getOrDefault(type, 0);
     }
-    
+
     /**
      * 重置指定频道的重启次数
-     * 
+     *
      * @param type 频道类型
      */
     public void resetChannelRestartCount(ReconnectType type) {
@@ -197,11 +193,11 @@ public class EmailNotificationServiceImpl implements NotificationService {
         if (price == null || symbol == null) {
             return;
         }
-        
+
         String priceStr = price.toString();
         latestPriceMap.put(symbol, priceStr);
         lastPriceUpdateTimeMap.put(symbol, LocalDateTime.now());
-        
+
         log.debug("从WebSocket更新{}的最新价格: {}", symbol, priceStr);
     }
 
@@ -329,20 +325,20 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
             // 获取当前时间
             LocalDateTime now = LocalDateTime.now();
-            
+
             // 记录上次更新时间
             LocalDateTime lastUpdateTime = lastPriceUpdateTimeMap.getOrDefault(SYMBOL, now);
-            
+
             // 计算上次价格更新到现在的时间间隔（秒）
             long secondsSinceLastUpdate = java.time.Duration.between(lastUpdateTime, now).getSeconds();
-            
+
             // 记录到队列中
             priceQueue.add(currentPrice);
             if (priceQueue.size() > MAX_UNCHANGED_COUNT) {
                 priceQueue.poll(); // 保持队列长度
             }
 
-            log.debug("当前{}价格: {}，上次更新时间: {}, 距离上次更新: {}秒", 
+            log.debug("当前{}价格: {}，上次更新时间: {}, 距离上次更新: {}秒",
                       SYMBOL, currentPrice, lastUpdateTime.format(formatter), secondsSinceLastUpdate);
 
             // 检查价格是否变化
@@ -383,12 +379,12 @@ public class EmailNotificationServiceImpl implements NotificationService {
         try {
             String subject = "【价格监控告警】" + SYMBOL + "价格连续" + MAX_UNCHANGED_COUNT + "次未变化";
             String time = LocalDateTime.now().format(formatter);
-            
+
             StringBuilder content = new StringBuilder();
             content.append("<div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;'>");
             content.append("<h2 style='color: #cc0000;'>价格监控告警</h2>");
             content.append("<div style='background-color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>");
-            
+
             // 告警信息
             content.append("<h3 style='color: #cc0000;'>告警详情</h3>");
             content.append("<p><strong>币种：</strong>").append(SYMBOL).append("</p>");
@@ -399,11 +395,11 @@ public class EmailNotificationServiceImpl implements NotificationService {
                   .append("次（<span style='color: #cc0000; font-weight: bold;'>")
                   .append(secondsSinceLastUpdate)
                   .append("</span>秒）价格未发生变化</p>");
-            
+
             content.append("<div style='background-color: #fff8e1; padding: 10px; border-left: 4px solid #ffca28; margin: 15px 0;'>");
             content.append("<p style='margin: 0;'><strong>注意：</strong>请检查数据源是否正常更新。</p>");
             content.append("</div>");
-            
+
             content.append("</div>");
             content.append("<p style='font-size: 12px; color: #666; margin-top: 20px;'>此邮件由系统自动发送，请勿回复。</p>");
             content.append("</div>");

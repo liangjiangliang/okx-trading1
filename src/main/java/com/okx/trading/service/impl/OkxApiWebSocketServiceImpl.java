@@ -14,6 +14,7 @@ import com.okx.trading.model.market.Ticker;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.model.trade.OrderRequest;
 import com.okx.trading.service.KlineCacheService;
+import com.okx.trading.service.NotificationService;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.strategy.RealTimeStrategyManager;
@@ -84,9 +85,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     @Lazy
     @Autowired(required = false)
     private RealTimeStrategyManager realTimeStrategyManager;
-    
+
     @Autowired
-    private EmailNotificationServiceImpl emailNotificationService;
+    private NotificationService emailNotificationService;
 
     // 缓存和回调
     private final Map<String, CompletableFuture<Ticker>> tickerFutures = new ConcurrentHashMap<>();
@@ -205,10 +206,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                     candlestick.setIntervalVal(interval);
 //                    redisCacheService.updateCandlestick(candlestick);
 //                    redisCacheService.updateCoinPrice(symbol, candlestick.getClose());
-                    
+
                     // 更新邮件通知服务的最新价格
                     emailNotificationService.updateLatestPrice(symbol, candlestick.getClose());
-                    
+
                     log.debug("获取实时标记价格k线数据: {}", candlestick);
 //                    candlesticks.add(candlestick);
 
