@@ -53,6 +53,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     private final Queue<String> priceQueue = new LinkedList<>();
     private String lastPrice = null;
     private int unchangedCount = 0;
+    private int noRecordCount = 0;
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -99,7 +100,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     /**
      * 发送WebSocket重启告警邮件
      *
-     * @param type 重启的频道类型
+     * @param type  重启的频道类型
      * @param count 当前重启次数
      */
     private void sendWebSocketRestartAlert(ReconnectType type, int count) {
@@ -118,7 +119,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<p><strong>频道类型：</strong>").append(getChannelTypeName(type)).append("</p>");
             content.append("<p><strong>重启时间：</strong>").append(time).append("</p>");
             content.append("<p><strong>当前重启次数：</strong><span style='color: #cc0000; font-weight: bold;'>")
-                  .append(count).append("</span></p>");
+                    .append(count).append("</span></p>");
 
             // 其他频道重启情况
             content.append("<h3 style='color: #0066cc;'>其他频道重启情况</h3>");
@@ -127,7 +128,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
             for (Map.Entry<ReconnectType, Integer> entry : channelRestartCountMap.entrySet()) {
                 if (entry.getKey() != type) {
                     content.append("<li><strong>").append(getChannelTypeName(entry.getKey()))
-                           .append("：</strong> ").append(entry.getValue()).append("次</li>");
+                            .append("：</strong> ").append(entry.getValue()).append("次</li>");
                 }
             }
 
@@ -187,7 +188,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
      * 由WebSocket服务在收到K线数据时调用
      *
      * @param symbol 交易对
-     * @param price 最新价格
+     * @param price  最新价格
      */
     public void updateLatestPrice(String symbol, BigDecimal price) {
         if (price == null || symbol == null) {
@@ -318,8 +319,14 @@ public class EmailNotificationServiceImpl implements NotificationService {
             // 从本地缓存获取价格
             String currentPrice = latestPriceMap.get(SYMBOL);
 
+
             if (currentPrice == null) {
                 log.warn("无法获取{}的最新价格", SYMBOL);
+                noRecordCount++;
+                if (noRecordCount >= MAX_UNCHANGED_COUNT) {
+                    sendPriceAlertEmail(currentPrice, 30);
+                }
+                noRecordCount = 0;
                 return;
             }
 
@@ -339,7 +346,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
             }
 
             log.debug("当前{}价格: {}，上次更新时间: {}, 距离上次更新: {}秒",
-                      SYMBOL, currentPrice, lastUpdateTime.format(formatter), secondsSinceLastUpdate);
+                    SYMBOL, currentPrice, lastUpdateTime.format(formatter), secondsSinceLastUpdate);
 
             // 检查价格是否变化
             if (lastPrice != null && lastPrice.equals(currentPrice)) {
@@ -372,7 +379,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     /**
      * 发送价格告警邮件
      *
-     * @param price 当前价格
+     * @param price                  当前价格
      * @param secondsSinceLastUpdate 上次更新到现在的秒数
      */
     private void sendPriceAlertEmail(String price, long secondsSinceLastUpdate) {
@@ -391,10 +398,10 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<p><strong>当前价格：</strong>").append(price).append("</p>");
             content.append("<p><strong>告警时间：</strong>").append(time).append("</p>");
             content.append("<p><strong>告警原因：</strong>连续")
-                  .append(MAX_UNCHANGED_COUNT)
-                  .append("次（<span style='color: #cc0000; font-weight: bold;'>")
-                  .append(secondsSinceLastUpdate)
-                  .append("</span>秒）价格未发生变化</p>");
+                    .append(MAX_UNCHANGED_COUNT)
+                    .append("次（<span style='color: #cc0000; font-weight: bold;'>")
+                    .append(secondsSinceLastUpdate)
+                    .append("</span>秒）价格未发生变化或未获取最新价格推送</p>");
 
             content.append("<div style='background-color: #fff8e1; padding: 10px; border-left: 4px solid #ffca28; margin: 15px 0;'>");
             content.append("<p style='margin: 0;'><strong>注意：</strong>请检查数据源是否正常更新。</p>");
