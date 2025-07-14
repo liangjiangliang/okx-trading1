@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.*;
 import org.ta4j.core.num.DecimalNum;
@@ -45,6 +46,7 @@ import static com.okx.trading.constant.IndicatorInfo.*;
 @Service
 @Data
 @Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
+@Component
 public class RealTimeStrategyManager implements ApplicationRunner {
 
     // 定义常量替代javax.print.attribute.standard.JobState.CANCELED
