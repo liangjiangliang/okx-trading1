@@ -53,10 +53,25 @@ public class TradeRecordDTO {
      */
     private BigDecimal profit;
 
-    private BigDecimal maxDrowdown;
+    /**
+     * 整个回测期间资金曲线的最大回撤
+     */
+    private BigDecimal maxDrawdown;
 
+    /**
+     * 整个回测期间资金曲线的最大损失
+     */
     private BigDecimal maxLoss;
 
+    /**
+     * 交易内收盘价的最大回撤
+     */
+    private BigDecimal maxDrawdownPeriod;
+
+    /**
+     * 交易内收盘价最大亏损
+     */
+    private BigDecimal maxLossPeriod;
 
 
     /**
@@ -176,12 +191,12 @@ public class TradeRecordDTO {
         this.fee = fee;
     }
 
-    public BigDecimal getMaxDrowdown() {
-        return maxDrowdown;
+    public BigDecimal getMaxDrawdown() {
+        return maxDrawdown;
     }
 
-    public void setMaxDrowdown(BigDecimal maxDrowdown) {
-        this.maxDrowdown = maxDrowdown;
+    public void setMaxDrawdown(BigDecimal maxDrawdown) {
+        this.maxDrawdown = maxDrawdown;
     }
 
     public BigDecimal getMaxLoss() {
@@ -206,5 +221,21 @@ public class TradeRecordDTO {
 
     public void setProfitPercentagePerPeriod(BigDecimal profitPercentagePerPeriod) {
         this.profitPercentagePerPeriod = profitPercentagePerPeriod;
+    }
+
+    public BigDecimal getMaxDrawdownPeriod() {
+        return maxDrawdownPeriod;
+    }
+
+    public void setMaxDrawdownPeriod(BigDecimal maxDrawdownPeriod) {
+        this.maxDrawdownPeriod = maxDrawdownPeriod;
+    }
+
+    public BigDecimal getMaxLossPeriod() {
+        return maxLossPeriod;
+    }
+
+    public void setMaxLossPeriod(BigDecimal maxLossPeriod) {
+        this.maxLossPeriod = maxLossPeriod;
     }
 }

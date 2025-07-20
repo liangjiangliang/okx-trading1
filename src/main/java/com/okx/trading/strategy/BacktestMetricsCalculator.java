@@ -139,7 +139,10 @@ public class BacktestMetricsCalculator {
 
     // 中间计算结果
     private List<TradeRecordDTO> tradeRecords;
+    //整个回测期间的资金曲线的最大回撤和最大损失
     private List<ArrayList<BigDecimal>> maxLossAndDrawdownList;
+    // 每笔交易的最大回撤和最大损失，基于收盘价
+    private List<ArrayList<BigDecimal>> tradeMaxLossAndDrawdownList;
     // 每天资金曲线
     private List<BigDecimal> strategyEquityCurve;
     // 策略收益率序列
@@ -337,6 +340,9 @@ public class BacktestMetricsCalculator {
                     profitPercentagePerPeriod = actualProfitPercentage.divide(BigDecimal.valueOf(period), 8, RoundingMode.HALF_UP);
                 }
 
+                // 计算本次交易期间收盘价的最大回撤和最大损失
+                BigDecimal[] bigDecimals = calculateTradePeriodDrawdownAndLoss(entryIndex, exitIndex, position.getEntry().isBuy(), series);
+
                 // 创建交易记录DTO
                 TradeRecordDTO recordDTO = new TradeRecordDTO();
                 recordDTO.setIndex(index++);
@@ -353,6 +359,8 @@ public class BacktestMetricsCalculator {
                 recordDTO.setProfitPercentagePerPeriod(profitPercentagePerPeriod);
                 recordDTO.setClosed(true);
                 recordDTO.setFee(totalFee);
+                recordDTO.setMaxDrawdownPeriod(bigDecimals[0]);
+                recordDTO.setMaxLossPeriod(bigDecimals[1]);
 
                 records.add(recordDTO);
 
@@ -429,18 +437,18 @@ public class BacktestMetricsCalculator {
                     tradeRecords.get(i).setMaxLoss(tradePeriodsLoss.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
 
                     List<BigDecimal> tradePeriodsDrawdown = dailyDrawdownList.subList(entryIndex, actualExitIndex);
-                    tradeRecords.get(i).setMaxDrowdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
+                    tradeRecords.get(i).setMaxDrawdown(tradePeriodsDrawdown.stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO));
                 } else {
                     // 索引异常时设置默认值
                     log.warn("交易 {} 的索引异常: entry={}, exit={}, dailyListSize={}，设置默认值",
                             i, entryIndex, exitIndex, dailyLossList.size());
                     tradeRecords.get(i).setMaxLoss(BigDecimal.ZERO);
-                    tradeRecords.get(i).setMaxDrowdown(BigDecimal.ZERO);
+                    tradeRecords.get(i).setMaxDrawdown(BigDecimal.ZERO);
                 }
             } catch (Exception e) {
                 log.error("计算交易 {} 的最大损失和回撤时出错: {}", i, e.getMessage());
                 tradeRecords.get(i).setMaxLoss(BigDecimal.ZERO);
-                tradeRecords.get(i).setMaxDrowdown(BigDecimal.ZERO);
+                tradeRecords.get(i).setMaxDrawdown(BigDecimal.ZERO);
             }
         }
 
@@ -473,6 +481,8 @@ public class BacktestMetricsCalculator {
         BigDecimal averageProfit;
         BigDecimal maximumLoss;
         BigDecimal maxDrawdown;
+        BigDecimal maximumLossPeriod;
+        BigDecimal maxDrawDownPeriod;
     }
 
     /**
@@ -839,6 +849,10 @@ public class BacktestMetricsCalculator {
         tradeStats.maximumLoss = maxLossAndDrawdownList.get(0).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
         tradeStats.maxDrawdown = maxLossAndDrawdownList.get(1).stream().reduce(BigDecimal::max).orElse(BigDecimal.ZERO);
 
+        tradeStats.maxDrawDownPeriod = tradeRecords.stream().map(tradeRecord -> tradeRecord.getMaxDrawdownPeriod()).reduce(BigDecimal::max).get();
+        tradeStats.maximumLossPeriod = tradeRecords.stream().map(tradeRecord -> tradeRecord.getMaxLossPeriod()).reduce(BigDecimal::max).get();
+
+
         // 计算Calmar比率
         metrics.calmarRatio = Ta4jBacktestService.calculateCalmarRatio(returnMetrics.annualizedReturn, tradeStats.maxDrawdown);
 
@@ -865,10 +879,12 @@ public class BacktestMetricsCalculator {
         finalResult.setWinRate(tradeStats.winRate);
         finalResult.setAverageProfit(tradeStats.averageProfit);
         finalResult.setMaxDrawdown(tradeStats.maxDrawdown);
+        finalResult.setMaxDrawdownPeriod(tradeStats.maxDrawDownPeriod);
         finalResult.setSharpeRatio(riskMetrics.sharpeRatio);
         finalResult.setSortinoRatio(riskMetrics.sortinoRatio);
         finalResult.setCalmarRatio(riskMetrics.calmarRatio);
         finalResult.setMaximumLoss(tradeStats.maximumLoss);
+        finalResult.setMaximumLossPeriod(tradeStats.maximumLossPeriod);
         finalResult.setVolatility(riskMetrics.volatility);
         finalResult.setProfitFactor(tradeStats.profitFactor);
         finalResult.setTrades(tradeRecords);
@@ -2201,6 +2217,98 @@ public class BacktestMetricsCalculator {
         return returns;
     }
 
+    /**
+     * 计算单笔交易期间的最大回撤和最大损失
+     * 基于收盘价计算，而不是基于资金曲线
+     *
+     * @param entryTime 入场时间
+     * @param exitTime  出场时间
+     * @param symbol    交易对
+     * @param isLong    是否做多
+     * @param series    Bar序列
+     * @return [0]最大回撤率, [1]最大损失率
+     */
+    public BigDecimal[] calculateTradePeriodDrawdownAndLoss(int entryIndex, int exitIndex, boolean isLong, BarSeries series) {
+        // 初始化结果数组：[最大回撤率, 最大损失率]
+        BigDecimal[] result = new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+
+        try {
+
+            // 使用入场K线的收盘价作为基准价格
+            BigDecimal entryPrice = new BigDecimal(series.getBar(entryIndex).getClosePrice().doubleValue());
+
+            // 初始化峰值和谷值
+            BigDecimal peakPrice = entryPrice;  // 历史最高价
+            BigDecimal lowestPrice = entryPrice; // 历史最低价
+
+            // 如果是做空，则反转峰值和谷值的含义
+            BigDecimal maxDrawdownRate = BigDecimal.ZERO;
+            BigDecimal maxLossRate = BigDecimal.ZERO;
+
+            // 遍历交易期间的所有K线
+            for (int i = entryIndex + 1; i <= exitIndex; i++) {
+                BigDecimal currentPrice = new BigDecimal(series.getBar(i).getClosePrice().doubleValue());
+
+                if (isLong) {
+                    // 做多情况：更新最高价，计算从最高点下跌的回撤率
+                    if (currentPrice.compareTo(peakPrice) > 0) {
+                        peakPrice = currentPrice;
+                    }
+
+                    // 计算当前回撤率
+                    if (peakPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal drawdownRate = peakPrice.subtract(currentPrice)
+                                .divide(peakPrice, 8, RoundingMode.HALF_UP);
+                        maxDrawdownRate = drawdownRate.compareTo(maxDrawdownRate) > 0 ?
+                                drawdownRate : maxDrawdownRate;
+                    }
+
+                    // 计算相对入场价的损失率
+                    if (entryPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal returnRate = currentPrice.subtract(entryPrice)
+                                .divide(entryPrice, 8, RoundingMode.HALF_UP);
+                        if (returnRate.compareTo(BigDecimal.ZERO) < 0) {
+                            BigDecimal lossRate = returnRate.abs();
+                            maxLossRate = lossRate.compareTo(maxLossRate) > 0 ?
+                                    lossRate : maxLossRate;
+                        }
+                    }
+                } else {
+                    // 做空情况：更新最低价，计算从最低点上涨的回撤率
+                    if (currentPrice.compareTo(lowestPrice) < 0 || i == entryIndex) {
+                        lowestPrice = currentPrice;
+                    }
+
+                    // 计算当前回撤率 (对于空头，价格上涨意味着回撤)
+                    if (lowestPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal drawdownRate = currentPrice.subtract(lowestPrice)
+                                .divide(lowestPrice, 8, RoundingMode.HALF_UP);
+                        maxDrawdownRate = drawdownRate.compareTo(maxDrawdownRate) > 0 ?
+                                drawdownRate : maxDrawdownRate;
+                    }
+
+                    // 计算相对入场价的损失率 (对于空头，价格上涨意味着亏损)
+                    if (entryPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal returnRate = entryPrice.subtract(currentPrice)
+                                .divide(entryPrice, 8, RoundingMode.HALF_UP);
+                        if (returnRate.compareTo(BigDecimal.ZERO) < 0) {
+                            BigDecimal lossRate = returnRate.abs();
+                            maxLossRate = lossRate.compareTo(maxLossRate) > 0 ?
+                                    lossRate : maxLossRate;
+                        }
+                    }
+                }
+            }
+
+            result[0] = maxDrawdownRate;
+            result[1] = maxLossRate;
+
+        } catch (Exception e) {
+            log.error("计算交易期间回撤异常: {}", e.getMessage(), e);
+        }
+
+        return result;
+    }
 
 }
 

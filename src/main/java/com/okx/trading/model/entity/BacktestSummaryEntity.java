@@ -148,6 +148,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
     private BigDecimal maxDrawdown;
 
     /**
+     * 单笔交易最大回撤（百分比）
+     */
+    @Column(name = "max_drawdown_period", precision = 10, scale = 4)
+    private BigDecimal maxDrawdownPeriod;
+
+    /**
      * 夏普比率
      */
     @Column(name = "sharpe_ratio", precision = 10, scale = 4)
@@ -170,6 +176,12 @@ public class BacktestSummaryEntity implements Comparable<BacktestSummaryEntity> 
      */
     @Column(name = "maximum_loss", precision = 20, scale = 8)
     private BigDecimal maximumLoss;
+
+    /**
+     * 最大损失（单笔交易中的最大亏损金额）
+     */
+    @Column(name = "maximum_loss_period", precision = 20, scale = 8)
+    private BigDecimal maximumLossPeriod;
 
     /**
      * 波动率（收盘价标准差）

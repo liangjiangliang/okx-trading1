@@ -80,6 +80,11 @@ public class BacktestResultDTO {
     private BigDecimal maxDrawdown=BigDecimal.ZERO;
 
     /**
+     * 最大回撤（单笔交易中的基于收盘价最大回撤）
+     */
+    private BigDecimal maxDrawdownPeriod;
+
+    /**
      * 夏普比率
      */
     private BigDecimal sharpeRatio;
@@ -108,9 +113,14 @@ public class BacktestResultDTO {
     private BigDecimal calmarRatio;
 
     /**
-     * 最大损失（单笔交易中的最大亏损金额）
+     * 资金曲线的最大损失
      */
     private BigDecimal maximumLoss;
+
+    /**
+     * 最大损失（单笔交易中的最大亏损金额）
+     */
+    private BigDecimal maximumLossPeriod;
 
     /**
      * 波动率（收盘价标准差）

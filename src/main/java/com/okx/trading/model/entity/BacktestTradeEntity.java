@@ -149,6 +149,12 @@ public class BacktestTradeEntity {
     @Column(name = "max_loss", precision = 10, scale = 4)
     private BigDecimal maxLoss;
 
+    @Column(name = "max_drawdown_period", precision = 10, scale = 4)
+    private BigDecimal maxDrawdownPeriod;
+
+    @Column(name = "max_loss_period", precision = 10, scale = 4)
+    private BigDecimal maxLossPeriod;
+
     /**
      * 交易是否已平仓
      */
@@ -220,6 +226,8 @@ public class BacktestTradeEntity {
         private BigDecimal totalAssets;
         private BigDecimal maxDrawdown;
         private BigDecimal maxLoss;
+        private BigDecimal maxDrawdownPeriod;
+        private BigDecimal maxLossPeriod;
         private Boolean closed;
         private BigDecimal volume;
         private BigDecimal fee;
@@ -329,6 +337,18 @@ public class BacktestTradeEntity {
             return this;
         }
 
+
+        public BacktestTradeEntityBuilder maxDrawdownPeriod(BigDecimal maxDrawdownPeriod) {
+            this.maxDrawdownPeriod = maxDrawdownPeriod;
+            return this;
+        }
+
+        public BacktestTradeEntityBuilder maxLossPeriod(BigDecimal maxLossPeriod) {
+            this.maxLossPeriod = maxLossPeriod;
+            return this;
+        }
+
+
         public BacktestTradeEntityBuilder closed(Boolean closed) {
             this.closed = closed;
             return this;
@@ -369,7 +389,7 @@ public class BacktestTradeEntity {
             return new BacktestTradeEntity(id, backtestId, strategyName, strategyCode, strategyParams, index, type, symbol,
                     entryTime, entryPrice, entryAmount, entryPositionPercentage, exitTime,
                     exitPrice, exitAmount, profit, profitPercentage, periods, profitPercentagePerPeriod, totalAssets, maxDrawdown, maxLoss,
-                    closed, volume, fee, remark, createTime);
+                    maxDrawdownPeriod, maxLossPeriod, closed, volume, fee, remark, createTime);
         }
     }
 }

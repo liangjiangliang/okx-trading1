@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -82,7 +81,9 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                     .periods(trade.getPeriods())
                     .profitPercentagePerPeriod(trade.getProfitPercentagePerPeriod())
                     .totalAssets(trade.getExitAmount())
-                    .maxDrawdown(trade.getMaxDrowdown())
+                    .maxDrawdown(trade.getMaxDrawdown())
+                    .maxDrawdownPeriod(trade.getMaxDrawdownPeriod())
+                    .maxLossPeriod(trade.getMaxLossPeriod())
                     .maxLoss(trade.getMaxLoss())
                     .closed(trade.isClosed())
                     .fee(trade.getFee())
@@ -149,10 +150,12 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
                 .winRate(backtestResult.getWinRate())
                 .averageProfit(backtestResult.getAverageProfit())
                 .maxDrawdown(backtestResult.getMaxDrawdown())
+                .maxDrawdownPeriod(backtestResult.getMaxDrawdownPeriod())
                 .sharpeRatio(backtestResult.getSharpeRatio())
                 .sortinoRatio(backtestResult.getSortinoRatio())
                 .calmarRatio(backtestResult.getCalmarRatio())
                 .maximumLoss(backtestResult.getMaximumLoss())
+                .maximumLossPeriod(backtestResult.getMaximumLossPeriod())
                 .volatility(backtestResult.getVolatility())
                 .totalFee(backtestResult.getTotalFee())
                 // 新增指标字段
@@ -254,8 +257,8 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
     @Override
     @Transactional
     public void saveBacktestEquityCurve(String backtestId, List<BigDecimal> equityCurveData, List<LocalDateTime> timestamps) {
-        if (backtestId == null || backtestId.isEmpty() || equityCurveData == null || equityCurveData.isEmpty() || 
-            timestamps == null || timestamps.isEmpty() || equityCurveData.size() != timestamps.size()) {
+        if (backtestId == null || backtestId.isEmpty() || equityCurveData == null || equityCurveData.isEmpty() ||
+                timestamps == null || timestamps.isEmpty() || equityCurveData.size() != timestamps.size()) {
             logger.warn("保存资金曲线数据失败：参数无效");
             return;
         }
