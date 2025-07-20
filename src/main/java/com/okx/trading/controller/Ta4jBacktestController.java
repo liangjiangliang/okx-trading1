@@ -119,21 +119,21 @@ public class Ta4jBacktestController {
     @GetMapping("/run")
     @Operation(summary = "执行Ta4j策略回测", description = "使用Ta4j库进行策略回测，可选保存结果")
     public ApiResponse<BacktestResultDTO> runBacktest(
-            @Parameter(name = "交易对", example = "BTC-USDT", required = true ) @RequestParam String symbol,
-            @Parameter(name = "时间间隔", example = "1h", required = true ) @RequestParam String interval,
+            @Parameter(name = "交易对", example = "BTC-USDT", required = true) @RequestParam String symbol,
+            @Parameter(name = "时间间隔", example = "1h", required = true) @RequestParam String interval,
             @Parameter(name = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
                     example = "2018-01-01 00:00:00",
                     required = true
-                    )
+            )
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @Parameter(name = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
                     example = "2025-04-01 00:00:00",
                     required = true
-                    )
+            )
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @Parameter(name = "策略类型",
                     required = true
-                    )
+            )
             @RequestParam String strategyType,
             @Parameter(name = "策略参数 (以逗号分隔的数字)\n" +
                     "- SMA策略参数: 短期均线周期,长期均线周期 (例如：5,20)\n" +
@@ -141,12 +141,12 @@ public class Ta4jBacktestController {
                     "- 不传或传空字符串将使用默认参数",
                     required = false,
                     example = "20,2.0"
-                    )
+            )
             @RequestParam(required = false) String strategyParams,
             @Parameter(name = "初始资金",
                     example = "100000",
                     required = true
-                 )
+            )
             @RequestParam BigDecimal initialAmount,
             @Parameter(name = "交易手续费率",
                     example = "0.001",
@@ -196,7 +196,7 @@ public class Ta4jBacktestController {
 
                 // 保存资金曲线数据
                 if (result.getEquityCurve() != null && !result.getEquityCurve().isEmpty() &&
-                    result.getEquityCurveTimestamps() != null && !result.getEquityCurveTimestamps().isEmpty()) {
+                        result.getEquityCurveTimestamps() != null && !result.getEquityCurveTimestamps().isEmpty()) {
                     backtestTradeService.saveBacktestEquityCurve(backtestId, result.getEquityCurve(), result.getEquityCurveTimestamps());
                     log.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, result.getEquityCurve().size());
                 }
@@ -214,7 +214,7 @@ public class Ta4jBacktestController {
                         result.getParameterDescription(),
                         result.getNumberOfTrades(),
                         result.getTotalReturn().multiply(new BigDecimal("100")),
-                        result.getTotalFee());
+                        result.getTotalFee().setScale(4, RoundingMode.HALF_UP));
             } else {
                 log.warn("回测执行失败 - 错误信息: {}", result.getErrorMessage());
             }
@@ -229,18 +229,18 @@ public class Ta4jBacktestController {
     @GetMapping("/run-all")
     @Operation(summary = "执行所有策略的批量回测", description = "获取所有支持的策略并对每个策略执行回测")
     public ApiResponse<Map<String, Object>> runAllStrategiesBacktest(
-            @Parameter(name = "交易对", example = "BTC-USDT", required = true ) @RequestParam String symbol,
-            @Parameter(name = "时间间隔", example = "1h", required = true ) @RequestParam String interval,
+            @Parameter(name = "交易对", example = "BTC-USDT", required = true) @RequestParam String symbol,
+            @Parameter(name = "时间间隔", example = "1h", required = true) @RequestParam String interval,
             @Parameter(name = "开始时间 (格式: yyyy-MM-dd HH:mm:ss)",
                     example = "2023-01-01 00:00:00",
                     required = true
-                    )
+            )
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @Parameter(name = "结束时间 (格式: yyyy-MM-dd HH:mm:ss)",
                     example = "2023-12-31 23:59:59",
 
                     required = true
-                    )
+            )
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @Parameter(name = "初始资金",
                     example = "100000",
@@ -299,7 +299,7 @@ public class Ta4jBacktestController {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     String currentStrategyCode = strategyCode;
                     try {
-                        log.info("开始回测策略: {}({})", strategyDetails.getOrDefault("strategyName", "-"), currentStrategyCode);
+                        log.info("开始回测策略: {}({})", strategyDetails.getOrDefault("name", "-"), currentStrategyCode);
 
                         // 执行回测 - 添加额外的异常处理
                         BacktestResultDTO result = null;
@@ -558,7 +558,7 @@ public class Ta4jBacktestController {
     @GetMapping("/detail/{backtestId}")
     @Operation(summary = "获取回测详情", description = "获取指定回测ID的详细交易记录")
     public ApiResponse<List<BacktestTradeEntity>> getBacktestDetail(
-            @Parameter(name = "回测ID", required = true ) @PathVariable String backtestId) {
+            @Parameter(name = "回测ID", required = true) @PathVariable String backtestId) {
         try {
             List<BacktestTradeEntity> trades = backtestTradeService.getTradesByBacktestId(backtestId);
             if (trades.isEmpty()) {
@@ -574,7 +574,7 @@ public class Ta4jBacktestController {
     @DeleteMapping("/delete/{backtestId}")
     @Operation(summary = "删除回测记录", description = "删除指定回测ID的所有交易记录")
     public ApiResponse<Void> deleteBacktestRecord(
-            @Parameter(name = "回测ID", required = true ) @PathVariable String backtestId) {
+            @Parameter(name = "回测ID", required = true) @PathVariable String backtestId) {
         try {
             backtestTradeService.deleteBacktestRecords(backtestId);
             return ApiResponse.success("成功删除回测记录");
@@ -599,7 +599,7 @@ public class Ta4jBacktestController {
     @GetMapping("/summary/{backtestId}")
     @Operation(summary = "获取回测汇总信息", description = "根据回测ID获取回测汇总信息")
     public ApiResponse<BacktestSummaryEntity> getBacktestSummary(
-            @Parameter(name = "回测ID", required = true ) @PathVariable String backtestId) {
+            @Parameter(name = "回测ID", required = true) @PathVariable String backtestId) {
         try {
             Optional<BacktestSummaryEntity> summary = backtestTradeService.getBacktestSummaryById(backtestId);
             if (summary.isPresent()) {
@@ -616,7 +616,7 @@ public class Ta4jBacktestController {
     @GetMapping("/summaries/strategy/{strategyName}")
     @Operation(summary = "根据策略名称获取回测汇总信息", description = "获取特定策略的所有回测汇总信息")
     public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesByStrategy(
-            @Parameter(name = "策略名称", required = true ) @PathVariable String strategyName) {
+            @Parameter(name = "策略名称", required = true) @PathVariable String strategyName) {
         try {
             List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesByStrategy(strategyName);
             if (summaries.isEmpty()) {
@@ -632,7 +632,7 @@ public class Ta4jBacktestController {
     @GetMapping("/summaries/symbol/{symbol}")
     @Operation(summary = "根据交易对获取回测汇总信息", description = "获取特定交易对的所有回测汇总信息")
     public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesBySymbol(
-            @Parameter(name = "交易对", required = true ) @PathVariable String symbol) {
+            @Parameter(name = "交易对", required = true) @PathVariable String symbol) {
         try {
             List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesBySymbol(symbol);
             if (summaries.isEmpty()) {
@@ -648,7 +648,7 @@ public class Ta4jBacktestController {
     @GetMapping("/summaries/batch/{batchBacktestId}")
     @Operation(summary = "根据批量回测ID获取回测汇总信息", description = "获取同一批次执行的所有回测汇总信息")
     public ApiResponse<List<BacktestSummaryEntity>> getBacktestSummariesByBatchId(
-            @Parameter(name = "批量回测ID", required = true ) @PathVariable String batchBacktestId) {
+            @Parameter(name = "批量回测ID", required = true) @PathVariable String batchBacktestId) {
         try {
             List<BacktestSummaryEntity> summaries = backtestTradeService.getBacktestSummariesByBatchId(batchBacktestId);
             Collections.sort(summaries);
@@ -1053,7 +1053,7 @@ public class Ta4jBacktestController {
     @GetMapping("/equity-curve/{backtestId}")
     @Operation(summary = "获取回测资金曲线数据", description = "根据回测ID获取资金曲线数据")
     public ApiResponse<List<Map<String, Object>>> getBacktestEquityCurve(
-            @Parameter(name = "回测ID", required = true ) @PathVariable String backtestId) {
+            @Parameter(name = "回测ID", required = true) @PathVariable String backtestId) {
         try {
             List<BacktestEquityCurveEntity> equityCurveData = backtestTradeService.getEquityCurveByBacktestId(backtestId);
 

@@ -3916,7 +3916,7 @@ public class StrategyFactory1 {
         Rule entryRule = new CrossedUpIndicatorRule(closePrice, sma20);
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma20);
 
-        return new BaseStrategy(exitRule, entryRule); // 做空策略
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**

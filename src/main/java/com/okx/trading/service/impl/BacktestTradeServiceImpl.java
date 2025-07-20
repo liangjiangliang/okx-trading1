@@ -92,7 +92,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
             backtestTradeRepository.save(entity);
         }
 
-        logger.info("成功保存回测记录，回测ID: {}, 交易数量: {}", backtestId, trades.size());
+        logger.info("成功保存回测交易记录，回测ID: {}, 交易数量: {}", backtestId, trades.size());
         return backtestId;
     }
 
@@ -187,7 +187,7 @@ public class BacktestTradeServiceImpl implements BacktestTradeService {
 
         // 保存汇总信息
         BacktestSummaryEntity savedEntity = backtestSummaryRepository.save(summaryEntity);
-        logger.info("成功保存回测汇总信息，回测ID: {}, 批量回测ID: {}", backtestId, batchBacktestId);
+        logger.info("成功保存回测汇总信息，回测ID: {}", backtestId);
 
         // 打印详细的汇总信息
         com.okx.trading.util.BacktestResultPrinter.printSummaryEntity(savedEntity);

@@ -1873,9 +1873,7 @@ public class BacktestMetricsCalculator {
                         expectedFinalAmount.setScale(4, RoundingMode.HALF_UP), actualFinalAmount.setScale(4, RoundingMode.HALF_UP));
                 // 修正最终金额
                 equityCurve.set(equityCurve.size() - 1, expectedFinalAmount);
-            } else {
-                log.info("策略资金曲线最终金额与实际交易收益一致！预期: {}, 实际: {}", expectedFinalAmount.setScale(4, RoundingMode.HALF_UP), actualFinalAmount.setScale(4, RoundingMode.HALF_UP));
-            }
+            } 
         }
 
         return equityCurve;
