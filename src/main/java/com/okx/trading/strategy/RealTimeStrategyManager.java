@@ -145,36 +145,36 @@ public class RealTimeStrategyManager implements ApplicationRunner {
         }
 
         //同一策略同周期内不能重复交易，买、卖只能触发一次，防止短时间都满足多次交易的情况
-//        synchronized (state) {
-        // 控制同一个周期内只能交易一次
-        boolean signalOfSamePeriod = false;
-        if (state.getLastTradeTime() != null) {
-            LocalDateTime lastTradeTime = state.getLastTradeTime();
-            long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
-            signalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).abs().get(ChronoUnit.SECONDS) <= intervalSeconds;
+        synchronized (state) {
+            // 控制同一个周期内只能交易一次
+            boolean signalOfSamePeriod = false;
+            if (state.getLastTradeTime() != null) {
+                LocalDateTime lastTradeTime = state.getLastTradeTime();
+                long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
+                signalOfSamePeriod = Duration.between(candlestick.getOpenTime(), lastTradeTime).abs().get(ChronoUnit.SECONDS) <= intervalSeconds;
+            }
+
+            // 如果是同一周期内的信号，不执行任何交易操作
+            if (signalOfSamePeriod) {
+                return;
+            }
+
+            // 检查交易信号
+            int currentIndex = series.getEndIndex();
+            boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
+            boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
+
+
+            // 处理买入信号 - 只有在上一次不是买入时才触发
+            if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType()))) {
+                executeTradeSignal(state, candlestick, BUY);
+            }
+
+            // 处理卖出信号 - 只有在上一次是买入时才触发
+            if (shouldSell && BUY.equals(state.getLastTradeType())) {
+                executeTradeSignal(state, candlestick, SELL);
+            }
         }
-
-        // 如果是同一周期内的信号，不执行任何交易操作
-        if (signalOfSamePeriod) {
-            return;
-        }
-
-        // 检查交易信号
-        int currentIndex = series.getEndIndex();
-        boolean shouldBuy = state.getStrategy().shouldEnter(currentIndex);
-        boolean shouldSell = state.getStrategy().shouldExit(currentIndex);
-
-
-        // 处理买入信号 - 只有在上一次不是买入时才触发
-        if (shouldBuy && (StringUtils.isBlank(state.getLastTradeType()) || SELL.equals(state.getLastTradeType()))) {
-            executeTradeSignal(state, candlestick, BUY);
-        }
-
-        // 处理卖出信号 - 只有在上一次是买入时才触发
-        if (shouldSell && BUY.equals(state.getLastTradeType())) {
-            executeTradeSignal(state, candlestick, SELL);
-        }
-//        }
     }
 
     /**

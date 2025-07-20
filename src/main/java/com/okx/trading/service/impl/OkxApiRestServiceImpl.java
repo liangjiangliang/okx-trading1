@@ -44,7 +44,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
     private final OkxApiConfig okxApiConfig;
     private final RedisCacheService redisCacheService;
     private static final String API_PATH = "/api/v5";
-    private static final String MARKET_PATH = API_PATH + "/market";
+    public static final String MARKET_PATH = API_PATH + "/market";
     private static final String ACCOUNT_PATH = API_PATH + "/account";
     private static final String TRADE_PATH = API_PATH + "/trade";
 

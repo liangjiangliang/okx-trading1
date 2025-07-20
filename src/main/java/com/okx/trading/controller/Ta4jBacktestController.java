@@ -198,7 +198,7 @@ public class Ta4jBacktestController {
                 if (result.getEquityCurve() != null && !result.getEquityCurve().isEmpty() &&
                         result.getEquityCurveTimestamps() != null && !result.getEquityCurveTimestamps().isEmpty()) {
                     backtestTradeService.saveBacktestEquityCurve(backtestId, result.getEquityCurve(), result.getEquityCurveTimestamps());
-                    log.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, result.getEquityCurve().size());
+//                    log.info("成功保存回测资金曲线数据，回测ID: {}, 数据点数: {}", backtestId, result.getEquityCurve().size());
                 }
 
                 result.setParameterDescription(result.getParameterDescription() + " (BacktestID: " + backtestId + ")");

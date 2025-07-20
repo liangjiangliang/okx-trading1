@@ -48,6 +48,7 @@ import okhttp3.Response;
 
 import static com.okx.trading.constant.IndicatorInfo.BALANCE;
 import static com.okx.trading.constant.IndicatorInfo.RUNNING;
+import static com.okx.trading.service.impl.OkxApiRestServiceImpl.MARKET_PATH;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -444,69 +445,130 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
     }
 
     @Override
-    public Ticker getTicker(String symbol) {
-        try {
-            // 检查是否已订阅，避免重复订阅
-            if (subscribedSymbols.contains(symbol)) {
-                log.debug("币种 {} 已经订阅，跳过重复订阅", symbol);
-                // 从Redis获取最新价格
-                BigDecimal price = redisCacheService.getCoinPrice(symbol);
-                if (price != null) {
-                    Ticker ticker = new Ticker();
-                    ticker.setSymbol(symbol);
-                    ticker.setLastPrice(price);
-                    ticker.setTimestamp(LocalDateTime.now());
-                    return ticker;
-                }
+    public Ticker getTicker(String symbol){
+        try{
+            String url = okxApiConfig.getBaseUrl() + MARKET_PATH + "/ticker";
+            url = url + "?instId=" + symbol;
 
-                // 如果Redis中没有价格，可能是连接重置后未收到新的价格更新
-                // 主动重新订阅以获取最新数据
-                log.info("币种 {} 已订阅但Redis中无价格数据，重新触发订阅", symbol);
+            String response = HttpUtil.get(okHttpClient, url, null);
+            JSONObject jsonResponse = JSON.parseObject(response);
+
+            if(! "0".equals(jsonResponse.getString("code"))){
+                throw new OkxApiException(jsonResponse.getIntValue("code"), jsonResponse.getString("msg"));
             }
 
-            String channel = "tickers";
-            String key = channel + "_" + symbol;
+            JSONObject data = jsonResponse.getJSONArray("data").getJSONObject(0);
 
-            CompletableFuture<Ticker> future = new CompletableFuture<>();
-            tickerFutures.put(key, future);
-
-            log.info("订阅币种 {} 行情数据", symbol);
-            webSocketUtil.subscribePublicTopic(channel, symbol);
-
-            // 标记为已订阅
-            subscribedSymbols.add(symbol);
-
-            // 获取配置的超时时间，默认为10秒
-            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
-
-            // 添加重试逻辑
-            Ticker ticker = null;
-            int retryCount = 0;
-            int maxRetries = 3;
-
-            while (ticker == null && retryCount < maxRetries) {
-                try {
-                    // 等待获取数据，使用配置中的超时时间
-                    ticker = future.get(timeout, TimeUnit.SECONDS);
-                } catch (TimeoutException e) {
-                    retryCount++;
-                    if (retryCount >= maxRetries) {
-                        log.error("获取行情数据超时，已重试{}次", retryCount);
-                        throw e;
-                    }
-                    log.warn("获取行情数据超时，正在进行第{}次重试", retryCount);
-                    // 重新订阅以触发新的数据
-                    webSocketUtil.subscribePublicTopic(channel, symbol);
-                }
+            Ticker ticker = new Ticker();
+            ticker.setSymbol(symbol);
+            ticker.setLastPrice(new BigDecimal(data.getString("last")));
+            // 计算24小时价格变动
+            BigDecimal open24h = new BigDecimal(data.getString("open24h"));
+            BigDecimal priceChange = ticker.getLastPrice().subtract(open24h);
+            ticker.setPriceChange(priceChange);
+            // 将最新价格写入Redis缓存
+            BigDecimal lastPrice = ticker.getLastPrice();
+            if(lastPrice != null){
+                redisCacheService.updateCoinPrice(symbol, lastPrice);
+            }
+            // 计算24小时价格变动百分比
+            if(open24h.compareTo(BigDecimal.ZERO) > 0){
+                BigDecimal changePercent = priceChange.multiply(new BigDecimal("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
+                ticker.setPriceChangePercent(changePercent);
+            }else{
+                ticker.setPriceChangePercent(BigDecimal.ZERO);
             }
 
-            tickerFutures.remove(key);
+            ticker.setHighPrice(new BigDecimal(data.getString("high24h")));
+            ticker.setLowPrice(new BigDecimal(data.getString("low24h")));
+            ticker.setVolume(new BigDecimal(data.getString("vol24h")));
+            ticker.setQuoteVolume(new BigDecimal(data.getString("volCcy24h")));
+
+            ticker.setBidPrice(new BigDecimal(data.getString("bidPx")));
+            ticker.setBidQty(new BigDecimal(data.getString("bidSz")));
+            ticker.setAskPrice(new BigDecimal(data.getString("askPx")));
+            ticker.setAskQty(new BigDecimal(data.getString("askSz")));
+
+            // 转换时间戳为LocalDateTime
+            long timestamp = data.getLongValue("ts");
+            ticker.setTimestamp(LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(timestamp),
+                    ZoneId.of("UTC+8")));
+
             return ticker;
-        } catch (Exception e) {
-            log.error("获取行情数据失败", e);
+        }catch(OkxApiException e){
+            throw e;
+        }catch(Exception e){
+            log.error("获取行情数据异常", e);
             throw new OkxApiException("获取行情数据失败: " + e.getMessage(), e);
         }
     }
+
+
+//    @Override
+//    public Ticker getTicker(String symbol) {
+//        try {
+//            // 检查是否已订阅，避免重复订阅
+//            if (subscribedSymbols.contains(symbol)) {
+//                log.debug("币种 {} 已经订阅，跳过重复订阅", symbol);
+//                // 从Redis获取最新价格
+//                BigDecimal price = redisCacheService.getCoinPrice(symbol);
+//                if (price != null) {
+//                    Ticker ticker = new Ticker();
+//                    ticker.setSymbol(symbol);
+//                    ticker.setLastPrice(price);
+//                    ticker.setTimestamp(LocalDateTime.now());
+//                    return ticker;
+//                }
+//
+//                // 如果Redis中没有价格，可能是连接重置后未收到新的价格更新
+//                // 主动重新订阅以获取最新数据
+//                log.info("币种 {} 已订阅但Redis中无价格数据，重新触发订阅", symbol);
+//            }
+//
+//            String channel = "tickers";
+//            String key = channel + "_" + symbol;
+//
+//            CompletableFuture<Ticker> future = new CompletableFuture<>();
+//            tickerFutures.put(key, future);
+//
+//            log.info("订阅币种 {} 行情数据", symbol);
+//            webSocketUtil.subscribePublicTopic(channel, symbol);
+//
+//            // 标记为已订阅
+//            subscribedSymbols.add(symbol);
+//
+//            // 获取配置的超时时间，默认为10秒
+//            int timeout = okxApiConfig.getTimeout() > 0 ? okxApiConfig.getTimeout() : 10;
+//
+//            // 添加重试逻辑
+//            Ticker ticker = null;
+//            int retryCount = 0;
+//            int maxRetries = 3;
+//
+//            while (ticker == null && retryCount < maxRetries) {
+//                try {
+//                    // 等待获取数据，使用配置中的超时时间
+//                    ticker = future.get(timeout, TimeUnit.SECONDS);
+//                } catch (TimeoutException e) {
+//                    retryCount++;
+//                    if (retryCount >= maxRetries) {
+//                        log.error("获取行情数据超时，已重试{}次", retryCount);
+//                        throw e;
+//                    }
+//                    log.warn("获取行情数据超时，正在进行第{}次重试", retryCount);
+//                    // 重新订阅以触发新的数据
+//                    webSocketUtil.subscribePublicTopic(channel, symbol);
+//                }
+//            }
+//
+//            tickerFutures.remove(key);
+//            return ticker;
+//        } catch (Exception e) {
+//            log.error("获取行情数据失败", e);
+//            throw new OkxApiException("获取行情数据失败: " + e.getMessage(), e);
+//        }
+//    }
 
     @Override
     public AccountBalance getAccountBalance() {
