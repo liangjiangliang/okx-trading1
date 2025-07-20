@@ -15,6 +15,8 @@ import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 import org.ta4j.core.num.DecimalNum;
 
+import static com.okx.trading.strategy.StrategyRegisterCenter.addExtraStopRule;
+
 /**
  * 高级策略工厂 - 第三批
  * 包含动量反转、成交量分析、波动率统计、复合指标等策略
@@ -31,12 +33,12 @@ public class StrategyFactory3 {
         RSIIndicator rsi = new RSIIndicator(closePrice, 14);
 
         // 买入信号：RSI < 30 (超卖)
-        Rule buyRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(30));
+        Rule entryRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(30));
 
         // 卖出信号：RSI > 70 (超买)
-        Rule sellRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(70));
+        Rule exitRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(70));
 
-        return new BaseStrategy("RSI反转策略", buyRule, sellRule);
+        return new BaseStrategy("RSI反转策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -47,12 +49,12 @@ public class StrategyFactory3 {
         WilliamsRIndicator williamsR = new WilliamsRIndicator(series, 14);
 
         // 买入信号：Williams %R < -80 (超卖)
-        Rule buyRule = new UnderIndicatorRule(williamsR, DecimalNum.valueOf(-80));
+        Rule entryRule = new UnderIndicatorRule(williamsR, DecimalNum.valueOf(-80));
 
         // 卖出信号：Williams %R > -20 (超买)
-        Rule sellRule = new OverIndicatorRule(williamsR, DecimalNum.valueOf(-20));
+        Rule exitRule = new OverIndicatorRule(williamsR, DecimalNum.valueOf(-20));
 
-        return new BaseStrategy("Williams R反转策略", buyRule, sellRule);
+        return new BaseStrategy("Williams R反转策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -91,14 +93,14 @@ public class StrategyFactory3 {
         SMAIndicator momentumSMA = new SMAIndicator(momentum, 5);
 
         // 买入信号：动量上穿100且动量MA确认
-        Rule buyRule = new CrossedUpIndicatorRule(momentum, DecimalNum.valueOf(100))
+        Rule entryRule = new CrossedUpIndicatorRule(momentum, DecimalNum.valueOf(100))
                 .and(new OverIndicatorRule(momentum, momentumSMA));
 
         // 卖出信号：动量下穿100且动量MA确认
-        Rule sellRule = new CrossedDownIndicatorRule(momentum, DecimalNum.valueOf(100))
+        Rule exitRule = new CrossedDownIndicatorRule(momentum, DecimalNum.valueOf(100))
                 .and(new UnderIndicatorRule(momentum, momentumSMA));
 
-        return new BaseStrategy("动量振荡器策略", buyRule, sellRule);
+        return new BaseStrategy("动量振荡器策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -111,14 +113,14 @@ public class StrategyFactory3 {
         SMAIndicator rocMA = new SMAIndicator(roc, 5);
 
         // 买入信号：ROC从负值区域上涨且突破其移动平均线
-        Rule buyRule = new OverIndicatorRule(roc, DecimalNum.valueOf(0))
+        Rule entryRule = new OverIndicatorRule(roc, DecimalNum.valueOf(0))
                 .and(new CrossedUpIndicatorRule(roc, rocMA));
 
         // 卖出信号：ROC从正值区域下跌且跌破其移动平均线
-        Rule sellRule = new UnderIndicatorRule(roc, DecimalNum.valueOf(0))
+        Rule exitRule = new UnderIndicatorRule(roc, DecimalNum.valueOf(0))
                 .and(new CrossedDownIndicatorRule(roc, rocMA));
 
-        return new BaseStrategy("ROC背离策略", buyRule, sellRule);
+        return new BaseStrategy("ROC背离策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -163,12 +165,12 @@ public class StrategyFactory3 {
         SMAIndicator trixSignal = new SMAIndicator(trix, 9);
 
         // 买入信号：TRIX上穿其信号线
-        Rule buyRule = new CrossedUpIndicatorRule(trix, trixSignal);
+        Rule entryRule = new CrossedUpIndicatorRule(trix, trixSignal);
 
         // 卖出信号：TRIX下穿其信号线
-        Rule sellRule = new CrossedDownIndicatorRule(trix, trixSignal);
+        Rule exitRule = new CrossedDownIndicatorRule(trix, trixSignal);
 
-        return new BaseStrategy("TRIX信号策略", buyRule, sellRule);
+        return new BaseStrategy("TRIX信号策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -180,12 +182,12 @@ public class StrategyFactory3 {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
 
         // 买入信号：价格上穿SAR
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, psar);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, psar);
 
         // 卖出信号：价格下穿SAR
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, psar);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, psar);
 
-        return new BaseStrategy("抛物线SAR反转策略", buyRule, sellRule);
+        return new BaseStrategy("抛物线SAR反转策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -249,12 +251,12 @@ public class StrategyFactory3 {
         ATRLowerBand lowerBand = new ATRLowerBand(closeMA, atr, 1.0, series);
 
         // 买入信号：价格突破ATR上轨
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, upperBand);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperBand);
 
         // 卖出信号：价格跌破ATR下轨
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerBand);
 
-        return new BaseStrategy("ATR突破策略", buyRule, sellRule);
+        return new BaseStrategy("ATR突破策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -339,7 +341,7 @@ public class StrategyFactory3 {
                 .or(new UnderIndicatorRule(closePrice,
                         new TransformIndicator(closePrice, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.98)))));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -352,12 +354,12 @@ public class StrategyFactory3 {
         KeltnerChannelLowerIndicator keltnerLower = new KeltnerChannelLowerIndicator(new KeltnerChannelMiddleIndicator(series, 20), Double.valueOf(2), 10);
 
         // 买入信号：价格突破肯特纳上轨
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, keltnerUpper);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, keltnerUpper);
 
         // 卖出信号：价格跌破肯特纳下轨
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, keltnerLower);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, keltnerLower);
 
-        return new BaseStrategy("肯特纳通道突破策略", buyRule, sellRule);
+        return new BaseStrategy("肯特纳通道突破策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -421,12 +423,12 @@ public class StrategyFactory3 {
         LowerChannel lowerChannel = new LowerChannel(sma20, stdDev, 1.5, series);
 
         // 买入信号：价格上穿上轨
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, upperChannel);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, upperChannel);
 
         // 卖出信号：价格下穿下轨
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, lowerChannel);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowerChannel);
 
-        return new BaseStrategy("价格通道策略", buyRule, sellRule);
+        return new BaseStrategy("价格通道策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -479,12 +481,12 @@ public class StrategyFactory3 {
         VWMAIndicator vwma26 = new VWMAIndicator(closePrice, volume, 26, series);
 
         // 买入信号：短期VWMA上穿长期VWMA
-        Rule buyRule = new CrossedUpIndicatorRule(vwma12, vwma26);
+        Rule entryRule = new CrossedUpIndicatorRule(vwma12, vwma26);
 
         // 卖出信号：短期VWMA下穿长期VWMA
-        Rule sellRule = new CrossedDownIndicatorRule(vwma12, vwma26);
+        Rule exitRule = new CrossedDownIndicatorRule(vwma12, vwma26);
 
-        return new BaseStrategy("VWMA交叉策略", buyRule, sellRule);
+        return new BaseStrategy("VWMA交叉策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -541,14 +543,14 @@ public class StrategyFactory3 {
         SMAIndicator priceMA = new SMAIndicator(closePrice, 10);
 
         // 买入信号：A/D线向上突破其移动平均线，且价格也上涨
-        Rule buyRule = new CrossedUpIndicatorRule(adLine, adMA)
+        Rule entryRule = new CrossedUpIndicatorRule(adLine, adMA)
                 .and(new OverIndicatorRule(closePrice, priceMA));
 
         // 卖出信号：A/D线向下跌破其移动平均线，且价格也下跌
-        Rule sellRule = new CrossedDownIndicatorRule(adLine, adMA)
+        Rule exitRule = new CrossedDownIndicatorRule(adLine, adMA)
                 .and(new UnderIndicatorRule(closePrice, priceMA));
 
-        return new BaseStrategy("A/D线背离策略", buyRule, sellRule);
+        return new BaseStrategy("A/D线背离策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -562,14 +564,14 @@ public class StrategyFactory3 {
         SMAIndicator priceMA = new SMAIndicator(closePrice, 10);
 
         // 买入信号：OBV向上突破其移动平均线
-        Rule buyRule = new CrossedUpIndicatorRule(obv, obvMA)
+        Rule entryRule = new CrossedUpIndicatorRule(obv, obvMA)
                 .and(new OverIndicatorRule(closePrice, priceMA));
 
         // 卖出信号：OBV向下跌破其移动平均线
-        Rule sellRule = new CrossedDownIndicatorRule(obv, obvMA)
+        Rule exitRule = new CrossedDownIndicatorRule(obv, obvMA)
                 .and(new UnderIndicatorRule(closePrice, priceMA));
 
-        return new BaseStrategy("OBV背离策略", buyRule, sellRule);
+        return new BaseStrategy("OBV背离策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -607,14 +609,14 @@ public class StrategyFactory3 {
         VolumeThresholdIndicator volumeThreshold = new VolumeThresholdIndicator(volumeMA, 1.2, series);
 
         // 买入信号：价格突破均线且成交量放大
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, priceMA)
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, priceMA)
                 .and(new OverIndicatorRule(volume, volumeThreshold));
 
         // 卖出信号：价格跌破均线且成交量放大
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, priceMA)
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, priceMA)
                 .and(new OverIndicatorRule(volume, volumeThreshold));
 
-        return new BaseStrategy("价量确认策略", buyRule, sellRule);
+        return new BaseStrategy("价量确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -658,12 +660,12 @@ public class StrategyFactory3 {
         VolumeOscillator volOsc = new VolumeOscillator(volumeMA12, volumeMA26, series);
 
         // 买入信号：成交量振荡器从负值区域上穿0轴
-        Rule buyRule = new CrossedUpIndicatorRule(volOsc, DecimalNum.valueOf(0));
+        Rule entryRule = new CrossedUpIndicatorRule(volOsc, DecimalNum.valueOf(0));
 
         // 卖出信号：成交量振荡器从正值区域下穿0轴
-        Rule sellRule = new CrossedDownIndicatorRule(volOsc, DecimalNum.valueOf(0));
+        Rule exitRule = new CrossedDownIndicatorRule(volOsc, DecimalNum.valueOf(0));
 
-        return new BaseStrategy("成交量振荡器策略", buyRule, sellRule);
+        return new BaseStrategy("成交量振荡器策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -713,12 +715,12 @@ public class StrategyFactory3 {
         SMAIndicator pviMA = new SMAIndicator(pvi, 255);
 
         // 买入信号：PVI上穿其长期移动平均线
-        Rule buyRule = new CrossedUpIndicatorRule(pvi, pviMA);
+        Rule entryRule = new CrossedUpIndicatorRule(pvi, pviMA);
 
         // 卖出信号：PVI下穿其长期移动平均线
-        Rule sellRule = new CrossedDownIndicatorRule(pvi, pviMA);
+        Rule exitRule = new CrossedDownIndicatorRule(pvi, pviMA);
 
-        return new BaseStrategy("正成交量指数策略", buyRule, sellRule);
+        return new BaseStrategy("正成交量指数策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -768,12 +770,12 @@ public class StrategyFactory3 {
         SMAIndicator nviMA = new SMAIndicator(nvi, 255);
 
         // 买入信号：NVI上穿其长期移动平均线
-        Rule buyRule = new CrossedUpIndicatorRule(nvi, nviMA);
+        Rule entryRule = new CrossedUpIndicatorRule(nvi, nviMA);
 
         // 卖出信号：NVI下穿其长期移动平均线
-        Rule sellRule = new CrossedDownIndicatorRule(nvi, nviMA);
+        Rule exitRule = new CrossedDownIndicatorRule(nvi, nviMA);
 
-        return new BaseStrategy("负成交量指数策略", buyRule, sellRule);
+        return new BaseStrategy("负成交量指数策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -785,12 +787,12 @@ public class StrategyFactory3 {
         RSIIndicator volumeRSI = new RSIIndicator(volume, 14);
 
         // 买入信号：成交量RSI从超卖区域(30以下)回升
-        Rule buyRule = new CrossedUpIndicatorRule(volumeRSI, DecimalNum.valueOf(30));
+        Rule entryRule = new CrossedUpIndicatorRule(volumeRSI, DecimalNum.valueOf(30));
 
         // 卖出信号：成交量RSI从超买区域(70以上)回落
-        Rule sellRule = new CrossedDownIndicatorRule(volumeRSI, DecimalNum.valueOf(70));
+        Rule exitRule = new CrossedDownIndicatorRule(volumeRSI, DecimalNum.valueOf(70));
 
-        return new BaseStrategy("成交量RSI策略", buyRule, sellRule);
+        return new BaseStrategy("成交量RSI策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -804,14 +806,14 @@ public class StrategyFactory3 {
         RSIIndicator volumeRSI = new RSIIndicator(volume, 14);
 
         // 买入信号：价格RSI和成交量RSI都从超卖区域回升
-        Rule buyRule = new CrossedUpIndicatorRule(priceRSI, DecimalNum.valueOf(30))
+        Rule entryRule = new CrossedUpIndicatorRule(priceRSI, DecimalNum.valueOf(30))
                 .and(new OverIndicatorRule(volumeRSI, DecimalNum.valueOf(50)));
 
         // 卖出信号：价格RSI和成交量RSI都从超买区域回落
-        Rule sellRule = new CrossedDownIndicatorRule(priceRSI, DecimalNum.valueOf(70))
+        Rule exitRule = new CrossedDownIndicatorRule(priceRSI, DecimalNum.valueOf(70))
                 .and(new UnderIndicatorRule(volumeRSI, DecimalNum.valueOf(50)));
 
-        return new BaseStrategy("成交量加权RSI策略", buyRule, sellRule);
+        return new BaseStrategy("成交量加权RSI策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -918,13 +920,13 @@ public class StrategyFactory3 {
         LowestValueIndicator lowest15 = new LowestValueIndicator(lowPrice, reducedPeriod);
         VolumeThresholdIndicator lowerVolumeThreshold = new VolumeThresholdIndicator(volumeMA, 1.1, series); // 降低成交量要求
 
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, highest15)
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, highest15)
                 .and(new OverIndicatorRule(volume, lowerVolumeThreshold));
 
         // 卖出信号：跌破15日最低价
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, lowest15);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, lowest15);
 
-        return new BaseStrategy("成交量突破确认策略", buyRule, sellRule);
+        return new BaseStrategy("成交量突破确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     // 波动性统计分析策略 (71-80)
@@ -973,12 +975,12 @@ public class StrategyFactory3 {
         SMAIndicator hvMA = new SMAIndicator(hv, 10);
 
         // 买入信号：波动率低于均值
-        Rule buyRule = new UnderIndicatorRule(hv, hvMA);
+        Rule entryRule = new UnderIndicatorRule(hv, hvMA);
 
         // 卖出信号：波动率高于均值
-        Rule sellRule = new OverIndicatorRule(hv, hvMA);
+        Rule exitRule = new OverIndicatorRule(hv, hvMA);
 
-        return new BaseStrategy("历史波动率策略", buyRule, sellRule);
+        return new BaseStrategy("历史波动率策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1041,12 +1043,12 @@ public class StrategyFactory3 {
         LowerBandIndicator lowerBand = new LowerBandIndicator(sma, stdDev, 2.0, series);
 
         // 买入信号：价格触及下轨
-        Rule buyRule = new UnderIndicatorRule(closePrice, lowerBand);
+        Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
 
         // 卖出信号：价格触及上轨
-        Rule sellRule = new OverIndicatorRule(closePrice, upperBand);
+        Rule exitRule = new OverIndicatorRule(closePrice, upperBand);
 
-        return new BaseStrategy("标准差通道策略", buyRule, sellRule);
+        return new BaseStrategy("标准差通道策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1086,12 +1088,12 @@ public class StrategyFactory3 {
         CoefficientOfVariationIndicator cv = new CoefficientOfVariationIndicator(sma, stdDev, series);
 
         // 买入信号：变异系数低于0.05
-        Rule buyRule = new UnderIndicatorRule(cv, DecimalNum.valueOf(0.05));
+        Rule entryRule = new UnderIndicatorRule(cv, DecimalNum.valueOf(0.05));
 
         // 卖出信号：变异系数高于0.15
-        Rule sellRule = new OverIndicatorRule(cv, DecimalNum.valueOf(0.15));
+        Rule exitRule = new OverIndicatorRule(cv, DecimalNum.valueOf(0.15));
 
-        return new BaseStrategy("变异系数策略", buyRule, sellRule);
+        return new BaseStrategy("变异系数策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1158,10 +1160,10 @@ public class StrategyFactory3 {
         SkewnessIndicator skewness = new SkewnessIndicator(closePrice, 20, series);
 
         // 正偏度买入，负偏度卖出（降低阈值）
-        Rule buyRule = new OverIndicatorRule(skewness, DecimalNum.valueOf(0.1)); // 降低阈值（原来0.5）
-        Rule sellRule = new UnderIndicatorRule(skewness, DecimalNum.valueOf(-0.1)); // 降低阈值（原来-0.5）
+        Rule entryRule = new OverIndicatorRule(skewness, DecimalNum.valueOf(0.1)); // 降低阈值（原来0.5）
+        Rule exitRule = new UnderIndicatorRule(skewness, DecimalNum.valueOf(-0.1)); // 降低阈值（原来-0.5）
 
-        return new BaseStrategy("偏度策略", buyRule, sellRule);
+        return new BaseStrategy("偏度策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1230,10 +1232,10 @@ public class StrategyFactory3 {
         SMAIndicator avgKurtosis = new SMAIndicator(kurtosis, 10);
 
         // 使用相对峰度而非绝对阈值
-        Rule buyRule = new OverIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 1.1)); // 峰度高于平均10%
-        Rule sellRule = new UnderIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 0.9)); // 峰度低于平均10%
+        Rule entryRule = new OverIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 1.1)); // 峰度高于平均10%
+        Rule exitRule = new UnderIndicatorRule(kurtosis, TransformIndicator.multiply(avgKurtosis, 0.9)); // 峰度低于平均10%
 
-        return new BaseStrategy("峰度策略", buyRule, sellRule);
+        return new BaseStrategy("峰度策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1278,10 +1280,10 @@ public class StrategyFactory3 {
         ZScoreIndicator zscore = new ZScoreIndicator(closePrice, sma, stdDev, series);
 
         // Z分数超买超卖（降低阈值，更容易触发）
-        Rule buyRule = new UnderIndicatorRule(zscore, DecimalNum.valueOf(-1.5)); // 降低阈值（原来-2）
-        Rule sellRule = new OverIndicatorRule(zscore, DecimalNum.valueOf(1.5)); // 降低阈值（原来2）
+        Rule entryRule = new UnderIndicatorRule(zscore, DecimalNum.valueOf(-1.5)); // 降低阈值（原来-2）
+        Rule exitRule = new OverIndicatorRule(zscore, DecimalNum.valueOf(1.5)); // 降低阈值（原来2）
 
-        return new BaseStrategy("Z-Score策略", buyRule, sellRule);
+        return new BaseStrategy("Z-Score策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1335,10 +1337,10 @@ public class StrategyFactory3 {
         PercentileIndicator percentile75 = new PercentileIndicator(closePrice, 20, 75.0, series);
 
         // 价格低于25%分位数时买入，高于75%分位数时卖出
-        Rule buyRule = new UnderIndicatorRule(closePrice, percentile25);
-        Rule sellRule = new OverIndicatorRule(closePrice, percentile75);
+        Rule entryRule = new UnderIndicatorRule(closePrice, percentile25);
+        Rule exitRule = new OverIndicatorRule(closePrice, percentile75);
 
-        return new BaseStrategy("百分位策略", buyRule, sellRule);
+        return new BaseStrategy("百分位策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1401,12 +1403,12 @@ public class StrategyFactory3 {
         TransformIndicator lowerThreshold = TransformIndicator.multiply(regression, 0.99);
 
         // 买入信号：价格相对于回归线有足够的向上偏差
-        Rule buyRule = new OverIndicatorRule(closePrice, upperThreshold); // 高于回归线1%
+        Rule entryRule = new OverIndicatorRule(closePrice, upperThreshold); // 高于回归线1%
 
         // 卖出信号：价格回归到回归线或下破
-        Rule sellRule = new UnderIndicatorRule(closePrice, lowerThreshold); // 低于回归线1%
+        Rule exitRule = new UnderIndicatorRule(closePrice, lowerThreshold); // 低于回归线1%
 
-        return new BaseStrategy("线性回归策略", buyRule, sellRule);
+        return new BaseStrategy("线性回归策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1461,12 +1463,12 @@ public class StrategyFactory3 {
 
         // 改进的斜率策略：使用更敏感的阈值
         // 买入信号：斜率显著为正（上升趋势）
-        Rule buyRule = new OverIndicatorRule(slope, Ta4jNumUtil.valueOf(0.1)); // 斜率 > 0.1
+        Rule entryRule = new OverIndicatorRule(slope, Ta4jNumUtil.valueOf(0.1)); // 斜率 > 0.1
 
         // 卖出信号：斜率转为负或接近零（趋势减弱）
-        Rule sellRule = new UnderIndicatorRule(slope, Ta4jNumUtil.valueOf(-0.05)); // 斜率 < -0.05
+        Rule exitRule = new UnderIndicatorRule(slope, Ta4jNumUtil.valueOf(-0.05)); // 斜率 < -0.05
 
-        return new BaseStrategy("线性回归斜率策略", buyRule, sellRule);
+        return new BaseStrategy("线性回归斜率策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1529,10 +1531,10 @@ public class StrategyFactory3 {
         RSquaredIndicator rSquared = new RSquaredIndicator(closePrice, 20, series);
 
         // R平方高说明趋势性强，R平方低说明随机性强（降低阈值）
-        Rule buyRule = new OverIndicatorRule(rSquared, DecimalNum.valueOf(0.6)); // 降低阈值（原来0.8）
-        Rule sellRule = new UnderIndicatorRule(rSquared, DecimalNum.valueOf(0.2)); // 降低阈值（原来0.3）
+        Rule entryRule = new OverIndicatorRule(rSquared, DecimalNum.valueOf(0.6)); // 降低阈值（原来0.8）
+        Rule exitRule = new UnderIndicatorRule(rSquared, DecimalNum.valueOf(0.2)); // 降低阈值（原来0.3）
 
-        return new BaseStrategy("R平方策略", buyRule, sellRule);
+        return new BaseStrategy("R平方策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     // 复合指标策略 (81-90)
@@ -1543,14 +1545,14 @@ public class StrategyFactory3 {
         SMAIndicator sma50 = new SMAIndicator(closePrice, 50);
 
         // 买入信号：短期MA > 中期MA > 长期MA
-        Rule buyRule = new OverIndicatorRule(sma10, sma20)
+        Rule entryRule = new OverIndicatorRule(sma10, sma20)
                 .and(new OverIndicatorRule(sma20, sma50));
 
         // 卖出信号：短期MA < 中期MA < 长期MA
-        Rule sellRule = new UnderIndicatorRule(sma10, sma20)
+        Rule exitRule = new UnderIndicatorRule(sma10, sma20)
                 .and(new UnderIndicatorRule(sma20, sma50));
 
-        return new BaseStrategy("多重MA确认策略", buyRule, sellRule);
+        return new BaseStrategy("多重MA确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createRSIMACDConfirmationStrategy(BarSeries series) {
@@ -1560,14 +1562,14 @@ public class StrategyFactory3 {
         EMAIndicator macdSignal = new EMAIndicator(macd, 9);
 
         // 买入信号：RSI > 50 且 MACD > Signal
-        Rule buyRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(50))
+        Rule entryRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(50))
                 .and(new OverIndicatorRule(macd, macdSignal));
 
         // 卖出信号：RSI < 50 且 MACD < Signal
-        Rule sellRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(50))
+        Rule exitRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(50))
                 .and(new UnderIndicatorRule(macd, macdSignal));
 
-        return new BaseStrategy("RSI-MACD确认策略", buyRule, sellRule);
+        return new BaseStrategy("RSI-MACD确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createBollingerRSIComboStrategy(BarSeries series) {
@@ -1577,14 +1579,14 @@ public class StrategyFactory3 {
         BollingerBandsLowerIndicator bbLower = new BollingerBandsLowerIndicator(new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, 20)), new StandardDeviationIndicator(closePrice, 20), DecimalNum.valueOf(2));
 
         // 买入信号：价格触及布林下轨且RSI超卖
-        Rule buyRule = new UnderIndicatorRule(closePrice, bbLower)
+        Rule entryRule = new UnderIndicatorRule(closePrice, bbLower)
                 .and(new UnderIndicatorRule(rsi, DecimalNum.valueOf(30)));
 
         // 卖出信号：价格触及布林上轨且RSI超买
-        Rule sellRule = new OverIndicatorRule(closePrice, bbUpper)
+        Rule exitRule = new OverIndicatorRule(closePrice, bbUpper)
                 .and(new OverIndicatorRule(rsi, DecimalNum.valueOf(70)));
 
-        return new BaseStrategy("布林-RSI组合策略", buyRule, sellRule);
+        return new BaseStrategy("布林-RSI组合策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createTripleIndicatorConfirmationStrategy(BarSeries series) {
@@ -1601,16 +1603,16 @@ public class StrategyFactory3 {
         // 1. RSI > 50 (动量看涨)
         // 2. MACD > Signal (趋势看涨)
         // 3. 成交量 > 均量 (成交量确认)
-        Rule buyRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(50))
+        Rule entryRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(50))
                 .and(new OverIndicatorRule(macd, macdSignal))
                 .and(new OverIndicatorRule(volume, volumeMA));
 
         // 卖出信号：任意两个指标看跌即卖出
-        Rule sellRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(50))
+        Rule exitRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(50))
                 .and(new UnderIndicatorRule(macd, macdSignal))
                 .or(new UnderIndicatorRule(volume, volumeMA));
 
-        return new BaseStrategy("三重指标确认策略", buyRule, sellRule);
+        return new BaseStrategy("三重指标确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createMomentumBreakoutStrategy(BarSeries series) {
@@ -1619,14 +1621,14 @@ public class StrategyFactory3 {
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
 
         // 买入信号：动量突破且价格突破均线
-        Rule buyRule = new OverIndicatorRule(roc, DecimalNum.valueOf(5))
+        Rule entryRule = new OverIndicatorRule(roc, DecimalNum.valueOf(5))
                 .and(new OverIndicatorRule(closePrice, sma));
 
         // 卖出信号：动量下降且价格跌破均线
-        Rule sellRule = new UnderIndicatorRule(roc, DecimalNum.valueOf(-5))
+        Rule exitRule = new UnderIndicatorRule(roc, DecimalNum.valueOf(-5))
                 .and(new UnderIndicatorRule(closePrice, sma));
 
-        return new BaseStrategy("动量突破策略", buyRule, sellRule);
+        return new BaseStrategy("动量突破策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createVolatilityBreakoutSystemStrategy(BarSeries series) {
@@ -1641,14 +1643,14 @@ public class StrategyFactory3 {
         TransformIndicator volumeThreshold2 = TransformIndicator.multiply(avgVolume, 1.05);
         SMAIndicator avgATR = new SMAIndicator(atr, 10);
 
-        Rule buyRule = new OverIndicatorRule(closePrice, sma)
+        Rule entryRule = new OverIndicatorRule(closePrice, sma)
                 .and(new OverIndicatorRule(atr, avgATR)) // 使用相对ATR而非绝对值
                 .and(new OverIndicatorRule(volume, volumeThreshold2));
 
         // 卖出信号：价格跌破均线
-        Rule sellRule = new UnderIndicatorRule(closePrice, sma);
+        Rule exitRule = new UnderIndicatorRule(closePrice, sma);
 
-        return new BaseStrategy("波动性突破系统策略", buyRule, sellRule);
+        return new BaseStrategy("波动性突破系统策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createTrendStrengthStrategy(BarSeries series) {
@@ -1658,14 +1660,14 @@ public class StrategyFactory3 {
         SMAIndicator avgADX = new SMAIndicator(adx, 10);
 
         // 买入信号：趋势强度高于平均且价格上涨（降低ADX阈值）
-        Rule buyRule = new OverIndicatorRule(adx, avgADX) // 使用相对ADX
+        Rule entryRule = new OverIndicatorRule(adx, avgADX) // 使用相对ADX
                 .and(new OverIndicatorRule(closePrice, sma));
 
         // 卖出信号：趋势强度弱于平均或价格下跌
-        Rule sellRule = new UnderIndicatorRule(adx, TransformIndicator.multiply(avgADX, 0.8))
+        Rule exitRule = new UnderIndicatorRule(adx, TransformIndicator.multiply(avgADX, 0.8))
                 .or(new UnderIndicatorRule(closePrice, sma));
 
-        return new BaseStrategy("趋势强度策略", buyRule, sellRule);
+        return new BaseStrategy("趋势强度策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createSupportResistanceBreakoutStrategy(BarSeries series) {
@@ -1737,12 +1739,12 @@ public class StrategyFactory3 {
         SupportIndicator support = new SupportIndicator(lowPrice, 15, series);
 
         // 买入信号：突破阻力位
-        Rule buyRule = new CrossedUpIndicatorRule(closePrice, resistance);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, resistance);
 
         // 卖出信号：跌破支撑位
-        Rule sellRule = new CrossedDownIndicatorRule(closePrice, support);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, support);
 
-        return new BaseStrategy("支撑阻力突破策略", buyRule, sellRule);
+        return new BaseStrategy("支撑阻力突破策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createPricePatternRecognitionStrategy(BarSeries series) {
@@ -1751,12 +1753,12 @@ public class StrategyFactory3 {
         SMAIndicator sma20 = new SMAIndicator(closePrice, 20);
 
         // 买入信号：金叉
-        Rule buyRule = new CrossedUpIndicatorRule(sma10, sma20);
+        Rule entryRule = new CrossedUpIndicatorRule(sma10, sma20);
 
         // 卖出信号：死叉
-        Rule sellRule = new CrossedDownIndicatorRule(sma10, sma20);
+        Rule exitRule = new CrossedDownIndicatorRule(sma10, sma20);
 
-        return new BaseStrategy("价格形态识别策略", buyRule, sellRule);
+        return new BaseStrategy("价格形态识别策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     public static Strategy createComprehensiveScoringStrategy(BarSeries series) {
@@ -1767,15 +1769,15 @@ public class StrategyFactory3 {
         SMAIndicator sma = new SMAIndicator(closePrice, 20);
 
         // 多指标确认策略：需要多个指标同时确认才进行交易
-        Rule buyRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(40))
+        Rule entryRule = new OverIndicatorRule(rsi, DecimalNum.valueOf(40))
                 .and(new OverIndicatorRule(macd, macdSignal))
                 .and(new OverIndicatorRule(closePrice, sma));
 
-        Rule sellRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(60))
+        Rule exitRule = new UnderIndicatorRule(rsi, DecimalNum.valueOf(60))
                 .and(new UnderIndicatorRule(macd, macdSignal))
                 .and(new UnderIndicatorRule(closePrice, sma));
 
-        return new BaseStrategy("多指标确认策略", buyRule, sellRule);
+        return new BaseStrategy("多指标确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1818,7 +1820,7 @@ public class StrategyFactory3 {
         Rule exitRule = new OverIndicatorRule(closePrice, upperBand)
                 .or(new CrossedUpIndicatorRule(closePrice, sma)); // 增加价格上穿均线就卖出的条件
 
-        return new BaseStrategy("日内均值回归策略", entryRule, exitRule);
+        return new BaseStrategy("日内均值回归策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1856,24 +1858,7 @@ public class StrategyFactory3 {
         Rule exitRule = new UnderIndicatorRule(priceROC, Ta4jNumUtil.valueOf(-0.005)) // 降低价格下跌阈值为-0.5%（原为-1%）
                 .or(new UnderIndicatorRule(volume, volumeMA)); // 成交量低于均线即卖出
 
-        // 增加止盈条件
-        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
-            @Override
-            public int getCountOfUnstableBars() {
-                return 0;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index == 0) return Ta4jNumUtil.valueOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(1.06)); // 6%止盈条件
-            }
-        };
-
-        // 修改后的卖出条件，增加止盈
-        Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
-
-        return new BaseStrategy("成交量确认策略", entryRule, finalExitRule);
+        return new BaseStrategy("成交量确认策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1902,23 +1887,6 @@ public class StrategyFactory3 {
         Rule exitRule = new UnderIndicatorRule(shortROC, Ta4jNumUtil.valueOf(0))
                 .or(new UnderIndicatorRule(shortROC, mediumROC));
 
-        // 增加止盈条件
-        Indicator<Num> profitTarget = new CachedIndicator<Num>(series) {
-            @Override
-            public int getCountOfUnstableBars() {
-                return 0;
-            }
-
-            @Override
-            protected Num calculate(int index) {
-                if (index == 0) return Ta4jNumUtil.valueOf(0);
-                return closePrice.getValue(index - 1).multipliedBy(Ta4jNumUtil.valueOf(1.04)); // 4%止盈条件
-            }
-        };
-
-        // 修改后的卖出条件，增加止盈
-        Rule finalExitRule = exitRule.or(new OverIndicatorRule(closePrice, profitTarget));
-
-        return new BaseStrategy("动量日内策略", entryRule, finalExitRule);
+        return new BaseStrategy("动量日内策略", entryRule, addExtraStopRule(exitRule, series));
     }
 }

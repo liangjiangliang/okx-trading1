@@ -13,6 +13,8 @@ import org.ta4j.core.rules.*;
 import java.math.BigDecimal;
 import java.util.*;
 
+import static com.okx.trading.strategy.StrategyRegisterCenter.addExtraStopRule;
+
 /**
  * 策略工厂4 - 高级策略集合
  * 包含40个高级策略（91-130），涵盖机器学习、量化因子、高频、期权、宏观、创新和风险管理策略
@@ -57,17 +59,17 @@ public class StrategyFactory4 {
 
         // 输出层：激活函数（模拟神经网络输出）
         // 买入：至少3个信号激活
-        Rule buyRule = trendSignal.and(momentumSignal).and(volumeSignal)
+        Rule entryRule = trendSignal.and(momentumSignal).and(volumeSignal)
                 .or(trendSignal.and(momentumSignal).and(volatilitySignal))
                 .or(trendSignal.and(volumeSignal).and(volatilitySignal))
                 .or(momentumSignal.and(volumeSignal).and(volatilitySignal));
 
         // 卖出：趋势反转或RSI超买
-        Rule sellRule = new UnderIndicatorRule(sma10, sma20)
+        Rule exitRule = new UnderIndicatorRule(sma10, sma20)
                 .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(75)))
                 .or(new UnderIndicatorRule(macd, Ta4jNumUtil.valueOf(0)));
 
-        return new BaseStrategy("神经网络策略", buyRule, sellRule);
+        return new BaseStrategy("神经网络策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -133,7 +135,7 @@ public class StrategyFactory4 {
                 .or(exitCondition3)
                 .or(new OverIndicatorRule(closePrice, profitTarget));
 
-        return new BaseStrategy("遗传算法策略", entryRule, exitRule);
+        return new BaseStrategy("遗传算法策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -201,7 +203,7 @@ public class StrategyFactory4 {
         Rule tree5 = new OverIndicatorRule(closePrice, threshold15);
 
         // 随机森林投票：至少3棵树支持（多数投票）
-        Rule forestBuy = tree1.and(tree2).and(tree3)
+        Rule entryRule = tree1.and(tree2).and(tree3)
                 .or(tree1.and(tree2).and(tree4))
                 .or(tree1.and(tree2).and(tree5))
                 .or(tree1.and(tree3).and(tree4))
@@ -213,11 +215,11 @@ public class StrategyFactory4 {
                 .or(tree3.and(tree4).and(tree5));
 
         // 卖出：多数树反对
-        Rule forestSell = new UnderIndicatorRule(sma10, sma20)
+        Rule exitRule = new UnderIndicatorRule(sma10, sma20)
                 .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(75)))
                 .or(new UnderIndicatorRule(volume, TransformIndicator.multiply(avgVolume, BigDecimal.valueOf(0.8))));
 
-        return new BaseStrategy("随机森林策略", forestBuy, forestSell);
+        return new BaseStrategy("随机森林策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -247,7 +249,7 @@ public class StrategyFactory4 {
         Rule boundary5 = new UnderIndicatorRule(volatility, Ta4jNumUtil.valueOf(2.0));
 
         // SVM分类：至少3个支持向量支持（多数决策）
-        Rule svmBuy = boundary1.and(boundary2).and(boundary3)
+        Rule entryRule = boundary1.and(boundary2).and(boundary3)
                 .or(boundary1.and(boundary2).and(boundary4))
                 .or(boundary1.and(boundary2).and(boundary5))
                 .or(boundary1.and(boundary3).and(boundary4))
@@ -259,11 +261,11 @@ public class StrategyFactory4 {
                 .or(boundary3.and(boundary4).and(boundary5));
 
         // SVM卖出：支持向量反转
-        Rule svmSell = new UnderIndicatorRule(closePrice, sma)
+        Rule exitRule = new UnderIndicatorRule(closePrice, sma)
                 .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(80)))
                 .or(new UnderIndicatorRule(macd, Ta4jNumUtil.valueOf(0)));
 
-        return new BaseStrategy("SVM策略", svmBuy, svmSell);
+        return new BaseStrategy("SVM策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -299,16 +301,16 @@ public class StrategyFactory4 {
                 .and(new UnderIndicatorRule(shortRSI, Ta4jNumUtil.valueOf(80))); // 提高RSI上限
 
         // LSTM输出：综合所有门的决策（改为或逻辑，降低门槛）
-        Rule lstmBuy = forgetGate.and(inputGate)
+        Rule entryRule = forgetGate.and(inputGate)
                 .or(forgetGate.and(outputGate))
                 .or(inputGate.and(outputGate));
 
         // LSTM卖出：记忆衰减或趋势反转
-        Rule lstmSell = new UnderIndicatorRule(shortMemory, longMemory)
+        Rule exitRule = new UnderIndicatorRule(shortMemory, longMemory)
                 .or(new OverIndicatorRule(shortRSI, Ta4jNumUtil.valueOf(80)))
                 .or(new OverIndicatorRule(volatility, Ta4jNumUtil.valueOf(3.0)));
 
-        return new BaseStrategy("LSTM策略", lstmBuy, lstmSell);
+        return new BaseStrategy("LSTM策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -355,7 +357,7 @@ public class StrategyFactory4 {
                 .or(new OverIndicatorRule(momentum, Ta4jNumUtil.valueOf(80)))
                 .or(new UnderIndicatorRule(closePrice, sma));
 
-        return new BaseStrategy("KNN策略", knnBuy, knnSell);
+        return new BaseStrategy("KNN策略", knnBuy, addExtraStopRule(knnSell, series));
     }
 
     /**
@@ -397,7 +399,7 @@ public class StrategyFactory4 {
                 .or(new UnderIndicatorRule(closePrice, sma))
                 .or(new UnderIndicatorRule(macd, Ta4jNumUtil.valueOf(0)));
 
-        return new BaseStrategy("朴素贝叶斯策略", bayesBuy, bayesSell);
+        return new BaseStrategy("朴素贝叶斯策略", bayesBuy, addExtraStopRule(bayesSell, series));
     }
 
     /**
@@ -442,7 +444,7 @@ public class StrategyFactory4 {
                 .or(new UnderIndicatorRule(closePrice, sma))
                 .or(new OverIndicatorRule(volatility, Ta4jNumUtil.valueOf(3.0)));
 
-        return new BaseStrategy("决策树策略", treeBuy, treeSell);
+        return new BaseStrategy("决策树策略", treeBuy, addExtraStopRule(treeSell, series));
     }
 
     /**
@@ -555,7 +557,7 @@ public class StrategyFactory4 {
                 .or(exitVolatilityModel)
                 .or(new OverIndicatorRule(closePrice, profitTarget));
 
-        return new BaseStrategy("集成学习策略", entryRule, exitRule);
+        return new BaseStrategy("集成学习策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -592,7 +594,7 @@ public class StrategyFactory4 {
         Rule entryRule = action1.or(new OverIndicatorRule(closePrice, sma)); // 增加均线突破条件
         Rule exitRule = action2.or(new UnderIndicatorRule(closePrice, sma)); // 增加均线跌破条件
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 量化因子策略 (101-105) ====================
@@ -613,7 +615,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(longMomentum, 0.05));
         Rule exitRule = new UnderIndicatorRule(shortMomentum, -0.01);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -633,7 +635,7 @@ public class StrategyFactory4 {
         Rule exitRule = new OverIndicatorRule(closePrice, shortAvg)
                 .or(new OverIndicatorRule(rsi, Ta4jNumUtil.valueOf(65))); // 提前退出
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -658,7 +660,7 @@ public class StrategyFactory4 {
         Rule exitRule = new OverIndicatorRule(stability, TransformIndicator.multiply(avgStability, 1.8))
                 .or(new UnderIndicatorRule(shortTrend, longTrend));
 
-        return new BaseStrategy("质量因子策略", entryRule, exitRule);
+        return new BaseStrategy("质量因子策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -677,7 +679,7 @@ public class StrategyFactory4 {
                 .and(new UnderIndicatorRule(volume, avgVolume));
         Rule exitRule = new OverIndicatorRule(closePrice, avgPrice);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -698,7 +700,7 @@ public class StrategyFactory4 {
         Rule exitRule = new OverIndicatorRule(shortVol, longVol)
                 .or(new UnderIndicatorRule(closePrice, sma));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 高频和微观结构策略 (106-110) ====================
@@ -719,7 +721,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(volumeChange, Ta4jNumUtil.valueOf(0.5)));
         Rule exitRule = new UnderIndicatorRule(priceChange, Ta4jNumUtil.valueOf(-0.002));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -737,7 +739,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(intraStd, Ta4jNumUtil.valueOf(1.0)));
         Rule exitRule = new OverIndicatorRule(closePrice, intraAvg);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -755,7 +757,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(shortMomentum, avgMomentum));
         Rule exitRule = new UnderIndicatorRule(shortMomentum, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -799,7 +801,7 @@ public class StrategyFactory4 {
         Rule entryRule = new UnderIndicatorRule(closePrice, lowerBand);
         Rule exitRule = new OverIndicatorRule(closePrice, exitBand);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -843,7 +845,7 @@ public class StrategyFactory4 {
         Rule entryRule = new UnderIndicatorRule(closePrice, entryBand);
         Rule exitRule = new OverIndicatorRule(closePrice, exitBand);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 期权和波动率策略 (111-115) ====================
@@ -886,7 +888,7 @@ public class StrategyFactory4 {
         Rule entryRule = new OverIndicatorRule(shortVol, volThreshold);
         Rule exitRule = new UnderIndicatorRule(shortVol, longVol);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -906,7 +908,7 @@ public class StrategyFactory4 {
         Rule exitRule = new UnderIndicatorRule(gamma, avgGamma)
                 .or(new UnderIndicatorRule(priceChange, Ta4jNumUtil.valueOf(-0.005)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -947,7 +949,7 @@ public class StrategyFactory4 {
         Rule entryRule = new OverIndicatorRule(volatility, volThreshold);
         Rule exitRule = new UnderIndicatorRule(volatility, avgVolatility);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -964,7 +966,7 @@ public class StrategyFactory4 {
         Rule entryRule = new OverIndicatorRule(volMomentum, Ta4jNumUtil.valueOf(0.01));
         Rule exitRule = new UnderIndicatorRule(volMomentum, Ta4jNumUtil.valueOf(-0.005));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1006,7 +1008,7 @@ public class StrategyFactory4 {
         Rule entryRule = new UnderIndicatorRule(currentVol, lowThreshold);
         Rule exitRule = new OverIndicatorRule(currentVol, highThreshold);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 宏观和基本面策略 (116-120) ====================
@@ -1050,7 +1052,7 @@ public class StrategyFactory4 {
                 .or(new OverIndicatorRule(closePrice, shortTerm)); // 增加一个入场条件
         Rule exitRule = new UnderIndicatorRule(closePrice, shortTerm); // 价格低于短期均线时退出
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1075,7 +1077,7 @@ public class StrategyFactory4 {
 
         Rule exitRule = new UnderIndicatorRule(growth, TransformIndicator.multiply(avgGrowth, 0.8));
 
-        return new BaseStrategy("基本面评分策略", entryRule, exitRule);
+        return new BaseStrategy("基本面评分策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1093,7 +1095,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(mediumTermMomentum, Ta4jNumUtil.valueOf(0.05)));
         Rule exitRule = new UnderIndicatorRule(longTermMomentum, Ta4jNumUtil.valueOf(0.05));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1111,7 +1113,7 @@ public class StrategyFactory4 {
                 .and(new OverIndicatorRule(closePrice, monthlyAvg));
         Rule exitRule = new UnderIndicatorRule(monthlyAvg, quarterlyAvg);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1153,7 +1155,7 @@ public class StrategyFactory4 {
         Rule entryRule = new UnderIndicatorRule(nearTerm, lowerThreshold);
         Rule exitRule = new OverIndicatorRule(nearTerm, upperThreshold);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 创新和实验性策略 (121-125) ====================
@@ -1183,7 +1185,7 @@ public class StrategyFactory4 {
         Rule entryRule = bullishSentiment;
         Rule exitRule = bearishSentiment;
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1203,7 +1205,7 @@ public class StrategyFactory4 {
         Rule exitRule = new UnderIndicatorRule(centrality, Ta4jNumUtil.valueOf(-0.01)) // 添加负值条件
                 .and(new UnderIndicatorRule(connectivity, avgConnectivity));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1223,7 +1225,7 @@ public class StrategyFactory4 {
         Rule exitRule = new UnderIndicatorRule(fractalDim, avgFractal) // 相对比较
                 .or(new UnderIndicatorRule(hurst, Ta4jNumUtil.valueOf(0)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1243,7 +1245,7 @@ public class StrategyFactory4 {
         Rule exitRule = new UnderIndicatorRule(attractor, Ta4jNumUtil.valueOf(0))
                 .and(new UnderIndicatorRule(lyapunov, avgLyapunov));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1291,7 +1293,7 @@ public class StrategyFactory4 {
         // 修改后的卖出条件，增加止盈
         Rule exitRule = quantumSell.or(new OverIndicatorRule(closePrice, profitTarget));
 
-        return new BaseStrategy("量子启发策略", quantumBuy, exitRule);
+        return new BaseStrategy("量子启发策略", quantumBuy, addExtraStopRule(exitRule, series));
     }
 
     // ==================== 风险管理策略 (126-130) ====================
@@ -1315,7 +1317,7 @@ public class StrategyFactory4 {
         Rule exitRule = new UnderIndicatorRule(returns, Ta4jNumUtil.valueOf(0))
                 .or(new OverIndicatorRule(risk, Ta4jNumUtil.valueOf(1.5).multipliedBy(avgRisk.getValue(series.getEndIndex()))));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1333,7 +1335,7 @@ public class StrategyFactory4 {
         Rule entryRule = new UnderIndicatorRule(volatility, avgVolatility); // 波动率低于平均时买入
         Rule exitRule = new OverIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.5)); // 波动率高于平均1.5倍时卖出
 
-        return new BaseStrategy("VaR风险管理策略", entryRule, exitRule);
+        return new BaseStrategy("VaR风险管理策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1374,7 +1376,7 @@ public class StrategyFactory4 {
         Rule entryRule = new OverIndicatorRule(closePrice, entryThreshold);
         Rule exitRule = new UnderIndicatorRule(closePrice, exitThreshold);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1396,7 +1398,7 @@ public class StrategyFactory4 {
 
         Rule exitRule = new OverIndicatorRule(volatility, TransformIndicator.multiply(avgVolatility, 1.8)); // 相对高波动
 
-        return new BaseStrategy("头寸规模策略", entryRule, exitRule);
+        return new BaseStrategy("头寸规模策略", entryRule, addExtraStopRule(exitRule, series));
     }
 
     /**
@@ -1415,6 +1417,6 @@ public class StrategyFactory4 {
                 .and(new UnderIndicatorRule(volumeChange, Ta4jNumUtil.valueOf(0.5)));
         Rule exitRule = new OverIndicatorRule(volumeChange, Ta4jNumUtil.valueOf(1.0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule, series));
     }
 }

@@ -1,9 +1,19 @@
 package com.okx.trading.strategy;
 
+import com.okx.trading.config.BacktestParameterConfig;
+import com.okx.trading.config.BeanHolder;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.num.DecimalNum;
+import org.ta4j.core.rules.OrRule;
+import org.ta4j.core.rules.StopLossRule;
+import org.ta4j.core.rules.TrailingStopLossRule;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +25,7 @@ public class StrategyRegisterCenter {
 
     private static final Logger log = LoggerFactory.getLogger(StrategyRegisterCenter.class);
 
+    private static BacktestParameterConfig backtestParameterConfig = BeanHolder.getBacktestParameterConfig();
 
     // 策略创建函数映射
     public static final Map<String, Function<BarSeries, Strategy>> strategyCreators = new HashMap<>();
@@ -339,5 +350,20 @@ public class StrategyRegisterCenter {
         strategyCreators.put(STRATEGY_MAXIMUM_DRAWDOWN_CONTROL, StrategyFactory4::createMaximumDrawdownControlStrategy);
         strategyCreators.put(STRATEGY_POSITION_SIZING, StrategyFactory4::createPositionSizingStrategy);
         strategyCreators.put(STRATEGY_CORRELATION_FILTER, StrategyFactory4::createCorrelationFilterStrategy);
+    }
+
+    /**
+     * 统一添加移动止盈和止损规则
+     *
+     * @param exitRule
+     * @param series
+     * @return
+     */
+    public static Rule addExtraStopRule(Rule exitRule, BarSeries series) {
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        StopLossRule stopLossRule = new StopLossRule(closePrice, DecimalNum.valueOf(backtestParameterConfig.getStopLossPercent().doubleValue()));
+        TrailingStopLossRule trailingStopLossRule = new TrailingStopLossRule(closePrice, DecimalNum.valueOf(backtestParameterConfig.getTrailingProfitPercent().doubleValue()));
+        Rule finalExitRule = new OrRule(stopLossRule, trailingStopLossRule).or(exitRule);
+        return finalExitRule;
     }
 }

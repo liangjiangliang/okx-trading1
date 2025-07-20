@@ -14,6 +14,8 @@ import org.ta4j.core.rules.*;
 
 import java.math.BigDecimal;
 
+import static com.okx.trading.strategy.StrategyRegisterCenter.addExtraStopRule;
+
 /**
  * 高级策略工厂类
  * 包含50个新的高级交易策略
@@ -154,7 +156,7 @@ public class StrategyFactory2 {
         Rule exitRule = new CrossedUpIndicatorRule(closePrice, sma)
                 .or(new OverIndicatorRule(closePrice, closePrice.getValue(1).multipliedBy(Ta4jNumUtil.valueOf(1.03))));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -187,7 +189,7 @@ public class StrategyFactory2 {
         Rule exitRule = new CrossedDownIndicatorRule(macd1, signal1)
                 .or(new CrossedDownIndicatorRule(macd2, signal2));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -297,7 +299,7 @@ public class StrategyFactory2 {
                 .or(new UnderIndicatorRule(closePrice,
                         new TransformIndicator(closePrice, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.985)))));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -366,7 +368,7 @@ public class StrategyFactory2 {
         Rule exitRule = new OverIndicatorRule(rsi, 70)
                 .or(new UnderIndicatorRule(divergence, -0.5));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -463,7 +465,7 @@ public class StrategyFactory2 {
                 .or(new UnderIndicatorRule(closePrice,
                         new TransformIndicator(closePrice, v -> v.multipliedBy(Ta4jNumUtil.valueOf(0.98)))));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     // 继续实现其他45个策略...
@@ -480,7 +482,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(rsi, 30);
         Rule exitRule = new OverIndicatorRule(rsi, 70);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -495,7 +497,7 @@ public class StrategyFactory2 {
                 .and(new OverIndicatorRule(rsi, 50));
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, sma);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -566,7 +568,7 @@ public class StrategyFactory2 {
                 .and(new UnderIndicatorRule(bearPower, Ta4jNumUtil.valueOf(0)))
                 .and(new UnderIndicatorRule(bullPower, new PreviousValueIndicator(bullPower, 1)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -616,7 +618,7 @@ public class StrategyFactory2 {
         Rule exitRule = new CrossedDownIndicatorRule(shortFI, longFI)
                 .and(new UnderIndicatorRule(shortFI, Ta4jNumUtil.valueOf(0)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -714,7 +716,7 @@ public class StrategyFactory2 {
         // 卖出：蔡金振荡器从正转负
         Rule exitRule = new CrossedDownIndicatorRule(chaikinOsc, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -792,7 +794,7 @@ public class StrategyFactory2 {
         Rule exitRule = new CrossedDownIndicatorRule(mfi, Ta4jNumUtil.valueOf(80))
                 .and(new OverIndicatorRule(new PreviousValueIndicator(mfi, 1), Ta4jNumUtil.valueOf(80)));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -849,7 +851,7 @@ public class StrategyFactory2 {
         // 卖出：PVT下穿其移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(pvt, pvtSignal);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -916,7 +918,7 @@ public class StrategyFactory2 {
         // 卖出：EOM下穿零线
         Rule exitRule = new CrossedDownIndicatorRule(eomSMA, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -977,7 +979,7 @@ public class StrategyFactory2 {
         // 卖出：NVI下穿其长期移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(nvi, nviMA);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1038,7 +1040,7 @@ public class StrategyFactory2 {
         // 卖出：PVI上穿其长期移动平均线（散户乐观时卖出）
         Rule exitRule = new CrossedUpIndicatorRule(pvi, pviMA);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1089,7 +1091,7 @@ public class StrategyFactory2 {
         // 卖出：成交量显著减少（VROC < 负阈值）
         Rule exitRule = new UnderIndicatorRule(vroc, Ta4jNumUtil.valueOf(-30));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1161,7 +1163,7 @@ public class StrategyFactory2 {
         // 卖出：A/D线下穿其移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(adLine, adMA);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1228,7 +1230,7 @@ public class StrategyFactory2 {
         // 卖出：WAD下穿其移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(wad, wadMA);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1351,7 +1353,7 @@ public class StrategyFactory2 {
         // 卖出：Klinger振荡器下穿信号线
         Rule exitRule = new CrossedDownIndicatorRule(klingerOsc, klingerSignal);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1418,7 +1420,7 @@ public class StrategyFactory2 {
         // 卖出：成交量加权RSI从超买区域回落
         Rule exitRule = new CrossedDownIndicatorRule(vwRSI, Ta4jNumUtil.valueOf(70));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1495,7 +1497,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿自适应移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, adaptiveMA);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1608,7 +1610,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿FRAMA
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, frama);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1690,7 +1692,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿零滞后EMA
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, zlema);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1763,7 +1765,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿DEMA
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, dema);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1816,7 +1818,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿TEMA
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, tema);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1872,7 +1874,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿可变移动平均线
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, vma);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -1973,7 +1975,7 @@ public class StrategyFactory2 {
         // 卖出：拉盖尔指标从超买区域向下
         Rule exitRule = new CrossedDownIndicatorRule(laguerre, Ta4jNumUtil.valueOf(0.8));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -2036,7 +2038,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿Ehlers滤波器
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, ehlers);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -2098,7 +2100,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿高斯滤波器
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, gaussian);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     /**
@@ -2175,7 +2177,7 @@ public class StrategyFactory2 {
         // 卖出：价格下穿巴特沃斯滤波器
         Rule exitRule = new CrossedDownIndicatorRule(closePrice, butterworth);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createCyberCycleStrategy(BarSeries series) {
@@ -2229,7 +2231,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(cyberCycle, Ta4jNumUtil.valueOf(0));
         Rule exitRule = new UnderIndicatorRule(cyberCycle, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createRocketRSIStrategy(BarSeries series) {
@@ -2298,7 +2300,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(rocketRSI, Ta4jNumUtil.valueOf(25));
         Rule exitRule = new OverIndicatorRule(rocketRSI, Ta4jNumUtil.valueOf(75));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createConnorsRSIStrategy(BarSeries series) {
@@ -2404,7 +2406,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(connorsRSI, Ta4jNumUtil.valueOf(20));
         Rule exitRule = new OverIndicatorRule(connorsRSI, Ta4jNumUtil.valueOf(80));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createStochasticMomentumStrategy(BarSeries series) {
@@ -2475,7 +2477,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(smi, Ta4jNumUtil.valueOf(20));
         Rule exitRule = new OverIndicatorRule(smi, Ta4jNumUtil.valueOf(80));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createTrueStrengthIndexStrategy(BarSeries series) {
@@ -2566,7 +2568,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(tsi, Ta4jNumUtil.valueOf(0));
         Rule exitRule = new UnderIndicatorRule(tsi, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createUltimateOscillatorStrategy(BarSeries series) {
@@ -2656,7 +2658,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(uo, Ta4jNumUtil.valueOf(30));
         Rule exitRule = new OverIndicatorRule(uo, Ta4jNumUtil.valueOf(70));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createBalanceOfPowerStrategy(BarSeries series) {
@@ -2710,7 +2712,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(bop, Ta4jNumUtil.valueOf(0));
         Rule exitRule = new UnderIndicatorRule(bop, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createCommoditySelectionIndexStrategy(BarSeries series) {
@@ -2764,7 +2766,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(csi, Ta4jNumUtil.valueOf(20));
         Rule exitRule = new UnderIndicatorRule(csi, Ta4jNumUtil.valueOf(-20));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createDirectionalMovementIndexStrategy(BarSeries series) {
@@ -2844,7 +2846,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(dmi, Ta4jNumUtil.valueOf(20));
         Rule exitRule = new UnderIndicatorRule(dmi, Ta4jNumUtil.valueOf(10));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createPlusDirectionalIndicatorStrategy(BarSeries series) {
@@ -2913,7 +2915,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(pdi, Ta4jNumUtil.valueOf(25));
         Rule exitRule = new UnderIndicatorRule(pdi, Ta4jNumUtil.valueOf(15));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createMinusDirectionalIndicatorStrategy(BarSeries series) {
@@ -2982,7 +2984,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(mdi, Ta4jNumUtil.valueOf(15));
         Rule exitRule = new OverIndicatorRule(mdi, Ta4jNumUtil.valueOf(25));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createTrendIntensityIndexStrategy(BarSeries series) {
@@ -3039,7 +3041,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(tii, Ta4jNumUtil.valueOf(60));
         Rule exitRule = new UnderIndicatorRule(tii, Ta4jNumUtil.valueOf(40));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createMassIndexReversalStrategy(BarSeries series) {
@@ -3117,7 +3119,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(mir, Ta4jNumUtil.valueOf(27));
         Rule exitRule = new UnderIndicatorRule(mir, Ta4jNumUtil.valueOf(26.5));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createCoppockCurveStrategy(BarSeries series) {
@@ -3176,7 +3178,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(coppock, Ta4jNumUtil.valueOf(0));
         Rule exitRule = new UnderIndicatorRule(coppock, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createKnowSureThingStrategy(BarSeries series) {
@@ -3230,7 +3232,7 @@ public class StrategyFactory2 {
         Rule entryRule = new CrossedUpIndicatorRule(kst, kstSignal);
         Rule exitRule = new CrossedDownIndicatorRule(kst, kstSignal);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createPriceOscillatorStrategy(BarSeries series) {
@@ -3270,7 +3272,7 @@ public class StrategyFactory2 {
         Rule entryRule = new CrossedUpIndicatorRule(ppo, signal);
         Rule exitRule = new CrossedDownIndicatorRule(ppo, signal);
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createDetrendedPriceOscillatorStrategy(BarSeries series) {
@@ -3313,7 +3315,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(dpo, Ta4jNumUtil.valueOf(0));
         Rule exitRule = new UnderIndicatorRule(dpo, Ta4jNumUtil.valueOf(0));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createVerticalHorizontalFilterStrategy(BarSeries series) {
@@ -3377,7 +3379,7 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(vhf, Ta4jNumUtil.valueOf(0.35));
         Rule exitRule = new UnderIndicatorRule(vhf, Ta4jNumUtil.valueOf(0.25));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createRainbowOscillatorStrategy(BarSeries series) {
@@ -3443,7 +3445,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(rainbow, Ta4jNumUtil.valueOf(20));
         Rule exitRule = new OverIndicatorRule(rainbow, Ta4jNumUtil.valueOf(80));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createRelativeMomentumIndexStrategy(BarSeries series) {
@@ -3501,7 +3503,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(rmi, Ta4jNumUtil.valueOf(30));
         Rule exitRule = new OverIndicatorRule(rmi, Ta4jNumUtil.valueOf(70));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createIntradayMomentumIndexStrategy(BarSeries series) {
@@ -3557,7 +3559,7 @@ public class StrategyFactory2 {
         Rule entryRule = new UnderIndicatorRule(imi, Ta4jNumUtil.valueOf(30));
         Rule exitRule = new OverIndicatorRule(imi, Ta4jNumUtil.valueOf(70));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 
     public static Strategy createRandomWalkIndexStrategy(BarSeries series) {
@@ -3620,6 +3622,6 @@ public class StrategyFactory2 {
         Rule entryRule = new OverIndicatorRule(rwi, Ta4jNumUtil.valueOf(1.0));
         Rule exitRule = new UnderIndicatorRule(rwi, Ta4jNumUtil.valueOf(0.5));
 
-        return new BaseStrategy(entryRule, exitRule);
+        return new BaseStrategy(entryRule, addExtraStopRule(exitRule,series));
     }
 }

@@ -6,14 +6,12 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 /**
  * OpenAPI (Swagger) 配置类
  * 使用springdoc-openapi，兼容Spring Boot 3.x
  */
 @Configuration
-@Profile("swagger") // 只在swagger profile激活时才启用
 public class SwaggerConfig {
 
     @Bean
