@@ -65,7 +65,7 @@ import java.util.Date;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Data
+//@Data
 @ConditionalOnProperty(
         name = "okx.api.connection-mode",
         havingValue = "WEBSOCKET",
