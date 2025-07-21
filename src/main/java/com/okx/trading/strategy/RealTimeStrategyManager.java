@@ -269,13 +269,14 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 // 利润统计
                 // 更新累计统计信息
                 if (orderEntity.getSide().equals(SELL)) {
-                    double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount() -
-                            orderEntity.getFee().doubleValue() - state.getLastTradeFee();
+                    // executedAmount 已经是扣除手续费的金额，卖出的执行金额就是最后剩下的金额，减去上次卖出执行金额以及手续费就是利润
+                    double profit = orderEntity.getExecutedAmount().doubleValue() - state.getLastTradeAmount() - state.getLastTradeFee();
+//                            orderEntity.getFee().doubleValue() - state.getLastTradeFee();
                     state.setTotalProfit(state.getTotalProfit() + profit);
                     state.setTotalProfitRate(state.getTotalProfit() / state.getTradeAmount());
                     state.setLastTradeProfit(profit);
                     orderEntity.setProfit(BigDecimal.valueOf(profit));
-                    orderEntity.setProfitRate(BigDecimal.valueOf(profit / state.getLastTradeAmount()));
+                    orderEntity.setProfitRate(BigDecimal.valueOf(profit / (state.getLastTradeAmount() + state.getLastTradeFee())));
                 }
                 // 费用每次都有
                 state.setTotalFees(state.getTotalFees() + orderEntity.getFee().doubleValue());
