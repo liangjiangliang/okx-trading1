@@ -453,10 +453,9 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>时间间隔</th>");
             content.append("<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>重新订阅次数</th>");
             content.append("</tr>");
-
-            for (String[] symbolInterval : subscribeSymbols) {
-                String symbol = symbolInterval[0];
-                String interval = symbolInterval[1];
+            realTimeStrategyManager.getRunningStrategies().values().stream().forEach(strategy -> {
+                String symbol = strategy.getSymbol();
+                String interval = strategy.getInterval();
                 String key = symbol + ":" + interval;
                 int count = symbolResubscribeCountMap.getOrDefault(key, 0);
 
@@ -465,7 +464,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
                 content.append("<td style='padding: 8px; border: 1px solid #ddd;'>").append(interval).append("</td>");
                 content.append("<td style='padding: 8px; border: 1px solid #ddd;'>").append(count).append("</td>");
                 content.append("</tr>");
-            }
+            });
 
             content.append("</table>");
             content.append("<p style='margin-top: 15px;'>重新订阅时间：").append(LocalDateTime.now().format(formatter)).append("</p>");
