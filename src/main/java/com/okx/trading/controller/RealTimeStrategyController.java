@@ -677,15 +677,37 @@ public class RealTimeStrategyController {
             @ApiResponse(responseCode = "200", description = "获取成功"),
             @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
-    public com.okx.trading.util.ApiResponse<List<Map<String, Object>>> getHoldingPositionsProfits() {
+    public com.okx.trading.util.ApiResponse<Map<String, Object>> getHoldingPositionsProfits() {
         try {
             // 获取所有正在运行的策略
             Map<Long, RealTimeStrategyEntity> allRunningStrategies = realTimeStrategyManager.getAllRunningStrategies();
-            List<Map<String, Object>> result = new ArrayList<>();
+            List<Map<String, Object>> strategiesList = new ArrayList<>();
+
+            // 统计指标
+            BigDecimal totalEstimatedProfit = BigDecimal.ZERO;
+            BigDecimal totalInvestmentAmount = BigDecimal.ZERO;
+            BigDecimal totalRealizedProfit = BigDecimal.ZERO;
+            int holdingStrategiesCount = 0;
+            int runningStrategiesCount = 0;
 
             // 筛选出最后交易类型为买入(BUY)的策略
             for (RealTimeStrategyEntity strategy : allRunningStrategies.values()) {
+                // 统计运行中策略总数
+                runningStrategiesCount++;
+                
+                // 累计已实现总收益
+                if (strategy.getTotalProfit() != null) {
+                    totalRealizedProfit = totalRealizedProfit.add(BigDecimal.valueOf(strategy.getTotalProfit()));
+                }
+                
+                // 累计总投资金额
+                if (strategy.getTradeAmount() != null) {
+                    totalInvestmentAmount = totalInvestmentAmount.add(BigDecimal.valueOf(strategy.getTradeAmount()));
+                }
+                
+                // 处理持仓中策略
                 if ("BUY".equals(strategy.getLastTradeType())) {
+                    holdingStrategiesCount++;
                     Map<String, Object> strategyProfit = new HashMap<>();
 
                     try {
@@ -723,6 +745,9 @@ public class RealTimeStrategyController {
                             strategyProfit.put("estimatedProfit", new BigDecimal(estimatedProfit).setScale(4, RoundingMode.HALF_UP));
                             strategyProfit.put("profitPercentage", new BigDecimal(profitPercentage).setScale(2, RoundingMode.HALF_UP) + "%");
 
+                            // 累加预估收益到总预估收益
+                            totalEstimatedProfit = totalEstimatedProfit.add(new BigDecimal(estimatedProfit));
+
                             // 计算持仓时长
                             Duration holdingDuration = Duration.between(strategy.getLastTradeTime(), LocalDateTime.now());
                             long days = holdingDuration.toDays();
@@ -746,7 +771,7 @@ public class RealTimeStrategyController {
                             strategyProfit.put("profitPercentage", "未知");
                         }
 
-                        result.add(strategyProfit);
+                        strategiesList.add(strategyProfit);
                     } catch (Exception e) {
                         log.error("计算策略{}的预估收益时出错: {}", strategy.getStrategyCode(), e.getMessage());
                         // 继续处理下一个策略
@@ -755,7 +780,7 @@ public class RealTimeStrategyController {
             }
 
             // 按预估收益率降序排序
-            result.sort((a, b) -> {
+            strategiesList.sort((a, b) -> {
                 Object aProfit = a.get("profitPercentage");
                 Object bProfit = b.get("profitPercentage");
 
@@ -784,6 +809,32 @@ public class RealTimeStrategyController {
 
                 return 0;
             });
+
+            // 创建包含策略列表和统计信息的返回结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("strategies", strategiesList);
+            
+            // 添加统计信息
+            Map<String, Object> statistics = new HashMap<>();
+            statistics.put("totalEstimatedProfit", totalEstimatedProfit.setScale(4, RoundingMode.HALF_UP));
+            statistics.put("totalRealizedProfit", totalRealizedProfit.setScale(4, RoundingMode.HALF_UP));
+            statistics.put("totalInvestmentAmount", totalInvestmentAmount.setScale(4, RoundingMode.HALF_UP));
+            statistics.put("holdingStrategiesCount", holdingStrategiesCount);
+            statistics.put("runningStrategiesCount", runningStrategiesCount);
+            
+            // 计算总收益(已实现收益 + 未实现收益)
+            BigDecimal totalProfit = totalRealizedProfit.add(totalEstimatedProfit);
+            statistics.put("totalProfit", totalProfit.setScale(4, RoundingMode.HALF_UP));
+            
+            // 计算总收益率
+            if (totalInvestmentAmount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 2, RoundingMode.HALF_UP);
+                statistics.put("totalProfitRate", totalProfitRate + "%");
+            } else {
+                statistics.put("totalProfitRate", "0.00%");
+            }
+            
+            result.put("statistics", statistics);
 
             return com.okx.trading.util.ApiResponse.success(result);
         } catch (Exception e) {
