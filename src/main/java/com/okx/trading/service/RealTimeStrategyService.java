@@ -228,9 +228,11 @@ public interface RealTimeStrategyService {
 
     /**
      * 复制实时策略
-     * 
-     * @param strategyId 要复制的策略ID
-     * @return 复制后的新策略实体
+     * @param strategyId 原策略ID
+     * @param interval 新策略时间周期（可选，默认使用原策略的值）
+     * @param symbol 新策略交易对（可选，默认使用原策略的值）
+     * @param tradeAmount 新策略交易金额（可选，默认使用原策略的值）
+     * @return 新创建的策略实体
      */
-    RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId);
+    RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId, String interval, String symbol, Double tradeAmount);
 }

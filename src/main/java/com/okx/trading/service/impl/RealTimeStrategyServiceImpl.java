@@ -344,7 +344,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     @Override
     @Transactional
-    public RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId) {
+    public RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId, String interval, String symbol, Double tradeAmount) {
         // 获取原策略
         Optional<RealTimeStrategyEntity> optionalStrategy = getRealTimeStrategyById(strategyId);
         if (!optionalStrategy.isPresent()) {
@@ -354,11 +354,25 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
         // 获取原策略
         RealTimeStrategyEntity originalStrategy = optionalStrategy.get();
-        RealTimeStrategyEntity newStrategy = new RealTimeStrategyEntity(originalStrategy.getStrategyCode(), originalStrategy.getSymbol(), originalStrategy.getInterval(),
-                LocalDateTime.now(), originalStrategy.getTradeAmount(), originalStrategy.getStrategyName());
+        
+        // 使用传入的值或原策略值
+        String newInterval = interval != null && !interval.trim().isEmpty() ? interval : originalStrategy.getInterval();
+        String newSymbol = symbol != null && !symbol.trim().isEmpty() ? symbol : originalStrategy.getSymbol();
+        Double newTradeAmount = tradeAmount != null ? tradeAmount : originalStrategy.getTradeAmount();
+        
+        RealTimeStrategyEntity newStrategy = new RealTimeStrategyEntity(
+            originalStrategy.getStrategyCode(), 
+            newSymbol, 
+            newInterval,
+            LocalDateTime.now(), 
+            newTradeAmount, 
+            originalStrategy.getStrategyName()
+        );
+        
         Map<String, Object> response = realTimeStrategyManager.startExecuteRealTimeStrategy(newStrategy);
         RealTimeStrategyEntity savedStrategy = realTimeStrategyManager.getRunningStrategies().get(response.get("id"));
-        log.info("复制策略成功: {} -> {}", originalStrategy.getId(), savedStrategy.getId());
+        log.info("复制策略成功: {} -> {}, interval={}, symbol={}, tradeAmount={}", 
+                originalStrategy.getId(), savedStrategy.getId(), newInterval, newSymbol, newTradeAmount);
         return savedStrategy;
     }
 }

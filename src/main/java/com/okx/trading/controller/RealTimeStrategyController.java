@@ -570,7 +570,7 @@ public class RealTimeStrategyController {
      * 复制实时策略
      */
     @PostMapping("/copy/{id}")
-    @Operation(summary = "复制实时策略", description = "复制一个已有的实时策略，创建一个新的策略实例")
+    @Operation(summary = "复制实时策略", description = "复制一个已有的实时策略，创建一个新的策略实例，可选传入新的参数")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "复制成功"),
             @ApiResponse(responseCode = "400", description = "策略ID不能为空"),
@@ -578,13 +578,16 @@ public class RealTimeStrategyController {
             @ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public com.okx.trading.util.ApiResponse<RealTimeStrategyEntity> copyRealTimeStrategy(
-            @Parameter(name = "策略ID", required = true, example = "1") @PathVariable Long id) {
+            @Parameter(name = "策略ID", required = true, example = "1") @PathVariable Long id,
+            @Parameter(name = "时间周期", required = false, example = "1D") @RequestParam(required = false) String interval,
+            @Parameter(name = "交易对", required = false, example = "BTC-USDT") @RequestParam(required = false) String symbol,
+            @Parameter(name = "交易金额", required = false, example = "20") @RequestParam(required = false) Double tradeAmount) {
         try {
             if (id == null || id <= 0) {
                 return com.okx.trading.util.ApiResponse.error(400, "策略ID不能为空或无效");
             }
 
-            RealTimeStrategyEntity copiedStrategy = realTimeStrategyService.copyRealTimeStrategy(id);
+            RealTimeStrategyEntity copiedStrategy = realTimeStrategyService.copyRealTimeStrategy(id, interval, symbol, tradeAmount);
             return com.okx.trading.util.ApiResponse.success(copiedStrategy);
         } catch (IllegalArgumentException e) {
             log.error("复制策略失败，策略不存在: {}", id);
