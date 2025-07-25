@@ -697,17 +697,17 @@ public class RealTimeStrategyController {
             for (RealTimeStrategyEntity strategy : allRunningStrategies.values()) {
                 // 统计运行中策略总数
                 runningStrategiesCount++;
-                
+
                 // 累计已实现总收益
                 if (strategy.getTotalProfit() != null) {
                     totalRealizedProfit = totalRealizedProfit.add(BigDecimal.valueOf(strategy.getTotalProfit()));
                 }
-                
+
                 // 累计总投资金额
                 if (strategy.getTradeAmount() != null) {
                     totalInvestmentAmount = totalInvestmentAmount.add(BigDecimal.valueOf(strategy.getTradeAmount()));
                 }
-                
+
                 // 处理持仓中策略
                 if ("BUY".equals(strategy.getLastTradeType())) {
                     holdingStrategiesCount++;
@@ -723,7 +723,7 @@ public class RealTimeStrategyController {
 
                         // 入场信息
                         strategyProfit.put("entryPrice", strategy.getLastTradePrice());
-                        strategyProfit.put("entryAmount", new BigDecimal(strategy.getLastTradeAmount()).setScale(4, RoundingMode.HALF_UP));
+                        strategyProfit.put("entryAmount", new BigDecimal(strategy.getLastTradeAmount()).setScale(8, RoundingMode.HALF_UP));
                         strategyProfit.put("entryTime", strategy.getLastTradeTime().format(dateFormat));
 
                         // 获取最新价格
@@ -744,9 +744,9 @@ public class RealTimeStrategyController {
                             // 添加预估收益信息 - 格式化为4位小数
                             strategyProfit.put("currentPrice", currentPrice);
                             strategyProfit.put("quantity", new BigDecimal(quantity).setScale(8, RoundingMode.HALF_UP));
-                            strategyProfit.put("currentValue", new BigDecimal(currentValue).setScale(4, RoundingMode.HALF_UP));
-                            strategyProfit.put("estimatedProfit", new BigDecimal(estimatedProfit).setScale(4, RoundingMode.HALF_UP));
-                            strategyProfit.put("profitPercentage", new BigDecimal(profitPercentage).setScale(2, RoundingMode.HALF_UP) + "%");
+                            strategyProfit.put("currentValue", new BigDecimal(currentValue).setScale(8, RoundingMode.HALF_UP));
+                            strategyProfit.put("estimatedProfit", new BigDecimal(estimatedProfit).setScale(8, RoundingMode.HALF_UP));
+                            strategyProfit.put("profitPercentage", new BigDecimal(profitPercentage).setScale(4, RoundingMode.HALF_UP) + "%");
 
                             // 累加预估收益到总预估收益
                             totalEstimatedProfit = totalEstimatedProfit.add(new BigDecimal(estimatedProfit));
@@ -816,27 +816,27 @@ public class RealTimeStrategyController {
             // 创建包含策略列表和统计信息的返回结果
             Map<String, Object> result = new HashMap<>();
             result.put("strategies", strategiesList);
-            
+
             // 添加统计信息
             Map<String, Object> statistics = new HashMap<>();
-            statistics.put("totalEstimatedProfit", totalEstimatedProfit.setScale(4, RoundingMode.HALF_UP));
-            statistics.put("totalRealizedProfit", totalRealizedProfit.setScale(4, RoundingMode.HALF_UP));
-            statistics.put("totalInvestmentAmount", totalInvestmentAmount.setScale(4, RoundingMode.HALF_UP));
+            statistics.put("totalEstimatedProfit", totalEstimatedProfit.setScale(8, RoundingMode.HALF_UP));
+            statistics.put("totalRealizedProfit", totalRealizedProfit.setScale(8, RoundingMode.HALF_UP));
+            statistics.put("totalInvestmentAmount", totalInvestmentAmount.setScale(8, RoundingMode.HALF_UP));
             statistics.put("holdingStrategiesCount", holdingStrategiesCount);
             statistics.put("runningStrategiesCount", runningStrategiesCount);
-            
+
             // 计算总收益(已实现收益 + 未实现收益)
             BigDecimal totalProfit = totalRealizedProfit.add(totalEstimatedProfit);
-            statistics.put("totalProfit", totalProfit.setScale(4, RoundingMode.HALF_UP));
-            
+            statistics.put("totalProfit", totalProfit.setScale(8, RoundingMode.HALF_UP));
+
             // 计算总收益率
             if (totalInvestmentAmount.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 2, RoundingMode.HALF_UP);
+                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 12, RoundingMode.HALF_UP);
                 statistics.put("totalProfitRate", totalProfitRate + "%");
             } else {
                 statistics.put("totalProfitRate", "0.00%");
             }
-            
+
             result.put("statistics", statistics);
 
             return com.okx.trading.util.ApiResponse.success(result);
