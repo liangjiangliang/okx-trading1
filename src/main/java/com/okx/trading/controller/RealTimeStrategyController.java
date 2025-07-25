@@ -831,7 +831,7 @@ public class RealTimeStrategyController {
 
             // 计算总收益率
             if (totalInvestmentAmount.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 12, RoundingMode.HALF_UP);
+                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 4, RoundingMode.HALF_UP);
                 statistics.put("totalProfitRate", totalProfitRate + "%");
             } else {
                 statistics.put("totalProfitRate", "0.00%");
