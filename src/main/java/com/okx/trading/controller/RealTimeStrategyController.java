@@ -845,4 +845,57 @@ public class RealTimeStrategyController {
             return com.okx.trading.util.ApiResponse.error(500, "获取持仓策略预估收益失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 执行交易信号接口
+     * 根据策略ID和交易方向，手动执行交易信号
+     */
+    @PostMapping("/execute-trade-signal")
+    @Operation(summary = "执行交易信号", description = "手动执行指定策略的交易信号，side为买入(buy)或卖出(sell)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "执行成功"),
+            @ApiResponse(responseCode = "400", description = "参数错误"),
+            @ApiResponse(responseCode = "404", description = "策略不存在"),
+            @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
+    public com.okx.trading.util.ApiResponse<String> executeTradeSignal(
+            @Parameter(name = "策略ID", required = true, example = "1") @RequestParam Long strategyId,
+            @Parameter(name = "交易方向", required = true, example = "buy") @RequestParam String side) {
+        try {
+            if (strategyId == null) {
+                return com.okx.trading.util.ApiResponse.error(400, "策略ID不能为空");
+            }
+            
+            if (side == null || (!side.equalsIgnoreCase("buy") && !side.equalsIgnoreCase("sell"))) {
+                return com.okx.trading.util.ApiResponse.error(400, "交易方向必须为buy或sell");
+            }
+            
+            // 从runningStrategies获取策略状态
+            RealTimeStrategyEntity state = realTimeStrategyManager.getRunningStrategies().get(strategyId);
+            if (state == null) {
+                return com.okx.trading.util.ApiResponse.error(404, "策略不存在或未在运行中");
+            }
+            
+            // 获取最新价格
+            Ticker ticker = okxApiService.getTicker(state.getSymbol());
+            if (ticker == null) {
+                return com.okx.trading.util.ApiResponse.error(500, "获取当前价格失败");
+            }
+            
+            // 组装Candlestick对象
+            com.okx.trading.model.market.Candlestick candlestick = new com.okx.trading.model.market.Candlestick(ticker.getLastPrice());
+            candlestick.setSymbol(state.getSymbol());
+            candlestick.setIntervalVal(state.getInterval());
+            candlestick.setOpenTime(LocalDateTime.now());
+            candlestick.setCloseTime(LocalDateTime.now());
+            
+            // 执行交易信号
+            realTimeStrategyManager.executeTradeSignal(state, candlestick, side.toUpperCase());
+            
+            return com.okx.trading.util.ApiResponse.success("交易信号执行成功：策略ID=" + strategyId + "，交易方向=" + side);
+        } catch (Exception e) {
+            log.error("执行交易信号失败: strategyId={}, side={}, error={}", strategyId, side, e.getMessage(), e);
+            return com.okx.trading.util.ApiResponse.error(500, "执行交易信号失败: " + e.getMessage());
+        }
+    }
 }
