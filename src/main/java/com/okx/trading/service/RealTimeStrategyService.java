@@ -235,4 +235,7 @@ public interface RealTimeStrategyService {
      * @return 新创建的策略实体
      */
     RealTimeStrategyEntity copyRealTimeStrategy(Long strategyId, String interval, String symbol, Double tradeAmount);
+
+
+    Map<String, Object> realTimeStrategiesState();
 }

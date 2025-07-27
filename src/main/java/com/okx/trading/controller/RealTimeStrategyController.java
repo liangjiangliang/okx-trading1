@@ -682,163 +682,7 @@ public class RealTimeStrategyController {
     })
     public com.okx.trading.util.ApiResponse<Map<String, Object>> getHoldingPositionsProfits() {
         try {
-            // 获取所有正在运行的策略
-            Map<Long, RealTimeStrategyEntity> allRunningStrategies = realTimeStrategyManager.getAllRunningStrategies();
-            List<Map<String, Object>> strategiesList = new ArrayList<>();
-
-            // 统计指标
-            BigDecimal totalEstimatedProfit = BigDecimal.ZERO;
-            BigDecimal totalInvestmentAmount = BigDecimal.ZERO;
-            BigDecimal totalRealizedProfit = BigDecimal.ZERO;
-            int holdingStrategiesCount = 0;
-            int runningStrategiesCount = 0;
-
-            // 筛选出最后交易类型为买入(BUY)的策略
-            for (RealTimeStrategyEntity strategy : allRunningStrategies.values()) {
-                // 统计运行中策略总数
-                runningStrategiesCount++;
-
-                // 累计已实现总收益
-                if (strategy.getTotalProfit() != null) {
-                    totalRealizedProfit = totalRealizedProfit.add(BigDecimal.valueOf(strategy.getTotalProfit()));
-                }
-
-                // 累计总投资金额
-                if (strategy.getTradeAmount() != null) {
-                    totalInvestmentAmount = totalInvestmentAmount.add(BigDecimal.valueOf(strategy.getTradeAmount()));
-                }
-
-                // 处理持仓中策略
-                if ("BUY".equals(strategy.getLastTradeType())) {
-                    holdingStrategiesCount++;
-                    Map<String, Object> strategyProfit = new HashMap<>();
-
-                    try {
-                        // 获取基本信息
-                        strategyProfit.put("strategyId", strategy.getId());
-                        strategyProfit.put("strategyCode", strategy.getStrategyCode());
-                        strategyProfit.put("strategyName", strategy.getStrategyName());
-                        strategyProfit.put("symbol", strategy.getSymbol());
-                        strategyProfit.put("interval", strategy.getInterval());
-
-                        // 入场信息
-                        strategyProfit.put("entryPrice", strategy.getLastTradePrice());
-                        strategyProfit.put("entryAmount", new BigDecimal(strategy.getLastTradeAmount()).setScale(8, RoundingMode.HALF_UP));
-                        strategyProfit.put("entryTime", strategy.getLastTradeTime().format(dateFormat));
-
-                        // 获取最新价格
-                        Ticker latestTicker = okxApiService.getTicker(strategy.getSymbol());
-                        BigDecimal currentPrice = latestTicker != null ? latestTicker.getLastPrice() : null;
-
-                        if (currentPrice != null && strategy.getLastTradePrice() != null) {
-                            // 计算当前持仓价值
-                            double entryPrice = strategy.getLastTradePrice();
-                            double quantity = strategy.getLastTradeQuantity();
-                            double currentValue = currentPrice.doubleValue() * quantity;
-                            double entryValue = entryPrice * quantity;
-
-                            // 计算预估收益和收益率
-                            double estimatedProfit = currentValue - entryValue;
-                            double profitPercentage = (estimatedProfit / entryValue) * 100;
-
-                            // 添加预估收益信息 - 格式化为4位小数
-                            strategyProfit.put("currentPrice", currentPrice);
-                            strategyProfit.put("quantity", new BigDecimal(quantity).setScale(8, RoundingMode.HALF_UP));
-                            strategyProfit.put("currentValue", new BigDecimal(currentValue).setScale(8, RoundingMode.HALF_UP));
-                            strategyProfit.put("estimatedProfit", new BigDecimal(estimatedProfit).setScale(8, RoundingMode.HALF_UP));
-                            strategyProfit.put("profitPercentage", new BigDecimal(profitPercentage).setScale(4, RoundingMode.HALF_UP) + "%");
-
-                            // 累加预估收益到总预估收益
-                            totalEstimatedProfit = totalEstimatedProfit.add(new BigDecimal(estimatedProfit));
-
-                            // 计算持仓时长
-                            Duration holdingDuration = Duration.between(strategy.getLastTradeTime(), LocalDateTime.now());
-                            long days = holdingDuration.toDays();
-                            long hours = holdingDuration.minusDays(days).toHours();
-                            long minutes = holdingDuration.minusDays(days).minusHours(hours).toMinutes();
-
-                            String durationStr = "";
-                            if (days > 0) {
-                                durationStr += days + "天";
-                            }
-                            if (hours > 0 || days > 0) {
-                                durationStr += hours + "小时";
-                            }
-                            durationStr += minutes + "分钟";
-
-                            strategyProfit.put("holdingDuration", durationStr);
-                        } else {
-                            // 如果无法获取最新价格
-                            strategyProfit.put("currentPrice", "未知");
-                            strategyProfit.put("estimatedProfit", "未知");
-                            strategyProfit.put("profitPercentage", "未知");
-                        }
-
-                        strategiesList.add(strategyProfit);
-                    } catch (Exception e) {
-                        log.error("计算策略{}的预估收益时出错: {}", strategy.getStrategyCode(), e.getMessage());
-                        // 继续处理下一个策略
-                    }
-                }
-            }
-
-            // 按预估收益率降序排序
-            strategiesList.sort((a, b) -> {
-                Object aProfit = a.get("profitPercentage");
-                Object bProfit = b.get("profitPercentage");
-
-                // 处理可能的字符串情况
-                if (aProfit instanceof String && bProfit instanceof String) {
-                    if (aProfit.equals("未知") && bProfit.equals("未知")) {
-                        return 0;
-                    } else if (aProfit.equals("未知")) {
-                        return 1;
-                    } else if (bProfit.equals("未知")) {
-                        return -1;
-                    }
-                }
-
-                // 如果都是数值，则比较
-                if (aProfit instanceof String && ((String) aProfit).endsWith("%")) {
-                    aProfit = new BigDecimal(((String) aProfit).replace("%", ""));
-                }
-                if (bProfit instanceof String && ((String) bProfit).endsWith("%")) {
-                    bProfit = new BigDecimal(((String) bProfit).replace("%", ""));
-                }
-
-                if (aProfit instanceof BigDecimal && bProfit instanceof BigDecimal) {
-                    return ((BigDecimal) bProfit).compareTo((BigDecimal) aProfit);
-                }
-
-                return 0;
-            });
-
-            // 创建包含策略列表和统计信息的返回结果
-            Map<String, Object> result = new HashMap<>();
-            result.put("strategies", strategiesList);
-
-            // 添加统计信息
-            Map<String, Object> statistics = new HashMap<>();
-            statistics.put("totalEstimatedProfit", totalEstimatedProfit.setScale(8, RoundingMode.HALF_UP));
-            statistics.put("totalRealizedProfit", totalRealizedProfit.setScale(8, RoundingMode.HALF_UP));
-            statistics.put("totalInvestmentAmount", totalInvestmentAmount.setScale(8, RoundingMode.HALF_UP));
-            statistics.put("holdingStrategiesCount", holdingStrategiesCount);
-            statistics.put("runningStrategiesCount", runningStrategiesCount);
-
-            // 计算总收益(已实现收益 + 未实现收益)
-            BigDecimal totalProfit = totalRealizedProfit.add(totalEstimatedProfit);
-            statistics.put("totalProfit", totalProfit.setScale(8, RoundingMode.HALF_UP));
-
-            // 计算总收益率
-            if (totalInvestmentAmount.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal totalProfitRate = totalProfit.multiply(new BigDecimal("100")).divide(totalInvestmentAmount, 4, RoundingMode.HALF_UP);
-                statistics.put("totalProfitRate", totalProfitRate + "%");
-            } else {
-                statistics.put("totalProfitRate", "0.00%");
-            }
-
-            result.put("statistics", statistics);
-
+            Map<String, Object> result = realTimeStrategyService.realTimeStrategiesState();
             return com.okx.trading.util.ApiResponse.success(result);
         } catch (Exception e) {
             log.error("获取持仓策略预估收益失败", e);
@@ -865,33 +709,33 @@ public class RealTimeStrategyController {
             if (strategyId == null) {
                 return com.okx.trading.util.ApiResponse.error(400, "策略ID不能为空");
             }
-            
+
             if (side == null || (!side.equalsIgnoreCase("buy") && !side.equalsIgnoreCase("sell"))) {
                 return com.okx.trading.util.ApiResponse.error(400, "交易方向必须为buy或sell");
             }
-            
+
             // 从runningStrategies获取策略状态
             RealTimeStrategyEntity state = realTimeStrategyManager.getRunningStrategies().get(strategyId);
             if (state == null) {
                 return com.okx.trading.util.ApiResponse.error(404, "策略不存在或未在运行中");
             }
-            
+
             // 获取最新价格
             Ticker ticker = okxApiService.getTicker(state.getSymbol());
             if (ticker == null) {
                 return com.okx.trading.util.ApiResponse.error(500, "获取当前价格失败");
             }
-            
+
             // 组装Candlestick对象
             com.okx.trading.model.market.Candlestick candlestick = new com.okx.trading.model.market.Candlestick(ticker.getLastPrice());
             candlestick.setSymbol(state.getSymbol());
             candlestick.setIntervalVal(state.getInterval());
             candlestick.setOpenTime(LocalDateTime.now());
             candlestick.setCloseTime(LocalDateTime.now());
-            
+
             // 执行交易信号
             realTimeStrategyManager.executeTradeSignal(state, candlestick, side.toUpperCase());
-            
+
             return com.okx.trading.util.ApiResponse.success("交易信号执行成功：策略ID=" + strategyId + "，交易方向=" + side);
         } catch (Exception e) {
             log.error("执行交易信号失败: strategyId={}, side={}, error={}", strategyId, side, e.getMessage(), e);
