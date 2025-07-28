@@ -13,11 +13,14 @@ import com.okx.trading.strategy.StrategyRegisterCenter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.ta4j.core.Strategy;
+
+
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -557,6 +560,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
             statistics.put("totalProfitRate", "0.00%");
         }
 
+        // 计算当日数据
         //今天的开始时间
         LocalDateTime startTime = LocalDateTime.now().with(LocalTime.MIN);
         // 现在
@@ -565,6 +569,18 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         Double todayProfit = todayOrderList.stream().filter(order -> order.getSide().equals("SELL")).map(x -> x.getProfit().doubleValue()).reduce(Double::sum).get();
         statistics.put("todaysingalCount", todayOrderList.size());
         statistics.put("todayProfit", todayProfit);
+
+        // 计算收益排行
+        Map<String, Double> profitByStrategyName = allRunningStrategies.values().stream().collect(Collectors.groupingBy(x -> x.getStrategyName()))
+                .entrySet().stream().map(x -> Pair.of(x.getKey(), x.getValue().stream().map(y -> y.getTotalProfit()).reduce(Double::sum).get()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        Map<String, Double> profitByStrategySymbol = allRunningStrategies.values().stream().collect(Collectors.groupingBy(x -> x.getSymbol()))
+                .entrySet().stream().map(x -> Pair.of(x.getKey(), x.getValue().stream().map(y -> y.getTotalProfit()).reduce(Double::sum).get()))
+                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        statistics.put("profitByStrategyName", profitByStrategyName);
+        statistics.put("profitByStrategySymbol", profitByStrategySymbol);
+
+
 
         result.put("statistics", statistics);
         return result;
