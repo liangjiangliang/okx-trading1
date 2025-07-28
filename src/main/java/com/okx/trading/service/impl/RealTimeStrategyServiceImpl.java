@@ -1,8 +1,10 @@
 package com.okx.trading.service.impl;
 
+import com.okx.trading.model.entity.RealTimeOrderEntity;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
 import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.market.Ticker;
+import com.okx.trading.repository.RealTimeOrderRepository;
 import com.okx.trading.repository.RealTimeStrategyRepository;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RealTimeStrategyService;
@@ -21,6 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -39,15 +42,17 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
     private final RealTimeStrategyRepository realTimeStrategyRepository;
     private final RealTimeStrategyManager realTimeStrategyManager;
+    private final RealTimeOrderRepository realTimeOrderRepository;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final OkxApiService okxApiService;
 
     public RealTimeStrategyServiceImpl(RealTimeStrategyRepository realTimeStrategyRepository,
-                                       RealTimeStrategyManager realTimeStrategyManager,
-                                      @Lazy OkxApiService okxApiService) {
+                                       RealTimeStrategyManager realTimeStrategyManager, RealTimeOrderRepository realTimeOrderRepository,
+                                       @Lazy OkxApiService okxApiService) {
         this.realTimeStrategyRepository = realTimeStrategyRepository;
         this.realTimeStrategyManager = realTimeStrategyManager;
+        this.realTimeOrderRepository = realTimeOrderRepository;
         this.okxApiService = okxApiService;
     }
 
@@ -400,6 +405,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         // 统计指标
         BigDecimal totalEstimatedProfit = BigDecimal.ZERO;
         BigDecimal totalInvestmentAmount = BigDecimal.ZERO;
+        BigDecimal totalHlodingInvestmentAmount = BigDecimal.ZERO;
         BigDecimal totalRealizedProfit = BigDecimal.ZERO;
         int holdingStrategiesCount = 0;
         int runningStrategiesCount = 0;
@@ -461,6 +467,8 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
 
                         // 累加预估收益到总预估收益
                         totalEstimatedProfit = totalEstimatedProfit.add(new BigDecimal(estimatedProfit));
+
+                        totalHlodingInvestmentAmount = totalHlodingInvestmentAmount.add(BigDecimal.valueOf(strategy.getTradeAmount()));
 
                         // 计算持仓时长
                         Duration holdingDuration = Duration.between(strategy.getLastTradeTime(), LocalDateTime.now());
@@ -533,6 +541,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         statistics.put("totalEstimatedProfit", totalEstimatedProfit.setScale(8, RoundingMode.HALF_UP));
         statistics.put("totalRealizedProfit", totalRealizedProfit.setScale(8, RoundingMode.HALF_UP));
         statistics.put("totalInvestmentAmount", totalInvestmentAmount.setScale(8, RoundingMode.HALF_UP));
+        statistics.put("totalHlodingInvestmentAmount", totalHlodingInvestmentAmount.setScale(8, RoundingMode.HALF_UP));
         statistics.put("holdingStrategiesCount", holdingStrategiesCount);
         statistics.put("runningStrategiesCount", runningStrategiesCount);
 
@@ -547,6 +556,15 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         } else {
             statistics.put("totalProfitRate", "0.00%");
         }
+
+        //今天的开始时间
+        LocalDateTime startTime = LocalDateTime.now().with(LocalTime.MIN);
+        // 现在
+        LocalDateTime endTime = LocalDateTime.now();
+        List<RealTimeOrderEntity> todayOrderList = realTimeOrderRepository.findByCreateTimeBetweenOrderByCreateTimeDesc(startTime, endTime);
+        Double todayProfit = todayOrderList.stream().filter(order -> order.getSide().equals("SELL")).map(x -> x.getProfit().doubleValue()).reduce(Double::sum).get();
+        statistics.put("todaysingalCount", todayOrderList.size());
+        statistics.put("todayProfit", todayProfit);
 
         result.put("statistics", statistics);
         return result;
