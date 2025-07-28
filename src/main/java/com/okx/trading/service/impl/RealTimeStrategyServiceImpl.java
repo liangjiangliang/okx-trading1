@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.ta4j.core.Strategy;
 
 
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -566,7 +565,7 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
         // 现在
         LocalDateTime endTime = LocalDateTime.now();
         List<RealTimeOrderEntity> todayOrderList = realTimeOrderRepository.findByCreateTimeBetweenOrderByCreateTimeDesc(startTime, endTime);
-        Double todayProfit = todayOrderList.stream().filter(order -> order.getSide().equals("SELL")).map(x -> x.getProfit().doubleValue()).reduce(Double::sum).get();
+        Double todayProfit = todayOrderList.stream().filter(order -> order.getSide().equals("SELL")).map(x -> x.getProfit().doubleValue()).reduce(Double::sum).orElseGet(() -> 0.0);
         statistics.put("todaysingalCount", todayOrderList.size());
         statistics.put("todayProfit", todayProfit);
 
@@ -579,7 +578,6 @@ public class RealTimeStrategyServiceImpl implements RealTimeStrategyService {
                 .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
         statistics.put("profitByStrategyName", profitByStrategyName);
         statistics.put("profitByStrategySymbol", profitByStrategySymbol);
-
 
 
         result.put("statistics", statistics);
