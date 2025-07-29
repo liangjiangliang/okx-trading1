@@ -4,12 +4,13 @@ import com.okx.trading.config.NotificationConfig;
 import com.okx.trading.event.WebSocketReconnectEvent;
 import com.okx.trading.event.WebSocketReconnectEvent.ReconnectType;
 import com.okx.trading.model.entity.RealTimeStrategyEntity;
-import com.okx.trading.model.market.Candlestick;
 import com.okx.trading.model.trade.Order;
 import com.okx.trading.service.NotificationService;
 import com.okx.trading.service.OkxApiService;
+import com.okx.trading.service.RealTimeStrategyService;
 import com.okx.trading.strategy.RealTimeStrategyManager;
 import com.okx.trading.util.WebSocketUtil;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +19,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -28,14 +28,13 @@ import org.springframework.stereotype.Service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
+import java.util.stream.Stream;
 
 /**
  * 邮件通知服务实现
@@ -59,7 +58,12 @@ public class EmailNotificationServiceImpl implements NotificationService {
     private OkxApiService okxApiService;
 
     @Autowired
+    @Lazy
     private RealTimeStrategyManager realTimeStrategyManager;
+
+    @Autowired
+    @Lazy
+    private RealTimeStrategyService realTimeStrategyService;
 
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
@@ -87,9 +91,11 @@ public class EmailNotificationServiceImpl implements NotificationService {
     private String fromEmail;
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+
     @Autowired
     private WebSocketUtil webSocketUtil;
-
 
     public EmailNotificationServiceImpl(RealTimeStrategyManager realTimeStrategyManager) {
         this.realTimeStrategyManager = realTimeStrategyManager;
@@ -527,4 +533,284 @@ public class EmailNotificationServiceImpl implements NotificationService {
             log.error("发送告警邮件失败", e);
         }
     }
+
+    /**
+     * 定时任务，每小时执行一次，检查当前时间是否是配置的发送时间点之一，如果是则发送策略状态邮件
+     */
+    @Override
+    @Scheduled(cron = "0 0 * * * ?") // 每小时整点执行
+    public void sendStrategyStateEmail() {
+        if (!notificationConfig.isStrategyStateEmailEnabled()) {
+            log.debug("策略状态邮件发送功能未启用");
+            return;
+        }
+
+        int currentHour = LocalDateTime.now().getHour();
+        List<Integer> emailHours = notificationConfig.getStrategyStateEmailHoursList();
+
+        if (emailHours.contains(currentHour)) {
+            log.info("当前时间{}点，开始发送策略状态邮件...", currentHour);
+            sendStrategyStateEmailContent();
+        }
+    }
+
+    /**
+     * 调用RealTimeStrategyService#realTimeStrategiesState方法获取策略状态并发送邮件
+     */
+    private void sendStrategyStateEmailContent() {
+        try {
+            Map<String, Object> strategyState = realTimeStrategyService.realTimeStrategiesState();
+
+            if (strategyState == null) {
+                log.warn("获取策略状态失败，无法发送邮件");
+                return;
+            }
+
+            String subject = String.format("[策略状态] %s 实时策略运行状态汇总", LocalDateTime.now().format(DATE_FORMATTER));
+            String content = buildStrategyStateEmailContent(strategyState);
+
+            sendEmail(notificationConfig.getEmailRecipient(), subject, content);
+            log.info("策略状态邮件发送成功");
+        } catch (Exception e) {
+            log.error("发送策略状态邮件失败", e);
+        }
+    }
+
+    /**
+     * 构建策略状态邮件内容
+     *
+     * @param strategyState 策略状态数据
+     * @return HTML格式的邮件内容
+     */
+    private String buildStrategyStateEmailContent(Map<String, Object> strategyState) {
+        StringBuilder content = new StringBuilder();
+        content.append("<div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;'>");
+        content.append("<h2 style='color: #333;'>实时策略运行状态汇总</h2>");
+        content.append("<div style='background-color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>");
+
+        // 添加统计信息
+        appendStatisticsSection(content, strategyState);
+
+        // 添加前三名和后三名策略
+        appendTopStrategiesSection(content, strategyState);
+
+        content.append("</div>");
+        content.append("<p style='font-size: 12px; color: #666; margin-top: 20px;'>此邮件由系统自动发送，请勿回复。</p>");
+        content.append("</div>");
+
+        return content.toString();
+    }
+
+    /**
+     * 添加统计信息区域
+     */
+    @SuppressWarnings("unchecked")
+    private void appendStatisticsSection(StringBuilder content, Map<String, Object> strategyState) {
+        Map<String, Object> statistics = (Map<String, Object>) strategyState.get("statistics");
+
+        if (statistics != null) {
+            content.append("<h3 style='color: #0066cc;'>总体统计信息</h3>");
+            content.append("<table style='border-collapse: collapse; width: 100%; margin: 15px 0;'>");
+            content.append("<tr style='background-color: #f2f2f2;'>");
+            content.append("<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>指标</th>");
+            content.append("<th style='padding: 8px; text-align: right; border: 1px solid #ddd;'>数值</th>");
+            content.append("</tr>");
+
+            // 总策略数
+            appendStatisticsRow(content, "运行中策略数", statistics.get("runningStrategiesCount"));
+
+            // 持仓策略数
+            appendStatisticsRow(content, "持仓中策略数", statistics.get("holdingStrategiesCount"));
+
+            // 总投资金额
+            appendStatisticsRow(content, "总投资金额", statistics.get("totalInvestmentAmount") + " USDT");
+
+            // 持仓投资金额
+            appendStatisticsRow(content, "持仓投资金额", statistics.get("totalHlodingInvestmentAmount") + " USDT");
+
+            // 预估收益
+            appendStatisticsRow(content, "预估收益", statistics.get("totalEstimatedProfit") + " USDT");
+
+            // 已实现收益
+            appendStatisticsRow(content, "已实现收益", statistics.get("totalRealizedProfit") + " USDT");
+
+            // 总收益
+            Object totalProfit = statistics.get("totalProfit");
+            String totalProfitClass = isFontColorRed(totalProfit) ? "profit-positive" : "profit-negative";
+            appendStatisticsRow(content, "总收益", totalProfit + " USDT", totalProfitClass);
+
+            // 总收益率
+            Object totalProfitRate = statistics.get("totalProfitRate");
+            String totalProfitRateClass = isFontColorRed(totalProfitRate) ? "profit-positive" : "profit-negative";
+            appendStatisticsRow(content, "总收益率", totalProfitRate, totalProfitRateClass);
+
+            // 今日信号数
+            appendStatisticsRow(content, "今日信号数", statistics.get("todaysingalCount"));
+
+            // 今日收益
+            Object todayProfit = statistics.get("todayProfit");
+            String todayProfitClass = todayProfit instanceof Number && ((Number) todayProfit).doubleValue() >= 0 ? "profit-positive" : "profit-negative";
+            appendStatisticsRow(content, "今日收益", todayProfit + " USDT", todayProfitClass);
+
+            content.append("</table>");
+        }
+    }
+
+    /**
+     * 判断是否应该显示为红色字体
+     */
+    private boolean isFontColorRed(Object value) {
+        if (value instanceof BigDecimal) {
+            return ((BigDecimal) value).compareTo(BigDecimal.ZERO) >= 0;
+        } else if (value instanceof Number) {
+            return ((Number) value).doubleValue() >= 0;
+        } else if (value instanceof String) {
+            String strValue = (String) value;
+            if (strValue.endsWith("%")) {
+                strValue = strValue.substring(0, strValue.length() - 1);
+            }
+            try {
+                return Double.parseDouble(strValue) >= 0;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 添加统计行
+     */
+    private void appendStatisticsRow(StringBuilder content, String label, Object value) {
+        appendStatisticsRow(content, label, value, null);
+    }
+
+    /**
+     * 添加统计行（带样式）
+     */
+    private void appendStatisticsRow(StringBuilder content, String label, Object value, String valueClass) {
+        content.append("<tr>");
+        content.append("<td style='padding: 8px; border: 1px solid #ddd;'>").append(label).append("</td>");
+
+        String style = "";
+        if (valueClass != null) {
+            if ("profit-positive".equals(valueClass)) {
+                style = " style='color: #ff4444; font-weight: bold;'";
+            } else if ("profit-negative".equals(valueClass)) {
+                style = " style='color: #00aa00; font-weight: bold;'";
+            }
+        }
+
+        content.append("<td style='padding: 8px; text-align: right; border: 1px solid #ddd;'><span")
+                .append(style).append(">").append(value).append("</span></td>");
+        content.append("</tr>");
+    }
+
+    /**
+     * 添加策略排名区域
+     */
+    @SuppressWarnings("unchecked")
+    private void appendTopStrategiesSection(StringBuilder content, Map<String, Object> strategyState) {
+        Map<String, Object> statistics = (Map<String, Object>) strategyState.get("statistics");
+
+        if (statistics != null && statistics.get("profitByStrategyName") != null) {
+            Map<String, Double> profitByStrategyName = (Map<String, Double>) statistics.get("profitByStrategyName");
+
+            // 按收益降序排序
+            List<Map.Entry<String, Double>> sortedEntries = profitByStrategyName.entrySet().stream()
+                    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                    .collect(Collectors.toList());
+
+            // 获取前三名和后三名
+            List<Map.Entry<String, Double>> topThree = sortedEntries.stream()
+                    .limit(3)
+                    .collect(Collectors.toList());
+
+            List<Map.Entry<String, Double>> bottomThree = sortedEntries.stream()
+                    .sorted(Map.Entry.<String, Double>comparingByValue())
+                    .limit(3)
+                    .collect(Collectors.toList());
+
+            // 合并前三名和后三名
+            List<Map.Entry<String, Double>> combinedList = Stream.concat(topThree.stream(), bottomThree.stream())
+                    .distinct()
+                    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                    .collect(Collectors.toList());
+
+            // 显示策略排名
+            content.append("<h3 style='color: #0066cc;'>策略收益排名（前三名 + 后三名）</h3>");
+            content.append("<table style='border-collapse: collapse; width: 100%; margin: 15px 0;'>");
+            content.append("<tr style='background-color: #f2f2f2;'>");
+            content.append("<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>策略名称</th>");
+            content.append("<th style='padding: 8px; text-align: right; border: 1px solid #ddd;'>收益 (USDT)</th>");
+            content.append("</tr>");
+
+            for (Map.Entry<String, Double> entry : combinedList) {
+                String valueStyle = entry.getValue() >= 0 ?
+                        " style='color: #ff4444; font-weight: bold;'" :
+                        " style='color: #00aa00; font-weight: bold;'";
+
+                content.append("<tr>");
+                content.append("<td style='padding: 8px; border: 1px solid #ddd;'>").append(entry.getKey()).append("</td>");
+                content.append("<td style='padding: 8px; text-align: right; border: 1px solid #ddd;'><span")
+                        .append(valueStyle).append(">").append(entry.getValue()).append("</span></td>");
+                content.append("</tr>");
+            }
+
+            content.append("</table>");
+
+            // 按交易对显示收益排名
+            if (statistics.get("profitByStrategySymbol") != null) {
+                Map<String, Double> profitByStrategySymbol = (Map<String, Double>) statistics.get("profitByStrategySymbol");
+
+                List<Map.Entry<String, Double>> sortedSymbols = profitByStrategySymbol.entrySet().stream()
+                        .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                        .collect(Collectors.toList());
+
+                content.append("<h3 style='color: #0066cc;'>交易对收益排名</h3>");
+                content.append("<table style='border-collapse: collapse; width: 100%; margin: 15px 0;'>");
+                content.append("<tr style='background-color: #f2f2f2;'>");
+                content.append("<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>交易对</th>");
+                content.append("<th style='padding: 8px; text-align: right; border: 1px solid #ddd;'>收益 (USDT)</th>");
+                content.append("</tr>");
+
+                for (Map.Entry<String, Double> entry : sortedSymbols) {
+                    String valueStyle = entry.getValue() >= 0 ?
+                            " style='color: #ff4444; font-weight: bold;'" :
+                            " style='color: #00aa00; font-weight: bold;'";
+
+                    content.append("<tr>");
+                    content.append("<td style='padding: 8px; border: 1px solid #ddd;'>").append(entry.getKey()).append("</td>");
+                    content.append("<td style='padding: 8px; text-align: right; border: 1px solid #ddd;'><span")
+                            .append(valueStyle).append(">").append(entry.getValue()).append("</span></td>");
+                    content.append("</tr>");
+                }
+
+                content.append("</table>");
+            }
+        }
+    }
+
+    /**
+     * 在应用启动时发送一次策略状态邮件通知
+     * 使用异步方式避免阻塞应用启动过程
+     */
+//    @PostConstruct
+//    @Async
+//    public void sendInitialStatusEmail() {
+//        try {
+//            // 延迟一定时间，确保所有服务都已经完全初始化
+//            Thread.sleep(30000); // 延迟30秒
+//
+//            if (!notificationConfig.isStrategyStateEmailEnabled()) {
+//                log.info("策略状态邮件功能未启用，跳过启动时发送");
+//                return;
+//            }
+//
+//            log.info("应用启动完成，发送初始策略状态邮件...");
+//            sendStrategyStateEmailContent();
+//        } catch (Exception e) {
+//            log.error("在应用启动时发送策略状态邮件失败", e);
+//        }
+//    }
 }

@@ -41,4 +41,6 @@ public interface NotificationService {
     public void updateLatestPrice(String symbol, BigDecimal price);
 
     public void monitorPrice();
+
+    public void sendStrategyStateEmail();
 }
