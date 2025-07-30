@@ -813,7 +813,7 @@ public class OkxApiRestServiceImpl implements OkxApiService{
 
                 // 计算24小时价格变动百分比
                 if (open24h.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal changePercent = priceChange.multiply(BigDecimalUtil.safeGen("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
+                    BigDecimal changePercent = priceChange.multiply(new BigDecimal("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
                     ticker.setPriceChangePercent(changePercent);
                 } else {
                     ticker.setPriceChangePercent(BigDecimal.ZERO);

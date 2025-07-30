@@ -973,7 +973,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             BigDecimal last = BigDecimalUtil.safeGen(tickerData.getString("last"));
             if (open.compareTo(BigDecimal.ZERO) > 0) {
                 ticker.setPriceChange(last.subtract(open));
-                ticker.setPriceChangePercent(last.subtract(open).divide(open, 4, BigDecimal.ROUND_HALF_UP).multiply(BigDecimalUtil.safeGen("100")));
+                ticker.setPriceChangePercent(last.subtract(open).divide(open, 4, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("100")));
             }
         }
 
