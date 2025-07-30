@@ -616,23 +616,31 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<th style='padding: 8px; text-align: right; border: 1px solid #ddd;'>数值</th>");
             content.append("</tr>");
 
-            // 总策略数
-            appendStatisticsRow(content, "运行中策略数", statistics.get("runningStrategiesCount"));
+            // 今日收益
+            Object todayProfit = statistics.get("todayProfit");
+            String todayProfitClass = todayProfit instanceof Number && ((Number) todayProfit).doubleValue() >= 0 ? "profit-positive" : "profit-negative";
+            appendStatisticsRow(content, "今日收益", todayProfit + " USDT", todayProfitClass);
 
-            // 持仓策略数
-            appendStatisticsRow(content, "持仓中策略数", statistics.get("holdingStrategiesCount"));
-
-            // 总投资金额
-            appendStatisticsRow(content, "总投资金额", statistics.get("totalInvestmentAmount") + " USDT");
-
-            // 持仓投资金额
-            appendStatisticsRow(content, "持仓投资金额", statistics.get("totalHlodingInvestmentAmount") + " USDT");
+            // 今日信号数
+            appendStatisticsRow(content, "今日信号数", statistics.get("todaysingalCount"));
 
             // 预估收益
             appendStatisticsRow(content, "预估收益", statistics.get("totalEstimatedProfit") + " USDT");
 
             // 已实现收益
             appendStatisticsRow(content, "已实现收益", statistics.get("totalRealizedProfit") + " USDT");
+
+            // 持仓策略数
+            appendStatisticsRow(content, "持仓中策略数", statistics.get("holdingStrategiesCount"));
+
+            // 总策略数
+            appendStatisticsRow(content, "运行中策略数", statistics.get("runningStrategiesCount"));
+
+            // 持仓投资金额
+            appendStatisticsRow(content, "持仓投资金额", statistics.get("totalHlodingInvestmentAmount") + " USDT");
+
+            // 总投资金额
+            appendStatisticsRow(content, "总投资金额", statistics.get("totalInvestmentAmount") + " USDT");
 
             // 总收益
             Object totalProfit = statistics.get("totalProfit");
@@ -643,14 +651,6 @@ public class EmailNotificationServiceImpl implements NotificationService {
             Object totalProfitRate = statistics.get("totalProfitRate");
             String totalProfitRateClass = isFontColorRed(totalProfitRate) ? "profit-positive" : "profit-negative";
             appendStatisticsRow(content, "总收益率", totalProfitRate, totalProfitRateClass);
-
-            // 今日信号数
-            appendStatisticsRow(content, "今日信号数", statistics.get("todaysingalCount"));
-
-            // 今日收益
-            Object todayProfit = statistics.get("todayProfit");
-            String todayProfitClass = todayProfit instanceof Number && ((Number) todayProfit).doubleValue() >= 0 ? "profit-positive" : "profit-negative";
-            appendStatisticsRow(content, "今日收益", todayProfit + " USDT", todayProfitClass);
 
             content.append("</table>");
         }
