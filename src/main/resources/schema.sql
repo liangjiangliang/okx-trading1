@@ -1,248 +1,319 @@
-CREATE DATABASE IF NOT EXISTS `okx_trading`;
+create table backtest_equity_curve
+(id             bigint auto_increment primary key,
+ backtest_id    varchar(255)   not null,
+ timestamp      datetime       not null,
+ equity_value   decimal(20, 8) not null,
+ index_position int            null) comment '回测资金曲线数据表' collate = utf8mb4_unicode_ci;
 
--- 回测结果表
-CREATE TABLE IF NOT EXISTS `backtest_summary`
-(`id`                  bigint         NOT NULL AUTO_INCREMENT,
- `average_profit`      decimal(10, 4) DEFAULT NULL COMMENT '平均利润',
- `backtest_id`         varchar(255)   NOT NULL,
- `create_time`         datetime       DEFAULT NULL,
- `end_time`            datetime       DEFAULT NULL,
- `final_amount`        decimal(20, 8) DEFAULT NULL COMMENT '最终金额',
- `initial_amount`      decimal(20, 8) NOT NULL COMMENT '初始金额',
- `interval_val`        varchar(255)   NOT NULL COMMENT 'K线间隔',
- `max_drawdown`        decimal(10, 4) DEFAULT NULL COMMENT '最大回撤',
- `number_of_trades`    int            DEFAULT NULL COMMENT '交易次数',
- `profitable_trades`   int            DEFAULT NULL COMMENT '盈利交易次数',
- `sharpe_ratio`        decimal(10, 4) DEFAULT NULL COMMENT '夏普比率（收益与风险的比值）',
- `start_time`          datetime       DEFAULT NULL,
- `strategy_name`       varchar(255)   NOT NULL,
- `strategy_code`       varchar(150)   DEFAULT NULL COMMENT '策略代码',
- `strategy_params`     varchar(255)   DEFAULT NULL COMMENT '策略参数',
- `symbol`              varchar(255)   NOT NULL COMMENT '交易对',
- `total_profit`        decimal(20, 8) DEFAULT NULL COMMENT '总利润',
- `total_return`        decimal(10, 4) DEFAULT NULL COMMENT '总收益率',
- `unprofitable_trades` int            DEFAULT NULL COMMENT '非盈利交易次数',
- `win_rate`            decimal(10, 4) DEFAULT NULL COMMENT '胜率',
- `total_fee`           decimal(20, 8) DEFAULT NULL COMMENT '总费用',
- `batch_backtest_id`   varchar(255)   DEFAULT NULL COMMENT '批次回测ID',
- `annualized_return`   decimal(10, 4) DEFAULT NULL COMMENT '年化收益率',
- `calmar_ratio`        decimal(10, 4) DEFAULT NULL COMMENT 'Calmar比率（收益与风险的比值）',
- `maximum_loss`        decimal(20, 8) DEFAULT NULL COMMENT '最大亏损',
- `sortino_ratio`       decimal(10, 4) DEFAULT NULL COMMENT 'Sortino比率（收益与风险的比值）',
- `volatility`          decimal(10, 4) DEFAULT NULL COMMENT '波动率（收益波动程度）',
- `omega`               decimal(10, 4) DEFAULT NULL COMMENT 'Omega比率（收益与风险的比值）',
- `alpha`               decimal(10, 4) DEFAULT NULL COMMENT 'Alpha值（超额收益）',
- `beta`                decimal(10, 4) DEFAULT NULL COMMENT 'Beta值（系统性风险）',
- `treynor_ratio`       decimal(10, 4) DEFAULT NULL COMMENT 'Treynor比率（风险调整收益指标）',
- `ulcer_index`         decimal(10, 4) DEFAULT NULL COMMENT 'Ulcer指数（回撤深度和持续时间的综合指标）',
- `skewness`            decimal(10, 4) DEFAULT NULL COMMENT '偏度（收益分布的偏斜程度）',
- `profit_factor`       decimal(10, 4) DEFAULT NULL COMMENT '盈利因子（总盈利/总亏损）',
- `comprehensive_score` decimal(3, 2)  DEFAULT NULL COMMENT '综合评分 (0-10分)',
- `kurtosis`            decimal(10, 4) DEFAULT NULL COMMENT '峰度（收益率分布的尾部风险）',
- `cvar`                decimal(10, 4) DEFAULT NULL COMMENT '条件风险价值（极端损失的期望值）',
- `var95`               decimal(10, 4) DEFAULT NULL COMMENT '95%置信度下的风险价值',
- `var99`               decimal(10, 4) DEFAULT NULL COMMENT '99%置信度下的风险价值',
- `information_ratio`   decimal(10, 4) DEFAULT NULL COMMENT '信息比率（超额收益相对于跟踪误差的比率）',
- `tracking_error`      decimal(10, 4) DEFAULT NULL COMMENT '跟踪误差（策略与基准收益率的标准差）',
- `sterling_ratio`      decimal(10, 4) DEFAULT NULL COMMENT 'Sterling比率（年化收益与平均最大回撤的比率）',
- `burke_ratio`         decimal(10, 4) DEFAULT NULL COMMENT 'Burke比率（年化收益与平方根回撤的比率）',
- `modified_sharpe_ratio` decimal(10, 4) DEFAULT NULL COMMENT '修正夏普比率（考虑偏度和峰度的夏普比率）',
- `downside_deviation`  decimal(10, 4) DEFAULT NULL COMMENT '下行偏差（只考虑负收益的标准差）',
- `uptrend_capture`     decimal(10, 4) DEFAULT NULL COMMENT '上涨捕获率（基准上涨时策略的表现）',
- `downtrend_capture`   decimal(10, 4) DEFAULT NULL COMMENT '下跌捕获率（基准下跌时策略的表现）',
- `max_drawdown_duration` decimal(10, 2) DEFAULT NULL COMMENT '最大回撤持续期（从峰值到恢复的最长时间）',
- `pain_index`          decimal(10, 4) DEFAULT NULL COMMENT '痛苦指数（回撤深度与持续时间的综合指标）',
- `risk_adjusted_return` decimal(10, 4) DEFAULT NULL COMMENT '风险调整收益（综合多种风险因素的收益评估）',
- PRIMARY KEY (`id`),
- UNIQUE KEY `UK_pejcjjk0mdb200ay5mffbomkt` (`backtest_id`),
- KEY `idx_backtest_summary_omega` (`omega`),
- KEY `idx_backtest_summary_alpha` (`alpha`),
- KEY `idx_backtest_summary_beta` (`beta`),
- KEY `idx_backtest_summary_profit_factor` (`profit_factor`),
- KEY `idx_backtest_summary_comprehensive_score` (`comprehensive_score`),
- KEY `idx_backtest_summary_information_ratio` (`information_ratio`),
- KEY `idx_backtest_summary_modified_sharpe_ratio` (`modified_sharpe_ratio`),
- KEY `idx_backtest_summary_pain_index` (`pain_index`)) ENGINE = InnoDB
-                                                             AUTO_INCREMENT = 236
-                                                             DEFAULT CHARSET = utf8mb4
-                                                             COLLATE = utf8mb4_0900_ai_ci;
+create index idx_backtest_id on backtest_equity_curve (backtest_id);
 
--- 交易记录表
-CREATE TABLE IF NOT EXISTS `backtest_trade`
-(id                          bigint       NOT NULL AUTO_INCREMENT COMMENT '自增主键ID',
- `backtest_id`               varchar(255) NOT NULL COMMENT '关联的回测任务ID',
- closed                      bit(1)         DEFAULT NULL COMMENT '交易是否已关闭，0表示未关闭，1表示已关闭',
- `create_time`               datetime       DEFAULT NULL COMMENT '记录创建时间',
- `entry_amount`              decimal(20, 8) DEFAULT NULL COMMENT '建仓金额',
- `entry_position_percentage` decimal(10, 4) DEFAULT NULL COMMENT '建仓仓位百分比',
- `entry_price`               decimal(20, 8) DEFAULT NULL COMMENT '建仓价格',
- `entry_time`                datetime       DEFAULT NULL COMMENT '建仓时间',
- `exit_amount`               decimal(20, 8) DEFAULT NULL COMMENT '平仓金额',
- `exit_price`                decimal(20, 8) DEFAULT NULL COMMENT '平仓价格',
- `exit_time`                 datetime       DEFAULT NULL COMMENT '平仓时间',
- fee                         decimal(20, 8) DEFAULT NULL COMMENT '手续费',
- `trade_index`               int            DEFAULT NULL COMMENT '交易索引序号',
- `max_drawdown`              decimal(10, 4) DEFAULT NULL COMMENT '最大回撤',
- `max_loss`                  decimal(10, 4) DEFAULT NULL COMMENT '最大亏损',
- profit                      decimal(20, 8) DEFAULT NULL COMMENT '利润',
- `profit_percentage`         decimal(10, 4) DEFAULT NULL COMMENT '利润率百分比',
- remark                      varchar(500)   DEFAULT NULL COMMENT '备注信息',
- `strategy_name`             varchar(255) NOT NULL COMMENT '策略名称',
- `strategy_code`             varchar(150)   DEFAULT NULL COMMENT '策略代码',
- `strategy_params`           varchar(255)   DEFAULT NULL COMMENT '策略参数',
- symbol                      varchar(255) NOT NULL COMMENT '交易对符号，如BTC-USDT',
- `total_assets`              decimal(20, 8) DEFAULT NULL COMMENT '总资产',
- `trade_type`                varchar(255) NOT NULL COMMENT '交易类型，例如做多（LONG）或做空（SHORT）',
- volume                      decimal(20, 8) DEFAULT NULL COMMENT '成交量/交易数量',
- PRIMARY KEY (id)) ENGINE = InnoDB
-                   AUTO_INCREMENT = 3795
-                   DEFAULT CHARSET = utf8mb4
-                   COLLATE = utf8mb4_0900_ai_ci;
+create index idx_timestamp on backtest_equity_curve (timestamp);
 
--- 创建K线历史数据表
-CREATE TABLE IF NOT EXISTS `candlestick_history`
-(`id`           BIGINT      NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键ID',
- `symbol`       VARCHAR(20) NOT NULL COMMENT '交易对，如BTC-USDT',
-    `interval_val` VARCHAR(10) NOT NULL COMMENT 'K线间隔，如1m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W, 1M',
-    `open_time`    DATETIME    NOT NULL COMMENT '开盘时间',
-    `close_time`   DATETIME COMMENT '收盘时间',
-    `open`         DECIMAL(30, 15) COMMENT '开盘价',
-    `high`         DECIMAL(30, 15) COMMENT '最高价',
-    `low`          DECIMAL(30, 15) COMMENT '最低价',
-    `close`        DECIMAL(30, 15) COMMENT '收盘价',
-    `volume`       DECIMAL(30, 15) COMMENT '成交量',
-    `quote_volume` DECIMAL(30, 15) COMMENT '成交额',
-    `trades`       BIGINT COMMENT '成交笔数',
-    `fetch_time`   DATETIME COMMENT '数据获取时间',
-    UNIQUE KEY `idx_symbol_interval_opentime` (`symbol`, `interval_val`, `open_time`),
-    INDEX `idx_symbol_interval` (`symbol`, `interval_val`),
-    INDEX `idx_open_time` (`open_time`)) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4 COMMENT ='历史K线数据';
+create table backtest_summary
+(id                    bigint auto_increment primary key,
+ average_profit        decimal(10, 4) null,
+ backtest_id           varchar(255)   not null,
+ create_time           datetime       null,
+ end_time              datetime       null,
+ final_amount          decimal(20, 8) null,
+ initial_amount        decimal(20, 8) not null,
+ interval_val          varchar(255)   not null,
+ max_drawdown          decimal(10, 4) null,
+ max_drawdown_period   decimal(10, 4) null,
+ number_of_trades      int            null,
+ profitable_trades     int            null,
+ sharpe_ratio          decimal(10, 4) null,
+ start_time            datetime       null,
+ strategy_name         varchar(255)   not null,
+ strategy_code         varchar(255)   not null,
+ strategy_params       varchar(255)   null,
+ symbol                varchar(255)   not null,
+ total_profit          decimal(20, 8) null,
+ total_return          decimal(10, 4) null,
+ unprofitable_trades   int            null,
+ win_rate              decimal(10, 4) null,
+ total_fee             decimal(20, 8) null,
+ batch_backtest_id     varchar(255)   null,
+ annualized_return     decimal(10, 4) null,
+ calmar_ratio          decimal(10, 4) null,
+ maximum_loss          decimal(20, 8) null,
+ maximum_loss_period   decimal(20, 8) null,
+ sortino_ratio         decimal(10, 4) null,
+ volatility            decimal(10, 4) null,
+ omega                 decimal(10, 4) null comment 'Omega比率（收益与风险的比值）',
+ alpha                 decimal(10, 4) null comment 'Alpha值（超额收益）',
+ beta                  decimal(10, 4) null comment 'Beta值（系统性风险）',
+ treynor_ratio         decimal(10, 4) null comment 'Treynor比率（风险调整收益指标）',
+ ulcer_index           decimal(10, 4) null comment 'Ulcer指数（回撤深度和持续时间的综合指标）',
+ skewness              decimal(10, 4) null comment '偏度（收益分布的偏斜程度）',
+ profit_factor         decimal(10, 4) null comment '盈利因子（总盈利/总亏损）',
+ burke_ratio           decimal(10, 4) null,
+ comprehensive_score   decimal(3, 2)  null,
+ cvar                  decimal(10, 4) null,
+ downside_deviation    decimal(10, 4) null,
+ downtrend_capture     decimal(10, 4) null,
+ information_ratio     decimal(10, 4) null,
+ kurtosis              decimal(10, 4) null,
+ max_drawdown_duration decimal(10, 2) null,
+ modified_sharpe_ratio decimal(10, 4) null,
+ pain_index            decimal(10, 4) null,
+ risk_adjusted_return  decimal(10, 4) null,
+ sterling_ratio        decimal(10, 4) null,
+ tracking_error        decimal(10, 4) null,
+ uptrend_capture       decimal(10, 4) null,
+ var95                 decimal(10, 4) null,
+ var99                 decimal(10, 4) null,
+ is_real               int default -1 null,
+ constraint UK_pejcjjk0mdb200ay5mffbomkt unique (backtest_id));
 
--- 创建指标分布表
-CREATE TABLE IF NOT EXISTS `indicator_distribution`
-(`id`                     BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
- `indicator_name`         VARCHAR(100) NOT NULL COMMENT '指标名称',
-    `indicator_display_name` VARCHAR(100)          DEFAULT NULL COMMENT '指标中文名称',
-    `indicator_type`         VARCHAR(20)  NOT NULL COMMENT '指标类型: POSITIVE(越大越好), NEGATIVE(越小越好), NEUTRAL(中性)',
-    `sample_count`           INT          NOT NULL COMMENT '样本总数',
-    `min_value`              DECIMAL(20, 8)        DEFAULT NULL COMMENT '最小值',
-    `max_value`              DECIMAL(20, 8)        DEFAULT NULL COMMENT '最大值',
-    `avg_value`              DECIMAL(20, 8)        DEFAULT NULL COMMENT '平均值',
-    `p10`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '10%分位数',
-    `p20`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '20%分位数',
-    `p30`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '30%分位数',
-    `p40`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '40%分位数',
-    `p50`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '50%分位数(中位数)',
-    `p60`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '60%分位数',
-    `p70`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '70%分位数',
-    `p80`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '80%分位数',
-    `p90`                    DECIMAL(20, 8)        DEFAULT NULL COMMENT '90%分位数',
-    `create_time`            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `version`                BIGINT       NOT NULL COMMENT '版本号',
-    `is_current`             BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '是否为当前版本',
+create index backtest_summary__index on backtest_summary (total_return);
 
-    -- 索引
-    INDEX `idx_indicator_name` (`indicator_name`),
-    INDEX `idx_indicator_current` (`indicator_name`, `is_current`),
-    INDEX `idx_version` (`version`),
-    INDEX `idx_is_current` (`is_current`),
-    UNIQUE INDEX `idx_indicator_version` (`indicator_name`, `version`)) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4
-    COLLATE = utf8mb4_unicode_ci COMMENT ='指标分布表 - 存储各个指标的分位数分布信息';
+create index backtest_summary_annualized_return_index on backtest_summary (annualized_return);
 
--- 创建实时订单表
-CREATE TABLE IF NOT EXISTS `real_time_orders`
-(`id`                bigint      NOT NULL AUTO_INCREMENT COMMENT '自增主键ID',
- `amount`            decimal(20, 8) DEFAULT NULL COMMENT '订单总金额',
- `client_order_id` varchar(50)    DEFAULT NULL COMMENT '客户端订单ID',
- `create_time`     datetime(6) NOT NULL COMMENT '订单创建时间',
- `executed_amount` decimal(20, 8) DEFAULT NULL COMMENT '已执行金额',
- `executed_qty`    decimal(20, 8) DEFAULT NULL COMMENT '已执行数量',
- `fee`               decimal(20, 8) DEFAULT NULL COMMENT '交易手续费',
- `fee_currency`    varchar(10)    DEFAULT NULL COMMENT '手续费币种',
- `order_id`        varchar(50)    DEFAULT NULL COMMENT '交易所订单ID',
- `order_type`      varchar(10) NOT NULL COMMENT '订单类型，如LIMIT(限价单), MARKET(市价单)',
- `price`             decimal(20, 8) DEFAULT NULL COMMENT '订单价格',
- `quantity`          decimal(20, 8) DEFAULT NULL COMMENT '订单数量',
- `remark`           varchar(500)   DEFAULT NULL COMMENT '订单备注信息',
- `side`              varchar(10) NOT NULL COMMENT '交易方向：BUY(买入)/LONG，SELL/SHORT',
- `signal_price`    decimal(20, 8) DEFAULT NULL COMMENT '触发订单的信号价格',
- `signal_type`     varchar(20)    DEFAULT NULL COMMENT '触发订单的信号类型',
- `status`            varchar(20)    DEFAULT NULL COMMENT '订单状态：NEW(新订单), PARTIALLY_FILLED(部分成交), FILLED(完全成交), CANCELED(已取消), REJECTED(被拒)',
- `strategy_code`   varchar(50) NOT NULL COMMENT '关联策略代码',
- `symbol`            varchar(20) NOT NULL COMMENT '交易对符号，如BTC-USDT',
- `update_time`     datetime(6)    DEFAULT NULL COMMENT '订单最后更新时间',
- PRIMARY KEY (id)) ENGINE = InnoDB
-                   DEFAULT CHARSET = utf8mb4
-                   COLLATE = utf8mb4_0900_ai_ci;
+create index backtest_summary_batch_backtest_id_annualized_return_index on backtest_summary (batch_backtest_id, annualized_return);
 
--- 实时策略表
-CREATE TABLE IF NOT EXISTS `real_time_strategy`
-(`id`            BIGINT      NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键ID',
- `strategy_code` VARCHAR(50) NOT NULL UNIQUE COMMENT '实时策略唯一代码',
-    `symbol`        VARCHAR(20) NOT NULL COMMENT '交易对符号，如BTC-USDT',
-    `interval_val`  VARCHAR(10) NOT NULL COMMENT 'K线周期，如1m, 5m, 1h等',
-    `start_time`    DATETIME    NOT NULL COMMENT '策略运行开始时间',
-    `trade_amount`  DOUBLE COMMENT '交易金额',
-    `is_active`     BOOLEAN     NOT NULL DEFAULT TRUE COMMENT '是否有效/启用',
-    `status`        VARCHAR(20)          DEFAULT 'STOPPED' COMMENT '策略运行状态：RUNNING(运行中), STOPPED(已停止), COMPLETED(已完成), ERROR(错误)',
-    `error_message` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
-    `create_time`   DATETIME    NOT NULL COMMENT '创建时间',
-    `update_time`   DATETIME    NOT NULL COMMENT '更新时间',
-    INDEX `idx_strategy_code` (`strategy_code`),
-    INDEX `idx_symbol` (`symbol`),
-    INDEX `idx_status` (`status`),
-    INDEX `idx_is_active` (`is_active`),
-    INDEX `idx_create_time` (`create_time`)) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4 COMMENT ='实时运行策略表';
+create index backtest_summary_batch_backtest_id_create_time_index on backtest_summary (batch_backtest_id, create_time);
 
+create index backtest_summary_create_time_index on backtest_summary (create_time);
 
--- 创建策略信息表
-CREATE TABLE IF NOT EXISTS `strategy_info`
-(`id`             BIGINT       NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键ID',
- `strategy_code`  VARCHAR(50)  NOT NULL COMMENT '策略代码，如SMA, MACD等',
-    `strategy_name`  VARCHAR(100) NOT NULL COMMENT '策略名称，如简单移动平均线策略',
-    `description`    TEXT COMMENT '策略描述',
-    `params_desc`    TEXT COMMENT '参数说明',
-    `default_params` VARCHAR(255) COMMENT '默认参数值',
-    `category`       VARCHAR(50) COMMENT '策略分类，如移动平均线、震荡指标等',
-    `comments`       TEXT COMMENT '策略介绍，比如优缺点，适用场景，胜率等，回测，短线还是长线使用等信息',
-    `source_code`    TEXT COMMENT '策略源代码，存储lambda函数的序列化字符串',
-    `load_error`     TEXT COMMENT '策略加载错误信息',
-    `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY `idx_strategy_code` (`strategy_code`),
-    INDEX `idx_category` (`category`)) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4 COMMENT ='交易策略信息表';
+create index backtest_summary_id_create_time_index on backtest_summary (id, create_time);
 
+create index backtest_summary_strategy_code_index on backtest_summary (strategy_code);
 
--- 策略对话记录表
-CREATE TABLE IF NOT EXISTS `strategy_conversation`
-(`id`                BIGINT      NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键ID',
- `strategy_id`       BIGINT      NOT NULL COMMENT '关联的策略ID',
- `user_input`        TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '用户输入的描述',
- `ai_response`       TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'AI返回的完整响应',
- `conversation_type` VARCHAR(20) NOT NULL COMMENT '对话类型：generate(生成) 或 update(更新)',
-    `create_time`       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    INDEX `idx_strategy_id` (`strategy_id`),
-    INDEX `idx_conversation_type` (`conversation_type`),
-    INDEX `idx_create_time` (`create_time`),
-    FOREIGN KEY (`strategy_id`)
-    REFERENCES `strategy_info` (`id`)
-    ON DELETE CASCADE) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4 COMMENT ='策略对话记录表';
+create index backtest_summary_strategy_name_index on backtest_summary (strategy_name);
 
+create index backtest_summary_symbol_interval_val_index on backtest_summary (symbol, interval_val);
 
--- 创建回测资金曲线表
-CREATE TABLE IF NOT EXISTS backtest_equity_curve
-(id             BIGINT AUTO_INCREMENT PRIMARY KEY,
- backtest_id    VARCHAR(255)   NOT NULL,
-    timestamp      DATETIME       NOT NULL,
-    equity_value   DECIMAL(20, 8) NOT NULL,
-    index_position INT,
-    INDEX idx_backtest_id (backtest_id),
-    INDEX idx_timestamp (timestamp)) ENGINE = InnoDB
-    DEFAULT CHARSET = utf8mb4
-    COLLATE = utf8mb4_unicode_ci;
+create index backtest_summary_total_return_index on backtest_summary (total_return);
+
+create table backtest_trade
+(id                           bigint auto_increment primary key,
+ backtest_id                  varchar(255)   not null,
+ closed                       bit            null,
+ create_time                  datetime       null,
+ entry_amount                 decimal(20, 8) null,
+ entry_position_percentage    decimal(10, 4) null,
+ entry_price                  decimal(20, 8) null,
+ entry_time                   datetime       null,
+ exit_amount                  decimal(20, 8) null,
+ exit_price                   decimal(20, 8) null,
+ exit_time                    datetime       null,
+ fee                          decimal(20, 8) null,
+ trade_index                  int            null,
+ max_drawdown                 decimal(10, 4) null,
+ max_loss                     decimal(10, 4) null,
+ max_drawdown_period          decimal(10, 4) null,
+ max_loss_period              decimal(10, 4) null,
+ profit                       decimal(20, 8) null,
+ profit_percentage            decimal(10, 4) null,
+ periods                      decimal(10, 4) null,
+ profit_percentage_per_period decimal(10, 4) null,
+ remark                       varchar(500)   null,
+ strategy_name                varchar(255)   not null,
+ strategy_code                varchar(255)   not null,
+ strategy_params              varchar(255)   null,
+ symbol                       varchar(255)   not null,
+ total_assets                 decimal(20, 8) null,
+ trade_type                   varchar(255)   not null,
+ volume                       decimal(20, 8) null);
+
+create index backtest_trade__index on backtest_trade (entry_time);
+
+create index backtest_trade_backtest_id_index on backtest_trade (backtest_id);
+
+create index backtest_trade_exit_time_index on backtest_trade (exit_time);
+
+create index backtest_trade_profit_percentage_index on backtest_trade (profit_percentage);
+
+create index backtest_trade_strategy_code_index on backtest_trade (strategy_code);
+
+create table candlestick_history
+(id           bigint auto_increment primary key,
+ close        decimal(30, 15) null,
+ close_time   datetime        null,
+ fetch_time   datetime        null,
+ high         decimal(30, 15) null,
+ interval_val varchar(10)     not null,
+ low          decimal(30, 15) null,
+ open         decimal(30, 15) null,
+ open_time    datetime        not null,
+ quote_volume decimal(30, 15) null,
+ symbol       varchar(20)     not null,
+ trades       bigint          null,
+ volume       decimal(30, 15) null);
+
+create table fund_data
+(id               bigint auto_increment primary key,
+ record_time      datetime(6)    not null,
+ total_fund       decimal(20, 8) not null,
+ total_investment decimal(20, 8) not null,
+ total_profit     decimal(20, 8) not null);
+
+create index fund_data_id_record_time_index on fund_data (id, record_time);
+
+create table indicator_distribution
+(id                     bigint auto_increment primary key,
+ avg_value              decimal(20, 8)                           null,
+ create_time            datetime(6)                              not null,
+ indicator_display_name varchar(100)                             null,
+ indicator_name         varchar(100)                             not null,
+ indicator_type         enum ('NEGATIVE', 'NEUTRAL', 'POSITIVE') not null,
+ is_current             bit                                      not null,
+ max_value              decimal(20, 8)                           null,
+ min_value              decimal(20, 8)                           null,
+ p10                    decimal(20, 8)                           null,
+ p20                    decimal(20, 8)                           null,
+ p30                    decimal(20, 8)                           null,
+ p40                    decimal(20, 8)                           null,
+ p50                    decimal(20, 8)                           null,
+ p60                    decimal(20, 8)                           null,
+ p70                    decimal(20, 8)                           null,
+ p80                    decimal(20, 8)                           null,
+ p90                    decimal(20, 8)                           null,
+ sample_count           int                                      not null,
+ update_time            datetime(6)                              not null,
+ version                bigint                                   not null);
+
+create index indicator_distribution_indicator_name_index on indicator_distribution (indicator_name);
+
+create index indicator_distribution_indicator_name_is_current_index on indicator_distribution (indicator_name, is_current);
+
+create index indicator_distribution_is_current_index on indicator_distribution (is_current);
+
+create index indicator_distribution_version_index on indicator_distribution (version);
+
+create table real_time_orders
+(id              bigint auto_increment primary key,
+ strategy_id     bigint          null,
+ client_order_id varchar(50)     null,
+ pre_amount      decimal(20, 12) null,
+ pre_quantity    decimal(20, 12) null,
+ executed_amount decimal(20, 12) null,
+ executed_qty    decimal(20, 12) null,
+ price           decimal(20, 12) null,
+ fee             decimal(20, 12) null,
+ fee_currency    varchar(10)     null,
+ order_id        varchar(50)     null,
+ order_type      varchar(50)     null,
+ side            varchar(10)     not null,
+ profit          decimal(20, 12) null,
+ profit_rate     decimal(20, 12) null,
+ signal_price    decimal(20, 12) null,
+ signal_type     varchar(20)     null,
+ strategy_code   varchar(50)     not null,
+ symbol          varchar(20)     not null,
+ status          varchar(20)     null,
+ create_time     datetime(6)     not null,
+ update_time     datetime(6)     null);
+
+create index real_time_orders_client_order_id_index on real_time_orders (client_order_id);
+
+create index real_time_orders_create_time_index on real_time_orders (create_time);
+
+create index real_time_orders_strategy_id_create_time_index on real_time_orders (strategy_id, create_time);
+
+create index real_time_strategy__index on real_time_orders (strategy_id);
+
+create table real_time_strategy
+(id                  bigint auto_increment primary key,
+ strategy_code       varchar(50)  not null,
+ strategy_name       varchar(50)  null,
+ symbol              varchar(20)  not null,
+ interval_val        varchar(10)  not null,
+ trade_amount        double       null,
+ last_trade_amount   double       null,
+ last_trade_price    double       null,
+ last_trade_quantity double       null,
+ last_trade_type     varchar(10)  null,
+ last_trade_fee      double       null,
+ last_trade_time     datetime(6)  null,
+ last_trade_profit   double       null,
+ total_profit        double       null,
+ total_profit_rate   double       null,
+ total_fees          double       null,
+ total_trades        int          null,
+ successful_trades   int          null,
+ is_active           tinyint(1)   null,
+ status              varchar(20)  null,
+ message             varchar(255) null,
+ start_time          datetime(6)  not null,
+ end_time            datetime(6)  null,
+ create_time         datetime(6)  not null,
+ update_time         datetime(6)  not null);
+
+create index idx_real_time_strategy_symbol_trade_type on real_time_strategy (symbol, last_trade_type);
+
+create index idx_real_time_strategy_trade_type on real_time_strategy (last_trade_type);
+
+create table strategy_conversation
+(id                bigint auto_increment primary key,
+ ai_response       text collate utf8mb4_unicode_ci null,
+ conversation_type varchar(255)                    not null,
+ create_time       datetime                        not null,
+ strategy_id       bigint                          not null,
+ user_input        text collate utf8mb4_unicode_ci null,
+ compile_error     text collate utf8mb4_unicode_ci null);
+
+create table strategy_info
+(id             bigint auto_increment primary key,
+ category       varchar(255)                    null,
+ create_time    datetime                        not null,
+ default_params varchar(255)                    null,
+ description    text collate utf8mb4_unicode_ci null,
+ comments       text collate utf8mb4_unicode_ci null,
+ params_desc    text collate utf8mb4_unicode_ci null,
+ strategy_code  varchar(255)                    not null,
+ strategy_name  varchar(255)                    not null,
+ update_time    datetime                        not null,
+ source_code    text                            null,
+ load_error     text collate utf8mb4_unicode_ci null,
+ constraint UK_2n6paqskn3ck3x2f18i56esxp unique (strategy_code));
+
+create table trades
+(id           bigint auto_increment primary key,
+ created_at   datetime(6)    null,
+ fee          decimal(20, 8) null,
+ is_simulated bit            not null,
+ order_id     varchar(255)   null,
+ pl           decimal(20, 8) null,
+ price        decimal(20, 8) not null,
+ side         varchar(255)   not null,
+ size         decimal(20, 8) not null,
+ status       varchar(255)   not null,
+ symbol       varchar(255)   not null,
+ trade_time   datetime(6)    not null,
+ type         varchar(255)   not null,
+ updated_at   datetime(6)    null,
+ backtest_id  bigint         null,
+ strategy_id  bigint         null,
+ user_id      bigint         not null);
+
+create index FKm0qyc8sdm47tm473sffdb3pyi on trades (strategy_id);
+
+create index FKof2p7ht9xpwtu4myqv787bbr8 on trades (user_id);
+
+create index FKssslx7sldq4smb7m0th3fym9h on trades (backtest_id);
+
+create table users
+(id         bigint auto_increment primary key,
+ created_at datetime(6)  null,
+ email      varchar(255) null,
+ full_name  varchar(255) null,
+ password   varchar(255) not null,
+ updated_at datetime(6)  null,
+ username   varchar(255) not null,
+ constraint UK_6dotkott2kjsp8vw4d0m25fb7 unique (email),
+ constraint UK_r43af9ap4edm43mmtq01oddj6 unique (username));
+
+create table user_api_keys
+(id           bigint auto_increment primary key,
+ api_key      varchar(255) not null,
+ api_secret   varchar(255) not null,
+ created_at   datetime(6)  null,
+ description  varchar(255) null,
+ is_simulated bit          not null,
+ passphrase   varchar(255) null,
+ updated_at   datetime(6)  null,
+ user_id      bigint       not null,
+ constraint FKs49bj0ss79ya93wgj7k5synxc foreign key (user_id)
+     references users (id));
