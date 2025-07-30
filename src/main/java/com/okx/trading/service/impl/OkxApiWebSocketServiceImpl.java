@@ -18,6 +18,7 @@ import com.okx.trading.service.NotificationService;
 import com.okx.trading.service.OkxApiService;
 import com.okx.trading.service.RedisCacheService;
 import com.okx.trading.strategy.RealTimeStrategyManager;
+import com.okx.trading.util.BigDecimalUtil;
 import com.okx.trading.util.HttpUtil;
 import com.okx.trading.util.SignatureUtil;
 import com.okx.trading.util.WebSocketUtil;
@@ -252,7 +253,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
             // 解析标记价格K线特有字段
             if (candleObj.containsKey("markPx")) {
-                BigDecimal markPrice = new BigDecimal(candleObj.getString("markPx"));
+                BigDecimal markPrice = BigDecimalUtil.safeGen(candleObj.getString("markPx"));
                 candlestick.setOpen(markPrice);
                 candlestick.setHigh(markPrice);
                 candlestick.setLow(markPrice);
@@ -264,19 +265,19 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
             // 解析标准K线字段
             if (candleObj.containsKey("o")) {
-                candlestick.setOpen(new BigDecimal(candleObj.getString("o")));
+                candlestick.setOpen(BigDecimalUtil.safeGen(candleObj.getString("o")));
             }
             if (candleObj.containsKey("h")) {
-                candlestick.setHigh(new BigDecimal(candleObj.getString("h")));
+                candlestick.setHigh(BigDecimalUtil.safeGen(candleObj.getString("h")));
             }
             if (candleObj.containsKey("l")) {
-                candlestick.setLow(new BigDecimal(candleObj.getString("l")));
+                candlestick.setLow(BigDecimalUtil.safeGen(candleObj.getString("l")));
             }
             if (candleObj.containsKey("c")) {
-                candlestick.setClose(new BigDecimal(candleObj.getString("c")));
+                candlestick.setClose(BigDecimalUtil.safeGen(candleObj.getString("c")));
             }
             if (candleObj.containsKey("vol")) {
-                candlestick.setVolume(new BigDecimal(candleObj.getString("vol")));
+                candlestick.setVolume(BigDecimalUtil.safeGen(candleObj.getString("vol")));
             }
 
             return candlestick;
@@ -461,9 +462,9 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
             Ticker ticker = new Ticker();
             ticker.setSymbol(symbol);
-            ticker.setLastPrice(new BigDecimal(data.getString("last")));
+            ticker.setLastPrice(BigDecimalUtil.safeGen(data.getString("last")));
             // 计算24小时价格变动
-            BigDecimal open24h = new BigDecimal(data.getString("open24h"));
+            BigDecimal open24h = BigDecimalUtil.safeGen(data.getString("open24h"));
             BigDecimal priceChange = ticker.getLastPrice().subtract(open24h);
             ticker.setPriceChange(priceChange);
             // 将最新价格写入Redis缓存
@@ -473,21 +474,21 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             }
             // 计算24小时价格变动百分比
             if(open24h.compareTo(BigDecimal.ZERO) > 0){
-                BigDecimal changePercent = priceChange.multiply(new BigDecimal("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
+                BigDecimal changePercent = priceChange.multiply(BigDecimalUtil.safeGen("100")).divide(open24h, 2, BigDecimal.ROUND_HALF_UP);
                 ticker.setPriceChangePercent(changePercent);
             }else{
                 ticker.setPriceChangePercent(BigDecimal.ZERO);
             }
 
-            ticker.setHighPrice(new BigDecimal(data.getString("high24h")));
-            ticker.setLowPrice(new BigDecimal(data.getString("low24h")));
-            ticker.setVolume(new BigDecimal(data.getString("vol24h")));
-            ticker.setQuoteVolume(new BigDecimal(data.getString("volCcy24h")));
+            ticker.setHighPrice(BigDecimalUtil.safeGen(data.getString("high24h")));
+            ticker.setLowPrice(BigDecimalUtil.safeGen(data.getString("low24h")));
+            ticker.setVolume(BigDecimalUtil.safeGen(data.getString("vol24h")));
+            ticker.setQuoteVolume(BigDecimalUtil.safeGen(data.getString("volCcy24h")));
 
-            ticker.setBidPrice(new BigDecimal(data.getString("bidPx")));
-            ticker.setBidQty(new BigDecimal(data.getString("bidSz")));
-            ticker.setAskPrice(new BigDecimal(data.getString("askPx")));
-            ticker.setAskQty(new BigDecimal(data.getString("askSz")));
+            ticker.setBidPrice(BigDecimalUtil.safeGen(data.getString("bidPx")));
+            ticker.setBidQty(BigDecimalUtil.safeGen(data.getString("bidSz")));
+            ticker.setAskPrice(BigDecimalUtil.safeGen(data.getString("askPx")));
+            ticker.setAskQty(BigDecimalUtil.safeGen(data.getString("askSz")));
 
             // 转换时间戳为LocalDateTime
             long timestamp = data.getLongValue("ts");
@@ -953,13 +954,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
         Ticker ticker = new Ticker();
         ticker.setSymbol(symbol);
         ticker.setChannel(channel);
-        ticker.setLastPrice(new BigDecimal(tickerData.getString("last")));
-        ticker.setBidPrice(new BigDecimal(tickerData.getString("bidPx")));
-        ticker.setAskPrice(new BigDecimal(tickerData.getString("askPx")));
-        ticker.setHighPrice(new BigDecimal(tickerData.getString("high24h")));
-        ticker.setLowPrice(new BigDecimal(tickerData.getString("low24h")));
-        ticker.setVolume(new BigDecimal(tickerData.getString("vol24h")));
-        ticker.setQuoteVolume(new BigDecimal(tickerData.getString("volCcy24h")));
+        ticker.setLastPrice(BigDecimalUtil.safeGen(tickerData.getString("last")));
+        ticker.setBidPrice(BigDecimalUtil.safeGen(tickerData.getString("bidPx")));
+        ticker.setAskPrice(BigDecimalUtil.safeGen(tickerData.getString("askPx")));
+        ticker.setHighPrice(BigDecimalUtil.safeGen(tickerData.getString("high24h")));
+        ticker.setLowPrice(BigDecimalUtil.safeGen(tickerData.getString("low24h")));
+        ticker.setVolume(BigDecimalUtil.safeGen(tickerData.getString("vol24h")));
+        ticker.setQuoteVolume(BigDecimalUtil.safeGen(tickerData.getString("volCcy24h")));
 
         // 解析时间戳
         long timestamp = tickerData.getLongValue("ts");
@@ -968,11 +969,11 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
         // 计算24小时涨跌幅
         if (tickerData.containsKey("open24h") && tickerData.containsKey("last")) {
-            BigDecimal open = new BigDecimal(tickerData.getString("open24h"));
-            BigDecimal last = new BigDecimal(tickerData.getString("last"));
+            BigDecimal open = BigDecimalUtil.safeGen(tickerData.getString("open24h"));
+            BigDecimal last = BigDecimalUtil.safeGen(tickerData.getString("last"));
             if (open.compareTo(BigDecimal.ZERO) > 0) {
                 ticker.setPriceChange(last.subtract(open));
-                ticker.setPriceChangePercent(last.subtract(open).divide(open, 4, BigDecimal.ROUND_HALF_UP).multiply(new BigDecimal("100")));
+                ticker.setPriceChangePercent(last.subtract(open).divide(open, 4, BigDecimal.ROUND_HALF_UP).multiply(BigDecimalUtil.safeGen("100")));
             }
         }
 
@@ -992,13 +993,13 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
         LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.of("UTC+8"));
         candlestick.setOpenTime(time);
 
-        candlestick.setOpen(new BigDecimal(candleData.getString(1)));
-        candlestick.setHigh(new BigDecimal(candleData.getString(2)));
-        candlestick.setLow(new BigDecimal(candleData.getString(3)));
-        candlestick.setClose(new BigDecimal(candleData.getString(4)));
-        candlestick.setVolume(new BigDecimal(candleData.getString(5)));
-        candlestick.setVolCcy(new BigDecimal(candleData.getString(6)));
-        candlestick.setQuoteVolume(new BigDecimal(candleData.getString(7)));
+        candlestick.setOpen(BigDecimalUtil.safeGen(candleData.getString(1)));
+        candlestick.setHigh(BigDecimalUtil.safeGen(candleData.getString(2)));
+        candlestick.setLow(BigDecimalUtil.safeGen(candleData.getString(3)));
+        candlestick.setClose(BigDecimalUtil.safeGen(candleData.getString(4)));
+        candlestick.setVolume(BigDecimalUtil.safeGen(candleData.getString(5)));
+        candlestick.setVolCcy(BigDecimalUtil.safeGen(candleData.getString(6)));
+        candlestick.setQuoteVolume(BigDecimalUtil.safeGen(candleData.getString(7)));
         candlestick.setState(Integer.parseInt(candleData.getString(8)));
 
         return candlestick;
@@ -1009,7 +1010,7 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
      */
     private AccountBalance parseAccountBalance(JSONObject balanceData) {
         AccountBalance accountBalance = new AccountBalance();
-        accountBalance.setTotalEquity(new BigDecimal(balanceData.getString("totalEq")));
+        accountBalance.setTotalEquity(BigDecimalUtil.safeGen(balanceData.getString("totalEq")));
 
         List<AssetBalance> assetBalances = new ArrayList<>();
         JSONArray detailsArray = balanceData.getJSONArray("details");
@@ -1018,10 +1019,10 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
             JSONObject detail = detailsArray.getJSONObject(i);
             AssetBalance assetBalance = new AssetBalance();
             assetBalance.setAsset(detail.getString("ccy"));
-            assetBalance.setAvailable(new BigDecimal(detail.getString("availEq")));
-            assetBalance.setFrozen(new BigDecimal(detail.getString("frozenBal")));
-            assetBalance.setTotal(new BigDecimal(detail.getString("eq")));
-            assetBalance.setUsdValue(new BigDecimal(detail.getString("eqUsd")));
+            assetBalance.setAvailable(BigDecimalUtil.safeGen(detail.getString("availEq")));
+            assetBalance.setFrozen(BigDecimalUtil.safeGen(detail.getString("frozenBal")));
+            assetBalance.setTotal(BigDecimalUtil.safeGen(detail.getString("eq")));
+            assetBalance.setUsdValue(BigDecimalUtil.safeGen(detail.getString("eqUsd")));
             assetBalances.add(assetBalance);
         }
 
@@ -1056,15 +1057,15 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
 
         // 下单数量 买 "sz":"4.7"  下单usdt金额 ，卖 "sz":"0.00004225"  交易币的数量
         if (orderData.containsKey("sz") && !orderData.getString("sz").isEmpty()) {
-            order.setOrigQty(new BigDecimal(orderData.getString("sz")));
+            order.setOrigQty(BigDecimalUtil.safeGen(orderData.getString("sz")));
         }
 
         // 买是买的货币数量 "fee":"-0.00000004324"  ，卖是usdt数量 "fee":"-0.004593758"
         if (orderData.containsKey("fee") && !orderData.getString("fee").isEmpty()) {
             if (orderData.getString("feeCcy").equals("USDT")) {
-                order.setFee(new BigDecimal(orderData.getString("fee")).abs());
+                order.setFee(BigDecimalUtil.safeGen(orderData.getString("fee")).abs());
             } else {
-                order.setFee(new BigDecimal(orderData.getString("fee")).multiply(new BigDecimal(orderData.getString("fillPx"))).abs());
+                order.setFee(BigDecimalUtil.safeGen(orderData.getString("fee")).multiply(BigDecimalUtil.safeGen(orderData.getString("fillPx"))).abs());
             }
         }
 
@@ -1073,22 +1074,22 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
         // 卖买都一样都是币的数量，不是usdt的数量 "accFillSz":"0.00004324"   "fillSz":"0.00004324"
         if (orderData.containsKey("accFillSz")) {
             if (orderData.containsKey("side") && orderData.getString("side").equals("buy")) {
-                order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(new BigDecimal(orderData.getString("fee")).abs()));
+                order.setExecutedQty(BigDecimalUtil.safeGen(orderData.getString("accFillSz")).subtract(BigDecimalUtil.safeGen(orderData.getString("fee")).abs()));
             } else {
                 BigDecimal accFillFeeSz = order.getFee().divide(BigDecimal.valueOf(Double.valueOf(orderData.getString("fillPx"))), 12, BigDecimal.ROUND_DOWN);
-                order.setExecutedQty(new BigDecimal(orderData.getString("accFillSz")).subtract(accFillFeeSz));
+                order.setExecutedQty(BigDecimalUtil.safeGen(orderData.getString("accFillSz")).subtract(accFillFeeSz));
             }
         }
 
         // 成交金额，扣除手续费  avgPx  fillPx  都是成交价，一般一样
         if (orderData.containsKey("fillPx") && !orderData.getString("fillPx").isEmpty()) {
-            BigDecimal fillPrice = new BigDecimal(orderData.getString("fillPx"));
+            BigDecimal fillPrice = BigDecimalUtil.safeGen(orderData.getString("fillPx"));
             order.setCummulativeQuoteQty(order.getExecutedQty().multiply(fillPrice));
         }
 
         //成交价格
         if (orderData.containsKey("fillPx")) {
-            order.setPrice(new BigDecimal(orderData.getString("fillPx")));
+            order.setPrice(BigDecimalUtil.safeGen(orderData.getString("fillPx")));
         }
 
         if (orderData.containsKey("state")) {
@@ -1370,12 +1371,12 @@ public class OkxApiWebSocketServiceImpl implements OkxApiService {
                         ZoneId.of("UTC+8"));
 
                 candlestick.setOpenTime(dateTime);
-                candlestick.setOpen(new BigDecimal(item.getString(1)));
-                candlestick.setHigh(new BigDecimal(item.getString(2)));
-                candlestick.setLow(new BigDecimal(item.getString(3)));
-                candlestick.setClose(new BigDecimal(item.getString(4)));
-                candlestick.setVolume(new BigDecimal(item.getString(5)));
-                candlestick.setQuoteVolume(new BigDecimal(item.getString(6)));
+                candlestick.setOpen(BigDecimalUtil.safeGen(item.getString(1)));
+                candlestick.setHigh(BigDecimalUtil.safeGen(item.getString(2)));
+                candlestick.setLow(BigDecimalUtil.safeGen(item.getString(3)));
+                candlestick.setClose(BigDecimalUtil.safeGen(item.getString(4)));
+                candlestick.setVolume(BigDecimalUtil.safeGen(item.getString(5)));
+                candlestick.setQuoteVolume(BigDecimalUtil.safeGen(item.getString(6)));
 
                 // 收盘时间根据interval计算
                 candlestick.setCloseTime(calculateCloseTimeFromInterval(dateTime, interval));
