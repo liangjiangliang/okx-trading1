@@ -37,37 +37,37 @@ public class RealTimeOrderEntity {
     /**
      * 金额，准备买入金额，不是实际成交金额，区别 executedAmount
      */
-    @Column(name = "pre_amount", precision = 20, scale = 8)
+    @Column(name = "pre_amount", precision = 20, scale = 12)
     private BigDecimal preAmount;
 
     /**
      * 数量,准备买入、卖出数量，不是实际成交数量，区别 executedQty
      */
-    @Column(name = "pre_quantity", precision = 20, scale = 8)
+    @Column(name = "pre_quantity", precision = 20, scale = 12)
     private BigDecimal preQuantity;
 
     /**
      * 已执行金额
      */
-    @Column(name = "executed_amount", precision = 20, scale = 8)
+    @Column(name = "executed_amount", precision = 20, scale = 12)
     private BigDecimal executedAmount;
 
     /**
      * 已执行数量
      */
-    @Column(name = "executed_qty", precision = 20, scale = 8)
+    @Column(name = "executed_qty", precision = 20, scale = 12)
     private BigDecimal executedQty;
 
     /**
      * 价格
      */
-    @Column(name = "price", precision = 20, scale = 8)
+    @Column(name = "price", precision = 20, scale = 12)
     private BigDecimal price;
 
     /**
      * 手续费
      */
-    @Column(name = "fee", precision = 20, scale = 8)
+    @Column(name = "fee", precision = 20, scale = 12)
     private BigDecimal fee;
 
     /**
@@ -94,16 +94,16 @@ public class RealTimeOrderEntity {
     /**
      * 订单利润
      */
-    @Column(name = "profit", precision = 20, scale = 8)
+    @Column(name = "profit", precision = 20, scale = 12)
     private BigDecimal profit;
 
-    @Column(name = "profit_rate", precision = 20, scale = 8)
+    @Column(name = "profit_rate", precision = 20, scale = 12)
     private BigDecimal profitRate;
 
     /**
      * 触发信号时的价格
      */
-    @Column(name = "signal_price", precision = 20, scale = 8)
+    @Column(name = "signal_price", precision = 20, scale = 12)
     private BigDecimal signalPrice;
 
     /**
