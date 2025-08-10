@@ -149,14 +149,17 @@ public class RealTimeStrategyManager implements ApplicationRunner {
             // 控制同一个周期内只能交易一次
             boolean forbiddenTradeTime = false;
             boolean signalOfSamePeriod = false;
+
+            long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
+            // 在每个周期的最后15秒判断信号是否触发，而不是在周期刚开始就触发了就执行交易
+            // 提到上面，无论是否策略的首次交易都要求在每个周期的最后15秒才触发交易
+            forbiddenTradeTime = Duration.between(candlestick.getOpenTime().plusSeconds(intervalSeconds), LocalDateTime.now()).abs().get(ChronoUnit.SECONDS) > 15;
+            if (forbiddenTradeTime) {
+                return;
+            }
+
             if (state.getLastTradeTime() != null) {
                 LocalDateTime lastTradeTime = state.getLastTradeTime();
-                long intervalSeconds = historicalDataService.getIntervalMinutes(candlestick.getIntervalVal()) * 60;
-                // 在每个周期的最后15秒判断信号是否触发，而不是在周期刚开始就触发了就执行交易
-                forbiddenTradeTime = Duration.between(candlestick.getOpenTime().plusSeconds(intervalSeconds), LocalDateTime.now()).abs().get(ChronoUnit.SECONDS) > 15;
-                if (forbiddenTradeTime) {
-                    return;
-                }
                 //同周期只触发一次交易信号
                 signalOfSamePeriod = lastTradeTime.isAfter(candlestick.getOpenTime()) && lastTradeTime.isBefore(candlestick.getOpenTime().plusSeconds(intervalSeconds));
                 // 如果是同一周期内的信号，不执行任何交易操作
