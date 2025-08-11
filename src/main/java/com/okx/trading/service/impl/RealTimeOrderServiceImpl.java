@@ -35,7 +35,7 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
 
     @Override
     public RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order,
-                                                 String signalType, String side, String signalPrice, Boolean simulated, BigDecimal preAmount, BigDecimal preQuantity) {
+                                                 String signalType, String side, String signalPrice, Boolean simulated, BigDecimal preAmount, BigDecimal preQuantity,LocalDateTime singalTime) {
         try {
             RealTimeOrderEntity orderEntity = RealTimeOrderEntity.builder()
                     .clientOrderId(order.getClientOrderId())
@@ -55,6 +55,7 @@ public class RealTimeOrderServiceImpl implements RealTimeOrderService {
                     .symbol(symbol)
                     .status(order.getStatus())
                     .createTime(order.getCreateTime())
+                    .singalTime(singalTime)
                     .build();
 
             return orderEntity;

@@ -230,6 +230,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
 
             BigDecimal preAmount = null;
             BigDecimal preQuantity = null;
+            LocalDateTime singalTime = LocalDateTime.now();
 
             // 计算交易数量
             if (BUY.equals(side)) {
@@ -273,7 +274,8 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                         candlestick.getClose().toString(),
                         false,
                         preAmount,
-                        preQuantity);  // 打算买入金额，不是成交金额
+                        preQuantity,
+                        singalTime);  // 打算买入金额，不是成交金额
 
                 // 利润统计
                 // 更新累计统计信息
@@ -297,6 +299,7 @@ public class RealTimeStrategyManager implements ApplicationRunner {
                 state.setLastTradePrice(orderEntity.getPrice().doubleValue());
                 state.setLastTradeTime(orderEntity.getCreateTime());
                 state.setLastTradeFee(orderEntity.getFee().doubleValue());
+                state.setLastSingalTime(singalTime);
                 if (BUY.equals(side)) {
                     state.setIsInPosition(true);
                 } else {

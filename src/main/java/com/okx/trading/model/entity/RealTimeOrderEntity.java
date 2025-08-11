@@ -138,6 +138,12 @@ public class RealTimeOrderEntity {
     private LocalDateTime createTime;
 
     /**
+     * 创建时间
+     */
+    @Column(name = "singal_time", nullable = false)
+    private LocalDateTime singalTime;
+
+    /**
      * 更新时间
      */
     @Column(name = "update_time")

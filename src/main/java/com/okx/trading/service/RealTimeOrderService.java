@@ -21,7 +21,7 @@ public interface RealTimeOrderService {
      * 根据订单信息创建并保存订单记录
      */
     RealTimeOrderEntity createOrderRecord(String strategyCode, String symbol, Order order,
-                                         String signalType, String side,String signalPrice, Boolean simulated, BigDecimal tradeAmount,BigDecimal preQuantity);
+                                         String signalType, String side,String signalPrice, Boolean simulated, BigDecimal tradeAmount,BigDecimal preQuantity,LocalDateTime singalTime);
 
     /**
      * 更新订单状态

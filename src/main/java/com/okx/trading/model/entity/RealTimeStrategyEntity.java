@@ -93,6 +93,12 @@ public class RealTimeStrategyEntity {
     @Column(name = "last_trade_time", nullable = false)
     private LocalDateTime lastTradeTime;
 
+    /**
+     * 上次信号触发时间
+     */
+    @Column(name = "last_singal_time", nullable = false)
+    private LocalDateTime lastSingalTime;
+
 
     /**
      * 总盈利金额（USDT）

@@ -260,7 +260,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
         content.append("<p><strong>交易对：</strong>").append(strategy.getSymbol()).append("</p>");
         content.append("<p><strong>交易方向：</strong><span style='color: ").append("BUY".equals(side) ? "#00aa00" : "#cc0000").append(";'>");
         content.append("BUY".equals(side) ? "买入" : "卖出").append("</span></p>");
-        content.append("<p><strong>交易时间：</strong>").append(LocalDateTime.now().format(DATE_TIME_FORMATTER)).append("</p>");
+        content.append("<p><strong>交易时间：</strong>").append(strategy.getLastTradeTime().format(DATE_TIME_FORMATTER)).append("</p>");
 
         // 订单详情
         if (order != null) {
@@ -270,6 +270,9 @@ public class EmailNotificationServiceImpl implements NotificationService {
             content.append("<p><strong>价格：</strong>").append(order.getPrice()).append("</p>");
             if ("SELL".equals(side)) {
                 content.append("<p><strong>利润：</strong>").append(BigDecimal.valueOf(strategy.getLastTradeProfit()).setScale(8, BigDecimal.ROUND_HALF_UP)).append("</p>");
+                content.append("<p><strong>利润率：</strong>").append(BigDecimal.valueOf(strategy.getLastTradeProfit() / strategy.getLastTradeAmount() * 100).setScale(4, BigDecimal.ROUND_HALF_UP)).append("%</p>");
+                content.append("<p><strong>累计利润率：</strong>").append(BigDecimal.valueOf(strategy.getLastTradeAmount() / strategy.getTradeAmount() * 100 - 100).setScale(4, BigDecimal.ROUND_HALF_UP)).append("%</p>");
+
             }
             content.append("<p><strong>数量：</strong>").append(order.getExecutedQty()).append("</p>");
             content.append("<p><strong>费用：</strong>").append(order.getFee()).append("</p>");
@@ -279,6 +282,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
         // 信号价格
         if (signalPrice != null) {
             content.append("<p><strong>信号价格：</strong>").append(signalPrice).append("</p>");
+            content.append("<p><strong>触发时间：</strong>").append(strategy.getLastSingalTime().format(DATE_TIME_FORMATTER)).append("</p>");
         }
 
         content.append("</div>");
