@@ -129,8 +129,8 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
         // 发送重启告警邮件
         long now = System.currentTimeMillis();
-        if (lastWebSocketAlertTime == null || now - lastWebSocketAlertTime < 10 * 60 * 1000) {
-            log.info("{}秒内不再发送邮件，请勿重复发送", 60);
+        if (lastWebSocketAlertTime != null && now - lastWebSocketAlertTime < notificationConfig.getWebSocketAlertTimeInterval()) {
+            log.info("{}分钟内不再发送邮件，请勿重复发送", notificationConfig.getWebSocketAlertTimeInterval() / 1000 / 60);
             return;
         } else {
             lastWebSocketAlertTime = now;

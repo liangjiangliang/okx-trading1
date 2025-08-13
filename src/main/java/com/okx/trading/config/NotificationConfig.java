@@ -32,7 +32,7 @@ public class NotificationConfig {
 
     @Value("${notification.email.recipient:}")
     private String emailRecipient;
-    
+
     // 策略状态邮件配置
     @Value("${strategy.state.email.enabled:false}")
     private boolean strategyStateEmailEnabled;
@@ -42,6 +42,9 @@ public class NotificationConfig {
 
     @Value("${strategy.state.email.show-details:false}")
     private boolean showStrategyDetails;
+
+    @Value("${strategy.state.email.alert.interval:600000}")
+    private long webSocketAlertTimeInterval;
 
     /**
      * 获取策略状态邮件发送的时间点列表
