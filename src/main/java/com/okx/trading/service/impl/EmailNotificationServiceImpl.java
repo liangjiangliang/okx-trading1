@@ -90,6 +90,8 @@ public class EmailNotificationServiceImpl implements NotificationService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    private Long lastWebSocketAlertTime;
+
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -126,6 +128,13 @@ public class EmailNotificationServiceImpl implements NotificationService {
         }
 
         // 发送重启告警邮件
+        long now = System.currentTimeMillis();
+        if (lastWebSocketAlertTime == null || now - lastWebSocketAlertTime < 10 * 60 * 1000) {
+            log.info("{}秒内不再发送邮件，请勿重复发送", 60);
+            return;
+        } else {
+            lastWebSocketAlertTime = now;
+        }
         sendWebSocketRestartAlert(type, count);
 
         log.info("WebSocket频道 {} 重启，当前重启次数: {}", type, count);
