@@ -46,6 +46,9 @@ public class NotificationConfig {
     @Value("${strategy.state.email.alert.interval:600000}")
     private long webSocketAlertTimeInterval;
 
+    @Value("${strategy.state.email.alert.frequently:false}")
+    private boolean enableDetailNotification;
+
     /**
      * 获取策略状态邮件发送的时间点列表
      */

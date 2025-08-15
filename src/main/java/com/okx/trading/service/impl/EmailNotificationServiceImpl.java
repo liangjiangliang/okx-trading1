@@ -407,7 +407,9 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
                     if (allSame) {
                         // 发送价格告警邮件
-                        sendPriceAlertEmail(currentPrice, secondsSinceLastUpdate);
+                        if (notificationConfig.isEnableDetailNotification()) {
+                            sendPriceAlertEmail(currentPrice, secondsSinceLastUpdate);
+                        }
 
                         // 重新订阅相关频道
                         resubscribeChannels();
@@ -448,7 +450,9 @@ public class EmailNotificationServiceImpl implements NotificationService {
         }
 
         // 发送重新订阅通知邮件
-        sendResubscribeNotification();
+        if (notificationConfig.isEnableDetailNotification()) {
+            sendResubscribeNotification();
+        }
     }
 
     /**
